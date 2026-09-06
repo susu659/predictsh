@@ -457,6 +457,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn cloud-btn-pull" id="cloudPullBtn">🔄 拉取最新</button>
 <button class="cloud-btn cloud-btn-push" id="cloudPushBtn">☁️ 上传云端</button>
 <button class="cloud-btn" id="cloudReconfigBtn" style="background:#ff9800;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">⚙️ 重新配置</button>
+<button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔐 设备管理</button>
 </div>
 <div class="tab-bar">
 <button class="tab-btn active" data-tab="main">📊 预测主界面</button>
@@ -831,8 +832,15 @@ create policy "ac update" on access_control for update using (true);</textarea><
       loadAdmin();
     };
     document.getElementById('adminPasswordInput').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('adminPasswordBtn').click(); };
-    document.getElementById('adminExitBtn').onclick = function() { show('pw'); };
+    document.getElementById('adminExitBtn').onclick = function() {
+      // 已授权设备退出管理面板时，直接隐藏遮罩层返回系统；未授权则返回密码页
+      if (localStorage.getItem(AUTH_CACHE_KEY) === '1') { hide(); }
+      else { show('pw'); }
+    };
     document.getElementById('adminRefreshBtn').onclick = loadAdmin;
+    // 云同步状态栏的设备管理按钮
+    var adminBtn = document.getElementById('accessAdminBtn');
+    if (adminBtn) adminBtn.onclick = openAdminPanel;
   }
 
   function loadAdmin() {
@@ -875,6 +883,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
   function init() {
     bind();
     loadSbCfg();
+    // 先隐藏所有子视图，避免授权用户看到密码页闪现
+    document.getElementById('accessPasswordView').style.display = 'none';
+    document.getElementById('accessPendingView').style.display = 'none';
+    document.getElementById('accessAdminView').style.display = 'none';
     var cached = localStorage.getItem(AUTH_CACHE_KEY);
     if (cached === '1' && deviceId && sbUrl && sbKey) {
       getStatus().then(function(s) {
@@ -884,6 +896,15 @@ create policy "ac update" on access_control for update using (true);</textarea><
     } else {
       show('pw');
     }
+  }
+
+  function openAdminPanel() {
+    // 显示遮罩层，切换到管理员视图
+    document.getElementById('accessOverlay').style.display = 'flex';
+    document.getElementById('adminLoginArea').style.display = 'block';
+    document.getElementById('adminPanelArea').style.display = 'none';
+    document.getElementById('adminPasswordInput').value = '';
+    show('admin');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
