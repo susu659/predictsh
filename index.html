@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v25.9（预测收益追踪·最长未中统计）</title>
+<title>商会三竞预测系统 v26.0（获胜收益录入·自动拉取·冲突保护）</title>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>var XLSX = window.XLSX || null;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
@@ -398,8 +398,8 @@ body{padding:8px !important}
 <div class="watermark-topright">素素</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 v25.9 <span style="font-size:14px;opacity:0.7;">预测收益追踪·最长未中统计</span></h1>
-<p class="subtitle">v25.9：历史记录新增预测收益列（预测方vs实际方）· 统计面板新增最长未中预测商会 · 最长未中预测收益 · 含当前连错局数显示 · 收益预测准确率持久化保存</p>
+<h1>🏆 商会三竞预测系统 v26.0 <span style="font-size:14px;opacity:0.7;">获胜收益录入·自动拉取·冲突保护</span></h1>
+<p class="subtitle">v26.0：收益录入改为直接录入获胜收益（大/中/小），去掉A/B/C收益录入 · 每30秒自动拉取云端数据 · 上传前冲突检测保护 · 访问控制（密码+设备授权）</p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -508,21 +508,13 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <select id="inputC"><option value="0">0分</option><option value="0.5">0.5分</option><option value="1">1分</option><option value="2">2分</option><option value="3">3分</option></select>
 </div>
 </div>
-<!-- v25.6: 收益录入区域（获胜收益自动获取，只需录入ABC收益） -->
+<!-- v26.0: 收益录入区域（直接录入获胜收益，大/中/小） -->
 <div style="margin-top:14px;padding-top:14px;border-top:2px dashed #e9ecef;">
-<div style="font-weight:600;font-size:15px;color:#302b63;margin-bottom:10px;">💰 收益录入（大/中/小）— 获胜商会收益自动获取</div>
+<div style="font-weight:600;font-size:15px;color:#302b63;margin-bottom:10px;">💰 获胜收益录入（大/中/小）</div>
 <div class="guild-inputs" style="margin-bottom:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
-<div class="guild-input guild-a">
-<label class="guild-label">💰 A收益</label>
-<select id="inputProfitA"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
-</div>
-<div class="guild-input guild-b">
-<label class="guild-label">💰 B收益</label>
-<select id="inputProfitB"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
-</div>
-<div class="guild-input guild-c">
-<label class="guild-label">💰 C收益</label>
-<select id="inputProfitC"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
+<div class="guild-input" style="max-width:300px;">
+<label class="guild-label">🏆 获胜商会收益</label>
+<select id="inputProfitWinner"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
 </div>
 </div>
 </div>
@@ -598,7 +590,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 <div class="history-table-container" id="historyContainer">
 <table class="history-table">
-<thead><tr><th style="width:60px;">局号</th><th style="width:90px;">日期</th><th style="width:100px;">时间</th><th style="width:80px;">A</th><th style="width:80px;">B</th><th style="width:80px;">C</th><th style="width:100px;">获胜方</th><th style="width:90px;">获胜收益</th><th style="width:90px;">预测收益</th><th style="width:80px;">A收益</th><th style="width:80px;">B收益</th><th style="width:80px;">C收益</th><th style="width:110px;">预测方</th><th style="min-width:180px;">排名快照</th><th style="width:110px;">实际排名</th><th style="width:100px;">预测概率</th><th style="width:80px;">对错</th><th style="width:120px;">规律来源</th><th style="width:90px;">操作</th></tr></thead>
+<thead><tr><th style="width:60px;">局号</th><th style="width:90px;">日期</th><th style="width:100px;">时间</th><th style="width:80px;">A</th><th style="width:80px;">B</th><th style="width:80px;">C</th><th style="width:100px;">获胜方</th><th style="width:90px;">获胜收益</th><th style="width:90px;">预测收益</th><th style="width:110px;">预测方</th><th style="min-width:180px;">排名快照</th><th style="width:110px;">实际排名</th><th style="width:100px;">预测概率</th><th style="width:80px;">对错</th><th style="width:120px;">规律来源</th><th style="width:90px;">操作</th></tr></thead>
 <tbody id="historyBody"></tbody>
 </table>
 </div>
@@ -1132,6 +1124,7 @@ function showSavedToast() {
 }
 var _debounceSaveTimer = null;
 function debouncedSave() {
+    _lastLocalChange = Date.now(); // v26.0: 记录本地修改时间，用于自动拉取跳过判断
     if (_debounceSaveTimer) clearTimeout(_debounceSaveTimer);
     _debounceSaveTimer = setTimeout(function(){
         P.saveLocal();
@@ -4025,6 +4018,8 @@ var supabaseClient = null;
 var cloudOnline = false;
 var cloudLastSync = null;
 var _cloudSaving = false;
+var _autoPullTimer = null;
+var _lastLocalChange = 0;
 
 function getCloudConfig() {
     try { var raw = localStorage.getItem(CLOUD_CONFIG_KEY); return raw ? JSON.parse(raw) : null; } catch(e) { return null; }
@@ -4061,6 +4056,16 @@ function initCloud() {
             supabaseClient = window.supabase.createClient(cfg.url, cfg.key);
             updateCloudStatus('connecting', '正在测试连接...');
             cloudLoad(true);
+            // v26.0: 启动自动拉取（每30秒静默拉取一次）
+            if (_autoPullTimer) clearInterval(_autoPullTimer);
+            _autoPullTimer = setInterval(function() {
+                if (supabaseClient && cloudOnline && !_cloudSaving) {
+                    // 如果用户最近10秒内有修改，跳过本次自动拉取，避免覆盖用户输入
+                    if (Date.now() - _lastLocalChange > 10000) {
+                        cloudLoad(true);
+                    }
+                }
+            }, 30000);
         } else {
             updateCloudStatus('error', 'Supabase SDK 未加载，请检查网络后刷新');
         }
@@ -4105,6 +4110,49 @@ async function cloudSave() {
     if (!supabaseClient || !cloudOnline || _cloudSaving) return false;
     _cloudSaving = true;
     try {
+        // v26.0: 冲突检测 - 上传前先查云端更新时间
+        if (cloudLastSync) {
+            try {
+                var chkRes = await supabaseClient.from(CLOUD_TABLE).select('updated_at, data').eq('id', CLOUD_ROW_ID).maybeSingle();
+                if (chkRes.data && chkRes.data.updated_at) {
+                    var cTime = new Date(chkRes.data.updated_at).getTime();
+                    var lTime = cloudLastSync.getTime();
+                    if (cTime > lTime + 2000) {
+                        var doMerge = confirm('⚠️ 云端数据比本地新（别人可能修改了）\n\n点「确定」= 合并云端和本地数据后上传（推荐）\n点「取消」= 强制上传覆盖云端');
+                        if (doMerge) {
+                            var cloudHist = (chkRes.data.data && chkRes.data.data.history) ? chkRes.data.data.history : [];
+                            var localHist = P.history ? P.history.slice() : [];
+                            var existKeys = {};
+                            var merged = [];
+                            for (var ci = 0; ci < cloudHist.length; ci++) {
+                                var ck = cloudHist[ci].a+'_'+cloudHist[ci].b+'_'+cloudHist[ci].c+'_'+(cloudHist[ci].timeSlot||'');
+                                if (!existKeys[ck]) { existKeys[ck] = true; merged.push(cloudHist[ci]); }
+                            }
+                            for (var li = 0; li < localHist.length; li++) {
+                                var lk = localHist[li].a+'_'+localHist[li].b+'_'+localHist[li].c+'_'+(localHist[li].timeSlot||'');
+                                if (!existKeys[lk]) { existKeys[lk] = true; merged.push(localHist[li]); }
+                            }
+                            // 用合并后的数据重建预测器
+                            P.clearAll();
+                            var cumMerge = new Predictor();
+                            for (var mi = 0; mi < merged.length; mi++) {
+                                var mr = merged[mi];
+                                cumMerge.addRecord(mr.a, mr.b, mr.c, mr.timeSlot, mr.profitWinner, mr.profitA, mr.profitB, mr.profitC);
+                            }
+                            P.history = cumMerge.history.slice();
+                            P.predHistory = cumMerge.predHistory.slice();
+                            P.accuracy = cumMerge.accuracy.slice();
+                            P.profitAccuracy = cumMerge.profitAccuracy ? cumMerge.profitAccuracy.slice() : [];
+                            P.modelWeights = Object.assign({}, cumMerge.modelWeights);
+                            P.learnIterations = cumMerge.learnIterations;
+                            P.maxStreakEver = calcMaxStreak(P.history);
+                            renderAll();
+                            updateCloudStatus('syncing', '已合并云端' + cloudHist.length + '条+本地' + localHist.length + '条，共' + merged.length + '条，正在上传...');
+                        }
+                    }
+                }
+            } catch(e) { /* 冲突检测失败，继续正常上传 */ }
+        }
         var saveData = {
             history: P.history,
             predHistory: (P.predHistory || []).slice(-100),
@@ -4723,9 +4771,6 @@ function renderHistory() {
             '<td class="winner-cell winner-'+(winner?winner.toLowerCase():'')+'">'+(winner||'平局')+'</td>'+
             '<td>'+profitTag(rec.profitWinner)+'</td>'+
             '<td>'+predProfitDisp+'</td>'+
-            '<td>'+profitTag(rec.profitA)+'</td>'+
-            '<td>'+profitTag(rec.profitB)+'</td>'+
-            '<td>'+profitTag(rec.profitC)+'</td>'+
             '<td>'+predDisp+'</td>'+
             '<td>'+snapDisp+'</td>'+
             '<td>'+actualRankDisp+'</td>'+
@@ -5441,22 +5486,11 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     }
     showLearningIndicator(true);
     setTimeout(function(){
-        // v25.6: 只需录入ABC收益，获胜收益自动获取
-        var pA = document.getElementById('inputProfitA').value;
-        var pB = document.getElementById('inputProfitB').value;
-        var pC = document.getElementById('inputProfitC').value;
-        // 根据分数计算获胜方，自动获取对应收益
-        var scores = {A:a, B:b, C:c};
-        var maxScore = Math.max(a,b,c);
-        var winnerGuild = 'A';
-        if (b === maxScore) winnerGuild = 'B';
-        if (c === maxScore) winnerGuild = 'C';
-        var pW = winnerGuild === 'A' ? pA : winnerGuild === 'B' ? pB : pC;
-        P.addRecord(a,b,c,null,pW,pA,pB,pC);
+        // v26.0: 直接录入获胜收益（大/中/小）
+        var pW = document.getElementById('inputProfitWinner').value;
+        P.addRecord(a,b,c,null,pW,'','','');
         // 录入后重置收益选择
-        document.getElementById('inputProfitA').value='';
-        document.getElementById('inputProfitB').value='';
-        document.getElementById('inputProfitC').value='';
+        document.getElementById('inputProfitWinner').value='';
         renderAll();
         showLearningIndicator(false);
         showLearnTip(); // v18.0：自动学习提示
@@ -5480,15 +5514,12 @@ document.getElementById('btnSimulate').addEventListener('click',function(){
             }
             return [0,0.5,1]; // 兜底
         }
-        // v25.6: 生成随机收益，获胜收益自动获取
+        // v26.0: 生成随机获胜收益（大/中/小）
         function randProfit(){var arr=['大','中','小'];return arr[~~(Math.random()*3)];}
         for (var i=0;i<10;i++){
             var sc=genValidScores();
-            var pA=randProfit(),pB=randProfit(),pC=randProfit();
-            var maxS=Math.max(sc[0],sc[1],sc[2]);
-            var winG = sc[0]===maxS?'A':sc[1]===maxS?'B':'C';
-            var pW = winG==='A'?pA:winG==='B'?pB:pC;
-            P.addRecord(sc[0],sc[1],sc[2],null,pW,pA,pB,pC);
+            var pW=randProfit();
+            P.addRecord(sc[0],sc[1],sc[2],null,pW,'','','');
         }
         renderAll();debouncedSave();showLearningIndicator(false); // v18.0：防抖保存
         showLearnTip(); // v18.0：自动学习提示
