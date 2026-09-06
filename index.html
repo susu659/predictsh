@@ -645,6 +645,8 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div id="modelPerfTable" style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;font-size:13px;">等待数据...</div>
 <h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">📊 五窗口策略准确率</h3>
 <div id="windowPerfTable" style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;font-size:13px;">等待数据...</div>
+<h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">💡 反思洞察（错误模式统计与自适应调整）</h3>
+<div id="reflectionInsight" style="background:#fffbe6;border-radius:8px;padding:14px;margin-top:8px;font-size:13px;line-height:1.8;border:1px solid #ffe58f;">等待数据...</div>
 <h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">📝 反思日志（最近错误预测分析）</h3>
 <div class="reflection-log" id="reflectionLog"><div style="color:#6c757d;text-align:center;padding:20px;">暂无反思记录</div></div>
 <h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">🔧 自适应权重</h3>
@@ -3108,7 +3110,8 @@ class Predictor {
         // 扫描历史寻找与当前走势"形似神不似"的片段
         var simPredWindow = this.history.slice(-8);
         var simResult = null;
-        if (this.history.length >= 12) {
+        // v26.2：快速重建模式跳过相似盘匹配（O(n²)耗时大头），重建完成后恢复
+        if (!this._fastRebuild && this.history.length >= 12) {
             simResult = predictFromSimilarPattern(simPredWindow, this.history);
         }
         // v14: 保存完整相似盘信息（含投票分布、匹配结构等）
@@ -3543,6 +3546,49 @@ if(curBrier > 0.3){
             }
             // 最多保留最近50条
             if (this.reflectionLog.length > 50) this.reflectionLog.length = 50;
+            // ===== v27: 基于反思分析的针对性权重调整 =====
+            // 让反思结果真正参与学习，而不是只记录
+            try {
+                var errReason = this._analyzeError(prediction, actualWinner, gameIdx);
+                var adjLR = baseLR * 0.6; // 反思调整使用较小学习率，避免过度修正
+                var adjMade = [];
+                if (errReason.indexOf('连胜衰减过度') >= 0) {
+                    this.modelWeights.streak = (this.modelWeights.streak || 0) + adjLR * 0.8;
+                    adjMade.push('连胜模型+');
+                }
+                if (errReason.indexOf('冷门爆发') >= 0) {
+                    this.modelWeights.global = (this.modelWeights.global || 0) + adjLR * 0.6;
+                    this.modelWeights.regression = (this.modelWeights.regression || 0) + adjLR * 0.5;
+                    this.modelWeights.similarPattern = Math.max(0.02, (this.modelWeights.similarPattern || 0) - adjLR * 0.4);
+                    adjMade.push('全局/回归+，相似盘-');
+                }
+                if (errReason.indexOf('规律失效') >= 0) {
+                    this.modelWeights.similarPattern = Math.max(0.02, (this.modelWeights.similarPattern || 0) - adjLR * 0.5);
+                    this.modelWeights.multiWindow = Math.max(0.02, (this.modelWeights.multiWindow || 0) - adjLR * 0.3);
+                    adjMade.push('相似盘/多窗口-');
+                }
+                if (errReason.indexOf('均值回归') >= 0) {
+                    this.modelWeights.regression = (this.modelWeights.regression || 0) + adjLR * 0.7;
+                    adjMade.push('回归模型+');
+                }
+                if (errReason.indexOf('模型集成偏差') >= 0) {
+                    this.modelWeights.score = (this.modelWeights.score || 0) + adjLR * 0.4;
+                    adjMade.push('分数模型+');
+                }
+                // 重新归一化子模型权重
+                var _allModels = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern'];
+                var _adjSum = 0;
+                var _selfAdj = this;
+                _allModels.forEach(function(n){ _adjSum += (_selfAdj.modelWeights[n] || 0); });
+                if (_adjSum > 0) _allModels.forEach(function(n){ _selfAdj.modelWeights[n] = (_selfAdj.modelWeights[n] || 0) / _adjSum; });
+                // 将反思调整记录到反思日志中（附加到最近一条错误记录）
+                if (adjMade.length > 0) {
+                    var latestErr = this.reflectionLog.find(function(r){ return r.type === 'error' && r.gameIdx === curGame; });
+                    if (latestErr) {
+                        latestErr.adjustment = adjMade.join('，');
+                    }
+                }
+            } catch(e) { console.warn('[反思权重调整] 跳过:', e.message); }
         }
     }
     _analyzeError(prediction, actualWinner, gameIdx) {
@@ -3684,36 +3730,39 @@ if(curBrier > 0.3){
                     this.profitBrierHistory.push(profitBrier);
                     if (this.profitBrierHistory.length > 1200) this.profitBrierHistory.shift();
                 }
-                this.learnFromResult(prevPrediction, winner, this.history.length);
-                // v19: 逐局详细反思日志
-                var isCorrect = (winner === prevPrediction.predictedGuild);
-                var windowPreds = prevPrediction.windowPreds || {};
-                var windowDetails = [];
-                ['pred6','pred7','pred8','pred10','predAll'].forEach(function(wname) {
-                    var wp = windowPreds[wname];
-                    if (wp) {
-                        var wtop = 'A';
-                        if (wp.probs.B > wp.probs[wtop]) wtop = 'B';
-                        if (wp.probs.C > wp.probs[wtop]) wtop = 'C';
-                        var wlabel = wname==='pred6'?'近6':wname==='pred7'?'近7':wname==='pred8'?'近8':wname==='pred10'?'近10':'全局';
-                        windowDetails.push(wlabel+':'+wtop+'('+(wp.probs[wtop]*100).toFixed(0)+'%)');
-                    }
-                });
-                var reflectionEntry = {
-                    gameIdx: this.history.length + 1,
-                    type: 'game_review',
-                    predicted: prevPrediction.predictedGuild,
-                    actual: winner,
-                    correct: isCorrect,
-                    probs: {A: prevPrediction.probabilities.A, B: prevPrediction.probabilities.B, C: prevPrediction.probabilities.C},
-                    source: prevPrediction.sourceKey,
-                    pattern: prevPrediction.patternName,
-                    windowDetails: windowDetails,
-                    windowWeights: prevPrediction.windowWeights || {},
-                    timestamp: Date.now()
-                };
-                this.reflectionLog.unshift(reflectionEntry);
-                if (this.reflectionLog.length > 80) this.reflectionLog.length = 80;
+                // v26.2：快速重建模式跳过学习和反思日志（重建只需要predHistory用于显示）
+                if (!this._fastRebuild) {
+                    this.learnFromResult(prevPrediction, winner, this.history.length);
+                    // v19: 逐局详细反思日志
+                    var isCorrect = (winner === prevPrediction.predictedGuild);
+                    var windowPreds = prevPrediction.windowPreds || {};
+                    var windowDetails = [];
+                    ['pred6','pred7','pred8','pred10','predAll'].forEach(function(wname) {
+                        var wp = windowPreds[wname];
+                        if (wp) {
+                            var wtop = 'A';
+                            if (wp.probs.B > wp.probs[wtop]) wtop = 'B';
+                            if (wp.probs.C > wp.probs[wtop]) wtop = 'C';
+                            var wlabel = wname==='pred6'?'近6':wname==='pred7'?'近7':wname==='pred8'?'近8':wname==='pred10'?'近10':'全局';
+                            windowDetails.push(wlabel+':'+wtop+'('+(wp.probs[wtop]*100).toFixed(0)+'%)');
+                        }
+                    });
+                    var reflectionEntry = {
+                        gameIdx: this.history.length + 1,
+                        type: 'game_review',
+                        predicted: prevPrediction.predictedGuild,
+                        actual: winner,
+                        correct: isCorrect,
+                        probs: {A: prevPrediction.probabilities.A, B: prevPrediction.probabilities.B, C: prevPrediction.probabilities.C},
+                        source: prevPrediction.sourceKey,
+                        pattern: prevPrediction.patternName,
+                        windowDetails: windowDetails,
+                        windowWeights: prevPrediction.windowWeights || {},
+                        timestamp: Date.now()
+                    };
+                    this.reflectionLog.unshift(reflectionEntry);
+                    if (this.reflectionLog.length > 80) this.reflectionLog.length = 80;
+                }
             } else {
                 // 平局：存入对这局的预测，标记isTie，不参与学习
                 this.predHistory.push({
@@ -3904,9 +3953,9 @@ if(curBrier > 0.3){
             var safeV = function(v){return isFinite(v)?v:999;};
             var saveData = {
                 history: this.history,
-                predHistory: this.predHistory.slice(-100),
-                accuracy: this.accuracy.slice(-100),
-                profitAccuracy: (this.profitAccuracy || []).slice(-100),
+                predHistory: this.predHistory, // v26.2：完整保存，不再截断，避免大数量级刷新后重建
+                accuracy: this.accuracy,
+                profitAccuracy: (this.profitAccuracy || []),
                 modelWeights: this.modelWeights,
                 modelPerf: this.modelPerf,
                 windowPerf: this.windowPerf,
@@ -3916,9 +3965,16 @@ if(curBrier > 0.3){
                 patternHitCache: this.patternHitCache || {}
             };
             var json = JSON.stringify(saveData);
-            if (json.length > 4000000) {
-                saveData.predHistory = saveData.predHistory.slice(-50);
-                saveData.accuracy = saveData.accuracy.slice(-50);
+            // v26.2：仅当超过3.5MB时才降级截断predHistory（1000条约400KB，通常不会触发）
+            if (json.length > 3500000) {
+                saveData.predHistory = saveData.predHistory.slice(-500);
+                saveData.accuracy = saveData.accuracy.slice(-500);
+                saveData.profitAccuracy = (saveData.profitAccuracy || []).slice(-500);
+                json = JSON.stringify(saveData);
+            }
+            if (json.length > 4500000) {
+                saveData.predHistory = saveData.predHistory.slice(-100);
+                saveData.accuracy = saveData.accuracy.slice(-100);
                 json = JSON.stringify(saveData);
             }
             localStorage.setItem(STORE_KEY, json);
@@ -3938,7 +3994,10 @@ if(curBrier > 0.3){
             if (Array.isArray(p.history)) {
                 this.clearAll();
                 // v26优化：优先直接恢复已保存的计算结果，跳过逐条addRecord重建（大幅提升加载速度）
-                if (Array.isArray(p.predHistory) && p.predHistory.length > 0) {
+                // v26.1修复：保存时predHistory被截断为最近100条，若history更长则必须逐条重建，否则旧局预测列全是横杠
+                var predHistComplete = Array.isArray(p.predHistory) && p.predHistory.length > 0
+                    && p.predHistory.length >= p.history.length - 1;
+                if (predHistComplete) {
                     this.history = p.history.slice();
                     this.predHistory = p.predHistory.slice();
                     this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
@@ -3949,24 +4008,19 @@ if(curBrier > 0.3){
                         this.lastPrediction = this.predHistory[this.predHistory.length-1].guild;
                     }
                 } else {
-                    // 兼容旧数据：没有predHistory时逐条重建
-                    var hist = p.history;
-                    var cumLoadP = new Predictor();
-                    cumLoadP.modelWeights = Object.assign({}, this.modelWeights);
-                    for (var i = 0; i < hist.length; i++) {
-                        var hrec = hist[i];
-                        cumLoadP.addRecord(hrec.a, hrec.b, hrec.c, hrec.timeSlot, hrec.profitWinner, hrec.profitA, hrec.profitB, hrec.profitC);
-                    }
-                    this.history = cumLoadP.history.slice();
-                    this.predHistory = cumLoadP.predHistory.slice();
-                    this.accuracy = cumLoadP.accuracy.slice();
-                    this.profitAccuracy = cumLoadP.profitAccuracy ? cumLoadP.profitAccuracy.slice() : [];
-                    this.modelWeights = Object.assign({}, cumLoadP.modelWeights);
-                    this.learnIterations = cumLoadP.learnIterations;
+                    // v26.1修复：predHistory被截断时，先恢复history，标记待异步重建（避免同步O(n²)卡死UI）
+                    this.history = p.history.slice();
+                    this.predHistory = Array.isArray(p.predHistory) ? p.predHistory.slice() : [];
+                    this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
+                    this.profitAccuracy = Array.isArray(p.profitAccuracy) ? p.profitAccuracy.slice() : [];
+                    this.learnIterations = p.learnIterations || 0;
                     this.maxStreakEver = calcMaxStreak(this.history);
                     if (this.predHistory.length > 0) {
                         this.lastPrediction = this.predHistory[this.predHistory.length-1].guild;
                     }
+                    this._rebuildPending = true;
+                    this._rebuildHist = p.history.slice();
+                    this._rebuildModelWeights = p.modelWeights || null;
                 }
             }
             if (p.modelWeights) {
@@ -4006,6 +4060,46 @@ if(curBrier > 0.3){
             // v25.2修复：加载完成后强制归一化窗口权重，清除历史遗留的负权重
             normalizeWindowWeights();
         } catch(e) { console.error('loadLocal error:', e); }
+    }
+    // v26.2：异步分批重建predHistory，快速模式跳过相似盘匹配，每批50条
+    rebuildHistoryAsync(onProgress, onDone) {
+        if (!this._rebuildPending || !this._rebuildHist) { if (onDone) onDone(); return; }
+        var hist = this._rebuildHist;
+        var rebuildP = new Predictor();
+        rebuildP._fastRebuild = true; // 开启快速模式：跳过O(n²)相似盘匹配
+        if (this._rebuildModelWeights) {
+            rebuildP.modelWeights = Object.assign({}, this._rebuildModelWeights);
+        }
+        var idx = 0;
+        var batchSize = 50;
+        var self = this;
+        function processBatch() {
+            var end = Math.min(idx + batchSize, hist.length);
+            for (; idx < end; idx++) {
+                var h = hist[idx];
+                rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC);
+            }
+            if (onProgress) onProgress(idx, hist.length);
+            if (idx < hist.length) {
+                setTimeout(processBatch, 0);
+            } else {
+                self.history = rebuildP.history.slice();
+                self.predHistory = rebuildP.predHistory.slice();
+                self.accuracy = rebuildP.accuracy.slice();
+                self.profitAccuracy = rebuildP.profitAccuracy ? rebuildP.profitAccuracy.slice() : [];
+                self.modelWeights = Object.assign({}, rebuildP.modelWeights);
+                self.learnIterations = rebuildP.learnIterations;
+                self.maxStreakEver = calcMaxStreak(self.history);
+                if (self.predHistory.length > 0) {
+                    self.lastPrediction = self.predHistory[self.predHistory.length-1].guild;
+                }
+                self._rebuildPending = false;
+                self._rebuildHist = null;
+                self._rebuildModelWeights = null;
+                if (onDone) onDone();
+            }
+        }
+        processBatch();
     }
 }
 // ============================================================
@@ -4093,6 +4187,12 @@ async function cloudLoad(silent) {
             localStorage.setItem(STORE_KEY, JSON.stringify(data.data));
             P.loadLocal();
             renderAll();
+            // v26.1：云端数据predHistory被截断时异步重建
+            if (P._rebuildPending) {
+                await new Promise(function(resolve){ P.rebuildHistoryAsync(null, resolve); });
+                renderAll();
+                debouncedSave();
+            }
             cloudLastSync = new Date();
             updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已加载云端 ' + (data.data.history ? data.data.history.length : 0) + ' 局记录');
             return true;
@@ -4155,9 +4255,9 @@ async function cloudSave() {
         }
         var saveData = {
             history: P.history,
-            predHistory: (P.predHistory || []).slice(-100),
-            accuracy: (P.accuracy || []).slice(-100),
-            profitAccuracy: (P.profitAccuracy || []).slice(-100),
+            predHistory: P.predHistory || [], // v26.2：完整保存
+            accuracy: P.accuracy || [],
+            profitAccuracy: P.profitAccuracy || [],
             modelWeights: P.modelWeights,
             modelPerf: P.modelPerf,
             windowPerf: P.windowPerf,
@@ -4701,10 +4801,11 @@ function renderHistory() {
     var total=P.history.length;
     var pageSize=100; // v18.0：每页100条
     var totalPages=Math.max(1,Math.ceil(total/pageSize));
-    // Read current page from a data attr, default 1
+    // Read current page from a data attr; default to LAST page on first load
     var container=document.getElementById('historyContainer');
     if(!container) container=document.querySelector('.history-table-container');
-    var curPage=parseInt(container.getAttribute('data-page')||'1');
+    var hasPageAttr = container.hasAttribute('data-page');
+    var curPage = hasPageAttr ? parseInt(container.getAttribute('data-page')) : totalPages;
     if(curPage<1)curPage=1; if(curPage>totalPages)curPage=totalPages;
     container.setAttribute('data-page',curPage);
     var startIdx=(curPage-1)*pageSize;
@@ -4965,6 +5066,9 @@ function renderLearnTab() {
         } else {
             refHtml+='预测'+r.predicted+' → 实际'+r.actual+' ❌';
             refHtml+='<br><span style="color:#856404;">原因：'+(r.reason||'')+'</span>';
+            if (r.adjustment) {
+                refHtml+='<br><span style="color:#2e7d32;font-size:11px;">🔧 已调整：'+r.adjustment+'</span>';
+            }
         }
         refHtml+='</div>';
     });
@@ -4973,6 +5077,55 @@ function renderLearnTab() {
     awHtml+='<strong>子模型权重：</strong>';
     modelNames.forEach(function(n){awHtml+=modelLabels[n]+'='+((P.modelWeights[n]||0)*100).toFixed(1)+'% | ';});
     document.getElementById('adaptiveWeights').innerHTML=awHtml;
+    // ===== v27: 反思洞察渲染 =====
+    var insEl = document.getElementById('reflectionInsight');
+    if (insEl) {
+        var errLogs = P.reflectionLog.filter(function(r){ return r.type === 'error' || r.type === 'game_review'; });
+        if (errLogs.length === 0) {
+            insEl.innerHTML = '<span style="color:#6c757d;">暂无错误反思记录，系统表现良好。</span>';
+        } else {
+            // 统计错误模式
+            var patternCount = {};
+            var adjCount = 0;
+            errLogs.slice(0, 30).forEach(function(r) {
+                var reason = r.reason || '';
+                if (reason.indexOf('连胜衰减过度') >= 0) patternCount['连胜后继续赢（连胜模型欠拟合）'] = (patternCount['连胜后继续赢（连胜模型欠拟合）'] || 0) + 1;
+                if (reason.indexOf('冷门爆发') >= 0) patternCount['冷门爆发（全局/回归模型不足）'] = (patternCount['冷门爆发（全局/回归模型不足）'] || 0) + 1;
+                if (reason.indexOf('规律失效') >= 0) patternCount['相似盘规律失效（模式匹配误判）'] = (patternCount['相似盘规律失效（模式匹配误判）'] || 0) + 1;
+                if (reason.indexOf('均值回归') >= 0) patternCount['低分反弹均值回归（回归模型不足）'] = (patternCount['低分反弹均值回归（回归模型不足）'] || 0) + 1;
+                if (reason.indexOf('模型集成偏差') >= 0) patternCount['模型集成偏差（分数模型权重不足）'] = (patternCount['模型集成偏差（分数模型权重不足）'] || 0) + 1;
+                if (r.adjustment) adjCount++;
+            });
+            var insHtml = '<strong>📊 近'+Math.min(30, errLogs.length)+'局错误模式统计：</strong><br>';
+            var sortedPatterns = Object.entries(patternCount).sort(function(a,b){ return b[1] - a[1]; });
+            if (sortedPatterns.length === 0) {
+                insHtml += '<span style="color:#6c757d;">暂无明确错误模式分类。</span>';
+            } else {
+                sortedPatterns.forEach(function(p, i) {
+                    var barW = Math.round(p[1] / sortedPatterns[0][1] * 100);
+                    insHtml += '<div style="display:flex;align-items:center;gap:8px;margin:4px 0;">';
+                    insHtml += '<span style="min-width:200px;font-size:12px;">'+p[0]+'</span>';
+                    insHtml += '<span style="flex:1;height:14px;background:#f0f0f0;border-radius:3px;overflow:hidden;"><span style="display:block;height:100%;width:'+barW+'%;background:'+(i===0?'#e74c3c':i===1?'#f39c12':'#3498db')+';"></span></span>';
+                    insHtml += '<span style="min-width:30px;text-align:right;font-weight:600;">'+p[1]+'次</span>';
+                    insHtml += '</div>';
+                });
+            }
+            insHtml += '<br><strong>🔧 自适应学习状态：</strong> ';
+            insHtml += '已执行 <strong>'+P.learnIterations+'</strong> 次学习迭代，';
+            insHtml += '其中 <strong>'+adjCount+'</strong> 次基于反思分析进行了针对性权重调整。<br>';
+            // 基于最常见错误模式给出建议
+            if (sortedPatterns.length > 0) {
+                var topPattern = sortedPatterns[0][0];
+                insHtml += '<strong>💡 系统建议：</strong> 当前最突出的问题是「'+topPattern+'」，';
+                if (topPattern.indexOf('连胜') >= 0) insHtml += '系统已自动提升连胜模型权重，建议继续观察后续连胜局的预测表现。';
+                else if (topPattern.indexOf('冷门') >= 0) insHtml += '系统已自动提升全局/回归模型权重并降低相似盘权重，建议关注冷门局的捕捉率变化。';
+                else if (topPattern.indexOf('规律失效') >= 0) insHtml += '系统已自动降低相似盘/多窗口权重，建议考虑运行「自动参数调优」寻找更优参数组合。';
+                else if (topPattern.indexOf('均值回归') >= 0) insHtml += '系统已自动提升回归模型权重，建议关注低分反弹局的预测表现。';
+                else insHtml += '系统已自动提升分数模型权重，建议继续录入数据以积累更多学习样本。';
+            }
+            insEl.innerHTML = insHtml;
+        }
+    }
 }
 // ========== 回测Tab（v24性能优化：批量innerHTML渲染，减少DOM操作）==========
 function renderBacktestTab() {
@@ -5491,6 +5644,9 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         P.addRecord(a,b,c,null,pW,'','','');
         // 录入后重置收益选择
         document.getElementById('inputProfitWinner').value='';
+        // 录入新记录后自动跳到最后一页（最新记录）
+        var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
+        if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 100)); _hc.setAttribute('data-page', _tp); }
         renderAll();
         showLearningIndicator(false);
         showLearnTip(); // v18.0：自动学习提示
@@ -5531,13 +5687,39 @@ document.getElementById('btnRunBacktest').addEventListener('click',function(){do
 document.getElementById('btnQuickLearn').addEventListener('click',function(){document.querySelector('.tab-btn[data-tab="learn"]').click();});
 document.getElementById('btnForceLearn').addEventListener('click',function(){
     if(P.history.length<5){alert('数据不足，至少需要5局');return;}
+    var btn = document.getElementById('btnForceLearn');
+    if (btn.disabled) return;
+    var hist = P.history.slice();
+    var total = hist.length;
+    P.clearAll();
+    btn.disabled = true;
+    var originalText = btn.textContent;
     showLearningIndicator(true);
-    setTimeout(function(){
-        var hist=P.history.slice();P.clearAll();
-        for (var i=0;i<hist.length;i++)P.addRecord(hist[i].a,hist[i].b,hist[i].c,hist[i].timeSlot,hist[i].profitWinner,hist[i].profitA,hist[i].profitB,hist[i].profitC);
-        renderAll();renderLearnTab();debouncedSave();showLearningIndicator(false); // v18.0：防抖保存
-        alert('✅ 已重新学习所有历史数据（'+P.learnIterations+'次迭代）');
-    },10);
+    // 分块异步重新学习，每批15条，避免UI卡顿
+    var batchSize = 15;
+    var idx = 0;
+    function processBatch() {
+        var end = Math.min(idx + batchSize, total);
+        for (; idx < end; idx++) {
+            var r = hist[idx];
+            P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC);
+        }
+        var pct = Math.round(idx / total * 100);
+        btn.textContent = '🔄 重新学习中... ' + idx + '/' + total + ' (' + pct + '%)';
+        if (idx < total) {
+            setTimeout(processBatch, 0); // 让出主线程
+        } else {
+            // 完成后统一渲染
+            renderAll();
+            renderLearnTab();
+            debouncedSave();
+            showLearningIndicator(false);
+            btn.disabled = false;
+            btn.textContent = originalText;
+            alert('✅ 已重新学习所有历史数据（'+P.learnIterations+'次迭代）');
+        }
+    }
+    setTimeout(processBatch, 10);
 });
 document.getElementById('btnResetLearn').addEventListener('click',function(){
     if(!confirm('确定重置学习状态？模型权重将恢复默认'))return;
@@ -5589,6 +5771,30 @@ loadIntervalSetting();
 updateIntervalUI();
 P.loadLocal();
 renderAll();
+// v26.1：如果predHistory被截断，异步分批重建，不阻塞UI
+if (P._rebuildPending) {
+    var rebuildTip = document.createElement('div');
+    rebuildTip.id = 'rebuildTip';
+    rebuildTip.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:#302b63;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.2);max-width:320px;line-height:1.6;';
+    rebuildTip.innerHTML = '🔄 正在重建历史预测数据...<br><span id="rebuildProgress" style="font-size:12px;opacity:0.8;">0%</span>';
+    document.body.appendChild(rebuildTip);
+    P.rebuildHistoryAsync(
+        function(done, total) {
+            var pct = Math.floor(done / total * 100);
+            var el = document.getElementById('rebuildProgress');
+            if (el) el.textContent = done + '/' + total + ' (' + pct + '%)';
+        },
+        function() {
+            renderAll();
+            debouncedSave();
+            var tip = document.getElementById('rebuildTip');
+            if (tip) {
+                tip.innerHTML = '✅ 历史预测数据重建完成！';
+                setTimeout(function(){ if (tip.parentNode) tip.parentNode.removeChild(tip); }, 2000);
+            }
+        }
+    );
+}
 // 云同步初始化
 bindCloudEvents();
 initCloud();
