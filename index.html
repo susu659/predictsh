@@ -329,9 +329,71 @@ body{padding:8px !important}
 .cloud-config-row label{font-size:13px;font-weight:600;color:#555;min-width:80px;}
 .cloud-config-row input{flex:1;min-width:250px;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:monospace;}
 .cloud-config-tip{font-size:12px;color:#e65100;margin-top:8px;line-height:1.6;}
+/* 访问控制 */
+.access-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.88);z-index:999999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.access-box{background:#fff;border-radius:16px;padding:32px 28px;max-width:420px;width:92%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
+.access-box h2{margin:0 0 12px;color:#302b63;font-size:20px;}
+.access-box p{color:#666;margin:8px 0;font-size:13px;line-height:1.6;}
+.access-box input[type="password"]{width:100%;padding:12px 14px;border:2px solid #e0e0e0;border-radius:10px;font-size:14px;box-sizing:border-box;margin:10px 0;transition:border-color .2s;}
+.access-box input[type="password"]:focus{border-color:#00b894;outline:none;}
+.access-box button{width:100%;padding:13px;background:linear-gradient(90deg,#00b894,#00cec9);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer;margin:8px 0;transition:opacity .2s;}
+.access-box button:hover{opacity:.9;}
+.access-hint{font-size:11px;color:#999;margin-top:12px;}
+.access-hint a{color:#00b894;cursor:pointer;text-decoration:underline;}
+.access-device-id{font-family:monospace;font-size:11px;background:#f5f5f5;padding:10px;border-radius:8px;word-break:break-all;color:#555;}
+.admin-device-item{display:flex;justify-content:space-between;align-items:center;padding:10px 8px;border-bottom:1px solid #f0f0f0;gap:8px;}
+.admin-device-item .info{flex:1;min-width:0;}
+.admin-device-item .name{font-weight:bold;font-size:12px;color:#333;}
+.admin-device-item .id{font-size:9px;color:#aaa;font-family:monospace;word-break:break-all;}
+.admin-device-item .time{font-size:10px;color:#888;margin-top:2px;}
+.admin-device-item .actions{display:flex;gap:4px;flex-shrink:0;}
+.admin-device-item button{width:auto;padding:5px 10px;margin:0;font-size:11px;border-radius:6px;}
+.admin-btn-approve{background:#00b894 !important;}
+.admin-btn-reject{background:#e74c3c !important;}
+.admin-btn-revoke{background:#e67e22 !important;}
+.admin-btn-exit{background:#95a5a6 !important;margin-top:15px !important;}
+.admin-empty{text-align:center;color:#bbb;padding:15px;font-size:12px;}
 </style>
 </head>
 <body>
+<!-- 访问控制遮罩层 -->
+<div id="accessOverlay" class="access-overlay">
+  <div class="access-box">
+    <!-- 密码输入 -->
+    <div id="accessPasswordView">
+      <h2>🔒 访问验证</h2>
+      <p>请输入访问密码</p>
+      <input type="password" id="accessPasswordInput" placeholder="请输入密码" autocomplete="off">
+      <button id="accessPasswordBtn">进入系统</button>
+      <p class="access-hint">管理员入口：<a href="#" id="adminEntryLink">点此进入</a></p>
+    </div>
+    <!-- 等待授权 -->
+    <div id="accessPendingView" style="display:none;">
+      <h2>⏳ 等待管理员授权</h2>
+      <p>你的设备已提交申请，请联系管理员授权后使用</p>
+      <p class="access-device-id">设备ID：<span id="accessDeviceId"></span></p>
+      <button id="accessRefreshBtn">🔄 刷新授权状态</button>
+      <p class="access-hint" id="accessPendingHint"></p>
+    </div>
+    <!-- 管理员面板 -->
+    <div id="accessAdminView" style="display:none;">
+      <h2>⚙️ 管理员面板</h2>
+      <div id="adminLoginArea">
+        <p>请输入管理员密码</p>
+        <input type="password" id="adminPasswordInput" placeholder="管理员密码" autocomplete="off">
+        <button id="adminPasswordBtn">登录</button>
+      </div>
+      <div id="adminPanelArea" style="display:none;">
+        <h3 style="text-align:left;color:#302b63;margin:15px 0 8px;">⏳ 待授权设备</h3>
+        <div id="adminPendingList" style="text-align:left;max-height:200px;overflow-y:auto;"></div>
+        <h3 style="text-align:left;color:#302b63;margin:15px 0 8px;">✅ 已授权设备</h3>
+        <div id="adminAuthorizedList" style="text-align:left;max-height:200px;overflow-y:auto;"></div>
+        <button id="adminRefreshBtn" style="margin-top:15px;">🔄 刷新列表</button>
+      </div>
+      <button id="adminExitBtn" class="admin-btn-exit">← 返回</button>
+    </div>
+  </div>
+</div>
 <!-- v18.0新增：右上角水印 -->
 <div class="watermark-topright">素素</div>
 <div class="container">
@@ -358,7 +420,7 @@ body{padding:8px !important}
 <b>📋 三步开通（全程免费）：</b><br>
 <b>第1步</b>：打开 <b>supabase.com</b> → 免费注册（可用 GitHub 登录）→ New Project → 地区选 <b>Singapore</b>（离国内最近）→ 设置数据库密码 → 创建，等待约2分钟。<br>
 <b>第2步（建表）</b>：左侧菜单点 <b>SQL Editor</b> → New query → 粘贴下面这段 SQL → 点 Run（右下角）：<br>
-<textarea id="cloudSqlText" readonly style="width:100%;margin-top:6px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:11px;font-family:monospace;background:#fff;height:120px;resize:none;" onclick="this.select()">create table prediction_data (
+<textarea id="cloudSqlText" readonly style="width:100%;margin-top:6px;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:11px;font-family:monospace;background:#fff;height:200px;resize:none;" onclick="this.select()">create table prediction_data (
   id text primary key default 'main',
   data jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
@@ -366,7 +428,20 @@ body{padding:8px !important}
 alter table prediction_data enable row level security;
 create policy "public read" on prediction_data for select using (true);
 create policy "public insert" on prediction_data for insert with check (true);
-create policy "public update" on prediction_data for update using (true);</textarea><br>
+create policy "public update" on prediction_data for update using (true);
+
+-- 访问控制表（设备授权）
+create table access_control (
+  id text primary key,
+  device_name text,
+  status text default 'pending',
+  created_at timestamptz default now(),
+  authorized_at timestamptz
+);
+alter table access_control enable row level security;
+create policy "ac read" on access_control for select using (true);
+create policy "ac insert" on access_control for insert with check (true);
+create policy "ac update" on access_control for update using (true);</textarea><br>
 <b>第3步（填配置）</b>：左侧菜单点 <b>Project Settings</b>（齿轮图标）→ <b>API</b> → 复制 <b>Project URL</b> 和 <b>anon public</b> key → 粘贴到上方输入框 → 点保存配置并连接。<br>
 ⚠️ 免费版 500MB 数据库、无限 API 调用，足够多人使用；7天无活动会自动暂停，任何人打开页面点一下"拉取最新"即可恢复。<br>
 ⚠️ 多人使用约定：录入新数据前，先点 <b>🔄 拉取最新</b> 获取别人刚录的数据，再录入自己的，避免覆盖。
@@ -456,6 +531,7 @@ create policy "public update" on prediction_data for update using (true);</texta
 <button class="btn-danger" id="btnClear">🗑️ 清空</button>
 <button class="btn-excel" id="btnImport">📥 导入Excel</button>
 <button class="btn-excel" id="btnImportCSV" style="background:#6c5ce7;">📥 导入CSV</button>
+<button class="btn-excel" id="btnImportClipboard" style="background:#00b894;">📋 剪贴板导入</button>
 <button class="btn-export" id="btnExport">📤 导出Excel</button>
 <button class="btn-simulate" id="btnSimulate">🎲 模拟10局</button>
 <button class="btn-backtest" id="btnRunBacktest">📈 运行回测</button>
@@ -628,6 +704,192 @@ create policy "public update" on prediction_data for update using (true);</texta
 </div>
 </div>
 <script>
+// ============================================================
+// 访问控制模块（密码 + 设备授权）
+// ============================================================
+(function(){
+  // ===== 配置（可修改）=====
+  var ACCESS_PASSWORD = 'zll2026';
+  var ADMIN_PASSWORD = 'admin2026';
+  var DEVICE_KEY = 'mm_access_device_id';
+  var AUTH_CACHE_KEY = 'mm_access_auth_ok';
+  var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
+
+  var deviceId = localStorage.getItem(DEVICE_KEY) || '';
+  var sbUrl = '', sbKey = '';
+
+  function loadSbCfg() {
+    try {
+      var raw = localStorage.getItem(CLOUD_CFG_KEY);
+      if (raw) { var c = JSON.parse(raw); sbUrl = c.url || ''; sbKey = c.key || ''; }
+    } catch(e) {}
+    return !!(sbUrl && sbKey);
+  }
+
+  function genId() {
+    return 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+  }
+
+  function devName() {
+    var ua = navigator.userAgent, b = '未知浏览器', o = '未知系统';
+    if (ua.indexOf('Edg') >= 0) b = 'Edge';
+    else if (ua.indexOf('Chrome') >= 0) b = 'Chrome';
+    else if (ua.indexOf('Firefox') >= 0) b = 'Firefox';
+    else if (ua.indexOf('Safari') >= 0) b = 'Safari';
+    if (ua.indexOf('Windows') >= 0) o = 'Windows';
+    else if (ua.indexOf('Mac') >= 0) o = 'macOS';
+    else if (ua.indexOf('Android') >= 0) o = 'Android';
+    else if (ua.indexOf('iPhone') >= 0 || ua.indexOf('iPad') >= 0) o = 'iOS';
+    return b + ' / ' + o;
+  }
+
+  function api(path, opt) {
+    if (!sbUrl || !sbKey) return Promise.reject(new Error('请先配置云同步（Supabase）'));
+    var h = {'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json'};
+    if (opt && opt.headers) for (var k in opt.headers) h[k] = opt.headers[k];
+    return fetch(sbUrl + '/rest/v1/' + path, {
+      method: (opt && opt.method) || 'GET',
+      headers: h,
+      body: opt && opt.body ? JSON.stringify(opt.body) : undefined
+    }).then(function(r) {
+      if (!r.ok) return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ' ' + t); });
+      if (r.status === 204) return null;
+      return r.text().then(function(t) { return t ? JSON.parse(t) : null; });
+    });
+  }
+
+  function regDevice() {
+    return api('access_control', {method: 'POST', body: {id: deviceId, device_name: devName(), status: 'pending', created_at: new Date().toISOString()}})
+      .catch(function(e) {
+        // 409 主键冲突 = 设备已注册过，忽略错误
+        if (e.message && (e.message.indexOf('409') >= 0 || e.message.indexOf('duplicate') >= 0)) return null;
+        throw e;
+      });
+  }
+  function getStatus() {
+    return api('access_control?id=eq.' + deviceId + '&select=status').then(function(d) { return d && d[0] ? d[0].status : null; });
+  }
+  function getAll() {
+    return api('access_control?select=*&order=created_at.desc');
+  }
+  function setStatus(id, s) {
+    return api('access_control?id=eq.' + id, {method: 'PATCH', body: {status: s, authorized_at: s === 'authorized' ? new Date().toISOString() : null}});
+  }
+
+  function show(v) {
+    document.getElementById('accessPasswordView').style.display = v === 'pw' ? 'block' : 'none';
+    document.getElementById('accessPendingView').style.display = v === 'pending' ? 'block' : 'none';
+    document.getElementById('accessAdminView').style.display = v === 'admin' ? 'block' : 'none';
+  }
+  function hide() { document.getElementById('accessOverlay').style.display = 'none'; }
+
+  var poll = null;
+  function checkStatus() {
+    getStatus().then(function(s) {
+      if (s === 'authorized') {
+        if (poll) clearInterval(poll);
+        localStorage.setItem(AUTH_CACHE_KEY, '1');
+        hide();
+      } else if (s === 'rejected') {
+        if (poll) clearInterval(poll);
+        alert('设备已被管理员拒绝');
+      } else {
+        document.getElementById('accessPendingHint').textContent = '等待管理员授权中…（每5秒自动刷新）';
+      }
+    }).catch(function(e) { console.error('checkStatus', e); });
+  }
+
+  function bind() {
+    document.getElementById('accessPasswordBtn').onclick = function() {
+      if (document.getElementById('accessPasswordInput').value !== ACCESS_PASSWORD) { alert('密码错误'); return; }
+      if (!deviceId) { deviceId = genId(); localStorage.setItem(DEVICE_KEY, deviceId); }
+      if (!loadSbCfg()) { alert('请先配置云同步（Supabase URL 和 Key）'); return; }
+      regDevice().then(function() {
+        document.getElementById('accessDeviceId').textContent = deviceId;
+        document.getElementById('accessPendingHint').textContent = '设备名称：' + devName();
+        show('pending');
+        if (poll) clearInterval(poll);
+        checkStatus();
+        poll = setInterval(checkStatus, 5000);
+      }).catch(function(e) { alert('注册失败：' + e.message); });
+    };
+    document.getElementById('accessPasswordInput').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessPasswordBtn').click(); };
+    document.getElementById('accessRefreshBtn').onclick = checkStatus;
+
+    document.getElementById('adminEntryLink').onclick = function(e) {
+      e.preventDefault();
+      show('admin');
+      document.getElementById('adminLoginArea').style.display = 'block';
+      document.getElementById('adminPanelArea').style.display = 'none';
+      document.getElementById('adminPasswordInput').value = '';
+    };
+    document.getElementById('adminPasswordBtn').onclick = function() {
+      if (document.getElementById('adminPasswordInput').value !== ADMIN_PASSWORD) { alert('管理员密码错误'); return; }
+      if (!loadSbCfg()) { alert('请先配置云同步'); return; }
+      document.getElementById('adminLoginArea').style.display = 'none';
+      document.getElementById('adminPanelArea').style.display = 'block';
+      loadAdmin();
+    };
+    document.getElementById('adminPasswordInput').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('adminPasswordBtn').click(); };
+    document.getElementById('adminExitBtn').onclick = function() { show('pw'); };
+    document.getElementById('adminRefreshBtn').onclick = loadAdmin;
+  }
+
+  function loadAdmin() {
+    getAll().then(function(list) {
+      var pending = list.filter(function(d) { return d.status === 'pending'; });
+      var authed = list.filter(function(d) { return d.status === 'authorized'; });
+      renderList('adminPendingList', pending, 'pending');
+      renderList('adminAuthorizedList', authed, 'authed');
+    }).catch(function(e) { alert('加载失败：' + e.message); });
+  }
+
+  function renderList(cid, arr, type) {
+    var c = document.getElementById(cid);
+    if (!arr.length) { c.innerHTML = '<div class="admin-empty">暂无设备</div>'; return; }
+    var h = '';
+    for (var i = 0; i < arr.length; i++) {
+      var d = arr[i], t = d.created_at ? new Date(d.created_at).toLocaleString('zh-CN') : '-';
+      h += '<div class="admin-device-item"><div class="info"><div class="name">' + (d.device_name || '未知') + '</div><div class="id">' + d.id + '</div><div class="time">' + t + '</div></div><div class="actions">';
+      if (type === 'pending') {
+        h += '<button class="admin-btn-approve" data-id="' + d.id + '">同意</button><button class="admin-btn-reject" data-id="' + d.id + '">拒绝</button>';
+      } else {
+        h += '<button class="admin-btn-revoke" data-id="' + d.id + '">撤销</button>';
+      }
+      h += '</div></div>';
+    }
+    c.innerHTML = h;
+    var btns = c.querySelectorAll('button');
+    for (var j = 0; j < btns.length; j++) {
+      btns[j].onclick = function() {
+        var id = this.getAttribute('data-id');
+        var act = this.className.indexOf('approve') >= 0 ? 'authorized' : this.className.indexOf('reject') >= 0 ? 'rejected' : 'pending';
+        var name = act === 'authorized' ? '同意' : act === 'rejected' ? '拒绝' : '撤销';
+        if (confirm('确定' + name + '该设备？')) {
+          setStatus(id, act).then(loadAdmin).catch(function(e) { alert('操作失败：' + e.message); });
+        }
+      };
+    }
+  }
+
+  function init() {
+    bind();
+    loadSbCfg();
+    var cached = localStorage.getItem(AUTH_CACHE_KEY);
+    if (cached === '1' && deviceId && sbUrl && sbKey) {
+      getStatus().then(function(s) {
+        if (s === 'authorized') { hide(); }
+        else { localStorage.removeItem(AUTH_CACHE_KEY); show('pw'); }
+      }).catch(function() { hide(); });
+    } else {
+      show('pw');
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+
 // ============================================================
 // 商会预测系统 v19
 // 核心架构：
@@ -4697,6 +4959,83 @@ function renderBacktestTab() {
 // ========== CSV & Excel 导入 ==========
 document.getElementById('btnImport').addEventListener('click',function(){document.getElementById('excelInput').click();});
 document.getElementById('btnImportCSV').addEventListener('click',function(){document.getElementById('csvInput').click();});
+// ========== 剪贴板导入（PC/手机通用） ==========
+document.getElementById('btnImportClipboard').addEventListener('click', async function() {
+    var st = document.getElementById('importStatus');
+    st.style.display = 'block';
+    st.className = 'import-status';
+    st.textContent = '📋 正在读取剪贴板...';
+    try {
+        var text = await navigator.clipboard.readText();
+        if (!text || !text.trim()) {
+            st.className = 'import-status import-error';
+            st.textContent = '❌ 剪贴板为空，请先在金山文档/Excel里全选复制表格数据';
+            return;
+        }
+        var recs = _parseClipboardTable(text);
+        if (recs.length === 0) {
+            st.className = 'import-status import-error';
+            st.textContent = '❌ 未能解析到有效数据，请确认复制的是表格内容（需包含A/B/C数值列）';
+            return;
+        }
+        var isAppend = confirm('成功解析 ' + recs.length + ' 条记录。\n\n点「确定」= 追加导入（保留现有数据）\n点「取消」= 覆盖导入（清空后导入）');
+        importRecords(recs, !isAppend, st);
+        debouncedSave();
+        st.className = 'import-status import-success';
+        st.textContent = '✅ 成功导入 ' + recs.length + ' 条记录（' + (isAppend ? '追加' : '覆盖') + '模式），已自动同步云端';
+        setTimeout(function(){ st.style.display = 'none'; }, 4000);
+    } catch(e) {
+        st.className = 'import-status import-error';
+        st.textContent = '❌ 读取失败：' + e.message + '（请确保页面是HTTPS，且允许剪贴板权限）';
+    }
+});
+function _parseClipboardTable(text) {
+    var lines = text.split(/\r?\n/).filter(function(l){return l.trim();});
+    if (lines.length < 2) return [];
+    var headers = lines[0].split('\t').map(function(h){return h.trim();});
+    var cm = {};
+    for (var i = 0; i < headers.length; i++) {
+        var h = headers[i].toLowerCase();
+        if (h==='a'||h==='商会a'||h==='商會a'||h==='guilda') cm.A=i;
+        else if (h==='b'||h==='商会b'||h==='商會b'||h==='guildb') cm.B=i;
+        else if (h==='c'||h==='商会c'||h==='商會c'||h==='guildc') cm.C=i;
+        else if (h.indexOf('时间')>=0||h==='time'||h==='timeslot'||h.indexOf('时段')>=0) cm.T=i;
+        else if (h.indexOf('日期')>=0||h==='date') cm.D=i;
+        else if (h.indexOf('获胜的商会收益')>=0||h.indexOf('获胜收益')>=0||h==='收益') cm.PW=i;
+        else if (h==='挣'||h.indexOf('富')>=0||h.indexOf('金')>=0) cm.E=i;
+        else if (h.indexOf('a收益')>=0||h==='profita'||h==='profit_a') cm.PA=i;
+        else if (h.indexOf('b收益')>=0||h==='profitb'||h==='profit_b') cm.PB=i;
+        else if (h.indexOf('c收益')>=0||h==='profitc'||h==='profit_c') cm.PC=i;
+    }
+    if (cm.A===undefined) cm.A=0;
+    if (cm.B===undefined) cm.B=1;
+    if (cm.C===undefined) cm.C=2;
+    var recs = [];
+    for (var j = 1; j < lines.length; j++) {
+        var cells = lines[j].split('\t');
+        var a = _cbPn(cells[cm.A]), b = _cbPn(cells[cm.B]), c = _cbPn(cells[cm.C]);
+        if ([a,b,c].every(function(v){return v===0||v===0.5||v===1||v===2||v===3;})) {
+            var rec = {a:a,b:b,c:c};
+            var ds = cm.D!==undefined ? (cells[cm.D]||'') : '';
+            var ts = cm.T!==undefined ? (cells[cm.T]||'') : '';
+            if (ds||ts) rec.timeSlot = (ds+' '+ts).trim();
+            var pw = '';
+            if (cm.E!==undefined && cells[cm.E]) pw = String(cells[cm.E]).trim();
+            else if (cm.PW!==undefined && cells[cm.PW]) pw = String(cells[cm.PW]).trim();
+            if (pw) rec.profitWinner = pw;
+            if (cm.PA!==undefined && cells[cm.PA]) rec.profitA = String(cells[cm.PA]).trim();
+            if (cm.PB!==undefined && cells[cm.PB]) rec.profitB = String(cells[cm.PB]).trim();
+            if (cm.PC!==undefined && cells[cm.PC]) rec.profitC = String(cells[cm.PC]).trim();
+            recs.push(rec);
+        }
+    }
+    return recs;
+}
+function _cbPn(v) {
+    if (v===undefined||v===null||v==='') return NaN;
+    var n = parseFloat(String(v).trim());
+    return isNaN(n) ? NaN : n;
+}
 document.getElementById('csvInput').addEventListener('change',function(e){
     var file=e.target.files[0];if(!file)return;
     var st=document.getElementById('importStatus');st.style.display='block';
