@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -330,7 +330,7 @@ body{padding:8px !important}
 .cloud-config-row input{flex:1;min-width:250px;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:monospace;}
 .cloud-config-tip{font-size:12px;color:#e65100;margin-top:8px;line-height:1.6;}
 /* 访问控制 */
-.access-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.88);z-index:999999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.access-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.88);z-index:999999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .access-box{background:#fff;border-radius:16px;padding:32px 28px;max-width:420px;width:92%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
 .access-box h2{margin:0 0 12px;color:#302b63;font-size:20px;}
 .access-box p{color:#666;margin:8px 0;font-size:13px;line-height:1.6;}
@@ -883,17 +883,17 @@ create policy "ac update" on access_control for update using (true);</textarea><
   function init() {
     bind();
     loadSbCfg();
-    // 先隐藏所有子视图，避免授权用户看到密码页闪现
-    document.getElementById('accessPasswordView').style.display = 'none';
-    document.getElementById('accessPendingView').style.display = 'none';
-    document.getElementById('accessAdminView').style.display = 'none';
+    // 先隐藏整个遮罩层，已授权用户全程看不到
+    hide();
     var cached = localStorage.getItem(AUTH_CACHE_KEY);
     if (cached === '1' && deviceId && sbUrl && sbKey) {
       getStatus().then(function(s) {
-        if (s === 'authorized') { hide(); }
-        else { localStorage.removeItem(AUTH_CACHE_KEY); show('pw'); }
-      }).catch(function() { hide(); });
+        if (s === 'authorized') { /* 保持隐藏 */ }
+        else { localStorage.removeItem(AUTH_CACHE_KEY); document.getElementById('accessOverlay').style.display = 'flex'; show('pw'); }
+      }).catch(function() { /* API失败，保持隐藏放行 */ });
     } else {
+      // 未授权，显示遮罩层和密码页
+      document.getElementById('accessOverlay').style.display = 'flex';
       show('pw');
     }
   }
