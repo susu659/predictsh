@@ -412,6 +412,10 @@ body.dark-mode .access-box p{color:#aaa;}
         <button id="loginTypeAdmin" class="access-tab-btn" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;background:#f5f5f5;color:#666;cursor:pointer;">👑 管理员登录</button>
       </div>
       <p id="loginTypeHint">请输入用户密码</p>
+      <div id="deviceNameField" style="text-align:left;margin-bottom:10px;">
+        <label style="font-size:13px;color:#555;">设备备注名（方便管理员识别，可选）：</label>
+        <input type="text" id="loginDeviceName" placeholder="如：前台电脑、老板手机" style="width:100%;margin-top:4px;" maxlength="20">
+      </div>
       <input type="password" id="accessPasswordInput" placeholder="请输入密码" autocomplete="off">
       <button id="accessPasswordBtn">进入系统</button>
       <p class="access-hint">管理员入口：<a href="#" id="adminEntryLink">点此进入设备管理</a></p>
@@ -422,7 +426,7 @@ body.dark-mode .access-box p{color:#aaa;}
       <p>你的设备已提交申请，请联系管理员授权后使用</p>
       <p class="access-device-id">设备ID：<span id="accessDeviceId"></span></p>
       <div style="margin:12px 0;">
-        <label style="font-size:13px;color:#555;display:block;margin-bottom:4px;">设备备注名（方便管理员识别）：</label>
+        <label style="font-size:13px;color:#555;display:block;margin-bottom:4px;">设备备注名：</label>
         <input type="text" id="accessDeviceName" placeholder="如：前台电脑、老板手机" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;" maxlength="20">
       </div>
       <button id="accessRefreshBtn">🔄 刷新授权状态</button>
@@ -466,7 +470,7 @@ body.dark-mode .access-box p{color:#aaa;}
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
-<div class="cloud-config" id="cloudConfigPanel">
+<div class="cloud-config" id="cloudConfigPanel" style="display:none;">
 <div class="cloud-config-title">☁️ 首次使用：配置云端同步（Supabase 免费版）</div>
 <div class="cloud-config-row">
 <label>Supabase URL：</label>
@@ -657,16 +661,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
 <input type="text" id="historySearch" placeholder="🔍 搜索局号/日期..." style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:160px;">
 <select id="filterWinner" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
-<option value="">全部获胜方</option>
-<option value="A">A获胜</option>
-<option value="B">B获胜</option>
-<option value="C">C获胜</option>
+<option value="">全部获胜方</option><option value="A">A获胜</option><option value="B">B获胜</option><option value="C">C获胜</option>
 </select>
 <select id="filterProfit" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
-<option value="">全部收益</option>
-<option value="大">大收益</option>
-<option value="中">中收益</option>
-<option value="小">小收益</option>
+<option value="">全部收益</option><option value="大">大收益</option><option value="中">中收益</option><option value="小">小收益</option>
 </select>
 <button class="btn-secondary" id="btnClearFilter" style="flex:0 0 auto;min-width:auto;padding:6px 12px;font-size:13px;">清除筛选</button>
 <button class="btn-secondary" id="btnRecalcSnap" style="flex:0 0 auto;min-width:auto;padding:8px 14px;font-size:13px;" onclick="recalcPredSnapshots()">🔄 重新计算</button>
@@ -808,7 +806,9 @@ create policy "ac update" on access_control for update using (true);</textarea><
 
   var deviceId = localStorage.getItem(DEVICE_KEY) || '';
   var _loginType = 'user'; // v26.4：登录类型，user=用户登录（需授权），admin=管理员登录（无需授权）
-  var sbUrl = '', sbKey = '';
+  // v26.5：直接用内置默认配置作为初始值，不依赖localStorage，避免读取失败时显示配置页
+  var sbUrl = 'https://mcwtejcjyrxlcksnvpjg.supabase.co';
+  var sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd3RlamNqeXJ4bGNrc252cGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjE2OTYsImV4cCI6MjEwNDE5NzY5Nn0.E0YGlEt_ZQXZVGBjo2gP4hFX52KK6GDPTN_9Y2W4AJA';
 
   function loadSbCfg() {
     try {
@@ -895,14 +895,16 @@ create policy "ac update" on access_control for update using (true);</textarea><
     getStatus().then(function(s) {
       if (s === 'authorized') {
         if (poll) clearInterval(poll);
-        hide(); // v26.4：纯云端认证，不写本地缓存
+        hide();
       } else if (s === 'rejected') {
         if (poll) clearInterval(poll);
         document.getElementById('accessPendingHint').innerHTML = '<span style="color:#e74c3c;font-weight:600;">❌ 设备已被管理员拒绝</span><br>点击下方按钮可重新申请授权';
-        document.getElementById('accessReapplyBtn').style.display = 'inline-block';
+        var rb = document.getElementById('accessReapplyBtn');
+        if (rb) rb.style.display = 'inline-block';
       } else {
         document.getElementById('accessPendingHint').textContent = '等待管理员授权中…（每5秒自动刷新）';
-        document.getElementById('accessReapplyBtn').style.display = 'none';
+        var rb2 = document.getElementById('accessReapplyBtn');
+        if (rb2) rb2.style.display = 'none';
       }
     }).catch(function(e) { console.error('checkStatus', e); });
   }
@@ -938,18 +940,21 @@ create policy "ac update" on access_control for update using (true);</textarea><
     var hint = document.getElementById('loginTypeHint');
     function setLoginType(type) {
       _loginType = type;
+      var nameField = document.getElementById('deviceNameField');
       if (type === 'user') {
         btnUser.className = 'access-tab-btn active';
         btnUser.style.background = '#302b63'; btnUser.style.color = '#fff';
         btnAdmin.className = 'access-tab-btn';
         btnAdmin.style.background = '#f5f5f5'; btnAdmin.style.color = '#666';
         hint.textContent = '请输入用户密码';
+        if (nameField) nameField.style.display = 'block';
       } else {
         btnAdmin.className = 'access-tab-btn active';
         btnAdmin.style.background = '#302b63'; btnAdmin.style.color = '#fff';
         btnUser.className = 'access-tab-btn';
         btnUser.style.background = '#f5f5f5'; btnUser.style.color = '#666';
         hint.textContent = '请输入管理员密码';
+        if (nameField) nameField.style.display = 'none';
       }
       document.getElementById('accessPasswordInput').value = '';
       document.getElementById('accessPasswordInput').focus();
@@ -967,6 +972,11 @@ create policy "ac update" on access_control for update using (true);</textarea><
       }
       // 用户登录——验证用户密码，注册设备，等待授权
       if (pwd !== ACCESS_PASSWORD) { alert('用户密码错误'); return; }
+      // v26.5：保存设备备注名（注册时就带上，管理员能看到）
+      var loginName = document.getElementById('loginDeviceName');
+      if (loginName && loginName.value.trim()) {
+        localStorage.setItem(DEVICE_NAME_KEY, loginName.value.trim());
+      }
       if (!deviceId) { deviceId = genId(); localStorage.setItem(DEVICE_KEY, deviceId); }
       if (!loadSbCfg()) { alert('请先配置云同步（Supabase URL 和 Key）'); return; }
       regDevice().then(function() {
@@ -980,20 +990,17 @@ create policy "ac update" on access_control for update using (true);</textarea><
     };
     document.getElementById('accessPasswordInput').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessPasswordBtn').click(); };
     document.getElementById('accessRefreshBtn').onclick = checkStatus;
-    // 设备备注名输入：实时保存到本地，失焦时更新云端
-    var nameInput = document.getElementById('accessDeviceName');
-    if (nameInput) {
-      nameInput.addEventListener('input', function() {
-        localStorage.setItem(DEVICE_NAME_KEY, this.value.trim());
-      });
-      nameInput.addEventListener('blur', function() {
-        if (deviceId) {
-          api('access_control', {method: 'PATCH', body: {device_name: devName()}, query: 'id=eq.' + deviceId}).catch(function(){});
-        }
+    // 备注名输入：实时保存，失焦时更新云端
+    var pendingNameInput = document.getElementById('accessDeviceName');
+    if (pendingNameInput) {
+      pendingNameInput.addEventListener('input', function() { localStorage.setItem(DEVICE_NAME_KEY, this.value.trim()); });
+      pendingNameInput.addEventListener('blur', function() {
+        if (deviceId) api('access_control', {method: 'PATCH', body: {device_name: devName()}, query: 'id=eq.' + deviceId}).catch(function(){});
       });
     }
     // 重新申请授权
-    document.getElementById('accessReapplyBtn').onclick = function() {
+    var reapplyBtn = document.getElementById('accessReapplyBtn');
+    if (reapplyBtn) reapplyBtn.onclick = function() {
       if (!deviceId) { deviceId = genId(); localStorage.setItem(DEVICE_KEY, deviceId); }
       regDevice().then(function() {
         document.getElementById('accessPendingHint').textContent = '已重新提交申请，等待管理员授权...';
@@ -4264,10 +4271,10 @@ if(curBrier > 0.3){
                 saveData.accuracy = saveData.accuracy.slice(-100);
                 json = JSON.stringify(saveData);
             }
-            // v26.5：本地数据加密
-            if (localStorage.getItem(ENC_KEY) === '1') {
-                var pwd = localStorage.getItem(ENC_PWD_KEY);
-                if (pwd) json = xorEncrypt(json, pwd);
+            // 本地数据加密
+            if (typeof ENC_KEY !== 'undefined' && localStorage.getItem(ENC_KEY) === '1') {
+                var encPwd = localStorage.getItem(ENC_PWD_KEY);
+                if (encPwd && typeof xorEncrypt === 'function') json = xorEncrypt(json, encPwd);
             }
             localStorage.setItem(STORE_KEY, json);
         } catch(e) {
@@ -4282,23 +4289,23 @@ if(curBrier > 0.3){
         try {
             var raw = localStorage.getItem(STORE_KEY);
             if (!raw) return;
-            // v26.5：检测加密数据
-            if (isEncrypted(raw)) {
-                var pwd = localStorage.getItem(ENC_PWD_KEY);
-                if (!pwd) {
-                    alert('⚠️ 本地数据已加密，但未找到密码，请输入加密密码解锁。');
-                    pwd = prompt('请输入加密密码：');
-                    if (!pwd) return;
-                    localStorage.setItem(ENC_PWD_KEY, pwd);
+            // 检测加密数据
+            if (typeof isEncrypted === 'function' && isEncrypted(raw)) {
+                var encPwd = localStorage.getItem(ENC_PWD_KEY);
+                if (!encPwd) {
+                    alert('⚠️ 本地数据已加密，请输入加密密码解锁。');
+                    encPwd = prompt('请输入加密密码：');
+                    if (!encPwd) return;
+                    localStorage.setItem(ENC_PWD_KEY, encPwd);
                 }
-                var decrypted = xorDecrypt(raw, pwd);
+                var decrypted = xorDecrypt(raw, encPwd);
                 if (!decrypted) {
-                    alert('❌ 密码错误，无法解密数据！\n\n请重新输入正确的加密密码。');
+                    alert('❌ 密码错误，无法解密数据！');
                     localStorage.removeItem(ENC_PWD_KEY);
                     return;
                 }
                 raw = decrypted;
-                localStorage.setItem(ENC_KEY, '1'); // 标记加密已开启
+                localStorage.setItem(ENC_KEY, '1');
             }
             var p = JSON.parse(raw);
             if (Array.isArray(p.history)) {
@@ -4424,6 +4431,7 @@ var supabaseClient = null;
 var cloudOnline = false;
 var cloudLastSync = null;
 var _cloudSaving = false;
+var _lastCloudLoadTime = 0; // v26.5：防重复保护——刚拉取云端数据后短时间内不合并
 var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
@@ -4485,7 +4493,11 @@ var DEFAULT_CLOUD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 function getCloudConfig() {
     try {
         var raw = localStorage.getItem(CLOUD_CONFIG_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+            var c = JSON.parse(raw);
+            // v26.5：校验配置有效性，避免localStorage存了null或无效对象导致显示配置页
+            if (c && c.url && c.key) return c;
+        }
         // v26.4：没有本地配置时使用内置默认配置，并自动保存
         var def = { url: DEFAULT_CLOUD_URL, key: DEFAULT_CLOUD_KEY };
         localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(def));
@@ -4620,9 +4632,25 @@ async function cloudLoad(silent) {
                 P._syncEpoch = cloudEpoch;
                 if (adminForce) P._adminOverride = cloudAdmin; // 同步管理员标记
             }
+            // v26.5：性能优化——检测数据是否真的变化，没变化则跳过renderAll
+            var cloudHist = data.data.history || [];
+            var localHist = P.history || [];
+            var dataChanged = true;
+            if (cloudHist.length === localHist.length && cloudHist.length > 0) {
+                var lastCloud = cloudHist[cloudHist.length - 1];
+                var lastLocal = localHist[localHist.length - 1];
+                if (lastCloud.a === lastLocal.a && lastCloud.b === lastLocal.b && lastCloud.c === lastLocal.c) {
+                    dataChanged = false;
+                }
+            }
             localStorage.setItem(STORE_KEY, JSON.stringify(data.data));
             P.loadLocal();
-            renderAll();
+            if (dataChanged || silent === false) {
+                renderAll();
+            } else {
+                // 数据没变化，只更新云状态，不重渲染
+                updateStats();
+            }
             // v26.1：云端数据predHistory被截断时异步重建
             if (P._rebuildPending) {
                 await new Promise(function(resolve){ P.rebuildHistoryAsync(null, resolve); });
@@ -4630,6 +4658,7 @@ async function cloudLoad(silent) {
                 debouncedSave();
             }
             cloudLastSync = new Date();
+            _lastCloudLoadTime = Date.now(); // v26.5：防重复保护
             updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已加载云端 ' + (data.data.history ? data.data.history.length : 0) + ' 局记录');
             return true;
         } else {
@@ -4686,49 +4715,49 @@ async function cloudSave(manual) {
             }
         } catch(e) { /* 检查失败，继续上传 */ }
         // v26.0: 冲突检测 - 上传前先查云端更新时间
-        if (cloudLastSync) {
+        if (cloudLastSync && Date.now() - _lastCloudLoadTime > 10000) {
             try {
                 var chkRes = await supabaseClient.from(CLOUD_TABLE).select('updated_at, data').eq('id', CLOUD_ROW_ID).maybeSingle();
                 if (chkRes.data && chkRes.data.updated_at) {
                     var cTime = new Date(chkRes.data.updated_at).getTime();
                     var lTime = cloudLastSync.getTime();
                     if (cTime > lTime + 2000) {
-                        // v26.5：手动上传时弹清晰的二选一确认
-                        if (manual) {
-                            var cloudHistCount = (chkRes.data.data && chkRes.data.data.history) ? chkRes.data.data.history.length : 0;
-                            var localHistCount = P.history ? P.history.length : 0;
-                            var choice = confirm('⚠️ 本地和云端数据不一致\n\n云端：' + cloudHistCount + ' 局（更新时间：' + new Date(chkRes.data.updated_at).toLocaleString() + '）\n本地：' + localHistCount + ' 局\n\n点「确定」= 以云端为准，覆盖本地数据\n点「取消」= 以本地为准，覆盖云端数据');
-                            if (choice) {
-                                // 以云端覆盖本地：拉取云端数据，不上传
-                                updateCloudStatus('syncing', '正在以云端数据覆盖本地...');
-                                await cloudLoad(true);
-                                _cloudSaving = false;
-                                return true;
-                            }
-                            // 以本地覆盖云端：跳过合并，直接上传
-                            updateCloudStatus('syncing', '正在以本地数据覆盖云端...');
-                        } else {
-                            // 自动上传：默认合并（保留之前的合并逻辑）
-                            var doMerge = true;
+                        // v26.4：自动上传时直接合并，不弹确认框；手动上传才弹确认
+                        var doMerge = manual ? confirm('⚠️ 云端数据比本地新（别人可能修改了）\n\n点「确定」= 合并云端和本地数据后上传（推荐）\n点「取消」= 强制上传覆盖云端') : true;
+                        if (doMerge) {
                             var cloudHist = (chkRes.data.data && chkRes.data.data.history) ? chkRes.data.data.history : [];
                             var localHist = P.history ? P.history.slice() : [];
                             var existKeys = {};
+                            var existAbcKeys = {}; // v26.5：ABC分数组合去重，防止timeSlot不一致导致重复
                             var merged = [];
                             var conflictCount = 0;
-                            // v26.5：优先按timeSlot去重，同一时间槽数据不同时记录冲突，保留本地数据
+                            // 先加入云端数据
                             for (var ci = 0; ci < cloudHist.length; ci++) {
                                 var ck = cloudHist[ci].timeSlot || ('k_' + cloudHist[ci].a + '_' + cloudHist[ci].b + '_' + cloudHist[ci].c);
-                                if (!existKeys[ck]) { existKeys[ck] = true; merged.push(cloudHist[ci]); }
+                                var abcKey = 'abc_' + cloudHist[ci].a + '_' + cloudHist[ci].b + '_' + cloudHist[ci].c;
+                                if (!existKeys[ck] && !existAbcKeys[abcKey]) {
+                                    existKeys[ck] = true;
+                                    existAbcKeys[abcKey] = true;
+                                    merged.push(cloudHist[ci]);
+                                }
                             }
+                            // 再加入本地数据，已存在的跳过或更新
                             for (var li = 0; li < localHist.length; li++) {
                                 var lk = localHist[li].timeSlot || ('k_' + localHist[li].a + '_' + localHist[li].b + '_' + localHist[li].c);
-                                if (!existKeys[lk]) { existKeys[lk] = true; merged.push(localHist[li]); }
-                                else {
-                                    // 同一时间槽已存在，检查数据是否不同
-                                    var existing = merged.find(function(m) { return (m.timeSlot || ('k_' + m.a + '_' + m.b + '_' + m.c)) === lk; });
+                                var lAbcKey = 'abc_' + localHist[li].a + '_' + localHist[li].b + '_' + localHist[li].c;
+                                if (!existKeys[lk] && !existAbcKeys[lAbcKey]) {
+                                    existKeys[lk] = true;
+                                    existAbcKeys[lAbcKey] = true;
+                                    merged.push(localHist[li]);
+                                } else {
+                                    // 已存在，检查数据是否不同，冲突时保留本地数据
+                                    var existing = merged.find(function(m) {
+                                        var mk = m.timeSlot || ('k_' + m.a + '_' + m.b + '_' + m.c);
+                                        var mAbc = 'abc_' + m.a + '_' + m.b + '_' + m.c;
+                                        return mk === lk || mAbc === lAbcKey;
+                                    });
                                     if (existing && (existing.a !== localHist[li].a || existing.b !== localHist[li].b || existing.c !== localHist[li].c)) {
                                         conflictCount++;
-                                        // 用本地数据替换云端数据（本地优先）
                                         existing.a = localHist[li].a;
                                         existing.b = localHist[li].b;
                                         existing.c = localHist[li].c;
@@ -4804,9 +4833,43 @@ function bindCloudEvents() {
         initCloud();
     });
     var pull = document.getElementById('cloudPullBtn');
-    if (pull) pull.addEventListener('click', function() { cloudLoad(false); });
+    if (pull) pull.addEventListener('click', async function() {
+        var btn = this;
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '拉取中...';
+        try {
+            var ok = await cloudLoad(false);
+            if (ok) {
+                showRecordResult(true, '拉取成功', '已从云端拉取最新数据\n当前共 ' + P.history.length + ' 条记录');
+            } else {
+                showRecordResult(false, '拉取失败', '从云端拉取数据失败，请检查网络后重试');
+            }
+        } catch(e) {
+            showRecordResult(false, '拉取失败', '拉取过程出错：' + e.message);
+        }
+        btn.disabled = false;
+        btn.textContent = originalText;
+    });
     var push = document.getElementById('cloudPushBtn');
-    if (push) push.addEventListener('click', function() { cloudSave(true); });
+    if (push) push.addEventListener('click', async function() {
+        var btn = this;
+        var originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '上传中...';
+        try {
+            var ok = await cloudSave(true);
+            if (ok) {
+                showRecordResult(true, '上传成功', '已将本地数据上传到云端\n共 ' + P.history.length + ' 条记录');
+            } else {
+                showRecordResult(false, '上传失败', '上传到云端失败，请检查网络后重试');
+            }
+        } catch(e) {
+            showRecordResult(false, '上传失败', '上传过程出错：' + e.message);
+        }
+        btn.disabled = false;
+        btn.textContent = originalText;
+    });
     var reconfig = document.getElementById('cloudReconfigBtn');
     if (reconfig) reconfig.addEventListener('click', function() {
         if (confirm('确定要清除云端配置重新输入吗？（不会删除已上传到 Supabase 的数据）')) {
@@ -4875,136 +4938,6 @@ function doRestoreSnapshot(idx) {
         setTimeout(closeSnapshotModal, 800);
     }
 }
-// v26.5：编辑单条记录
-var _editRecordIdx = -1;
-function openEditRecord(idx) {
-    _editRecordIdx = idx;
-    var rec = P.history[idx];
-    if (!rec) return;
-    document.getElementById('editRecordIdx').textContent = idx + 1;
-    document.getElementById('editRecA').value = rec.a;
-    document.getElementById('editRecB').value = rec.b;
-    document.getElementById('editRecC').value = rec.c;
-    document.getElementById('editRecProfit').value = rec.profitWinner || '';
-    document.getElementById('editRecordError').style.display = 'none';
-    document.getElementById('editRecordModal').classList.add('open');
-}
-function closeEditRecordModal() {
-    document.getElementById('editRecordModal').classList.remove('open');
-    _editRecordIdx = -1;
-}
-function saveEditRecord() {
-    if (_editRecordIdx < 0) return;
-    var a = parseFloat(document.getElementById('editRecA').value);
-    var b = parseFloat(document.getElementById('editRecB').value);
-    var c = parseFloat(document.getElementById('editRecC').value);
-    var profit = document.getElementById('editRecProfit').value;
-    var errEl = document.getElementById('editRecordError');
-    // 校验
-    var errs = validateRecord({a:a, b:b, c:c});
-    if (errs.length > 0) {
-        errEl.textContent = errs.join('；');
-        errEl.style.display = 'block';
-        return;
-    }
-    if (!confirm('确定修改第 ' + (_editRecordIdx + 1) + ' 局？\n\n修改后将重新计算后续所有预测快照。')) return;
-    createSnapshot('编辑第' + (_editRecordIdx + 1) + '局');
-    // 修改数据
-    P.history[_editRecordIdx].a = a;
-    P.history[_editRecordIdx].b = b;
-    P.history[_editRecordIdx].c = c;
-    if (profit) P.history[_editRecordIdx].profitWinner = profit;
-    // 从修改局开始截断预测历史，重新计算
-    P.predHistory = P.predHistory.slice(0, _editRecordIdx);
-    P.accuracy = P.accuracy.slice(0, _editRecordIdx);
-    // 从修改局开始重新预测
-    for (var i = _editRecordIdx; i < P.history.length; i++) {
-        if (i > 0) {
-            var pred = P.predict();
-            if (pred) {
-                P.predHistory.push(pred);
-                var actualWinner = getWinner(P.history[i]);
-                P.accuracy.push(pred.guild === actualWinner);
-                P.learnFromResult(P.history[i], pred);
-            }
-        }
-    }
-    P.lastPrediction = P.predHistory.length > 0 ? P.predHistory[P.predHistory.length - 1].guild : null;
-    P.maxStreakEver = calcMaxStreak(P.history);
-    renderAll();
-    debouncedSave();
-    closeEditRecordModal();
-}
-// v26.5：本地数据加密
-var ENC_KEY = 'mm_encryption_enabled_v1';
-var ENC_PWD_KEY = 'mm_encryption_pwd_v1';
-function xorEncrypt(str, pwd) {
-    var result = '';
-    for (var i = 0; i < str.length; i++) {
-        result += String.fromCharCode(str.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
-    }
-    return 'ENC:' + btoa(unescape(encodeURIComponent(result)));
-}
-function xorDecrypt(encStr, pwd) {
-    try {
-        var raw = decodeURIComponent(escape(atob(encStr.substring(4))));
-        var result = '';
-        for (var i = 0; i < raw.length; i++) {
-            result += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
-        }
-        return result;
-    } catch(e) { return null; }
-}
-function isEncrypted(data) {
-    return typeof data === 'string' && data.indexOf('ENC:') === 0;
-}
-function openEncryptModal() {
-    var enabled = localStorage.getItem(ENC_KEY) === '1';
-    var statusEl = document.getElementById('encryptStatus');
-    var toggleBtn = document.getElementById('encryptToggleBtn');
-    if (enabled) {
-        statusEl.innerHTML = '<span style="color:#27ae60;">✅ 加密已开启，本地数据已加密存储</span>';
-        toggleBtn.textContent = '关闭加密';
-        toggleBtn.style.background = '#e74c3c';
-    } else {
-        statusEl.innerHTML = '<span style="color:#f39c12;">⚠️ 加密未开启，本地数据为明文存储</span>';
-        toggleBtn.textContent = '开启加密';
-        toggleBtn.style.background = '#27ae60';
-    }
-    document.getElementById('encryptPassword').value = '';
-    document.getElementById('encryptPassword2').value = '';
-    document.getElementById('encryptError').style.display = 'none';
-    document.getElementById('encryptModal').classList.add('open');
-}
-function closeEncryptModal() {
-    document.getElementById('encryptModal').classList.remove('open');
-}
-function toggleEncryption() {
-    var pwd = document.getElementById('encryptPassword').value;
-    var pwd2 = document.getElementById('encryptPassword2').value;
-    var errEl = document.getElementById('encryptError');
-    var enabled = localStorage.getItem(ENC_KEY) === '1';
-    if (!enabled) {
-        // 开启加密
-        if (!pwd) { errEl.textContent = '请输入加密密码'; errEl.style.display = 'block'; return; }
-        if (pwd !== pwd2) { errEl.textContent = '两次密码不一致'; errEl.style.display = 'block'; return; }
-        if (pwd.length < 4) { errEl.textContent = '密码至少4位'; errEl.style.display = 'block'; return; }
-        localStorage.setItem(ENC_KEY, '1');
-        localStorage.setItem(ENC_PWD_KEY, pwd);
-        // 立即重新保存（加密）
-        P.saveLocal();
-        alert('✅ 加密已开启！本地数据已用密码加密存储。\n\n请牢记密码，忘记密码将无法恢复数据！');
-    } else {
-        // 关闭加密：需要验证密码
-        var savedPwd = localStorage.getItem(ENC_PWD_KEY);
-        if (pwd !== savedPwd) { errEl.textContent = '密码错误，无法关闭加密'; errEl.style.display = 'block'; return; }
-        localStorage.setItem(ENC_KEY, '0');
-        // 立即重新保存（明文）
-        P.saveLocal();
-        alert('✅ 加密已关闭，本地数据恢复明文存储。');
-    }
-    closeEncryptModal();
-}
 function verifyBackupPwd() {
     var pwd = document.getElementById('backupPwdInput').value;
     if (pwd !== BACKUP_ADMIN_PASSWORD) {
@@ -5047,13 +4980,15 @@ function doCloudBackup() {
             { id: backupId, data: saveData, updated_at: now.toISOString() },
             { onConflict: 'id' }
         ).then(function(res) {
-            if (res.error) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份失败：' + res.error.message; return; }
+            if (res.error) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份失败：' + res.error.message; showRecordResult(false, '备份失败', res.error.message); return; }
             msg.style.color = '#2e7d32';
             msg.textContent = '✅ 备份成功（' + saveData.history.length + '局），已存入云端';
             loadBackupList();
+            showRecordResult(true, '备份成功', '已创建云端备份\n共 ' + saveData.history.length + ' 条记录\n备份ID：' + backupId);
         }).catch(function(e) {
             msg.style.color = '#e74c3c';
             msg.textContent = '❌ 备份异常：' + e.message;
+            showRecordResult(false, '备份失败', '备份过程出错：' + e.message);
         });
     } catch(e) {
         msg.style.color = '#e74c3c';
@@ -5148,34 +5083,37 @@ function restoreFromBackup(backupId) {
             return supabaseClient.from(CLOUD_TABLE).upsert({ id: CLOUD_ROW_ID, data: mainData, updated_at: now }, { onConflict: 'id' });
         })
         .then(function(upsertRes) {
-            if (upsertRes && upsertRes.error) { msg.style.color = '#e67e22'; msg.textContent = '⚠️ 本地已恢复，但同步云端失败：' + upsertRes.error.message; return; }
+            if (upsertRes && upsertRes.error) { msg.style.color = '#e67e22'; msg.textContent = '⚠️ 本地已恢复，但同步云端失败：' + upsertRes.error.message; showRecordResult(false, '恢复部分成功', '本地数据已恢复，但同步云端失败：' + upsertRes.error.message); return; }
             cloudLastSync = new Date();
             msg.style.color = '#2e7d32';
             msg.textContent = '✅ 恢复成功！共 ' + P.history.length + ' 局，已同步到云端主数据';
             loadBackupList();
+            showRecordResult(true, '恢复成功', '已从备份恢复数据\n共 ' + P.history.length + ' 条记录\n已同步到云端主数据');
         })
         .catch(function(e) {
             msg.style.color = '#e74c3c';
             msg.textContent = '❌ 恢复异常：' + e.message;
+            showRecordResult(false, '恢复失败', '恢复过程出错：' + e.message);
         });
 }
 function deleteBackup(backupId) {
     if (!confirm('确定删除此备份吗？删除后不可恢复！')) return;
-    if (!supabaseClient) { alert('云同步未初始化'); return; }
+    if (!supabaseClient) { showRecordResult(false, '删除失败', '云同步未初始化'); return; }
     supabaseClient.from(CLOUD_TABLE).delete().eq('id', backupId)
         .then(function(res) {
             if (res.error) {
                 var msg = res.error.message || '';
                 var hint = '';
                 if (msg.indexOf('policy') >= 0 || msg.indexOf('permission') >= 0 || res.error.code === '42501') {
-                    hint = '\n\n可能原因：Supabase 行级安全(RLS)未开启 DELETE 权限。\n请在 Supabase → SQL Editor 执行：\nCREATE POLICY "允许删除备份" ON prediction_data FOR DELETE USING (true);';
+                    hint = '\n\n可能原因：Supabase 行级安全(RLS)未开启 DELETE 权限。';
                 }
-                alert('删除失败：' + msg + hint);
+                showRecordResult(false, '删除失败', msg + hint);
                 return;
             }
             loadBackupList();
+            showRecordResult(true, '删除成功', '备份已删除：' + backupId);
         })
-        .catch(function(e) { alert('删除异常：' + e.message); });
+        .catch(function(e) { showRecordResult(false, '删除失败', '删除过程出错：' + e.message); });
 }
 // ============================================================
 // UI 渲染
@@ -5254,17 +5192,29 @@ function renderAll() {
         ['renderCards', renderCards],
         ['renderHistory', renderHistory],
         ['renderPredHistory', renderPredHistory],
-        ['updateStats', updateStats],
-        ['renderPieCharts', renderPieCharts],
-        ['renderInsightPanel', renderInsightPanel]
+        ['updateStats', updateStats]
     ];
     fns.forEach(function(item) {
         try { item[1](); }
         catch(e) { console.error('[renderAll] '+item[0]+' 出错:', e.message, e.stack); }
     });
+    // v26.5：性能优化——饼图和洞察面板用requestAnimationFrame延迟渲染，不阻塞主界面
+    if (window._pieRaf) cancelAnimationFrame(window._pieRaf);
+    window._pieRaf = requestAnimationFrame(function() {
+        try { renderPieCharts(); } catch(e) { console.error('[renderPieCharts]', e.message); }
+        try { renderInsightPanel(); } catch(e) { console.error('[renderInsightPanel]', e.message); }
+    });
 }
 function renderCards() {
-    var result = P.predict();
+    // v26.5：预测结果缓存——history没变化时不重复计算
+    var histSig = P.history.length + '_' + (P.history.length > 0 ? P.history[P.history.length-1].a + '_' + P.history[P.history.length-1].b + '_' + P.history[P.history.length-1].c : 'empty');
+    var result;
+    if (window._predCache && window._predCache.sig === histSig) {
+        result = window._predCache.result;
+    } else {
+        result = P.predict();
+        window._predCache = { sig: histSig, result: result };
+    }
     var sumEl = document.getElementById('predSummary');
     var confEl = document.getElementById('confidenceDisplay');
     var modelDetail = document.getElementById('modelDetail');
@@ -5686,7 +5636,6 @@ function updateStats() {
 }
 function renderHistory() {
     var tb=document.getElementById('historyBody'); tb.innerHTML='';
-    // v26.5：筛选与搜索
     var searchKw = (document.getElementById('historySearch')?.value || '').trim().toLowerCase();
     var filterW = document.getElementById('filterWinner')?.value || '';
     var filterP = document.getElementById('filterProfit')?.value || '';
@@ -5715,14 +5664,14 @@ function renderHistory() {
     container.setAttribute('data-page',curPage);
     var startIdx=(curPage-1)*pageSize;
     var endIdx=Math.min(startIdx+pageSize,total);
+    // v26.5：性能优化——用字符串拼接+一次性innerHTML，替代createElement逐个append
+    var rowsHtml = '';
     for (var pi=startIdx; pi<endIdx; pi++) {
         var idx = filtered[pi].origIdx;
         var rec=filtered[pi].rec, winner=getWinner(rec);
-        var tr=document.createElement('tr');
         var predDisp='—',snapDisp='—',actualRankDisp='—',probDisp='—',corrDisp='—',sourceDisp='—',predProfitDisp='—';
         if (idx>0 && idx-1<P.predHistory.length) {
             var ph=P.predHistory[idx-1];
-            // v25.9: 预测收益显示
             if (ph.profitPrediction && ph.profitPrediction.predicted) {
                 var predP = ph.profitPrediction.predicted;
                 var actualP = rec.profitWinner;
@@ -5730,7 +5679,6 @@ function renderHistory() {
                 predProfitDisp = profitTag(predP) + (pCorr ? ' <span style="color:#27ae60;font-size:11px;">✓</span>' : (actualP ? ' <span style="color:#e74c3c;font-size:11px;">✗</span>' : ''));
             }
             if (ph.isTie) {
-                // 平局：不计算对错
                 predDisp='<span style="color:#999;">🤝 平局(预测'+ph.guild+')</span>';
                 corrDisp='<span style="color:#999;">平局</span>';
             } else {
@@ -5738,7 +5686,6 @@ function renderHistory() {
                 predDisp='<span class="'+(corr?'pred-result-correct':'pred-result-wrong')+'">'+(corr?'✅':'❌')+' '+ph.guild+'</span>';
                 corrDisp=corr?'<span class="pred-result-correct">正确</span>':'<span class="pred-result-wrong">错误</span>';
             }
-            // 严格排名校验：ABC必须是1/2/3的排列，每个值出现且仅出现一次
             var rankValid = false;
             if (ph.rank && ph.rank.A && ph.rank.B && ph.rank.C) {
                 var rAv = ph.rank.A, rBv = ph.rank.B, rCv = ph.rank.C;
@@ -5746,7 +5693,6 @@ function renderHistory() {
                 var allDistinct = (rAv!==rBv && rBv!==rCv && rAv!==rCv);
                 rankValid = allValid && allDistinct;
             }
-            // 排名快照还需校验sorted中ABC各出现一次
             var sortedValid = rankValid && ph.sorted && ph.sorted.length===3;
             if (sortedValid) {
                 var guildsInSorted = ph.sorted.map(function(s){return s[0];});
@@ -5769,7 +5715,7 @@ function renderHistory() {
             predDisp='<span style="color:#999;">首局无预测</span>';
         }
         var ts = splitTimeSlot(rec.timeSlot);
-        tr.innerHTML='<td><strong>'+(idx+1)+'</strong></td>'+
+        rowsHtml += '<tr><td><strong>'+(idx+1)+'</strong></td>'+
             '<td class="time-edit-cell" data-idx="'+idx+'" data-field="date" style="font-size:12px;color:#302b63;cursor:pointer;text-decoration:underline dotted #aaa;" title="点击编辑日期">'+(ts.date||'—')+'</td>'+
             '<td class="time-edit-cell" data-idx="'+idx+'" data-field="time" style="font-size:12px;color:#302b63;cursor:pointer;text-decoration:underline dotted #aaa;" title="点击编辑时间（输入起始小时，如15）">'+(ts.time||'—')+'</td>'+
             '<td>'+scoreSpan(rec.a)+'</td>'+
@@ -5784,9 +5730,9 @@ function renderHistory() {
             '<td>'+probDisp+'</td>'+
             '<td>'+corrDisp+'</td>'+
             '<td>'+sourceDisp+'</td>'+
-            '<td><button class="btn-edit-row" data-idx="'+idx+'" style="background:#2196f3;color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">编辑</button><button class="btn-delete-row" data-idx="'+idx+'">删除</button></td>';
-        tb.appendChild(tr);
+            '<td><button class="btn-edit-row" data-idx="'+idx+'" style="background:#2196f3;color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">编辑</button><button class="btn-delete-row" data-idx="'+idx+'">删除</button></td></tr>';
     }
+    tb.innerHTML = rowsHtml;
     // Pagination controls
     var pg=document.getElementById('historyPagination');
     if(pg){
@@ -5806,26 +5752,7 @@ function renderHistory() {
         html+='</select>';
         pg.innerHTML=html;
     }
-    document.querySelectorAll('.btn-delete-row').forEach(function(btn){
-        btn.addEventListener('click',function(){
-            var i=parseInt(btn.getAttribute('data-idx'));
-            if (!confirm('删除第'+(i+1)+'局？')) return;
-            P.history.splice(i,1);
-            if (i>0 && i-1<P.accuracy.length) P.accuracy.splice(i-1,1);
-            if (P.profitAccuracy && i>0 && i-1<P.profitAccuracy.length) P.profitAccuracy.splice(i-1,1);
-            if (i>0 && i-1<P.predHistory.length) P.predHistory.splice(i-1,1);
-            P.lastPrediction=P.predHistory.length>0?P.predHistory[P.predHistory.length-1].guild:null;
-            renderAll(); debouncedSave(); // v18.0：防抖保存
-        });
-    });
-    // v21: 时间编辑单元格点击事件
-    document.querySelectorAll('.time-edit-cell').forEach(function(cell){
-        cell.addEventListener('click',function(){
-            var idx=parseInt(cell.getAttribute('data-idx'));
-            var field=cell.getAttribute('data-field');
-            startTimeEdit(cell, idx, field);
-        });
-    });
+    // v26.5：删除/编辑/时间编辑按钮已改为全局事件委托，这里不再重复绑定
 }
 function gotoHistoryPage(p){
     var container=document.querySelector('.history-table-container')||document.getElementById('historyContainer');
@@ -6006,35 +5933,27 @@ function renderLearnTab() {
         chartHtml += '</div>';
         chartEl.innerHTML = chartHtml;
     }
-    // v26.5：预测准确率趋势图（Canvas）
+    // 预测准确率趋势图
     var trendCanvas = document.getElementById('accuracyTrendChart');
     if (trendCanvas && P.accuracy.length > 0) {
         var ctx = trendCanvas.getContext('2d');
         var W = trendCanvas.width, H = trendCanvas.height;
         ctx.clearRect(0, 0, W, H);
-        // 取最近50局，计算滑动窗口准确率（每10局一个点）
         var windowSize = 10;
         var accData = [];
         var startI = Math.max(0, P.accuracy.length - 50);
-        for (var i = startI + windowSize; i <= P.accuracy.length; i++) {
-            var slice = P.accuracy.slice(i - windowSize, i);
-            var rate = slice.filter(function(x){return x;}).length / slice.length;
-            accData.push({idx: i, rate: rate});
+        for (var ti = startI + windowSize; ti <= P.accuracy.length; ti++) {
+            var slice = P.accuracy.slice(ti - windowSize, ti);
+            accData.push({idx: ti, rate: slice.filter(function(x){return x;}).length / slice.length});
         }
         if (accData.length > 1) {
-            // 画坐标轴
             ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(40, 10); ctx.lineTo(40, H-30); ctx.lineTo(W-10, H-30); ctx.stroke();
-            // Y轴标签（0%, 50%, 100%）
             ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
-            ctx.fillText('100%', 35, 15);
-            ctx.fillText('50%', 35, H/2 - 10);
-            ctx.fillText('0%', 35, H-25);
-            // 50%参考线
+            ctx.fillText('100%', 35, 15); ctx.fillText('50%', 35, H/2 - 10); ctx.fillText('0%', 35, H-25);
             ctx.strokeStyle = '#eee'; ctx.setLineDash([4,4]);
             ctx.beginPath(); ctx.moveTo(40, H/2 - 10); ctx.lineTo(W-10, H/2 - 10); ctx.stroke();
             ctx.setLineDash([]);
-            // 画折线
             var maxX = accData.length;
             ctx.strokeStyle = '#2196f3'; ctx.lineWidth = 2; ctx.beginPath();
             accData.forEach(function(d, i) {
@@ -6043,14 +5962,12 @@ function renderLearnTab() {
                 if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
             });
             ctx.stroke();
-            // 画数据点
             accData.forEach(function(d, i) {
                 var x = 40 + (i / (maxX - 1)) * (W - 60);
                 var y = (H - 40) - d.rate * (H - 50) + 10;
                 ctx.fillStyle = d.rate >= 0.5 ? '#4caf50' : '#f44336';
                 ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
             });
-            // X轴标签
             ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
             ctx.fillText('第' + (startI + windowSize) + '局', 40, H-15);
             ctx.fillText('第' + P.accuracy.length + '局', W-10, H-15);
@@ -6059,59 +5976,55 @@ function renderLearnTab() {
             ctx.fillText('数据不足（需10局以上）', W/2, H/2);
         }
     }
-    // v26.5：置信度分级统计
+    // 置信度分级统计
     var confStatsEl = document.getElementById('confidenceStats');
     if (confStatsEl && P.predHistory.length > 0) {
-        var confStats = {high: {total:0, correct:0}, mid: {total:0, correct:0}, low: {total:0, correct:0}};
+        var confStats = {high:{total:0,correct:0},mid:{total:0,correct:0},low:{total:0,correct:0}};
         P.predHistory.forEach(function(ph, i) {
             if (i >= P.accuracy.length) return;
             var topProb = ph.probs[ph.guild];
-            var probs = [ph.probs.A, ph.probs.B, ph.probs.C].sort(function(a,b){return b-a;});
+            var probs = [ph.probs.A,ph.probs.B,ph.probs.C].sort(function(a,b){return b-a;});
             var diff = probs[0] - probs[1];
             var level = (topProb >= 0.55 || diff >= 0.15) ? 'high' : (topProb >= 0.45 || diff >= 0.05) ? 'mid' : 'low';
             confStats[level].total++;
             if (P.accuracy[i]) confStats[level].correct++;
         });
-        var fmtRate = function(s) { return s.total > 0 ? (s.correct/s.total*100).toFixed(0) + '%' : '—'; };
+        var fmtRate = function(s){return s.total>0?(s.correct/s.total*100).toFixed(0)+'%':'—';};
         confStatsEl.innerHTML = '<div style="display:flex;gap:20px;flex-wrap:wrap;">' +
             '<span>🟢 高置信：' + confStats.high.total + '局，准确率 ' + fmtRate(confStats.high) + '</span>' +
             '<span>🟡 中置信：' + confStats.mid.total + '局，准确率 ' + fmtRate(confStats.mid) + '</span>' +
-            '<span>🔴 低置信：' + confStats.low.total + '局，准确率 ' + fmtRate(confStats.low) + '</span>' +
-            '</div>';
+            '<span>🔴 低置信：' + confStats.low.total + '局，准确率 ' + fmtRate(confStats.low) + '</span></div>';
     }
-    // v26.5：商会对战胜率矩阵
+    // 商会对战胜率矩阵
     var h2hEl = document.getElementById('headToHeadMatrix');
     if (h2hEl && P.history.length > 0) {
         var pairs = [['A','B'],['A','C'],['B','C']];
         var h2hHtml = '<table style="width:100%;border-collapse:separate;border-spacing:0;"><tr><th style="text-align:left;padding:8px 10px;border-bottom:2px solid #dee2e6;">对阵</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">A胜</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">B胜</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">C胜</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">平局</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">总局数</th></tr>';
         pairs.forEach(function(pair) {
             var g1 = pair[0], g2 = pair[1];
-            var stats = {g1:0, g2:0, other:0, tie:0, total:0};
+            var st = {g1:0,g2:0,other:0,tie:0,total:0};
             P.history.forEach(function(rec) {
                 var w = getWinner(rec);
-                if (!w) { stats.tie++; stats.total++; return; }
-                // 只统计这两个商会分数较高的对局
+                if (!w) { st.tie++; st.total++; return; }
                 var s1 = rec[g1.toLowerCase()], s2 = rec[g2.toLowerCase()];
-                if (s1 === s2) return; // 分数相同不算对阵
-                stats.total++;
-                if (w === g1) stats.g1++;
-                else if (w === g2) stats.g2++;
-                else stats.other++;
+                if (s1 === s2) return;
+                st.total++;
+                if (w === g1) st.g1++;
+                else if (w === g2) st.g2++;
+                else st.other++;
             });
-            if (stats.total === 0) return;
-            var g1Rate = (stats.g1/stats.total*100).toFixed(0);
-            var g2Rate = (stats.g2/stats.total*100).toFixed(0);
+            if (st.total === 0) return;
             h2hHtml += '<tr><td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;"><strong>' + g1 + ' vs ' + g2 + '</strong></td>' +
-                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + (g1==='A'?stats.g1:g1==='B'?stats.g2:'—') + ' (' + (g1==='A'?g1Rate:g1==='B'?g2Rate:'—') + '%)</td>' +
-                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + (g2==='B'?stats.g2:g2==='C'?stats.other:'—') + ' (' + (g2==='B'?g2Rate:g2==='C'?(stats.other/stats.total*100).toFixed(0):'—') + '%)</td>' +
-                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + (g2==='C'?stats.other:'—') + '</td>' +
-                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + stats.tie + '</td>' +
-                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + stats.total + '</td></tr>';
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + st.g1 + ' (' + (st.g1/st.total*100).toFixed(0) + '%)</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + st.g2 + ' (' + (st.g2/st.total*100).toFixed(0) + '%)</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + st.other + '</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + st.tie + '</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + st.total + '</td></tr>';
         });
         h2hHtml += '</table>';
         h2hEl.innerHTML = h2hHtml;
     }
-    // v26.5：分数组合获胜规律（Top10高频组合）
+    // 分数组合获胜规律
     var comboEl = document.getElementById('scoreComboStats');
     if (comboEl && P.history.length >= 10) {
         var comboMap = {};
@@ -6122,7 +6035,7 @@ function renderLearnTab() {
             comboMap[key].total++;
             if (w) comboMap[key][w]++; else comboMap[key].tie++;
         });
-        var combos = Object.keys(comboMap).map(function(k){return {key:k, data:comboMap[k]};});
+        var combos = Object.keys(comboMap).map(function(k){return {key:k,data:comboMap[k]};});
         combos.sort(function(a,b){return b.data.total - a.data.total;});
         var comboHtml = '<div style="font-weight:600;margin-bottom:8px;">🎯 高频分数组合获胜规律（Top10）</div>';
         comboHtml += '<table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;"><tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #eee;">分数组合(A/B/C)</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">出现次数</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">A胜率</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">B胜率</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">C胜率</th></tr>';
@@ -6242,10 +6155,13 @@ document.getElementById('btnImportCSV').addEventListener('click',function(){docu
 // ========== v26.5：数据导出 ==========
 document.getElementById('btnExportData').addEventListener('click', function() {
     if (!P.history || P.history.length === 0) { alert('暂无数据可导出'); return; }
-    var type = confirm('导出类型：\n\n点「确定」= 导出完整数据（含预测列、准确率）\n点「取消」= 仅导出原始数据（A/B/C/时间/收益）');
+    document.getElementById('exportCount').textContent = P.history.length;
+    document.getElementById('exportModal').classList.add('open');
+});
+function closeExportModal() { document.getElementById('exportModal').classList.remove('open'); }
+function doExport(type) {
     var csv = '';
-    if (type) {
-        // 完整导出
+    if (type === 'full') {
         csv = '局号,日期,时间,A,B,C,获胜方,获胜收益,预测方,预测收益,预测概率,对错,规律来源\n';
         for (var i = 0; i < P.history.length; i++) {
             var r = P.history[i];
@@ -6254,15 +6170,14 @@ document.getElementById('btnExportData').addEventListener('click', function() {
             var parts = ts.split(' ');
             var date = parts[0] || '';
             var time = parts[1] || '';
-            var winner = r.profitWinner || '';
+            var winner = getWinner(r) || '';
             var predGuild = pred ? pred.guild : '';
-            var predProb = pred ? (pred.prob * 100).toFixed(1) + '%' : '';
-            var correct = pred ? (pred.guild === r.winner ? '✓' : '✗') : '';
+            var predProb = pred ? (pred.probs[pred.guild] * 100).toFixed(1) + '%' : '';
+            var correct = pred ? (pred.guild === winner ? '✓' : '✗') : '';
             var source = pred ? (pred.source || '') : '';
-            csv += [i+1, date, time, r.a, r.b, r.c, r.winner, winner, predGuild, '', predProb, correct, source].join(',') + '\n';
+            csv += [i+1, date, time, r.a, r.b, r.c, winner, r.profitWinner || '', predGuild, '', predProb, correct, source].join(',') + '\n';
         }
     } else {
-        // 仅原始数据
         csv = 'A,B,C,时间,获胜收益\n';
         for (var j = 0; j < P.history.length; j++) {
             var r2 = P.history[j];
@@ -6273,10 +6188,21 @@ document.getElementById('btnExportData').addEventListener('click', function() {
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = '商会预测数据_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = '商会预测数据_' + new Date().toISOString().slice(0,10) + (type === 'full' ? '_完整' : '_原始') + '.csv';
     a.click();
     URL.revokeObjectURL(url);
-});
+    closeExportModal();
+    showRecordResult(true, '导出成功', '已导出' + P.history.length + '条记录\n类型：' + (type === 'full' ? '完整数据' : '原始数据'));
+}
+// 录入结果提示
+function showRecordResult(success, title, msg) {
+    document.getElementById('recordResultIcon').textContent = success ? '✅' : '❌';
+    document.getElementById('recordResultTitle').textContent = title;
+    document.getElementById('recordResultTitle').style.color = success ? '#27ae60' : '#e74c3c';
+    document.getElementById('recordResultMsg').textContent = msg;
+    document.getElementById('recordResultModal').classList.add('open');
+}
+function closeRecordResultModal() { document.getElementById('recordResultModal').classList.remove('open'); }
 // ========== 剪贴板导入（PC/手机通用） ==========
 document.getElementById('btnImportClipboard').addEventListener('click', async function() {
     var st = document.getElementById('importStatus');
@@ -6294,6 +6220,7 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
         if (recs.length === 0) {
             st.className = 'import-status import-error';
             st.textContent = '❌ 未能解析到有效数据，请确认复制的是表格内容（需包含A/B/C数值列）';
+            showRecordResult(false, '导入失败', '未能解析到有效数据\n请确认复制的是表格内容，需包含A/B/C数值列');
             return;
         }
         var isAppend = confirm('成功解析 ' + recs.length + ' 条记录。\n\n点「确定」= 追加导入（保留现有数据）\n点「取消」= 覆盖导入（清空后导入）');
@@ -6302,9 +6229,11 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
         st.className = 'import-status import-success';
         st.textContent = '✅ 成功导入 ' + recs.length + ' 条记录（' + (isAppend ? '追加' : '覆盖') + '模式），已自动同步云端';
         setTimeout(function(){ st.style.display = 'none'; }, 4000);
+        showRecordResult(true, '导入成功', '已成功导入 ' + recs.length + ' 条记录\n模式：' + (isAppend ? '追加' : '覆盖') + '\n当前共 ' + P.history.length + ' 条记录');
     } catch(e) {
         st.className = 'import-status import-error';
         st.textContent = '❌ 读取失败：' + e.message + '（请确保页面是HTTPS，且允许剪贴板权限）';
+        showRecordResult(false, '导入失败', '读取剪贴板失败：' + e.message + '\n请确保页面是HTTPS，且允许剪贴板权限');
     }
 });
 function _parseClipboardTable(text) {
@@ -6694,6 +6623,12 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
         st.className = 'import-status import-success';
         st.textContent = '✅ ' + modeName + '导入完成：' + detail + '，当前共 ' + P.history.length + ' 条记录';
         setTimeout(function(){st.style.display='none';},5000);
+        // v26.5：导入成功弹窗
+        var successMsg = modeName + '导入完成！\n' + detail + '\n当前共 ' + P.history.length + ' 条记录';
+        if (_importErrors && _importErrors.length > 0) {
+            successMsg += '\n\n⚠️ 有 ' + _importErrors.length + ' 行数据校验失败已跳过';
+        }
+        showRecordResult(true, '导入成功', successMsg);
     }, 1000);
 }
 // v26.5：数据校验
@@ -6739,24 +6674,26 @@ function importRecords(recs,replace,st){
 }
 // ========== 导出 ==========
 document.getElementById('btnExport').addEventListener('click',function(){
-    if(P.history.length===0){alert('无数据');return;}
-    var data=P.history.map(function(r,i){
-        var pg='',corr='',r1='',r2='',r3='',src='',pp='';
-        // 对第i局(0-indexed)的预测存在 predHistory[i-1] 中
-        if(i>0&&i-1<P.predHistory.length){var ph=P.predHistory[i-1];pg=ph.guild;corr=(getWinner(r)===ph.guild)?'是':'否';r1='A:'+(ph.probs.A*100).toFixed(1)+'%';r2='B:'+(ph.probs.B*100).toFixed(1)+'%';r3='C:'+(ph.probs.C*100).toFixed(1)+'%';src=ph.source||'';pp=(ph.profitPrediction&&ph.profitPrediction.predicted)?ph.profitPrediction.predicted:'';}
-        else if(i===0){pg='首局';corr='-';r1='-';r2='-';r3='-';src='-';pp='-';}
-        var ts = splitTimeSlot(r.timeSlot);
-        return {局号:i+1,日期:ts.date||'',时间:ts.time||'',A:r.a,B:r.b,C:r.c,获胜方:getWinner(r)||'平局','获胜的商会收益':r.profitWinner||'',预测收益:pp,A收益:r.profitA||'',B收益:r.profitB||'',C收益:r.profitC||'',预测方:pg,概率A:r1,概率B:r2,概率C:r3,规律来源:src,是否正确:corr};
-    });
-    var ws=XLSX.utils.json_to_sheet(data);
-    // 设置列宽
-    ws['!cols']=[{wch:6},{wch:10},{wch:16},{wch:6},{wch:6},{wch:6},{wch:8},{wch:14},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},{wch:10},{wch:10},{wch:10},{wch:10},{wch:8}];
-    var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'历史记录');
-    // v25.5: 导出文件名带日期
-    var now=new Date();
-    var dateStr=now.getFullYear()+''+(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)+''+(now.getDate()<10?'0':'')+now.getDate();
-    var fname='商会数据_'+dateStr+'_'+P.history.length+'局.xlsx';
-    XLSX.writeFile(wb,fname);
+    if(P.history.length===0){ showRecordResult(false, '导出失败', '当前没有数据可导出'); return; }
+    try {
+        var data=P.history.map(function(r,i){
+            var pg='',corr='',r1='',r2='',r3='',src='',pp='';
+            if(i>0&&i-1<P.predHistory.length){var ph=P.predHistory[i-1];pg=ph.guild;corr=(getWinner(r)===ph.guild)?'是':'否';r1='A:'+(ph.probs.A*100).toFixed(1)+'%';r2='B:'+(ph.probs.B*100).toFixed(1)+'%';r3='C:'+(ph.probs.C*100).toFixed(1)+'%';src=ph.source||'';pp=(ph.profitPrediction&&ph.profitPrediction.predicted)?ph.profitPrediction.predicted:'';}
+            else if(i===0){pg='首局';corr='-';r1='-';r2='-';r3='-';src='-';pp='-';}
+            var ts = splitTimeSlot(r.timeSlot);
+            return {局号:i+1,日期:ts.date||'',时间:ts.time||'',A:r.a,B:r.b,C:r.c,获胜方:getWinner(r)||'平局','获胜的商会收益':r.profitWinner||'',预测收益:pp,A收益:r.profitA||'',B收益:r.profitB||'',C收益:r.profitC||'',预测方:pg,概率A:r1,概率B:r2,概率C:r3,规律来源:src,是否正确:corr};
+        });
+        var ws=XLSX.utils.json_to_sheet(data);
+        ws['!cols']=[{wch:6},{wch:10},{wch:16},{wch:6},{wch:6},{wch:6},{wch:8},{wch:14},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},{wch:10},{wch:10},{wch:10},{wch:10},{wch:8}];
+        var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'历史记录');
+        var now=new Date();
+        var dateStr=now.getFullYear()+''+(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)+''+(now.getDate()<10?'0':'')+now.getDate();
+        var fname='商会数据_'+dateStr+'_'+P.history.length+'局.xlsx';
+        XLSX.writeFile(wb,fname);
+        showRecordResult(true, '导出成功', '已导出' + P.history.length + '条记录到Excel\n文件名：' + fname);
+    } catch(e) {
+        showRecordResult(false, '导出失败', '导出过程出错：' + e.message);
+    }
 });
 // ========== 按钮事件 ==========
 function showLearningIndicator(show) {
@@ -6779,13 +6716,13 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         seen[scores[vi]]=vi;
     }
     if(dupGuilds.length>0){
-        alert('❌ 录入错误：ABC每个得分只能出现一次，不能重复！\n\n'+dupGuilds.join('\n')+'\n\n请修改后重新录入。');
+        showRecordResult(false, '录入失败', 'ABC每个得分只能出现一次，不能重复！\n\n' + dupGuilds.join('\n'));
         return;
     }
     // 检查不能同时出现2和3
     var has2=scores.indexOf(2)>=0, has3=scores.indexOf(3)>=0;
     if(has2 && has3){
-        alert('❌ 录入错误：2分和3分不能同时出现！\n\n请修改后重新录入。');
+        showRecordResult(false, '录入失败', '2分和3分不能同时出现！请修改后重新录入。');
         return;
     }
     // v26.4：录入二次确认
@@ -6807,50 +6744,57 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         debouncedSave(); // v26.4修复：录入后必须保存，否则自动拉取会把数据覆盖没
         showLearningIndicator(false);
         showLearnTip(); // v18.0：自动学习提示
+        // v26.5：录入成功弹窗
+        var profitTxt = pW ? ('，获胜收益：' + pW) : '';
+        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt);
     }, 10);
 });
 document.getElementById('btnUndo').addEventListener('click',function(){
-    if(!P.history || P.history.length === 0){ alert('没有可撤销的记录'); return; }
+    if(!P.history || P.history.length === 0){ showRecordResult(false, '撤销失败', '没有可撤销的记录'); return; }
     var last = P.history[P.history.length - 1];
     var profitTxt = last.profitWinner ? ('，获胜收益：' + last.profitWinner) : '';
     if(!confirm('确认撤销上一局？\n\n上一局：A' + last.a + ' B' + last.b + ' C' + last.c + profitTxt + '\n\n撤销后可在操作日志回滚。')) return;
     createSnapshot('撤销上一局');
     P.undoLast();renderAll();debouncedSave();
+    showRecordResult(true, '撤销成功', '已撤销第' + (P.history.length + 1) + '局：A' + last.a + ' B' + last.b + ' C' + last.c);
 });
 document.getElementById('btnClear').addEventListener('click',function(){
-    if(!confirm('⚠️ 确定清空所有数据？\n\n此操作会删除全部历史记录，并同步到云端，其他设备也会被覆盖。\n\n可在操作日志回滚。')) return;
+    if(!P.history || P.history.length === 0){ showRecordResult(false, '清空失败', '当前没有数据可清空'); return; }
+    var count = P.history.length;
+    if(!confirm('⚠️ 确定清空所有数据？\n\n共' + count + '条记录将被删除，并同步到云端。\n\n可在操作日志回滚。')) return;
     createSnapshot('清空全部数据');
     P.clearAll();
-    P._syncEpoch = (P._syncEpoch || 0) + 1; // v26.4：清空后纪元+1，强制其他设备覆盖
+    P._syncEpoch = (P._syncEpoch || 0) + 1;
     renderAll();
     P.saveLocal();
     if (supabaseClient && cloudOnline) cloudSave();
+    showRecordResult(true, '清空成功', '已清空全部' + count + '条记录');
 });
 document.getElementById('btnSimulate').addEventListener('click',function(){
     showLearningIndicator(true);
     setTimeout(function(){
-        // 生成合法的随机得分：ABC不重复，不同时有2和3
         function genValidScores(){
             for(var tries=0;tries<50;tries++){
                 var sa=VALID_VALUES[~~(Math.random()*5)];
                 var sb=VALID_VALUES[~~(Math.random()*5)];
                 var sc=VALID_VALUES[~~(Math.random()*5)];
-                if(sa===sb||sb===sc||sa===sc) continue; // 不能重复
+                if(sa===sb||sb===sc||sa===sc) continue;
                 var has2=(sa===2||sb===2||sc===2), has3=(sa===3||sb===3||sc===3);
-                if(has2&&has3) continue; // 不能同时有2和3
+                if(has2&&has3) continue;
                 return [sa,sb,sc];
             }
-            return [0,0.5,1]; // 兜底
+            return [0,0.5,1];
         }
-        // v26.0: 生成随机获胜收益（大/中/小）
         function randProfit(){var arr=['大','中','小'];return arr[~~(Math.random()*3)];}
+        var before = P.history.length;
         for (var i=0;i<10;i++){
             var sc=genValidScores();
             var pW=randProfit();
             P.addRecord(sc[0],sc[1],sc[2],null,pW,'','','');
         }
-        renderAll();debouncedSave();showLearningIndicator(false); // v18.0：防抖保存
-        showLearnTip(); // v18.0：自动学习提示
+        renderAll();debouncedSave();showLearningIndicator(false);
+        showLearnTip();
+        showRecordResult(true, '模拟完成', '已随机生成10局模拟数据\n当前共' + P.history.length + '条记录');
     },10);
 });
 document.getElementById('configToggleBtn').addEventListener('click',function(){document.getElementById('configPanel').classList.toggle('open');});
@@ -6988,6 +6932,11 @@ try {
 // 云同步初始化
 bindCloudEvents();
 initCloud();
+// v26.5：导出按钮绑定（移到DOM加载完成后，避免null报错）
+var _efb = document.getElementById('exportFullBtn');
+if (_efb) _efb.onclick = function() { doExport('full'); };
+var _erb = document.getElementById('exportRawBtn');
+if (_erb) _erb.onclick = function() { doExport('raw'); };
 // v26.5：快捷键支持
 document.addEventListener('keydown', function(e) {
     // 如果焦点在输入框，不拦截数字键（但Ctrl组合键仍生效）
@@ -7027,36 +6976,6 @@ document.addEventListener('keydown', function(e) {
 // 绑定深色模式按钮
 var darkBtn = document.getElementById('darkModeBtn');
 if (darkBtn) darkBtn.onclick = toggleDarkMode;
-// v26.5：数据加密按钮
-var encryptBtn = document.getElementById('encryptBtn');
-if (encryptBtn) encryptBtn.onclick = openEncryptModal;
-var encryptToggleBtn = document.getElementById('encryptToggleBtn');
-if (encryptToggleBtn) encryptToggleBtn.onclick = toggleEncryption;
-// v26.5：编辑记录按钮事件委托
-document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('btn-edit-row')) {
-        var idx = parseInt(e.target.getAttribute('data-idx'));
-        openEditRecord(idx);
-    }
-});
-// v26.5：历史记录筛选与搜索
-['historySearch','filterWinner','filterProfit'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.addEventListener('input', function() {
-        var c = document.getElementById('historyContainer');
-        if (c) c.setAttribute('data-page', '1');
-        renderHistory();
-    });
-});
-var clearFilterBtn = document.getElementById('btnClearFilter');
-if (clearFilterBtn) clearFilterBtn.onclick = function() {
-    document.getElementById('historySearch').value = '';
-    document.getElementById('filterWinner').value = '';
-    document.getElementById('filterProfit').value = '';
-    var c = document.getElementById('historyContainer');
-    if (c) c.setAttribute('data-page', '1');
-    renderHistory();
-};
 // v26.5：请求浏览器通知权限（用于连胜提醒）
 if ('Notification' in window && Notification.permission === 'default') {
     setTimeout(function() { Notification.requestPermission(); }, 3000);
@@ -7421,7 +7340,7 @@ setTimeout(function(){
 </div>
 </div>
 </div>
-<!-- ========== 编辑记录模态框 ========== -->
+<!-- 编辑记录模态框 -->
 <div class="import-modal-overlay" id="editRecordModal">
 <div class="import-modal" style="max-width:420px;">
 <h3>✏️ 编辑第 <span id="editRecordIdx"></span> 局</h3>
@@ -7454,7 +7373,101 @@ setTimeout(function(){
 </div>
 </div>
 </div>
-<!-- ========== 数据加密模态框 ========== -->
+<script>
+var _editRecordIdx = -1;
+function openEditRecord(idx) {
+    _editRecordIdx = idx;
+    var rec = P.history[idx];
+    if (!rec) return;
+    document.getElementById('editRecordIdx').textContent = idx + 1;
+    document.getElementById('editRecA').value = rec.a;
+    document.getElementById('editRecB').value = rec.b;
+    document.getElementById('editRecC').value = rec.c;
+    document.getElementById('editRecProfit').value = rec.profitWinner || '';
+    document.getElementById('editRecordError').style.display = 'none';
+    document.getElementById('editRecordModal').classList.add('open');
+}
+function closeEditRecordModal() {
+    document.getElementById('editRecordModal').classList.remove('open');
+    _editRecordIdx = -1;
+}
+function saveEditRecord() {
+    if (_editRecordIdx < 0) return;
+    var a = parseFloat(document.getElementById('editRecA').value);
+    var b = parseFloat(document.getElementById('editRecB').value);
+    var c = parseFloat(document.getElementById('editRecC').value);
+    var profit = document.getElementById('editRecProfit').value;
+    var errEl = document.getElementById('editRecordError');
+    var errs = validateRecord({a:a, b:b, c:c});
+    if (errs.length > 0) {
+        errEl.textContent = errs.join('；');
+        errEl.style.display = 'block';
+        return;
+    }
+    if (!confirm('确定修改第 ' + (_editRecordIdx + 1) + ' 局？\n\n修改后将重新计算后续所有预测快照。')) return;
+    createSnapshot('编辑第' + (_editRecordIdx + 1) + '局');
+    P.history[_editRecordIdx].a = a;
+    P.history[_editRecordIdx].b = b;
+    P.history[_editRecordIdx].c = c;
+    if (profit) P.history[_editRecordIdx].profitWinner = profit;
+    P.predHistory = P.predHistory.slice(0, _editRecordIdx);
+    P.accuracy = P.accuracy.slice(0, _editRecordIdx);
+    for (var i = _editRecordIdx; i < P.history.length; i++) {
+        if (i > 0) {
+            var pred = P.predict();
+            if (pred) {
+                P.predHistory.push(pred);
+                var actualWinner = getWinner(P.history[i]);
+                P.accuracy.push(pred.guild === actualWinner);
+                P.learnFromResult(P.history[i], pred);
+            }
+        }
+    }
+    P.lastPrediction = P.predHistory.length > 0 ? P.predHistory[P.predHistory.length - 1].guild : null;
+    P.maxStreakEver = calcMaxStreak(P.history);
+    renderAll();
+    debouncedSave();
+    closeEditRecordModal();
+}
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('btn-edit-row')) {
+        openEditRecord(parseInt(e.target.getAttribute('data-idx')));
+    } else if (e.target.classList.contains('btn-delete-row')) {
+        var i = parseInt(e.target.getAttribute('data-idx'));
+        if (!confirm('删除第' + (i+1) + '局？')) return;
+        createSnapshot('删除第' + (i+1) + '局');
+        P.history.splice(i,1);
+        if (i>0 && i-1<P.accuracy.length) P.accuracy.splice(i-1,1);
+        if (P.profitAccuracy && i>0 && i-1<P.profitAccuracy.length) P.profitAccuracy.splice(i-1,1);
+        if (i>0 && i-1<P.predHistory.length) P.predHistory.splice(i-1,1);
+        P.lastPrediction=P.predHistory.length>0?P.predHistory[P.predHistory.length-1].guild:null;
+        renderAll(); debouncedSave();
+    } else if (e.target.classList.contains('time-edit-cell')) {
+        var idx = parseInt(e.target.getAttribute('data-idx'));
+        var field = e.target.getAttribute('data-field');
+        startTimeEdit(e.target, idx, field);
+    }
+});
+// 筛选与搜索
+['historySearch','filterWinner','filterProfit'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function() {
+        var c = document.getElementById('historyContainer');
+        if (c) c.setAttribute('data-page', '1');
+        renderHistory();
+    });
+});
+var clearFilterBtn = document.getElementById('btnClearFilter');
+if (clearFilterBtn) clearFilterBtn.onclick = function() {
+    document.getElementById('historySearch').value = '';
+    document.getElementById('filterWinner').value = '';
+    document.getElementById('filterProfit').value = '';
+    var c = document.getElementById('historyContainer');
+    if (c) c.setAttribute('data-page', '1');
+    renderHistory();
+};
+</script>
+<!-- 数据加密模态框 -->
 <div class="import-modal-overlay" id="encryptModal">
 <div class="import-modal" style="max-width:420px;">
 <h3>🔒 本地数据加密</h3>
@@ -7475,6 +7488,98 @@ setTimeout(function(){
 </div>
 </div>
 </div>
+<!-- 导出数据模态框 -->
+<div class="import-modal-overlay" id="exportModal">
+<div class="import-modal" style="max-width:420px;">
+<h3>📤 导出数据</h3>
+<p class="modal-sub">选择导出类型，共 <strong id="exportCount">0</strong> 条记录</p>
+<div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
+<button id="exportFullBtn" style="padding:14px;border:2px solid #302b63;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;text-align:left;">
+<strong style="color:#302b63;">📊 导出完整数据</strong><br>
+<span style="font-size:12px;color:#666;">含预测列、准确率、规律来源等全部字段</span>
+</button>
+<button id="exportRawBtn" style="padding:14px;border:2px solid #6c757d;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;text-align:left;">
+<strong style="color:#6c757d;">📋 仅导出原始数据</strong><br>
+<span style="font-size:12px;color:#666;">仅A/B/C分数、时间、获胜收益</span>
+</button>
+</div>
+<div class="import-modal-actions">
+<button class="btn-modal-cancel" onclick="closeExportModal()">取消</button>
+</div>
+</div>
+</div>
+<!-- 录入结果提示模态框 -->
+<div class="import-modal-overlay" id="recordResultModal">
+<div class="import-modal" style="max-width:380px;text-align:center;">
+<div id="recordResultIcon" style="font-size:48px;margin-bottom:12px;">✅</div>
+<h3 id="recordResultTitle" style="margin:0 0 8px;">录入成功</h3>
+<p id="recordResultMsg" class="modal-sub" style="margin-bottom:16px;"></p>
+<div class="import-modal-actions" style="justify-content:center;">
+<button class="btn-modal-confirm" onclick="closeRecordResultModal()">确定</button>
+</div>
+</div>
+</div>
+<script>
+var ENC_KEY = 'mm_encryption_enabled_v1';
+var ENC_PWD_KEY = 'mm_encryption_pwd_v1';
+function xorEncrypt(str, pwd) {
+    var result = '';
+    for (var i = 0; i < str.length; i++) result += String.fromCharCode(str.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+    return 'ENC:' + btoa(unescape(encodeURIComponent(result)));
+}
+function xorDecrypt(encStr, pwd) {
+    try {
+        var raw = decodeURIComponent(escape(atob(encStr.substring(4))));
+        var result = '';
+        for (var i = 0; i < raw.length; i++) result += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+        return result;
+    } catch(e) { return null; }
+}
+function isEncrypted(data) { return typeof data === 'string' && data.indexOf('ENC:') === 0; }
+function openEncryptModal() {
+    var enabled = localStorage.getItem(ENC_KEY) === '1';
+    var statusEl = document.getElementById('encryptStatus');
+    var toggleBtn = document.getElementById('encryptToggleBtn');
+    if (enabled) {
+        statusEl.innerHTML = '<span style="color:#27ae60;">✅ 加密已开启</span>';
+        toggleBtn.textContent = '关闭加密'; toggleBtn.style.background = '#e74c3c';
+    } else {
+        statusEl.innerHTML = '<span style="color:#f39c12;">⚠️ 加密未开启，本地数据为明文</span>';
+        toggleBtn.textContent = '开启加密'; toggleBtn.style.background = '#27ae60';
+    }
+    document.getElementById('encryptPassword').value = '';
+    document.getElementById('encryptPassword2').value = '';
+    document.getElementById('encryptError').style.display = 'none';
+    document.getElementById('encryptModal').classList.add('open');
+}
+function closeEncryptModal() { document.getElementById('encryptModal').classList.remove('open'); }
+function toggleEncryption() {
+    var pwd = document.getElementById('encryptPassword').value;
+    var pwd2 = document.getElementById('encryptPassword2').value;
+    var errEl = document.getElementById('encryptError');
+    var enabled = localStorage.getItem(ENC_KEY) === '1';
+    if (!enabled) {
+        if (!pwd) { errEl.textContent = '请输入加密密码'; errEl.style.display = 'block'; return; }
+        if (pwd !== pwd2) { errEl.textContent = '两次密码不一致'; errEl.style.display = 'block'; return; }
+        if (pwd.length < 4) { errEl.textContent = '密码至少4位'; errEl.style.display = 'block'; return; }
+        localStorage.setItem(ENC_KEY, '1');
+        localStorage.setItem(ENC_PWD_KEY, pwd);
+        P.saveLocal();
+        alert('✅ 加密已开启！请牢记密码，忘记密码将无法恢复数据！');
+    } else {
+        var savedPwd = localStorage.getItem(ENC_PWD_KEY);
+        if (pwd !== savedPwd) { errEl.textContent = '密码错误，无法关闭加密'; errEl.style.display = 'block'; return; }
+        localStorage.setItem(ENC_KEY, '0');
+        P.saveLocal();
+        alert('✅ 加密已关闭，本地数据恢复明文存储。');
+    }
+    closeEncryptModal();
+}
+var encryptBtn = document.getElementById('encryptBtn');
+if (encryptBtn) encryptBtn.onclick = openEncryptModal;
+var encryptToggleBtn = document.getElementById('encryptToggleBtn');
+if (encryptToggleBtn) encryptToggleBtn.onclick = toggleEncryption;
+</script>
 </body>
 </html>
 
