@@ -421,7 +421,12 @@ body.dark-mode .access-box p{color:#aaa;}
       <h2>⏳ 等待管理员授权</h2>
       <p>你的设备已提交申请，请联系管理员授权后使用</p>
       <p class="access-device-id">设备ID：<span id="accessDeviceId"></span></p>
+      <div style="margin:12px 0;">
+        <label style="font-size:13px;color:#555;display:block;margin-bottom:4px;">设备备注名（方便管理员识别）：</label>
+        <input type="text" id="accessDeviceName" placeholder="如：前台电脑、老板手机" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;font-size:14px;" maxlength="20">
+      </div>
       <button id="accessRefreshBtn">🔄 刷新授权状态</button>
+      <button id="accessReapplyBtn" style="display:none;margin-top:10px;background:#e67e22;">🔄 重新申请授权</button>
       <p class="access-hint" id="accessPendingHint"></p>
     </div>
     <!-- 管理员面板 -->
@@ -520,6 +525,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn" id="adminModeBtn" style="background:#795548;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">👑 管理员模式</button>
 <button class="cloud-btn" id="snapshotBtn" style="background:#607d8b;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 操作日志</button>
 <button class="cloud-btn" id="darkModeBtn" style="background:#455a64;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🌙 深色模式</button>
+<button class="cloud-btn" id="encryptBtn" style="background:#5d4037;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔒 数据加密</button>
 </div>
 <div class="tab-bar">
 <button class="tab-btn active" data-tab="main">📊 预测主界面</button>
@@ -648,8 +654,23 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="history-section">
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
 <h2 class="section-title" style="margin:0;">📜 历史记录</h2>
-<!-- v18.0新增：重新计算预测快照按钮 -->
-<button class="btn-secondary" id="btnRecalcSnap" style="flex:0 0 auto;min-width:auto;padding:8px 14px;font-size:13px;" onclick="recalcPredSnapshots()">🔄 重新计算预测快照</button>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<input type="text" id="historySearch" placeholder="🔍 搜索局号/日期..." style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:160px;">
+<select id="filterWinner" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+<option value="">全部获胜方</option>
+<option value="A">A获胜</option>
+<option value="B">B获胜</option>
+<option value="C">C获胜</option>
+</select>
+<select id="filterProfit" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+<option value="">全部收益</option>
+<option value="大">大收益</option>
+<option value="中">中收益</option>
+<option value="小">小收益</option>
+</select>
+<button class="btn-secondary" id="btnClearFilter" style="flex:0 0 auto;min-width:auto;padding:6px 12px;font-size:13px;">清除筛选</button>
+<button class="btn-secondary" id="btnRecalcSnap" style="flex:0 0 auto;min-width:auto;padding:8px 14px;font-size:13px;" onclick="recalcPredSnapshots()">🔄 重新计算</button>
+</div>
 </div>
 <div class="history-table-container" id="historyContainer">
 <table class="history-table">
@@ -716,6 +737,16 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div id="adaptiveWeights" style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;font-size:13px;font-family:monospace;">等待数据...</div>
 <h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">📊 模型权重可视化</h3>
 <div id="modelWeightChart" style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;">等待数据...</div>
+<h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">📈 预测准确率趋势</h3>
+<div style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;">
+<canvas id="accuracyTrendChart" width="600" height="200" style="width:100%;height:auto;"></canvas>
+<div id="confidenceStats" style="margin-top:12px;font-size:13px;color:#555;"></div>
+</div>
+<h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">⚔️ 商会对战胜率矩阵</h3>
+<div style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;">
+<div id="headToHeadMatrix" style="margin-bottom:14px;">等待数据...</div>
+<div id="scoreComboStats" style="font-size:13px;color:#555;"></div>
+</div>
 <button class="btn-learn" id="btnForceLearn" style="margin-top:14px;">🔄 强制重新学习</button>
 <button class="btn-secondary" id="btnResetLearn" style="margin-top:14px;margin-left:12px;">↩️ 重置学习状态</button>
 </div>
@@ -797,7 +828,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
     return 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
   }
 
+  var DEVICE_NAME_KEY = 'mm_access_device_name';
   function devName() {
+    var custom = localStorage.getItem(DEVICE_NAME_KEY);
+    if (custom && custom.trim()) return custom.trim();
     var ua = navigator.userAgent, b = '未知浏览器', o = '未知系统';
     if (ua.indexOf('Edg') >= 0) b = 'Edge';
     else if (ua.indexOf('Chrome') >= 0) b = 'Chrome';
@@ -848,6 +882,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
     document.getElementById('accessPasswordView').style.display = v === 'pw' ? 'block' : 'none';
     document.getElementById('accessPendingView').style.display = v === 'pending' ? 'block' : 'none';
     document.getElementById('accessAdminView').style.display = v === 'admin' ? 'block' : 'none';
+    if (v === 'pending') {
+      var nameInput = document.getElementById('accessDeviceName');
+      if (nameInput) nameInput.value = localStorage.getItem(DEVICE_NAME_KEY) || '';
+    }
   }
   function hide() { document.getElementById('accessOverlay').style.display = 'none'; }
 
@@ -860,9 +898,11 @@ create policy "ac update" on access_control for update using (true);</textarea><
         hide(); // v26.4：纯云端认证，不写本地缓存
       } else if (s === 'rejected') {
         if (poll) clearInterval(poll);
-        alert('设备已被管理员拒绝');
+        document.getElementById('accessPendingHint').innerHTML = '<span style="color:#e74c3c;font-weight:600;">❌ 设备已被管理员拒绝</span><br>点击下方按钮可重新申请授权';
+        document.getElementById('accessReapplyBtn').style.display = 'inline-block';
       } else {
         document.getElementById('accessPendingHint').textContent = '等待管理员授权中…（每5秒自动刷新）';
+        document.getElementById('accessReapplyBtn').style.display = 'none';
       }
     }).catch(function(e) { console.error('checkStatus', e); });
   }
@@ -940,6 +980,29 @@ create policy "ac update" on access_control for update using (true);</textarea><
     };
     document.getElementById('accessPasswordInput').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessPasswordBtn').click(); };
     document.getElementById('accessRefreshBtn').onclick = checkStatus;
+    // 设备备注名输入：实时保存到本地，失焦时更新云端
+    var nameInput = document.getElementById('accessDeviceName');
+    if (nameInput) {
+      nameInput.addEventListener('input', function() {
+        localStorage.setItem(DEVICE_NAME_KEY, this.value.trim());
+      });
+      nameInput.addEventListener('blur', function() {
+        if (deviceId) {
+          api('access_control', {method: 'PATCH', body: {device_name: devName()}, query: 'id=eq.' + deviceId}).catch(function(){});
+        }
+      });
+    }
+    // 重新申请授权
+    document.getElementById('accessReapplyBtn').onclick = function() {
+      if (!deviceId) { deviceId = genId(); localStorage.setItem(DEVICE_KEY, deviceId); }
+      regDevice().then(function() {
+        document.getElementById('accessPendingHint').textContent = '已重新提交申请，等待管理员授权...';
+        document.getElementById('accessReapplyBtn').style.display = 'none';
+        if (poll) clearInterval(poll);
+        checkStatus();
+        poll = setInterval(checkStatus, 5000);
+      }).catch(function(e) { alert('重新申请失败：' + e.message); });
+    };
 
     document.getElementById('adminEntryLink').onclick = function(e) {
       e.preventDefault();
@@ -4201,6 +4264,11 @@ if(curBrier > 0.3){
                 saveData.accuracy = saveData.accuracy.slice(-100);
                 json = JSON.stringify(saveData);
             }
+            // v26.5：本地数据加密
+            if (localStorage.getItem(ENC_KEY) === '1') {
+                var pwd = localStorage.getItem(ENC_PWD_KEY);
+                if (pwd) json = xorEncrypt(json, pwd);
+            }
             localStorage.setItem(STORE_KEY, json);
         } catch(e) {
             try {
@@ -4214,6 +4282,24 @@ if(curBrier > 0.3){
         try {
             var raw = localStorage.getItem(STORE_KEY);
             if (!raw) return;
+            // v26.5：检测加密数据
+            if (isEncrypted(raw)) {
+                var pwd = localStorage.getItem(ENC_PWD_KEY);
+                if (!pwd) {
+                    alert('⚠️ 本地数据已加密，但未找到密码，请输入加密密码解锁。');
+                    pwd = prompt('请输入加密密码：');
+                    if (!pwd) return;
+                    localStorage.setItem(ENC_PWD_KEY, pwd);
+                }
+                var decrypted = xorDecrypt(raw, pwd);
+                if (!decrypted) {
+                    alert('❌ 密码错误，无法解密数据！\n\n请重新输入正确的加密密码。');
+                    localStorage.removeItem(ENC_PWD_KEY);
+                    return;
+                }
+                raw = decrypted;
+                localStorage.setItem(ENC_KEY, '1'); // 标记加密已开启
+            }
             var p = JSON.parse(raw);
             if (Array.isArray(p.history)) {
                 this.clearAll();
@@ -4607,9 +4693,23 @@ async function cloudSave(manual) {
                     var cTime = new Date(chkRes.data.updated_at).getTime();
                     var lTime = cloudLastSync.getTime();
                     if (cTime > lTime + 2000) {
-                        // v26.4：自动上传时直接合并，不弹确认框；手动上传才弹确认
-                        var doMerge = manual ? confirm('⚠️ 云端数据比本地新（别人可能修改了）\n\n点「确定」= 合并云端和本地数据后上传（推荐）\n点「取消」= 强制上传覆盖云端') : true;
-                        if (doMerge) {
+                        // v26.5：手动上传时弹清晰的二选一确认
+                        if (manual) {
+                            var cloudHistCount = (chkRes.data.data && chkRes.data.data.history) ? chkRes.data.data.history.length : 0;
+                            var localHistCount = P.history ? P.history.length : 0;
+                            var choice = confirm('⚠️ 本地和云端数据不一致\n\n云端：' + cloudHistCount + ' 局（更新时间：' + new Date(chkRes.data.updated_at).toLocaleString() + '）\n本地：' + localHistCount + ' 局\n\n点「确定」= 以云端为准，覆盖本地数据\n点「取消」= 以本地为准，覆盖云端数据');
+                            if (choice) {
+                                // 以云端覆盖本地：拉取云端数据，不上传
+                                updateCloudStatus('syncing', '正在以云端数据覆盖本地...');
+                                await cloudLoad(true);
+                                _cloudSaving = false;
+                                return true;
+                            }
+                            // 以本地覆盖云端：跳过合并，直接上传
+                            updateCloudStatus('syncing', '正在以本地数据覆盖云端...');
+                        } else {
+                            // 自动上传：默认合并（保留之前的合并逻辑）
+                            var doMerge = true;
                             var cloudHist = (chkRes.data.data && chkRes.data.data.history) ? chkRes.data.data.history : [];
                             var localHist = P.history ? P.history.slice() : [];
                             var existKeys = {};
@@ -4774,6 +4874,136 @@ function doRestoreSnapshot(idx) {
         renderSnapshotList();
         setTimeout(closeSnapshotModal, 800);
     }
+}
+// v26.5：编辑单条记录
+var _editRecordIdx = -1;
+function openEditRecord(idx) {
+    _editRecordIdx = idx;
+    var rec = P.history[idx];
+    if (!rec) return;
+    document.getElementById('editRecordIdx').textContent = idx + 1;
+    document.getElementById('editRecA').value = rec.a;
+    document.getElementById('editRecB').value = rec.b;
+    document.getElementById('editRecC').value = rec.c;
+    document.getElementById('editRecProfit').value = rec.profitWinner || '';
+    document.getElementById('editRecordError').style.display = 'none';
+    document.getElementById('editRecordModal').classList.add('open');
+}
+function closeEditRecordModal() {
+    document.getElementById('editRecordModal').classList.remove('open');
+    _editRecordIdx = -1;
+}
+function saveEditRecord() {
+    if (_editRecordIdx < 0) return;
+    var a = parseFloat(document.getElementById('editRecA').value);
+    var b = parseFloat(document.getElementById('editRecB').value);
+    var c = parseFloat(document.getElementById('editRecC').value);
+    var profit = document.getElementById('editRecProfit').value;
+    var errEl = document.getElementById('editRecordError');
+    // 校验
+    var errs = validateRecord({a:a, b:b, c:c});
+    if (errs.length > 0) {
+        errEl.textContent = errs.join('；');
+        errEl.style.display = 'block';
+        return;
+    }
+    if (!confirm('确定修改第 ' + (_editRecordIdx + 1) + ' 局？\n\n修改后将重新计算后续所有预测快照。')) return;
+    createSnapshot('编辑第' + (_editRecordIdx + 1) + '局');
+    // 修改数据
+    P.history[_editRecordIdx].a = a;
+    P.history[_editRecordIdx].b = b;
+    P.history[_editRecordIdx].c = c;
+    if (profit) P.history[_editRecordIdx].profitWinner = profit;
+    // 从修改局开始截断预测历史，重新计算
+    P.predHistory = P.predHistory.slice(0, _editRecordIdx);
+    P.accuracy = P.accuracy.slice(0, _editRecordIdx);
+    // 从修改局开始重新预测
+    for (var i = _editRecordIdx; i < P.history.length; i++) {
+        if (i > 0) {
+            var pred = P.predict();
+            if (pred) {
+                P.predHistory.push(pred);
+                var actualWinner = getWinner(P.history[i]);
+                P.accuracy.push(pred.guild === actualWinner);
+                P.learnFromResult(P.history[i], pred);
+            }
+        }
+    }
+    P.lastPrediction = P.predHistory.length > 0 ? P.predHistory[P.predHistory.length - 1].guild : null;
+    P.maxStreakEver = calcMaxStreak(P.history);
+    renderAll();
+    debouncedSave();
+    closeEditRecordModal();
+}
+// v26.5：本地数据加密
+var ENC_KEY = 'mm_encryption_enabled_v1';
+var ENC_PWD_KEY = 'mm_encryption_pwd_v1';
+function xorEncrypt(str, pwd) {
+    var result = '';
+    for (var i = 0; i < str.length; i++) {
+        result += String.fromCharCode(str.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+    }
+    return 'ENC:' + btoa(unescape(encodeURIComponent(result)));
+}
+function xorDecrypt(encStr, pwd) {
+    try {
+        var raw = decodeURIComponent(escape(atob(encStr.substring(4))));
+        var result = '';
+        for (var i = 0; i < raw.length; i++) {
+            result += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
+        }
+        return result;
+    } catch(e) { return null; }
+}
+function isEncrypted(data) {
+    return typeof data === 'string' && data.indexOf('ENC:') === 0;
+}
+function openEncryptModal() {
+    var enabled = localStorage.getItem(ENC_KEY) === '1';
+    var statusEl = document.getElementById('encryptStatus');
+    var toggleBtn = document.getElementById('encryptToggleBtn');
+    if (enabled) {
+        statusEl.innerHTML = '<span style="color:#27ae60;">✅ 加密已开启，本地数据已加密存储</span>';
+        toggleBtn.textContent = '关闭加密';
+        toggleBtn.style.background = '#e74c3c';
+    } else {
+        statusEl.innerHTML = '<span style="color:#f39c12;">⚠️ 加密未开启，本地数据为明文存储</span>';
+        toggleBtn.textContent = '开启加密';
+        toggleBtn.style.background = '#27ae60';
+    }
+    document.getElementById('encryptPassword').value = '';
+    document.getElementById('encryptPassword2').value = '';
+    document.getElementById('encryptError').style.display = 'none';
+    document.getElementById('encryptModal').classList.add('open');
+}
+function closeEncryptModal() {
+    document.getElementById('encryptModal').classList.remove('open');
+}
+function toggleEncryption() {
+    var pwd = document.getElementById('encryptPassword').value;
+    var pwd2 = document.getElementById('encryptPassword2').value;
+    var errEl = document.getElementById('encryptError');
+    var enabled = localStorage.getItem(ENC_KEY) === '1';
+    if (!enabled) {
+        // 开启加密
+        if (!pwd) { errEl.textContent = '请输入加密密码'; errEl.style.display = 'block'; return; }
+        if (pwd !== pwd2) { errEl.textContent = '两次密码不一致'; errEl.style.display = 'block'; return; }
+        if (pwd.length < 4) { errEl.textContent = '密码至少4位'; errEl.style.display = 'block'; return; }
+        localStorage.setItem(ENC_KEY, '1');
+        localStorage.setItem(ENC_PWD_KEY, pwd);
+        // 立即重新保存（加密）
+        P.saveLocal();
+        alert('✅ 加密已开启！本地数据已用密码加密存储。\n\n请牢记密码，忘记密码将无法恢复数据！');
+    } else {
+        // 关闭加密：需要验证密码
+        var savedPwd = localStorage.getItem(ENC_PWD_KEY);
+        if (pwd !== savedPwd) { errEl.textContent = '密码错误，无法关闭加密'; errEl.style.display = 'block'; return; }
+        localStorage.setItem(ENC_KEY, '0');
+        // 立即重新保存（明文）
+        P.saveLocal();
+        alert('✅ 加密已关闭，本地数据恢复明文存储。');
+    }
+    closeEncryptModal();
 }
 function verifyBackupPwd() {
     var pwd = document.getElementById('backupPwdInput').value;
@@ -5456,7 +5686,24 @@ function updateStats() {
 }
 function renderHistory() {
     var tb=document.getElementById('historyBody'); tb.innerHTML='';
-    var total=P.history.length;
+    // v26.5：筛选与搜索
+    var searchKw = (document.getElementById('historySearch')?.value || '').trim().toLowerCase();
+    var filterW = document.getElementById('filterWinner')?.value || '';
+    var filterP = document.getElementById('filterProfit')?.value || '';
+    var filtered = [];
+    for (var fi = 0; fi < P.history.length; fi++) {
+        var frec = P.history[fi];
+        var fwinner = getWinner(frec);
+        if (filterW && fwinner !== filterW) continue;
+        if (filterP && frec.profitWinner !== filterP) continue;
+        if (searchKw) {
+            var fts = splitTimeSlot(frec.timeSlot);
+            var searchStr = (fi+1) + ' ' + (fts.date||'') + ' ' + (fts.time||'') + ' ' + fwinner + ' ' + (frec.profitWinner||'');
+            if (searchStr.toLowerCase().indexOf(searchKw) < 0) continue;
+        }
+        filtered.push({origIdx: fi, rec: frec});
+    }
+    var total=filtered.length;
     var pageSize=100; // v18.0：每页100条
     var totalPages=Math.max(1,Math.ceil(total/pageSize));
     // Read current page from a data attr; default to LAST page on first load
@@ -5468,8 +5715,9 @@ function renderHistory() {
     container.setAttribute('data-page',curPage);
     var startIdx=(curPage-1)*pageSize;
     var endIdx=Math.min(startIdx+pageSize,total);
-    for (var idx=startIdx; idx<endIdx; idx++) {
-        var rec=P.history[idx], winner=getWinner(rec);
+    for (var pi=startIdx; pi<endIdx; pi++) {
+        var idx = filtered[pi].origIdx;
+        var rec=filtered[pi].rec, winner=getWinner(rec);
         var tr=document.createElement('tr');
         var predDisp='—',snapDisp='—',actualRankDisp='—',probDisp='—',corrDisp='—',sourceDisp='—',predProfitDisp='—';
         if (idx>0 && idx-1<P.predHistory.length) {
@@ -5536,7 +5784,7 @@ function renderHistory() {
             '<td>'+probDisp+'</td>'+
             '<td>'+corrDisp+'</td>'+
             '<td>'+sourceDisp+'</td>'+
-            '<td><button class="btn-delete-row" data-idx="'+idx+'">删除</button></td>';
+            '<td><button class="btn-edit-row" data-idx="'+idx+'" style="background:#2196f3;color:#fff;border:none;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;margin-right:4px;">编辑</button><button class="btn-delete-row" data-idx="'+idx+'">删除</button></td>';
         tb.appendChild(tr);
     }
     // Pagination controls
@@ -5757,6 +6005,138 @@ function renderLearnTab() {
         });
         chartHtml += '</div>';
         chartEl.innerHTML = chartHtml;
+    }
+    // v26.5：预测准确率趋势图（Canvas）
+    var trendCanvas = document.getElementById('accuracyTrendChart');
+    if (trendCanvas && P.accuracy.length > 0) {
+        var ctx = trendCanvas.getContext('2d');
+        var W = trendCanvas.width, H = trendCanvas.height;
+        ctx.clearRect(0, 0, W, H);
+        // 取最近50局，计算滑动窗口准确率（每10局一个点）
+        var windowSize = 10;
+        var accData = [];
+        var startI = Math.max(0, P.accuracy.length - 50);
+        for (var i = startI + windowSize; i <= P.accuracy.length; i++) {
+            var slice = P.accuracy.slice(i - windowSize, i);
+            var rate = slice.filter(function(x){return x;}).length / slice.length;
+            accData.push({idx: i, rate: rate});
+        }
+        if (accData.length > 1) {
+            // 画坐标轴
+            ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(40, 10); ctx.lineTo(40, H-30); ctx.lineTo(W-10, H-30); ctx.stroke();
+            // Y轴标签（0%, 50%, 100%）
+            ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+            ctx.fillText('100%', 35, 15);
+            ctx.fillText('50%', 35, H/2 - 10);
+            ctx.fillText('0%', 35, H-25);
+            // 50%参考线
+            ctx.strokeStyle = '#eee'; ctx.setLineDash([4,4]);
+            ctx.beginPath(); ctx.moveTo(40, H/2 - 10); ctx.lineTo(W-10, H/2 - 10); ctx.stroke();
+            ctx.setLineDash([]);
+            // 画折线
+            var maxX = accData.length;
+            ctx.strokeStyle = '#2196f3'; ctx.lineWidth = 2; ctx.beginPath();
+            accData.forEach(function(d, i) {
+                var x = 40 + (i / (maxX - 1)) * (W - 60);
+                var y = (H - 40) - d.rate * (H - 50) + 10;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            // 画数据点
+            accData.forEach(function(d, i) {
+                var x = 40 + (i / (maxX - 1)) * (W - 60);
+                var y = (H - 40) - d.rate * (H - 50) + 10;
+                ctx.fillStyle = d.rate >= 0.5 ? '#4caf50' : '#f44336';
+                ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+            });
+            // X轴标签
+            ctx.fillStyle = '#999'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('第' + (startI + windowSize) + '局', 40, H-15);
+            ctx.fillText('第' + P.accuracy.length + '局', W-10, H-15);
+        } else {
+            ctx.fillStyle = '#999'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText('数据不足（需10局以上）', W/2, H/2);
+        }
+    }
+    // v26.5：置信度分级统计
+    var confStatsEl = document.getElementById('confidenceStats');
+    if (confStatsEl && P.predHistory.length > 0) {
+        var confStats = {high: {total:0, correct:0}, mid: {total:0, correct:0}, low: {total:0, correct:0}};
+        P.predHistory.forEach(function(ph, i) {
+            if (i >= P.accuracy.length) return;
+            var topProb = ph.probs[ph.guild];
+            var probs = [ph.probs.A, ph.probs.B, ph.probs.C].sort(function(a,b){return b-a;});
+            var diff = probs[0] - probs[1];
+            var level = (topProb >= 0.55 || diff >= 0.15) ? 'high' : (topProb >= 0.45 || diff >= 0.05) ? 'mid' : 'low';
+            confStats[level].total++;
+            if (P.accuracy[i]) confStats[level].correct++;
+        });
+        var fmtRate = function(s) { return s.total > 0 ? (s.correct/s.total*100).toFixed(0) + '%' : '—'; };
+        confStatsEl.innerHTML = '<div style="display:flex;gap:20px;flex-wrap:wrap;">' +
+            '<span>🟢 高置信：' + confStats.high.total + '局，准确率 ' + fmtRate(confStats.high) + '</span>' +
+            '<span>🟡 中置信：' + confStats.mid.total + '局，准确率 ' + fmtRate(confStats.mid) + '</span>' +
+            '<span>🔴 低置信：' + confStats.low.total + '局，准确率 ' + fmtRate(confStats.low) + '</span>' +
+            '</div>';
+    }
+    // v26.5：商会对战胜率矩阵
+    var h2hEl = document.getElementById('headToHeadMatrix');
+    if (h2hEl && P.history.length > 0) {
+        var pairs = [['A','B'],['A','C'],['B','C']];
+        var h2hHtml = '<table style="width:100%;border-collapse:separate;border-spacing:0;"><tr><th style="text-align:left;padding:8px 10px;border-bottom:2px solid #dee2e6;">对阵</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">A胜</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">B胜</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">C胜</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">平局</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">总局数</th></tr>';
+        pairs.forEach(function(pair) {
+            var g1 = pair[0], g2 = pair[1];
+            var stats = {g1:0, g2:0, other:0, tie:0, total:0};
+            P.history.forEach(function(rec) {
+                var w = getWinner(rec);
+                if (!w) { stats.tie++; stats.total++; return; }
+                // 只统计这两个商会分数较高的对局
+                var s1 = rec[g1.toLowerCase()], s2 = rec[g2.toLowerCase()];
+                if (s1 === s2) return; // 分数相同不算对阵
+                stats.total++;
+                if (w === g1) stats.g1++;
+                else if (w === g2) stats.g2++;
+                else stats.other++;
+            });
+            if (stats.total === 0) return;
+            var g1Rate = (stats.g1/stats.total*100).toFixed(0);
+            var g2Rate = (stats.g2/stats.total*100).toFixed(0);
+            h2hHtml += '<tr><td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;"><strong>' + g1 + ' vs ' + g2 + '</strong></td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + (g1==='A'?stats.g1:g1==='B'?stats.g2:'—') + ' (' + (g1==='A'?g1Rate:g1==='B'?g2Rate:'—') + '%)</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + (g2==='B'?stats.g2:g2==='C'?stats.other:'—') + ' (' + (g2==='B'?g2Rate:g2==='C'?(stats.other/stats.total*100).toFixed(0):'—') + '%)</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + (g2==='C'?stats.other:'—') + '</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + stats.tie + '</td>' +
+                '<td style="text-align:center;padding:8px 10px;border-bottom:1px solid #f0f0f0;">' + stats.total + '</td></tr>';
+        });
+        h2hHtml += '</table>';
+        h2hEl.innerHTML = h2hHtml;
+    }
+    // v26.5：分数组合获胜规律（Top10高频组合）
+    var comboEl = document.getElementById('scoreComboStats');
+    if (comboEl && P.history.length >= 10) {
+        var comboMap = {};
+        P.history.forEach(function(rec) {
+            var key = rec.a + '_' + rec.b + '_' + rec.c;
+            if (!comboMap[key]) comboMap[key] = {A:0,B:0,C:0,tie:0,total:0};
+            var w = getWinner(rec);
+            comboMap[key].total++;
+            if (w) comboMap[key][w]++; else comboMap[key].tie++;
+        });
+        var combos = Object.keys(comboMap).map(function(k){return {key:k, data:comboMap[k]};});
+        combos.sort(function(a,b){return b.data.total - a.data.total;});
+        var comboHtml = '<div style="font-weight:600;margin-bottom:8px;">🎯 高频分数组合获胜规律（Top10）</div>';
+        comboHtml += '<table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;"><tr><th style="text-align:left;padding:6px 8px;border-bottom:1px solid #eee;">分数组合(A/B/C)</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">出现次数</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">A胜率</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">B胜率</th><th style="text-align:center;padding:6px 8px;border-bottom:1px solid #eee;">C胜率</th></tr>';
+        combos.slice(0,10).forEach(function(c) {
+            var d = c.data;
+            var parts = c.key.split('_');
+            comboHtml += '<tr><td style="padding:6px 8px;border-bottom:1px solid #f5f5f5;">' + parts[0] + ' / ' + parts[1] + ' / ' + parts[2] + '</td>' +
+                '<td style="text-align:center;padding:6px 8px;border-bottom:1px solid #f5f5f5;">' + d.total + '</td>' +
+                '<td style="text-align:center;padding:6px 8px;border-bottom:1px solid #f5f5f5;color:' + (d.A>=d.B&&d.A>=d.C?'#27ae60':'#666') + ';">' + (d.A/d.total*100).toFixed(0) + '%</td>' +
+                '<td style="text-align:center;padding:6px 8px;border-bottom:1px solid #f5f5f5;color:' + (d.B>=d.A&&d.B>=d.C?'#27ae60':'#666') + ';">' + (d.B/d.total*100).toFixed(0) + '%</td>' +
+                '<td style="text-align:center;padding:6px 8px;border-bottom:1px solid #f5f5f5;color:' + (d.C>=d.A&&d.C>=d.B?'#27ae60':'#666') + ';">' + (d.C/d.total*100).toFixed(0) + '%</td></tr>';
+        });
+        comboHtml += '</table>';
+        comboEl.innerHTML = comboHtml;
     }
     // ===== v27: 反思洞察渲染 =====
     var insEl = document.getElementById('reflectionInsight');
@@ -6647,6 +7027,36 @@ document.addEventListener('keydown', function(e) {
 // 绑定深色模式按钮
 var darkBtn = document.getElementById('darkModeBtn');
 if (darkBtn) darkBtn.onclick = toggleDarkMode;
+// v26.5：数据加密按钮
+var encryptBtn = document.getElementById('encryptBtn');
+if (encryptBtn) encryptBtn.onclick = openEncryptModal;
+var encryptToggleBtn = document.getElementById('encryptToggleBtn');
+if (encryptToggleBtn) encryptToggleBtn.onclick = toggleEncryption;
+// v26.5：编辑记录按钮事件委托
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('btn-edit-row')) {
+        var idx = parseInt(e.target.getAttribute('data-idx'));
+        openEditRecord(idx);
+    }
+});
+// v26.5：历史记录筛选与搜索
+['historySearch','filterWinner','filterProfit'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function() {
+        var c = document.getElementById('historyContainer');
+        if (c) c.setAttribute('data-page', '1');
+        renderHistory();
+    });
+});
+var clearFilterBtn = document.getElementById('btnClearFilter');
+if (clearFilterBtn) clearFilterBtn.onclick = function() {
+    document.getElementById('historySearch').value = '';
+    document.getElementById('filterWinner').value = '';
+    document.getElementById('filterProfit').value = '';
+    var c = document.getElementById('historyContainer');
+    if (c) c.setAttribute('data-page', '1');
+    renderHistory();
+};
 // v26.5：请求浏览器通知权限（用于连胜提醒）
 if ('Notification' in window && Notification.permission === 'default') {
     setTimeout(function() { Notification.requestPermission(); }, 3000);
@@ -7008,6 +7418,60 @@ setTimeout(function(){
 </div>
 <div class="import-modal-actions" style="margin-top:16px;">
 <button class="btn-modal-cancel" onclick="closeSnapshotModal()">关闭</button>
+</div>
+</div>
+</div>
+<!-- ========== 编辑记录模态框 ========== -->
+<div class="import-modal-overlay" id="editRecordModal">
+<div class="import-modal" style="max-width:420px;">
+<h3>✏️ 编辑第 <span id="editRecordIdx"></span> 局</h3>
+<p class="modal-sub">修改后将自动重新计算后续所有预测快照</p>
+<div style="text-align:left;margin-bottom:12px;">
+<label style="font-size:13px;color:#555;">A分数：</label>
+<input type="number" id="editRecA" step="0.5" min="0" max="3" style="width:100%;margin-top:4px;">
+</div>
+<div style="text-align:left;margin-bottom:12px;">
+<label style="font-size:13px;color:#555;">B分数：</label>
+<input type="number" id="editRecB" step="0.5" min="0" max="3" style="width:100%;margin-top:4px;">
+</div>
+<div style="text-align:left;margin-bottom:12px;">
+<label style="font-size:13px;color:#555;">C分数：</label>
+<input type="number" id="editRecC" step="0.5" min="0" max="3" style="width:100%;margin-top:4px;">
+</div>
+<div style="text-align:left;margin-bottom:16px;">
+<label style="font-size:13px;color:#555;">获胜收益：</label>
+<select id="editRecProfit" style="width:100%;margin-top:4px;padding:8px;">
+<option value="">不修改</option>
+<option value="大">大</option>
+<option value="中">中</option>
+<option value="小">小</option>
+</select>
+</div>
+<p id="editRecordError" style="color:#e74c3c;font-size:13px;margin:0 0 12px;display:none;"></p>
+<div class="import-modal-actions">
+<button class="btn-modal-cancel" onclick="closeEditRecordModal()">取消</button>
+<button class="btn-modal-confirm" onclick="saveEditRecord()">保存修改</button>
+</div>
+</div>
+</div>
+<!-- ========== 数据加密模态框 ========== -->
+<div class="import-modal-overlay" id="encryptModal">
+<div class="import-modal" style="max-width:420px;">
+<h3>🔒 本地数据加密</h3>
+<p class="modal-sub">开启后，本地存储的数据将用密码加密，防止他人直接查看。</p>
+<div id="encryptStatus" style="margin-bottom:12px;padding:10px;border-radius:6px;font-size:13px;"></div>
+<div style="text-align:left;margin-bottom:12px;">
+<label style="font-size:13px;color:#555;">加密密码：</label>
+<input type="password" id="encryptPassword" placeholder="输入加密密码" style="width:100%;margin-top:4px;" autocomplete="off">
+</div>
+<div style="text-align:left;margin-bottom:16px;">
+<label style="font-size:13px;color:#555;">确认密码：</label>
+<input type="password" id="encryptPassword2" placeholder="再次输入密码" style="width:100%;margin-top:4px;" autocomplete="off">
+</div>
+<p id="encryptError" style="color:#e74c3c;font-size:13px;margin:0 0 12px;display:none;"></p>
+<div class="import-modal-actions">
+<button class="btn-modal-cancel" onclick="closeEncryptModal()">关闭</button>
+<button class="btn-modal-confirm" id="encryptToggleBtn">开启加密</button>
 </div>
 </div>
 </div>
