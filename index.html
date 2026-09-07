@@ -353,6 +353,36 @@ body{padding:8px !important}
 .admin-btn-revoke{background:#e67e22 !important;}
 .admin-btn-exit{background:#95a5a6 !important;margin-top:15px !important;}
 .admin-empty{text-align:center;color:#bbb;padding:15px;font-size:12px;}
+/* v26.5：深色模式 */
+body.dark-mode{background:#1a1a2e;color:#e0e0e0;}
+body.dark-mode .container{background:#16213e;}
+body.dark-mode header h1{color:#e0e0e0;}
+body.dark-mode .subtitle{color:#aaa;}
+body.dark-mode .section-title{color:#e0e0e0;}
+body.dark-mode .pred-card{background:#0f3460;border-color:#533483;}
+body.dark-mode .pred-card .guild-name{color:#e0e0e0;}
+body.dark-mode .pred-card .prob-detail{color:#aaa;}
+body.dark-mode .summary-box{background:#0f3460;border-color:#533483;}
+body.dark-mode .summary-text{color:#e0e0e0;}
+body.dark-mode .stat-card{background:#0f3460;border-color:#533483;}
+body.dark-mode .stat-card .stat-title{color:#aaa;}
+body.dark-mode .stat-card .stat-value{color:#e0e0e0;}
+body.dark-mode .history-table{background:#0f3460;}
+body.dark-mode .history-table th{background:#533483;color:#e0e0e0;}
+body.dark-mode .history-table td{color:#ccc;border-color:#2a2a4a;}
+body.dark-mode .history-table tr:nth-child(even){background:#1a1a3e;}
+body.dark-mode input,body.dark-mode select{background:#1a1a2e;color:#e0e0e0;border-color:#533483;}
+body.dark-mode .cloud-bar{background:#0f3460;border-color:#533483;}
+body.dark-mode .cloud-btn{background:#533483;}
+body.dark-mode .tab-btn{background:#0f3460;color:#aaa;}
+body.dark-mode .tab-btn.active{background:#533483;color:#fff;}
+body.dark-mode .sim-detail-panel{background:#1a1a3e;border-color:#533483;color:#ccc;}
+body.dark-mode .law-box,body.dark-mode .insight-box,body.dark-mode .learn-box{background:#1a1a3e;color:#ccc;}
+body.dark-mode .import-modal{background:#16213e;color:#e0e0e0;}
+body.dark-mode .import-modal-overlay{background:rgba(0,0,0,0.7);}
+body.dark-mode .access-box{background:#16213e;}
+body.dark-mode .access-box h2{color:#e0e0e0;}
+body.dark-mode .access-box p{color:#aaa;}
 </style>
 </head>
 <body>
@@ -376,11 +406,15 @@ body{padding:8px !important}
     </div>
     <!-- 第二步：密码输入 -->
     <div id="accessPasswordView" style="display:none;">
-      <h2>🔒 第二步：访问验证</h2>
-      <p>请输入访问密码</p>
+      <h2>🔒 登录</h2>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button id="loginTypeUser" class="access-tab-btn active" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;background:#302b63;color:#fff;cursor:pointer;">👤 用户登录</button>
+        <button id="loginTypeAdmin" class="access-tab-btn" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;background:#f5f5f5;color:#666;cursor:pointer;">👑 管理员登录</button>
+      </div>
+      <p id="loginTypeHint">请输入用户密码</p>
       <input type="password" id="accessPasswordInput" placeholder="请输入密码" autocomplete="off">
       <button id="accessPasswordBtn">进入系统</button>
-      <p class="access-hint">管理员入口：<a href="#" id="adminEntryLink">点此进入</a></p>
+      <p class="access-hint">管理员入口：<a href="#" id="adminEntryLink">点此进入设备管理</a></p>
     </div>
     <!-- 等待授权 -->
     <div id="accessPendingView" style="display:none;">
@@ -399,9 +433,18 @@ body{padding:8px !important}
         <button id="adminPasswordBtn">登录</button>
       </div>
       <div id="adminPanelArea" style="display:none;">
-        <h3 style="text-align:left;color:#302b63;margin:15px 0 8px;">⏳ 待授权设备</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:15px 0 8px;">
+          <h3 style="text-align:left;color:#302b63;margin:0;">⏳ 待授权设备</h3>
+          <div style="display:flex;gap:6px;">
+            <button id="adminApproveAllBtn" style="background:#4caf50;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">✅ 一键同意</button>
+            <button id="adminRejectAllBtn" style="background:#ff9800;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">🚫 一键拒绝</button>
+          </div>
+        </div>
         <div id="adminPendingList" style="text-align:left;max-height:200px;overflow-y:auto;"></div>
-        <h3 style="text-align:left;color:#302b63;margin:15px 0 8px;">✅ 已授权设备</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:15px 0 8px;">
+          <h3 style="text-align:left;color:#302b63;margin:0;">✅ 已授权设备</h3>
+          <button id="adminRevokeAllBtn" style="background:#f44336;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">❌ 一键撤销</button>
+        </div>
         <div id="adminAuthorizedList" style="text-align:left;max-height:200px;overflow-y:auto;"></div>
         <button id="adminRefreshBtn" style="margin-top:15px;">🔄 刷新列表</button>
       </div>
@@ -474,6 +517,9 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn" id="cloudReconfigBtn" style="background:#ff9800;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">⚙️ 重新配置</button>
 <button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔐 设备管理</button>
 <button class="cloud-btn" id="backupRestoreBtn" style="background:#00bcd4;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">💾 备份/恢复</button>
+<button class="cloud-btn" id="adminModeBtn" style="background:#795548;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">👑 管理员模式</button>
+<button class="cloud-btn" id="snapshotBtn" style="background:#607d8b;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 操作日志</button>
+<button class="cloud-btn" id="darkModeBtn" style="background:#455a64;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🌙 深色模式</button>
 </div>
 <div class="tab-bar">
 <button class="tab-btn active" data-tab="main">📊 预测主界面</button>
@@ -506,9 +552,9 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <h2 class="section-title">数据录入</h2>
 <!-- v24: 局间隔切换（半小时/一小时） -->
 <div class="interval-switch">
-<span class="interval-label" id="intervalLabel">当前：一小时一局</span>
-<button class="interval-btn active" id="btnInterval60" onclick="setGameInterval(60)">⏱️ 一小时一局</button>
-<button class="interval-btn" id="btnInterval30" onclick="setGameInterval(30)">⏱️ 半小时一局</button>
+<span class="interval-label" id="intervalLabel">当前：半小时一局</span>
+<button class="interval-btn" id="btnInterval60" onclick="setGameInterval(60)">⏱️ 一小时一局</button>
+<button class="interval-btn active" id="btnInterval30" onclick="setGameInterval(30)">⏱️ 半小时一局</button>
 </div>
 <div class="guild-inputs">
 <div class="guild-input guild-a">
@@ -541,6 +587,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="btn-excel" id="btnImport">📥 导入Excel</button>
 <button class="btn-excel" id="btnImportCSV" style="background:#6c5ce7;">📥 导入CSV</button>
 <button class="btn-excel" id="btnImportClipboard" style="background:#00b894;">📋 剪贴板导入</button>
+<button class="btn-excel" id="btnExportData" style="background:#0984e3;">📤 导出数据</button>
 <button class="btn-export" id="btnExport">📤 导出Excel</button>
 <button class="btn-simulate" id="btnSimulate">🎲 模拟10局</button>
 <button class="btn-backtest" id="btnRunBacktest">📈 运行回测</button>
@@ -567,6 +614,16 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="pred-card" id="profitCard中" style="border-left:4px solid #f39c12;"><div class="card-header"><span class="guild-name" style="color:#f39c12;">中收益</span><span class="win-prob" id="profitProb中" style="color:#f39c12;">—</span></div><div class="prob-detail" id="profitDetail中">概率 —</div><div class="streak-info" id="profitStreak中"></div></div>
 <div class="pred-card" id="profitCard小" style="border-left:4px solid #27ae60;"><div class="card-header"><span class="guild-name" style="color:#27ae60;">小收益</span><span class="win-prob" id="profitProb小" style="color:#27ae60;">—</span></div><div class="prob-detail" id="profitDetail小">概率 —</div><div class="streak-info" id="profitStreak小"></div></div>
 </div>
+<!-- v14: 相似盘详情面板（v26.4：移到预测卡片正下方） -->
+<div class="sim-detail-panel" id="simDetailPanel" style="display:none;">
+    <strong>🔍 相似盘推理详情</strong>
+    <div id="simDetailBody" style="margin-top:6px;"></div>
+</div>
+<!-- v25.8: 相似收益盘详情面板 -->
+<div class="sim-detail-panel" id="simProfitDetailPanel" style="display:none;margin-top:12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-left:4px solid #f59e0b;">
+    <strong>💰 相似收益盘推理详情</strong>
+    <div id="simProfitDetailBody" style="margin-top:6px;"></div>
+</div>
 <div class="summary-box">
 <div class="summary-text" id="predSummary">暂无足够数据，请先录入至少一局。</div>
 <div id="confidenceDisplay" style="margin-top:12px;"></div>
@@ -587,16 +644,6 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="stat-card"><div class="stat-title">数据来源</div><div class="stat-value" id="dataSource" style="font-size:clamp(12px,1.8vw,16px);">—</div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#fff5f5,#ffe0e0);"><div class="stat-title" style="color:#c0392b;">🔥 最长未中预测商会</div><div class="stat-value" id="maxMissGuild" style="color:#c0392b;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissGuild">0</span> 局</div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#fff8f0,#ffe8cc);"><div class="stat-title" style="color:#d35400;">💰 最长未中预测收益</div><div class="stat-value" id="maxMissProfit" style="color:#d35400;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissProfit">0</span> 局</div></div>
-</div>
-<!-- v14: 相似盘详情面板 -->
-<div class="sim-detail-panel" id="simDetailPanel" style="display:none;">
-    <strong>🔍 相似盘推理详情</strong>
-    <div id="simDetailBody" style="margin-top:6px;"></div>
-</div>
-<!-- v25.8: 相似收益盘详情面板 -->
-<div class="sim-detail-panel" id="simProfitDetailPanel" style="display:none;margin-top:12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-left:4px solid #f59e0b;">
-    <strong>💰 相似收益盘推理详情</strong>
-    <div id="simProfitDetailBody" style="margin-top:6px;"></div>
 </div>
 <div class="history-section">
 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
@@ -667,6 +714,8 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="reflection-log" id="reflectionLog"><div style="color:#6c757d;text-align:center;padding:20px;">暂无反思记录</div></div>
 <h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">🔧 自适应权重</h3>
 <div id="adaptiveWeights" style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;font-size:13px;font-family:monospace;">等待数据...</div>
+<h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;">📊 模型权重可视化</h3>
+<div id="modelWeightChart" style="background:#fff;border-radius:8px;padding:14px;margin-top:8px;">等待数据...</div>
 <button class="btn-learn" id="btnForceLearn" style="margin-top:14px;">🔄 强制重新学习</button>
 <button class="btn-secondary" id="btnResetLearn" style="margin-top:14px;margin-left:12px;">↩️ 重置学习状态</button>
 </div>
@@ -721,18 +770,25 @@ create policy "ac update" on access_control for update using (true);</textarea><
 (function(){
   // ===== 配置（可修改）=====
   var ACCESS_PASSWORD = 'zll2026';
-  var ADMIN_PASSWORD = 'admin2026';
+  var ADMIN_PASSWORD = 'asd123123';
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
   var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
 
   var deviceId = localStorage.getItem(DEVICE_KEY) || '';
+  var _loginType = 'user'; // v26.4：登录类型，user=用户登录（需授权），admin=管理员登录（无需授权）
   var sbUrl = '', sbKey = '';
 
   function loadSbCfg() {
     try {
       var raw = localStorage.getItem(CLOUD_CFG_KEY);
       if (raw) { var c = JSON.parse(raw); sbUrl = c.url || ''; sbKey = c.key || ''; }
+      // v26.4：没有本地配置时使用内置默认配置
+      if (!sbUrl || !sbKey) {
+        sbUrl = 'https://mcwtejcjyrxlcksnvpjg.supabase.co';
+        sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd3RlamNqeXJ4bGNrc252cGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjE2OTYsImV4cCI6MjEwNDE5NzY5Nn0.E0YGlEt_ZQXZVGBjo2gP4hFX52KK6GDPTN_9Y2W4AJA';
+        localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({url: sbUrl, key: sbKey}));
+      }
     } catch(e) {}
     return !!(sbUrl && sbKey);
   }
@@ -836,8 +892,41 @@ create policy "ac update" on access_control for update using (true);</textarea><
     document.getElementById('accessCloudUrl').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessCloudKey').focus(); };
     document.getElementById('accessCloudKey').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessCloudSaveBtn').click(); };
 
+    // v26.4：登录类型切换
+    var btnUser = document.getElementById('loginTypeUser');
+    var btnAdmin = document.getElementById('loginTypeAdmin');
+    var hint = document.getElementById('loginTypeHint');
+    function setLoginType(type) {
+      _loginType = type;
+      if (type === 'user') {
+        btnUser.className = 'access-tab-btn active';
+        btnUser.style.background = '#302b63'; btnUser.style.color = '#fff';
+        btnAdmin.className = 'access-tab-btn';
+        btnAdmin.style.background = '#f5f5f5'; btnAdmin.style.color = '#666';
+        hint.textContent = '请输入用户密码';
+      } else {
+        btnAdmin.className = 'access-tab-btn active';
+        btnAdmin.style.background = '#302b63'; btnAdmin.style.color = '#fff';
+        btnUser.className = 'access-tab-btn';
+        btnUser.style.background = '#f5f5f5'; btnUser.style.color = '#666';
+        hint.textContent = '请输入管理员密码';
+      }
+      document.getElementById('accessPasswordInput').value = '';
+      document.getElementById('accessPasswordInput').focus();
+    }
+    btnUser.onclick = function() { setLoginType('user'); };
+    btnAdmin.onclick = function() { setLoginType('admin'); };
+
     document.getElementById('accessPasswordBtn').onclick = function() {
-      if (document.getElementById('accessPasswordInput').value !== ACCESS_PASSWORD) { alert('密码错误'); return; }
+      var pwd = document.getElementById('accessPasswordInput').value;
+      if (_loginType === 'admin') {
+        // v26.4：管理员登录——验证管理员密码，直接进入，无需授权
+        if (pwd !== ADMIN_PASSWORD) { alert('管理员密码错误'); return; }
+        hide();
+        return;
+      }
+      // 用户登录——验证用户密码，注册设备，等待授权
+      if (pwd !== ACCESS_PASSWORD) { alert('用户密码错误'); return; }
       if (!deviceId) { deviceId = genId(); localStorage.setItem(DEVICE_KEY, deviceId); }
       if (!loadSbCfg()) { alert('请先配置云同步（Supabase URL 和 Key）'); return; }
       regDevice().then(function() {
@@ -874,6 +963,13 @@ create policy "ac update" on access_control for update using (true);</textarea><
       else { show('pw'); }
     };
     document.getElementById('adminRefreshBtn').onclick = loadAdmin;
+    // v26.4：一键全部同意/撤销
+    var approveAllBtn = document.getElementById('adminApproveAllBtn');
+    if (approveAllBtn) approveAllBtn.onclick = approveAll;
+    var rejectAllBtn = document.getElementById('adminRejectAllBtn');
+    if (rejectAllBtn) rejectAllBtn.onclick = rejectAll;
+    var revokeAllBtn = document.getElementById('adminRevokeAllBtn');
+    if (revokeAllBtn) revokeAllBtn.onclick = revokeAll;
     // 云同步状态栏的设备管理按钮
     var adminBtn = document.getElementById('accessAdminBtn');
     if (adminBtn) adminBtn.onclick = openAdminPanel;
@@ -885,6 +981,63 @@ create policy "ac update" on access_control for update using (true);</textarea><
       var authed = list.filter(function(d) { return d.status === 'authorized'; });
       renderList('adminPendingList', pending, 'pending');
       renderList('adminAuthorizedList', authed, 'authed');
+    }).catch(function(e) { alert('加载失败：' + e.message); });
+  }
+
+  // v26.4：一键全部同意
+  function approveAll() {
+    getAll().then(function(list) {
+      var pending = list.filter(function(d) { return d.status === 'pending'; });
+      if (pending.length === 0) { alert('没有待授权的设备'); return; }
+      if (!confirm('确定一键同意全部 ' + pending.length + ' 台待授权设备？')) return;
+      var done = 0, fail = 0;
+      for (var i = 0; i < pending.length; i++) {
+        (function(id) {
+          setStatus(id, 'authorized').then(function() { done++; }).catch(function() { fail++; });
+        })(pending[i].id);
+      }
+      setTimeout(function() {
+        loadAdmin();
+        alert('操作完成：成功 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
+      }, 800);
+    }).catch(function(e) { alert('加载失败：' + e.message); });
+  }
+
+  // v26.4：一键全部拒绝
+  function rejectAll() {
+    getAll().then(function(list) {
+      var pending = list.filter(function(d) { return d.status === 'pending'; });
+      if (pending.length === 0) { alert('没有待授权的设备'); return; }
+      if (!confirm('确定一键拒绝全部 ' + pending.length + ' 台待授权设备？')) return;
+      var done = 0, fail = 0;
+      for (var i = 0; i < pending.length; i++) {
+        (function(id) {
+          setStatus(id, 'rejected').then(function() { done++; }).catch(function() { fail++; });
+        })(pending[i].id);
+      }
+      setTimeout(function() {
+        loadAdmin();
+        alert('操作完成：成功拒绝 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
+      }, 800);
+    }).catch(function(e) { alert('加载失败：' + e.message); });
+  }
+
+  // v26.4：一键全部撤销
+  function revokeAll() {
+    getAll().then(function(list) {
+      var authed = list.filter(function(d) { return d.status === 'authorized'; });
+      if (authed.length === 0) { alert('没有已授权的设备'); return; }
+      if (!confirm('确定一键撤销全部 ' + authed.length + ' 台已授权设备？\n\n撤销后这些设备需要重新申请授权。')) return;
+      var done = 0, fail = 0;
+      for (var i = 0; i < authed.length; i++) {
+        (function(id) {
+          setStatus(id, 'pending').then(function() { done++; }).catch(function() { fail++; });
+        })(authed[i].id);
+      }
+      setTimeout(function() {
+        loadAdmin();
+        alert('操作完成：成功撤销 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
+      }, 800);
     }).catch(function(e) { alert('加载失败：' + e.message); });
   }
 
@@ -1294,14 +1447,14 @@ function normalizeProbs(probs) {
 }
 // ========== v24: 局间隔设置（半小时/一小时） ==========
 var INTERVAL_KEY = 'mengmeng_game_interval_minutes';
-var gameIntervalMinutes = 60; // 默认60分钟一局，可切换为30
+var gameIntervalMinutes = 30; // v26.4：默认30分钟一局，可切换为60
 var gameBreakSeconds = 30;    // v25.1: 每局之间的间隔秒数，录入历史数据时自动计算
 function loadIntervalSetting() {
     try {
         var v = localStorage.getItem(INTERVAL_KEY);
-        if (v === '30') gameIntervalMinutes = 30;
-        else gameIntervalMinutes = 60;
-    } catch(e) { gameIntervalMinutes = 60; }
+        if (v === '60') gameIntervalMinutes = 60;
+        else gameIntervalMinutes = 30; // v26.4：默认半小时
+    } catch(e) { gameIntervalMinutes = 30; }
 }
 function saveIntervalSetting() {
     try { localStorage.setItem(INTERVAL_KEY, String(gameIntervalMinutes)); } catch(e) {}
@@ -2876,6 +3029,8 @@ class Predictor {
         this._emergencyUntilGame = -1;
         this._maxConsecutiveErrors = 0;
         this._lastSource = 'global';
+        this._syncEpoch = 0; // v26.4：同步权威纪元
+        this._adminOverride = null; // v26.4：管理员权威标记
     }
     // ===== 子模型 =====
     _modelGlobal(records) { return calcWinRates(records); }
@@ -4029,7 +4184,9 @@ if(curBrier > 0.3){
                 learnIterations: this.learnIterations,
                 reflectionLog: this.reflectionLog.slice(-50), // v18.0：保留最近50条
                 bestBrier: safeV(this._bestBrier),
-                patternHitCache: this.patternHitCache || {}
+                patternHitCache: this.patternHitCache || {},
+                _syncEpoch: this._syncEpoch || 0,
+                _adminOverride: this._adminOverride || null
             };
             var json = JSON.stringify(saveData);
             // v26.2：仅当超过3.5MB时才降级截断predHistory（1000条约400KB，通常不会触发）
@@ -4089,6 +4246,8 @@ if(curBrier > 0.3){
                     this._rebuildHist = p.history.slice();
                     this._rebuildModelWeights = p.modelWeights || null;
                 }
+                this._syncEpoch = p._syncEpoch || 0; // v26.4：恢复同步纪元
+                this._adminOverride = p._adminOverride || null; // v26.4：恢复管理员标记
             }
             if (p.modelWeights) {
                 // v25.8修复：合并旧权重与新字段默认值，防止旧数据缺少profitPattern导致NaN
@@ -4182,9 +4341,70 @@ var _cloudSaving = false;
 var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
+// v26.4：管理员模式——管理员上传/恢复的数据可强制覆盖其他设备
+var ADMIN_MODE_KEY = 'mm_admin_mode_v1';
+var ADMIN_MODE_PWD = 'asd123123';
+var _isAdmin = false;
+// v26.5：本地快照回滚（操作日志）
+var SNAPSHOT_KEY = 'mm_snapshots_v1';
+var _snapshots = [];
+function loadSnapshots() {
+    try { var raw = localStorage.getItem(SNAPSHOT_KEY); if (raw) _snapshots = JSON.parse(raw); } catch(e) { _snapshots = []; }
+}
+function saveSnapshots() {
+    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(_snapshots.slice(-10))); } catch(e) {}
+}
+function createSnapshot(reason) {
+    try {
+        var snap = {
+            time: new Date().toISOString(),
+            reason: reason || '操作',
+            count: P.history ? P.history.length : 0,
+            data: JSON.stringify({
+                history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
+                profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights,
+                learnIterations: P.learnIterations, _syncEpoch: P._syncEpoch,
+                _adminOverride: P._adminOverride
+            })
+        };
+        _snapshots.push(snap);
+        if (_snapshots.length > 10) _snapshots = _snapshots.slice(-10);
+        saveSnapshots();
+    } catch(e) { console.warn('snapshot failed', e); }
+}
+function restoreSnapshot(idx) {
+    if (idx < 0 || idx >= _snapshots.length) return false;
+    try {
+        var d = JSON.parse(_snapshots[idx].data);
+        P.clearAll();
+        P.history = d.history.slice();
+        P.predHistory = d.predHistory ? d.predHistory.slice() : [];
+        P.accuracy = d.accuracy ? d.accuracy.slice() : [];
+        P.profitAccuracy = d.profitAccuracy ? d.profitAccuracy.slice() : [];
+        if (d.modelWeights) P.modelWeights = Object.assign({}, d.modelWeights);
+        P.learnIterations = d.learnIterations || 0;
+        P._syncEpoch = d._syncEpoch || 0;
+        P._adminOverride = d._adminOverride || null;
+        P.maxStreakEver = calcMaxStreak(P.history);
+        if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
+        renderAll();
+        debouncedSave();
+        return true;
+    } catch(e) { alert('回滚失败：' + e.message); return false; }
+}
 
+// v26.4：内置默认云同步配置（无需每次手动配置）
+var DEFAULT_CLOUD_URL = 'https://mcwtejcjyrxlcksnvpjg.supabase.co';
+var DEFAULT_CLOUD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd3RlamNqeXJ4bGNrc252cGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjE2OTYsImV4cCI6MjEwNDE5NzY5Nn0.E0YGlEt_ZQXZVGBjo2gP4hFX52KK6GDPTN_9Y2W4AJA';
 function getCloudConfig() {
-    try { var raw = localStorage.getItem(CLOUD_CONFIG_KEY); return raw ? JSON.parse(raw) : null; } catch(e) { return null; }
+    try {
+        var raw = localStorage.getItem(CLOUD_CONFIG_KEY);
+        if (raw) return JSON.parse(raw);
+        // v26.4：没有本地配置时使用内置默认配置，并自动保存
+        var def = { url: DEFAULT_CLOUD_URL, key: DEFAULT_CLOUD_KEY };
+        localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify(def));
+        return def;
+    } catch(e) { return { url: DEFAULT_CLOUD_URL, key: DEFAULT_CLOUD_KEY }; }
 }
 function saveCloudConfig(url, key) {
     localStorage.setItem(CLOUD_CONFIG_KEY, JSON.stringify({url: url, key: key}));
@@ -4202,6 +4422,25 @@ function updateCloudStatus(status, info) {
     if (info !== undefined) infoText.textContent = info;
     cloudOnline = (status === 'online');
 }
+// v26.4：管理员模式切换
+function toggleAdminMode() {
+    if (_isAdmin) {
+        _isAdmin = false;
+        try { localStorage.removeItem(ADMIN_MODE_KEY); } catch(e) {}
+        var btn = document.getElementById('adminModeBtn');
+        if (btn) { btn.textContent = '👑 管理员模式'; btn.style.background = '#795548'; }
+        alert('已退出管理员模式');
+        return;
+    }
+    var pwd = prompt('请输入管理员密码：');
+    if (pwd === null) return;
+    if (pwd !== ADMIN_MODE_PWD) { alert('密码错误'); return; }
+    _isAdmin = true;
+    try { localStorage.setItem(ADMIN_MODE_KEY, '1'); } catch(e) {}
+    var btn2 = document.getElementById('adminModeBtn');
+    if (btn2) { btn2.textContent = '👑 管理员模式✅'; btn2.style.background = '#4caf50'; }
+    alert('已进入管理员模式！\n\n您上传或恢复的数据将强制覆盖其他所有设备。');
+}
 function initCloud() {
     var cfg = getCloudConfig();
     var configPanel = document.getElementById('cloudConfigPanel');
@@ -4213,6 +4452,22 @@ function initCloud() {
     }
     if (configPanel) configPanel.style.display = 'none';
     if (bar) bar.style.display = 'flex';
+    // v26.4：恢复管理员模式状态
+    try {
+        if (localStorage.getItem(ADMIN_MODE_KEY) === '1') {
+            _isAdmin = true;
+            var amb = document.getElementById('adminModeBtn');
+            if (amb) { amb.textContent = '👑 管理员模式✅'; amb.style.background = '#4caf50'; }
+        }
+    } catch(e) {}
+    // 绑定管理员模式按钮
+    var adminBtn = document.getElementById('adminModeBtn');
+    if (adminBtn && !adminBtn._bound) { adminBtn._bound = true; adminBtn.onclick = toggleAdminMode; }
+    // 绑定操作日志按钮
+    var snapBtn = document.getElementById('snapshotBtn');
+    if (snapBtn && !snapBtn._bound) { snapBtn._bound = true; snapBtn.onclick = openSnapshotModal; }
+    // 页面加载时恢复快照
+    loadSnapshots();
     try {
         if (window.supabase && window.supabase.createClient) {
             supabaseClient = window.supabase.createClient(cfg.url, cfg.key);
@@ -4258,13 +4513,26 @@ async function cloudLoad(silent) {
             return false;
         }
         if (data && data.data && data.data.history) {
-            // v26.4：保护机制——本地历史比云端多时，不用云端老数据覆盖本地（避免刚录入被拉取冲掉）
+            // v26.4：同步权威纪元检查——云端epoch更大时强制覆盖
+            var cloudEpoch = data.data._syncEpoch || 0;
+            var localEpoch = P._syncEpoch || 0;
+            var forceOverride = cloudEpoch > localEpoch;
+            // v26.4：管理员权威标记——云端有管理员更新且比本地新时强制覆盖
+            var cloudAdmin = data.data._adminOverride || null;
+            var localAdmin = P._adminOverride || null;
+            var adminForce = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
+            if (adminForce) forceOverride = true;
+            // 保护机制——本地历史比云端多时，不用云端老数据覆盖本地（强制覆盖除外）
             var localHistLen = P.history ? P.history.length : 0;
             var cloudHistLen = data.data.history ? data.data.history.length : 0;
-            if (localHistLen > cloudHistLen) {
+            if (!forceOverride && localHistLen > cloudHistLen) {
                 cloudLastSync = new Date();
                 updateCloudStatus('online', '本地有新数据（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地，点「上传云端」同步');
                 return true;
+            }
+            if (forceOverride) {
+                P._syncEpoch = cloudEpoch;
+                if (adminForce) P._adminOverride = cloudAdmin; // 同步管理员标记
             }
             localStorage.setItem(STORE_KEY, JSON.stringify(data.data));
             P.loadLocal();
@@ -4311,12 +4579,26 @@ async function autoSyncCompare() {
     } catch(e) { /* 定时对比失败，静默跳过 */ }
 }
 
-async function cloudSave() {
+async function cloudSave(manual) {
     if (!supabaseClient) { updateCloudStatus('online', '⚠️ 云同步未初始化'); return false; }
     if (!cloudOnline) { updateCloudStatus('online', '⚠️ 云同步离线，尝试重连...'); cloudOnline = true; }
     if (_cloudSaving) return false;
     _cloudSaving = true;
     try {
+        // v26.4：同步纪元+管理员标记检查——云端epoch更大或有管理员更新时，先强制拉取覆盖本地，再上传
+        try {
+            var epochRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
+            var cloudEpoch = (epochRes.data && epochRes.data.data && epochRes.data.data._syncEpoch) ? epochRes.data.data._syncEpoch : 0;
+            var cloudAdmin = (epochRes.data && epochRes.data.data && epochRes.data.data._adminOverride) ? epochRes.data.data._adminOverride : null;
+            var localAdmin = P._adminOverride || null;
+            var adminNewer = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
+            // 非管理员上传时，如果云端有管理员更新，必须先拉取覆盖
+            if ((cloudEpoch > (P._syncEpoch || 0)) || (!_isAdmin && adminNewer)) {
+                var reason = cloudEpoch > (P._syncEpoch || 0) ? '云端数据已重置（纪元' + cloudEpoch + '）' : '云端有管理员更新';
+                updateCloudStatus('syncing', '检测到' + reason + '，先拉取覆盖本地...');
+                await cloudLoad(true);
+            }
+        } catch(e) { /* 检查失败，继续上传 */ }
         // v26.0: 冲突检测 - 上传前先查云端更新时间
         if (cloudLastSync) {
             try {
@@ -4325,19 +4607,34 @@ async function cloudSave() {
                     var cTime = new Date(chkRes.data.updated_at).getTime();
                     var lTime = cloudLastSync.getTime();
                     if (cTime > lTime + 2000) {
-                        var doMerge = confirm('⚠️ 云端数据比本地新（别人可能修改了）\n\n点「确定」= 合并云端和本地数据后上传（推荐）\n点「取消」= 强制上传覆盖云端');
+                        // v26.4：自动上传时直接合并，不弹确认框；手动上传才弹确认
+                        var doMerge = manual ? confirm('⚠️ 云端数据比本地新（别人可能修改了）\n\n点「确定」= 合并云端和本地数据后上传（推荐）\n点「取消」= 强制上传覆盖云端') : true;
                         if (doMerge) {
                             var cloudHist = (chkRes.data.data && chkRes.data.data.history) ? chkRes.data.data.history : [];
                             var localHist = P.history ? P.history.slice() : [];
                             var existKeys = {};
                             var merged = [];
+                            var conflictCount = 0;
+                            // v26.5：优先按timeSlot去重，同一时间槽数据不同时记录冲突，保留本地数据
                             for (var ci = 0; ci < cloudHist.length; ci++) {
-                                var ck = cloudHist[ci].a+'_'+cloudHist[ci].b+'_'+cloudHist[ci].c+'_'+(cloudHist[ci].timeSlot||'');
+                                var ck = cloudHist[ci].timeSlot || ('k_' + cloudHist[ci].a + '_' + cloudHist[ci].b + '_' + cloudHist[ci].c);
                                 if (!existKeys[ck]) { existKeys[ck] = true; merged.push(cloudHist[ci]); }
                             }
                             for (var li = 0; li < localHist.length; li++) {
-                                var lk = localHist[li].a+'_'+localHist[li].b+'_'+localHist[li].c+'_'+(localHist[li].timeSlot||'');
+                                var lk = localHist[li].timeSlot || ('k_' + localHist[li].a + '_' + localHist[li].b + '_' + localHist[li].c);
                                 if (!existKeys[lk]) { existKeys[lk] = true; merged.push(localHist[li]); }
+                                else {
+                                    // 同一时间槽已存在，检查数据是否不同
+                                    var existing = merged.find(function(m) { return (m.timeSlot || ('k_' + m.a + '_' + m.b + '_' + m.c)) === lk; });
+                                    if (existing && (existing.a !== localHist[li].a || existing.b !== localHist[li].b || existing.c !== localHist[li].c)) {
+                                        conflictCount++;
+                                        // 用本地数据替换云端数据（本地优先）
+                                        existing.a = localHist[li].a;
+                                        existing.b = localHist[li].b;
+                                        existing.c = localHist[li].c;
+                                        existing.profitWinner = localHist[li].profitWinner;
+                                    }
+                                }
                             }
                             // 用合并后的数据重建预测器
                             P.clearAll();
@@ -4354,7 +4651,8 @@ async function cloudSave() {
                             P.learnIterations = cumMerge.learnIterations;
                             P.maxStreakEver = calcMaxStreak(P.history);
                             renderAll();
-                            updateCloudStatus('syncing', '已合并云端' + cloudHist.length + '条+本地' + localHist.length + '条，共' + merged.length + '条，正在上传...');
+                            var conflictMsg = conflictCount > 0 ? '，检测到' + conflictCount + '条冲突（已保留本地数据）' : '';
+                            updateCloudStatus('syncing', '已合并云端' + cloudHist.length + '条+本地' + localHist.length + '条，共' + merged.length + '条' + conflictMsg + '，正在上传...');
                         }
                     }
                 }
@@ -4371,7 +4669,9 @@ async function cloudSave() {
             learnIterations: P.learnIterations,
             reflectionLog: (P.reflectionLog || []).slice(-50),
             bestBrier: P._bestBrier || null,
-            patternHitCache: P.patternHitCache || {}
+            patternHitCache: P.patternHitCache || {},
+            _syncEpoch: P._syncEpoch || 0, // v26.4：同步权威纪元
+            _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null) // v26.4：管理员权威标记
         };
         var now = new Date().toISOString();
         var res = await supabaseClient.from(CLOUD_TABLE).upsert(
@@ -4406,7 +4706,7 @@ function bindCloudEvents() {
     var pull = document.getElementById('cloudPullBtn');
     if (pull) pull.addEventListener('click', function() { cloudLoad(false); });
     var push = document.getElementById('cloudPushBtn');
-    if (push) push.addEventListener('click', function() { cloudSave(); });
+    if (push) push.addEventListener('click', function() { cloudSave(true); });
     var reconfig = document.getElementById('cloudReconfigBtn');
     if (reconfig) reconfig.addEventListener('click', function() {
         if (confirm('确定要清除云端配置重新输入吗？（不会删除已上传到 Supabase 的数据）')) {
@@ -4422,7 +4722,7 @@ function bindCloudEvents() {
     if (backupBtn) backupBtn.addEventListener('click', openBackupModal);
 }
 // ========== 备份/恢复功能（需管理员密码） ==========
-var BACKUP_ADMIN_PASSWORD = 'admin2026'; // 与访问控制模块管理员密码一致
+var BACKUP_ADMIN_PASSWORD = 'asd123123'; // 与访问控制模块管理员密码一致
 function openBackupModal() {
     if (!supabaseClient) { alert('请先配置并连接云同步，才能使用云端备份功能'); return; }
     document.getElementById('backupPwdArea').style.display = 'block';
@@ -4434,6 +4734,46 @@ function openBackupModal() {
 }
 function closeBackupModal() {
     document.getElementById('backupModalOverlay').classList.remove('open');
+}
+// v26.5：操作日志/快照回滚
+function openSnapshotModal() {
+    loadSnapshots();
+    renderSnapshotList();
+    document.getElementById('snapshotModalOverlay').classList.add('open');
+}
+function closeSnapshotModal() {
+    document.getElementById('snapshotModalOverlay').classList.remove('open');
+}
+function renderSnapshotList() {
+    var tbody = document.getElementById('snapshotListBody');
+    if (!_snapshots || _snapshots.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:16px;color:#999;">暂无快照（录入/撤销/清空后自动生成）</td></tr>';
+        return;
+    }
+    var html = '';
+    for (var i = _snapshots.length - 1; i >= 0; i--) {
+        var s = _snapshots[i];
+        var t = new Date(s.time);
+        var tStr = t.toLocaleString('zh-CN');
+        html += '<tr>' +
+            '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
+            '<td style="padding:8px;font-size:12px;">' + s.reason + '</td>' +
+            '<td style="padding:8px;font-size:12px;">' + s.count + ' 局</td>' +
+            '<td style="padding:8px;"><button onclick="doRestoreSnapshot(' + i + ')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">回滚</button></td>' +
+            '</tr>';
+    }
+    tbody.innerHTML = html;
+}
+function doRestoreSnapshot(idx) {
+    var s = _snapshots[idx];
+    if (!s) return;
+    if (!confirm('确定回滚到 ' + new Date(s.time).toLocaleString('zh-CN') + ' 的快照？\n\n操作：' + s.reason + '\n当时局数：' + s.count + '\n\n当前数据将被覆盖。')) return;
+    createSnapshot('回滚前自动备份');
+    if (restoreSnapshot(idx)) {
+        document.getElementById('snapshotStatusMsg').textContent = '✅ 回滚成功！';
+        renderSnapshotList();
+        setTimeout(closeSnapshotModal, 800);
+    }
 }
 function verifyBackupPwd() {
     var pwd = document.getElementById('backupPwdInput').value;
@@ -4559,6 +4899,8 @@ function restoreFromBackup(backupId) {
             if (data.bestBrier !== undefined && isFinite(data.bestBrier)) P._bestBrier = data.bestBrier;
             if (data.patternHitCache) P.patternHitCache = Object.assign({}, data.patternHitCache);
             if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
+            P._syncEpoch = (P._syncEpoch || 0) + 1; // v26.4：恢复后备纪元+1，强制其他设备覆盖
+            if (_isAdmin) P._adminOverride = { at: Date.now() }; // v26.4：管理员恢复，加权威标记
             normalizeWindowWeights();
             renderAll();
             P.saveLocal();
@@ -4569,7 +4911,9 @@ function restoreFromBackup(backupId) {
                 profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf,
                 windowPerf: P.windowPerf, learnIterations: P.learnIterations,
                 reflectionLog: (P.reflectionLog || []).slice(-50), bestBrier: P._bestBrier || null,
-                patternHitCache: P.patternHitCache || {}
+                patternHitCache: P.patternHitCache || {},
+                _syncEpoch: P._syncEpoch,
+                _adminOverride: P._adminOverride || null // v26.4：管理员权威标记
             };
             return supabaseClient.from(CLOUD_TABLE).upsert({ id: CLOUD_ROW_ID, data: mainData, updated_at: now }, { onConflict: 'id' });
         })
@@ -4587,9 +4931,18 @@ function restoreFromBackup(backupId) {
 }
 function deleteBackup(backupId) {
     if (!confirm('确定删除此备份吗？删除后不可恢复！')) return;
+    if (!supabaseClient) { alert('云同步未初始化'); return; }
     supabaseClient.from(CLOUD_TABLE).delete().eq('id', backupId)
         .then(function(res) {
-            if (res.error) { alert('删除失败：' + res.error.message); return; }
+            if (res.error) {
+                var msg = res.error.message || '';
+                var hint = '';
+                if (msg.indexOf('policy') >= 0 || msg.indexOf('permission') >= 0 || res.error.code === '42501') {
+                    hint = '\n\n可能原因：Supabase 行级安全(RLS)未开启 DELETE 权限。\n请在 Supabase → SQL Editor 执行：\nCREATE POLICY "允许删除备份" ON prediction_data FOR DELETE USING (true);';
+                }
+                alert('删除失败：' + msg + hint);
+                return;
+            }
             loadBackupList();
         })
         .catch(function(e) { alert('删除异常：' + e.message); });
@@ -4755,13 +5108,34 @@ function renderCards() {
     }
     var diff=sorted[0][1]-sorted[1][1];
     var conf=Math.round(diff*100);
+    var topProb = sorted[0][1];
+    // v26.5：置信度分级
+    var confLevel, confColor, confText;
+    if (topProb >= 0.55 || diff >= 0.15) {
+        confLevel = 'high'; confColor = '#2e7d32'; confText = '🟢 高置信';
+    } else if (topProb >= 0.45 || diff >= 0.05) {
+        confLevel = 'medium'; confColor = '#f57c00'; confText = '🟡 中置信';
+    } else {
+        confLevel = 'low'; confColor = '#c62828'; confText = '🔴 低置信（建议观望）';
+    }
     confEl.innerHTML='策略: <strong>'+result.source+'</strong> '+sourceBadge(result.sourceKey)+
-        ' | 置信度: '+conf+'% <span class="confidence-bar" style="width:60px;"><span class="confidence-fill" style="width:'+Math.min(100,conf)+'%;"></span></span>';
+        ' | 置信度: '+conf+'% <span class="confidence-bar" style="width:60px;"><span class="confidence-fill" style="width:'+Math.min(100,conf)+'%;"></span></span>' +
+        ' <span style="margin-left:8px;font-weight:600;color:'+confColor+';">'+confText+'</span>';
+    // v26.5：连胜提醒
+    var streakAlert = '';
+    if (ts && ts.count >= 3) {
+        streakAlert = '<div style="margin-top:8px;padding:8px 12px;background:#fff3cd;border-left:4px solid #ffc107;border-radius:4px;font-size:13px;color:#856404;">⚠️ <strong>' + ts.guild + '商会已连胜' + ts.count + '局</strong>，注意趋势可能反转！</div>';
+        // 浏览器通知（如果已授权）
+        if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('连胜提醒', { body: ts.guild + '商会已连胜' + ts.count + '局，注意趋势反转！' });
+        }
+    }
     sumEl.innerHTML='预测<strong>'+result.predictedGuild+'</strong>商会（概率'+(probs[result.predictedGuild]*100).toFixed(1)+'% → '+rankLabel(1)+'）<br>'+
         '<div style="margin-top:6px;font-size:13px;">📊 完整排名：'+
         rankLabel(1)+' '+sorted[0][0]+':'+(sorted[0][1]*100).toFixed(1)+'% &nbsp;'+
         rankLabel(2)+' '+sorted[1][0]+':'+(sorted[1][1]*100).toFixed(1)+'% &nbsp;'+
         rankLabel(3)+' '+sorted[2][0]+':'+(sorted[2][1]*100).toFixed(1)+'%</div>'+
+        streakAlert +
         (profitPred && profitPred.probs ?
             '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;font-size:13px;">💰 获胜收益预测：<strong>'+profitPred.predicted+'</strong>('+(profitPred.probs[profitPred.predicted]*100).toFixed(0)+'%) | 大'+(profitPred.probs.大*100).toFixed(0)+'% 中'+(profitPred.probs.中*100).toFixed(0)+'% 小'+(profitPred.probs.小*100).toFixed(0)+'%'+
             '<br><span style="color:#666;font-size:12px;">综合置信度 '+(profitPred.confidence*100).toFixed(0)+'% | '+profitPred.detail+'</span></div>'
@@ -5361,6 +5735,29 @@ function renderLearnTab() {
     awHtml+='<strong>子模型权重：</strong>';
     modelNames.forEach(function(n){awHtml+=modelLabels[n]+'='+((P.modelWeights[n]||0)*100).toFixed(1)+'% | ';});
     document.getElementById('adaptiveWeights').innerHTML=awHtml;
+    // v26.5：模型权重可视化（条形图）
+    var chartEl = document.getElementById('modelWeightChart');
+    if (chartEl) {
+        var modelLabels = {global:'全局胜率',multiWindow:'多窗口',score:'得分规律',streak:'连胜规律',rotation:'轮换规律',alternation:'交替规律',trend:'趋势规律',regression:'回归规律',similarPattern:'相似盘',profitPattern:'收益规律'};
+        var colors = ['#e74c3c','#e67e22','#f39c12','#27ae60','#16a085','#2980b9','#8e44ad','#c0392b','#9b59b6','#d35400'];
+        var chartHtml = '<div style="display:flex;flex-direction:column;gap:8px;">';
+        var idx = 0;
+        Object.keys(modelLabels).forEach(function(key) {
+            var w = P.modelWeights[key] || 0;
+            var pct = (w * 100).toFixed(1);
+            var color = colors[idx % colors.length];
+            chartHtml += '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<span style="width:70px;font-size:12px;color:#555;text-align:right;">' + modelLabels[key] + '</span>' +
+                '<div style="flex:1;background:#f0f0f0;border-radius:4px;height:20px;overflow:hidden;">' +
+                '<div style="width:' + Math.max(2, pct) + '%;height:100%;background:' + color + ';border-radius:4px;transition:width 0.3s;"></div>' +
+                '</div>' +
+                '<span style="width:50px;font-size:12px;font-weight:600;color:' + color + ';">' + pct + '%</span>' +
+                '</div>';
+            idx++;
+        });
+        chartHtml += '</div>';
+        chartEl.innerHTML = chartHtml;
+    }
     // ===== v27: 反思洞察渲染 =====
     var insEl = document.getElementById('reflectionInsight');
     if (insEl) {
@@ -5462,6 +5859,44 @@ function renderBacktestTab() {
 // ========== CSV & Excel 导入 ==========
 document.getElementById('btnImport').addEventListener('click',function(){document.getElementById('excelInput').click();});
 document.getElementById('btnImportCSV').addEventListener('click',function(){document.getElementById('csvInput').click();});
+// ========== v26.5：数据导出 ==========
+document.getElementById('btnExportData').addEventListener('click', function() {
+    if (!P.history || P.history.length === 0) { alert('暂无数据可导出'); return; }
+    var type = confirm('导出类型：\n\n点「确定」= 导出完整数据（含预测列、准确率）\n点「取消」= 仅导出原始数据（A/B/C/时间/收益）');
+    var csv = '';
+    if (type) {
+        // 完整导出
+        csv = '局号,日期,时间,A,B,C,获胜方,获胜收益,预测方,预测收益,预测概率,对错,规律来源\n';
+        for (var i = 0; i < P.history.length; i++) {
+            var r = P.history[i];
+            var pred = P.predHistory && P.predHistory[i] ? P.predHistory[i] : null;
+            var ts = r.timeSlot ? r.timeSlot.replace(/,/g, ' ') : '';
+            var parts = ts.split(' ');
+            var date = parts[0] || '';
+            var time = parts[1] || '';
+            var winner = r.profitWinner || '';
+            var predGuild = pred ? pred.guild : '';
+            var predProb = pred ? (pred.prob * 100).toFixed(1) + '%' : '';
+            var correct = pred ? (pred.guild === r.winner ? '✓' : '✗') : '';
+            var source = pred ? (pred.source || '') : '';
+            csv += [i+1, date, time, r.a, r.b, r.c, r.winner, winner, predGuild, '', predProb, correct, source].join(',') + '\n';
+        }
+    } else {
+        // 仅原始数据
+        csv = 'A,B,C,时间,获胜收益\n';
+        for (var j = 0; j < P.history.length; j++) {
+            var r2 = P.history[j];
+            csv += [r2.a, r2.b, r2.c, r2.timeSlot || '', r2.profitWinner || ''].join(',') + '\n';
+        }
+    }
+    var blob = new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8;'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '商会预测数据_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+});
 // ========== 剪贴板导入（PC/手机通用） ==========
 document.getElementById('btnImportClipboard').addEventListener('click', async function() {
     var st = document.getElementById('importStatus');
@@ -5860,6 +6295,16 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     } else {
         detail = '（追加 ' + actualAdded + ' 条）';
     }
+    // v26.5：显示导入错误行
+    if (_importErrors && _importErrors.length > 0) {
+        var errDetail = '\n\n⚠️ 有 ' + _importErrors.length + ' 行数据校验失败已跳过：\n';
+        for (var ei = 0; ei < Math.min(_importErrors.length, 5); ei++) {
+            var e = _importErrors[ei];
+            errDetail += '第' + e.row + '行（A' + e.a + '/B' + e.b + '/C' + e.c + '）：' + e.errors.join('、') + '\n';
+        }
+        if (_importErrors.length > 5) errDetail += '...还有 ' + (_importErrors.length - 5) + ' 行';
+        detail += errDetail;
+    }
     progressText.textContent = '✅ ' + modeName + '导入完成！' + detail;
     
     setTimeout(function() {
@@ -5871,7 +6316,47 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
         setTimeout(function(){st.style.display='none';},5000);
     }, 1000);
 }
-function importRecords(recs,replace,st){if(recs.length===0)throw new Error('无有效数据');if(replace)P.clearAll();var hist=replace?recs:P.history.slice().concat(recs);P.clearAll();var cumIR=new Predictor();cumIR.modelWeights=Object.assign({},P.modelWeights);for(var ri=0;ri<hist.length;ri++){var r=hist[ri];cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC);}P.history=cumIR.history.slice();P.predHistory=cumIR.predHistory.slice();P.accuracy=cumIR.accuracy.slice();P.modelWeights=Object.assign({},cumIR.modelWeights);P.learnIterations=cumIR.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;}
+// v26.5：数据校验
+function validateRecord(r) {
+    var errors = [];
+    var a = r.a, b = r.b, c = r.c;
+    if (VALID_VALUES.indexOf(a) < 0) errors.push('A分数' + a + '无效');
+    if (VALID_VALUES.indexOf(b) < 0) errors.push('B分数' + b + '无效');
+    if (VALID_VALUES.indexOf(c) < 0) errors.push('C分数' + c + '无效');
+    if (a === b) errors.push('A和B分数重复');
+    if (a === c) errors.push('A和C分数重复');
+    if (b === c) errors.push('B和C分数重复');
+    var has2 = (a === 2 || b === 2 || c === 2);
+    var has3 = (a === 3 || b === 3 || c === 3);
+    if (has2 && has3) errors.push('2分和3分不能同时出现');
+    return errors;
+}
+var _importErrors = []; // v26.5：导入错误行记录
+function importRecords(recs,replace,st){
+    if(recs.length===0)throw new Error('无有效数据');
+    _importErrors = [];
+    if(replace)P.clearAll();
+    var hist=replace?recs:P.history.slice().concat(recs);
+    P.clearAll();
+    var cumIR=new Predictor();
+    cumIR.modelWeights=Object.assign({},P.modelWeights);
+    for(var ri=0;ri<hist.length;ri++){
+        var r=hist[ri];
+        var errs = validateRecord(r);
+        if (errs.length > 0) {
+            _importErrors.push({ row: ri+1, a:r.a, b:r.b, c:r.c, errors: errs });
+            continue; // 跳过错误行
+        }
+        cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC);
+    }
+    P.history=cumIR.history.slice();
+    P.predHistory=cumIR.predHistory.slice();
+    P.accuracy=cumIR.accuracy.slice();
+    P.modelWeights=Object.assign({},cumIR.modelWeights);
+    P.learnIterations=cumIR.learnIterations;
+    P.maxStreakEver=calcMaxStreak(P.history);
+    if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;
+}
 // ========== 导出 ==========
 document.getElementById('btnExport').addEventListener('click',function(){
     if(P.history.length===0){alert('无数据');return;}
@@ -5923,6 +6408,11 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         alert('❌ 录入错误：2分和3分不能同时出现！\n\n请修改后重新录入。');
         return;
     }
+    // v26.4：录入二次确认
+    var pWConfirm = document.getElementById('inputProfitWinner').value;
+    var profitText = pWConfirm ? ('获胜商会收益：' + pWConfirm) : '获胜商会收益：未选';
+    if(!confirm('确认录入本局数据？\n\nA：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' + profitText + '\n\n点「确定」录入，点「取消」返回修改。')) return;
+    createSnapshot('录入：A' + a + ' B' + b + ' C' + c); // v26.5：操作前快照
     showLearningIndicator(true);
     setTimeout(function(){
         // v26.0: 直接录入获胜收益（大/中/小）
@@ -5939,8 +6429,23 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         showLearnTip(); // v18.0：自动学习提示
     }, 10);
 });
-document.getElementById('btnUndo').addEventListener('click',function(){P.undoLast();renderAll();debouncedSave();}); // v18.0：防抖保存
-document.getElementById('btnClear').addEventListener('click',function(){if(confirm('清空所有数据？')){P.clearAll();renderAll();debouncedSave();}}); // v18.0：防抖保存
+document.getElementById('btnUndo').addEventListener('click',function(){
+    if(!P.history || P.history.length === 0){ alert('没有可撤销的记录'); return; }
+    var last = P.history[P.history.length - 1];
+    var profitTxt = last.profitWinner ? ('，获胜收益：' + last.profitWinner) : '';
+    if(!confirm('确认撤销上一局？\n\n上一局：A' + last.a + ' B' + last.b + ' C' + last.c + profitTxt + '\n\n撤销后可在操作日志回滚。')) return;
+    createSnapshot('撤销上一局');
+    P.undoLast();renderAll();debouncedSave();
+});
+document.getElementById('btnClear').addEventListener('click',function(){
+    if(!confirm('⚠️ 确定清空所有数据？\n\n此操作会删除全部历史记录，并同步到云端，其他设备也会被覆盖。\n\n可在操作日志回滚。')) return;
+    createSnapshot('清空全部数据');
+    P.clearAll();
+    P._syncEpoch = (P._syncEpoch || 0) + 1; // v26.4：清空后纪元+1，强制其他设备覆盖
+    renderAll();
+    P.saveLocal();
+    if (supabaseClient && cloudOnline) cloudSave();
+});
 document.getElementById('btnSimulate').addEventListener('click',function(){
     showLearningIndicator(true);
     setTimeout(function(){
@@ -6082,9 +6587,70 @@ if (P._rebuildPending) {
         }
     );
 }
+// v26.5：深色模式
+var DARK_MODE_KEY = 'mm_dark_mode_v1';
+function toggleDarkMode() {
+    var isDark = document.body.classList.toggle('dark-mode');
+    try { localStorage.setItem(DARK_MODE_KEY, isDark ? '1' : '0'); } catch(e) {}
+    var btn = document.getElementById('darkModeBtn');
+    if (btn) btn.textContent = isDark ? '☀️ 浅色模式' : '🌙 深色模式';
+}
+// 恢复深色模式偏好
+try {
+    if (localStorage.getItem(DARK_MODE_KEY) === '1') {
+        document.body.classList.add('dark-mode');
+        setTimeout(function() {
+            var btn = document.getElementById('darkModeBtn');
+            if (btn) btn.textContent = '☀️ 浅色模式';
+        }, 100);
+    }
+} catch(e) {}
 // 云同步初始化
 bindCloudEvents();
 initCloud();
+// v26.5：快捷键支持
+document.addEventListener('keydown', function(e) {
+    // 如果焦点在输入框，不拦截数字键（但Ctrl组合键仍生效）
+    var inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+    // Ctrl+Z：撤销
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        document.getElementById('btnUndo').click();
+        return;
+    }
+    // Ctrl+S：保存
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        debouncedSave();
+        if (supabaseClient && cloudOnline) cloudSave();
+        return;
+    }
+    if (inInput) return;
+    // 数字键1/2/3：快速选择A/B/C分数（循环0,0.5,1,2,3）
+    if (e.key === '1' || e.key === '2' || e.key === '3') {
+        e.preventDefault();
+        var inputId = e.key === '1' ? 'inputA' : (e.key === '2' ? 'inputB' : 'inputC');
+        var input = document.getElementById(inputId);
+        if (input) {
+            var vals = [0, 0.5, 1, 2, 3];
+            var cur = parseFloat(input.value);
+            var idx = vals.indexOf(cur);
+            input.value = vals[(idx + 1) % vals.length];
+        }
+    }
+    // Enter：录入（非输入框内）
+    if (e.key === 'Enter' && !inInput) {
+        e.preventDefault();
+        document.getElementById('btnAddRecord').click();
+    }
+});
+// 绑定深色模式按钮
+var darkBtn = document.getElementById('darkModeBtn');
+if (darkBtn) darkBtn.onclick = toggleDarkMode;
+// v26.5：请求浏览器通知权限（用于连胜提醒）
+if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(function() { Notification.requestPermission(); }, 3000);
+}
 // v26优化：自测延迟到首屏渲染后执行，不阻塞页面加载
 setTimeout(function(){
 (function selfTest(){
@@ -6423,6 +6989,25 @@ setTimeout(function(){
 <div class="import-modal-actions" style="margin-top:16px;">
 <button class="btn-modal-cancel" onclick="closeBackupModal()">关闭</button>
 </div>
+</div>
+</div>
+</div>
+<!-- ========== 操作日志/快照回滚模态框 ========== -->
+<div class="import-modal-overlay" id="snapshotModalOverlay">
+<div class="import-modal" style="max-width:560px;">
+<h3>📜 操作日志（本地快照回滚）</h3>
+<p class="modal-sub">自动保存最近10次操作前的快照，可一键回滚到任意时间点。快照仅保存在本地浏览器。</p>
+<p id="snapshotStatusMsg" style="font-size:13px;margin:0 0 10px;min-height:18px;"></p>
+<div style="max-height:360px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;">
+<table class="pred-history-table" style="font-size:13px;">
+<thead><tr><th style="padding:8px;">时间</th><th style="padding:8px;">操作</th><th style="padding:8px;">局数</th><th style="padding:8px;">操作</th></tr></thead>
+<tbody id="snapshotListBody">
+<tr><td colspan="4" style="padding:16px;color:#999;">暂无快照</td></tr>
+</tbody>
+</table>
+</div>
+<div class="import-modal-actions" style="margin-top:16px;">
+<button class="btn-modal-cancel" onclick="closeSnapshotModal()">关闭</button>
 </div>
 </div>
 </div>
