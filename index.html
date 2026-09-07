@@ -796,12 +796,12 @@ create policy "ac update" on access_control for update using (true);</textarea><
   function hide() { document.getElementById('accessOverlay').style.display = 'none'; }
 
   var poll = null;
+  var _adminFromSystem = false; // v26.4：标记管理员面板是否从系统内打开
   function checkStatus() {
     getStatus().then(function(s) {
       if (s === 'authorized') {
         if (poll) clearInterval(poll);
-        localStorage.setItem(AUTH_CACHE_KEY, '1');
-        hide();
+        hide(); // v26.4：纯云端认证，不写本地缓存
       } else if (s === 'rejected') {
         if (poll) clearInterval(poll);
         alert('设备已被管理员拒绝');
@@ -854,6 +854,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 
     document.getElementById('adminEntryLink').onclick = function(e) {
       e.preventDefault();
+      _adminFromSystem = false;
       show('admin');
       document.getElementById('adminLoginArea').style.display = 'block';
       document.getElementById('adminPanelArea').style.display = 'none';
@@ -868,8 +869,8 @@ create policy "ac update" on access_control for update using (true);</textarea><
     };
     document.getElementById('adminPasswordInput').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('adminPasswordBtn').click(); };
     document.getElementById('adminExitBtn').onclick = function() {
-      // 已授权设备退出管理面板时，直接隐藏遮罩层返回系统；未授权则返回密码页
-      if (localStorage.getItem(AUTH_CACHE_KEY) === '1') { hide(); }
+      // 从系统内打开的管理员面板，退出时直接隐藏返回系统；从密码页进入的则返回密码页
+      if (_adminFromSystem) { hide(); }
       else { show('pw'); }
     };
     document.getElementById('adminRefreshBtn').onclick = loadAdmin;
@@ -918,31 +919,47 @@ create policy "ac update" on access_control for update using (true);</textarea><
   function init() {
     bind();
     loadSbCfg();
-    // 先隐藏整个遮罩层，已授权用户全程看不到
     hide();
-    var cached = localStorage.getItem(AUTH_CACHE_KEY);
-    // v26.4：第一步必须先配置云同步，没配置时显示云同步配置视图
+    // 第一步：未配置云同步时显示云配置页
     if (!sbUrl || !sbKey) {
       document.getElementById('accessOverlay').style.display = 'flex';
       show('cloud');
       return;
     }
-    // 已配置云同步，填充到输入框（方便重新配置时看到）
     document.getElementById('accessCloudUrl').value = sbUrl;
     document.getElementById('accessCloudKey').value = sbKey;
-    if (cached === '1' && deviceId) {
+    // v26.4：纯云端认证——每次打开从云端查设备状态，不依赖本地缓存
+    if (deviceId) {
       getStatus().then(function(s) {
-        if (s === 'authorized') { /* 保持隐藏 */ }
-        else { localStorage.removeItem(AUTH_CACHE_KEY); document.getElementById('accessOverlay').style.display = 'flex'; show('pw'); }
-      }).catch(function() { /* API失败，保持隐藏放行 */ });
+        if (s === 'authorized') {
+          return; // 已授权：直接进入
+        } else if (s === 'pending') {
+          // 待授权：显示等待页，继续轮询
+          document.getElementById('accessOverlay').style.display = 'flex';
+          document.getElementById('accessDeviceId').textContent = deviceId;
+          document.getElementById('accessPendingHint').textContent = '设备名称：' + devName();
+          show('pending');
+          if (poll) clearInterval(poll);
+          poll = setInterval(checkStatus, 5000);
+        } else {
+          // 被拒绝或不存在：显示密码页重新注册
+          document.getElementById('accessOverlay').style.display = 'flex';
+          show('pw');
+        }
+      }).catch(function() {
+        // 网络错误：显示密码页，用户可重新注册
+        document.getElementById('accessOverlay').style.display = 'flex';
+        show('pw');
+      });
     } else {
-      // 未授权，显示遮罩层和密码页
+      // 无设备ID：显示密码页
       document.getElementById('accessOverlay').style.display = 'flex';
       show('pw');
     }
   }
 
   function openAdminPanel() {
+    _adminFromSystem = true;
     // 显示遮罩层，切换到管理员视图
     document.getElementById('accessOverlay').style.display = 'flex';
     document.getElementById('adminLoginArea').style.display = 'block';
@@ -4163,6 +4180,7 @@ var cloudOnline = false;
 var cloudLastSync = null;
 var _cloudSaving = false;
 var _autoPullTimer = null;
+var _autoSyncTimer = null;
 var _lastLocalChange = 0;
 
 function getCloudConfig() {
@@ -4198,18 +4216,23 @@ function initCloud() {
     try {
         if (window.supabase && window.supabase.createClient) {
             supabaseClient = window.supabase.createClient(cfg.url, cfg.key);
-            updateCloudStatus('connecting', '正在测试连接...');
+            // v26.4：客户端创建成功即置为在线，允许上传；首次拉取失败不影响上传能力
+            cloudOnline = true;
+            updateCloudStatus('syncing', '正在从云端拉取数据...');
             cloudLoad(true);
             // v26.0: 启动自动拉取（每30秒静默拉取一次）
             if (_autoPullTimer) clearInterval(_autoPullTimer);
             _autoPullTimer = setInterval(function() {
                 if (supabaseClient && cloudOnline && !_cloudSaving) {
-                    // 如果用户最近10秒内有修改，跳过本次自动拉取，避免覆盖用户输入
-                    if (Date.now() - _lastLocalChange > 10000) {
+                    // v26.4：如果用户最近30秒内有修改，跳过本次自动拉取，避免覆盖刚录入的数据
+                    if (Date.now() - _lastLocalChange > 30000) {
                         cloudLoad(true);
                     }
                 }
             }, 30000);
+            // v26.4：每10分钟完整对比同步一次（本地多就上传，云端多就拉取）
+            if (_autoSyncTimer) clearInterval(_autoSyncTimer);
+            _autoSyncTimer = setInterval(autoSyncCompare, 600000);
         } else {
             updateCloudStatus('error', 'Supabase SDK 未加载，请检查网络后刷新');
         }
@@ -4227,19 +4250,20 @@ async function cloudLoad(silent) {
         if (error) {
             var msg = error.message || '';
             if (msg.indexOf('does not exist') >= 0 || error.code === '42P01') {
-                updateCloudStatus('error', '数据表不存在，请先在 Supabase 执行建表 SQL（见配置说明）');
+                updateCloudStatus('online', '⚠️ 数据表不存在，本地数据可正常使用，点「上传云端」初始化');
             } else {
-                updateCloudStatus('error', '拉取失败: ' + msg);
+                // v26.4：拉取失败不影响上传能力，保持在线状态
+                updateCloudStatus('online', '⚠️ 拉取失败: ' + msg + '（本地数据可正常使用）');
             }
             return false;
         }
         if (data && data.data && data.data.history) {
-            // v26.4：保护机制——如果本地历史比云端多，说明本地有更新数据，不用云端老数据覆盖
+            // v26.4：保护机制——本地历史比云端多时，不用云端老数据覆盖本地（避免刚录入被拉取冲掉）
             var localHistLen = P.history ? P.history.length : 0;
             var cloudHistLen = data.data.history ? data.data.history.length : 0;
-            if (localHistLen > cloudHistLen + 1) {
+            if (localHistLen > cloudHistLen) {
                 cloudLastSync = new Date();
-                updateCloudStatus('online', '本地数据比云端新（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地数据，点「上传云端」可同步');
+                updateCloudStatus('online', '本地有新数据（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地，点「上传云端」同步');
                 return true;
             }
             localStorage.setItem(STORE_KEY, JSON.stringify(data.data));
@@ -4260,12 +4284,37 @@ async function cloudLoad(silent) {
             return true;
         }
     } catch(e) {
-        updateCloudStatus('error', '拉取异常: ' + e.message);
+        // v26.4：拉取异常不影响上传能力，保持在线状态
+        updateCloudStatus('online', '⚠️ 拉取异常: ' + e.message + '（本地数据可正常使用）');
         return false;
     }
 }
+
+// v26.4：每10分钟完整对比同步——对比本地和云端数据量，自动决定上传或拉取
+async function autoSyncCompare() {
+    if (!supabaseClient || !cloudOnline || _cloudSaving) return;
+    try {
+        var res = await supabaseClient.from(CLOUD_TABLE).select('data, updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
+        if (res.error) return;
+        var localLen = P.history ? P.history.length : 0;
+        var cloudLen = (res.data && res.data.data && res.data.data.history) ? res.data.data.history.length : 0;
+        if (localLen > cloudLen) {
+            // 本地比云端多：自动上传
+            updateCloudStatus('syncing', '定时对比：本地' + localLen + '局 > 云端' + cloudLen + '局，自动上传...');
+            await cloudSave();
+        } else if (cloudLen > localLen) {
+            // 云端比本地多：自动拉取
+            updateCloudStatus('syncing', '定时对比：云端' + cloudLen + '局 > 本地' + localLen + '局，自动拉取...');
+            await cloudLoad(true);
+        }
+        // 数量相同：不操作
+    } catch(e) { /* 定时对比失败，静默跳过 */ }
+}
+
 async function cloudSave() {
-    if (!supabaseClient || !cloudOnline || _cloudSaving) return false;
+    if (!supabaseClient) { updateCloudStatus('online', '⚠️ 云同步未初始化'); return false; }
+    if (!cloudOnline) { updateCloudStatus('online', '⚠️ 云同步离线，尝试重连...'); cloudOnline = true; }
+    if (_cloudSaving) return false;
     _cloudSaving = true;
     try {
         // v26.0: 冲突检测 - 上传前先查云端更新时间
@@ -4330,14 +4379,15 @@ async function cloudSave() {
             { onConflict: 'id' }
         );
         if (res.error) {
-            updateCloudStatus('error', '上传失败: ' + res.error.message);
+            // v26.4：上传失败不置为离线，保持可重试
+            updateCloudStatus('online', '⚠️ 上传失败: ' + res.error.message + '（可重试）');
             return false;
         }
         cloudLastSync = new Date();
         updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端');
         return true;
     } catch(e) {
-        updateCloudStatus('error', '上传异常: ' + e.message);
+        updateCloudStatus('online', '⚠️ 上传异常: ' + e.message + '（可重试）');
         return false;
     } finally {
         _cloudSaving = false;
@@ -5884,6 +5934,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
         if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 100)); _hc.setAttribute('data-page', _tp); }
         renderAll();
+        debouncedSave(); // v26.4修复：录入后必须保存，否则自动拉取会把数据覆盖没
         showLearningIndicator(false);
         showLearnTip(); // v18.0：自动学习提示
     }, 10);
