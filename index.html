@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v26.0（获胜收益录入·自动拉取·冲突保护）</title>
+<title>商会三竞预测系统 · 智能预测云端协同</title>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>var XLSX = window.XLSX || null;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
@@ -359,9 +359,24 @@ body{padding:8px !important}
 <!-- 访问控制遮罩层 -->
 <div id="accessOverlay" class="access-overlay">
   <div class="access-box">
-    <!-- 密码输入 -->
-    <div id="accessPasswordView">
-      <h2>🔒 访问验证</h2>
+    <!-- 第一步：云同步配置 -->
+    <div id="accessCloudView">
+      <h2>☁️ 第一步：配置云同步</h2>
+      <p>请先配置 Supabase 云同步，启用后才能进行设备授权</p>
+      <div style="text-align:left;margin-bottom:10px;">
+        <label style="font-size:13px;color:#555;">Supabase URL：</label>
+        <input type="text" id="accessCloudUrl" placeholder="https://xxxx.supabase.co" style="width:100%;margin-top:4px;">
+      </div>
+      <div style="text-align:left;margin-bottom:14px;">
+        <label style="font-size:13px;color:#555;">anon key：</label>
+        <input type="text" id="accessCloudKey" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="width:100%;margin-top:4px;">
+      </div>
+      <button id="accessCloudSaveBtn">✅ 保存并继续</button>
+      <p class="access-hint" id="accessCloudHint" style="color:#e74c3c;"></p>
+    </div>
+    <!-- 第二步：密码输入 -->
+    <div id="accessPasswordView" style="display:none;">
+      <h2>🔒 第二步：访问验证</h2>
       <p>请输入访问密码</p>
       <input type="password" id="accessPasswordInput" placeholder="请输入密码" autocomplete="off">
       <button id="accessPasswordBtn">进入系统</button>
@@ -398,8 +413,8 @@ body{padding:8px !important}
 <div class="watermark-topright">素素</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 v26.0 <span style="font-size:14px;opacity:0.7;">获胜收益录入·自动拉取·冲突保护</span></h1>
-<p class="subtitle">v26.0：收益录入改为直接录入获胜收益（大/中/小），去掉A/B/C收益录入 · 每30秒自动拉取云端数据 · 上传前冲突检测保护 · 访问控制（密码+设备授权）</p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v26.0</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护</p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -458,6 +473,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn cloud-btn-push" id="cloudPushBtn">☁️ 上传云端</button>
 <button class="cloud-btn" id="cloudReconfigBtn" style="background:#ff9800;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">⚙️ 重新配置</button>
 <button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔐 设备管理</button>
+<button class="cloud-btn" id="backupRestoreBtn" style="background:#00bcd4;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">💾 备份/恢复</button>
 </div>
 <div class="tab-bar">
 <button class="tab-btn active" data-tab="main">📊 预测主界面</button>
@@ -772,6 +788,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   }
 
   function show(v) {
+    document.getElementById('accessCloudView').style.display = v === 'cloud' ? 'block' : 'none';
     document.getElementById('accessPasswordView').style.display = v === 'pw' ? 'block' : 'none';
     document.getElementById('accessPendingView').style.display = v === 'pending' ? 'block' : 'none';
     document.getElementById('accessAdminView').style.display = v === 'admin' ? 'block' : 'none';
@@ -795,6 +812,30 @@ create policy "ac update" on access_control for update using (true);</textarea><
   }
 
   function bind() {
+    // 第一步：云同步配置保存
+    document.getElementById('accessCloudSaveBtn').onclick = function() {
+      var url = document.getElementById('accessCloudUrl').value.trim();
+      var key = document.getElementById('accessCloudKey').value.trim();
+      var hint = document.getElementById('accessCloudHint');
+      if (!url || !key) { hint.textContent = '请填写 Supabase URL 和 anon key'; return; }
+      if (url.indexOf('http') !== 0) { hint.textContent = 'URL 格式不正确，应以 https:// 开头'; return; }
+      try {
+        localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify({url: url, key: key}));
+      } catch(e) { hint.textContent = '保存失败：' + e.message; return; }
+      loadSbCfg(); // 重新加载到 sbUrl/sbKey
+      hint.textContent = '';
+      // 自动填充到预测系统的云配置输入框（进入系统后可见）
+      var sysUrl = document.getElementById('cloudUrlInput');
+      var sysKey = document.getElementById('cloudKeyInput');
+      if (sysUrl) sysUrl.value = url;
+      if (sysKey) sysKey.value = key;
+      // 重新初始化预测系统的云同步模块（页面加载时没配置，现在需要初始化）
+      if (typeof initCloud === 'function') { try { initCloud(); } catch(e) { console.error('initCloud failed:', e); } }
+      show('pw'); // 跳到第二步：密码页
+    };
+    document.getElementById('accessCloudUrl').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessCloudKey').focus(); };
+    document.getElementById('accessCloudKey').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessCloudSaveBtn').click(); };
+
     document.getElementById('accessPasswordBtn').onclick = function() {
       if (document.getElementById('accessPasswordInput').value !== ACCESS_PASSWORD) { alert('密码错误'); return; }
       if (!deviceId) { deviceId = genId(); localStorage.setItem(DEVICE_KEY, deviceId); }
@@ -880,7 +921,16 @@ create policy "ac update" on access_control for update using (true);</textarea><
     // 先隐藏整个遮罩层，已授权用户全程看不到
     hide();
     var cached = localStorage.getItem(AUTH_CACHE_KEY);
-    if (cached === '1' && deviceId && sbUrl && sbKey) {
+    // v26.4：第一步必须先配置云同步，没配置时显示云同步配置视图
+    if (!sbUrl || !sbKey) {
+      document.getElementById('accessOverlay').style.display = 'flex';
+      show('cloud');
+      return;
+    }
+    // 已配置云同步，填充到输入框（方便重新配置时看到）
+    document.getElementById('accessCloudUrl').value = sbUrl;
+    document.getElementById('accessCloudKey').value = sbKey;
+    if (cached === '1' && deviceId) {
       getStatus().then(function(s) {
         if (s === 'authorized') { /* 保持隐藏 */ }
         else { localStorage.removeItem(AUTH_CACHE_KEY); document.getElementById('accessOverlay').style.display = 'flex'; show('pw'); }
@@ -4184,6 +4234,14 @@ async function cloudLoad(silent) {
             return false;
         }
         if (data && data.data && data.data.history) {
+            // v26.4：保护机制——如果本地历史比云端多，说明本地有更新数据，不用云端老数据覆盖
+            var localHistLen = P.history ? P.history.length : 0;
+            var cloudHistLen = data.data.history ? data.data.history.length : 0;
+            if (localHistLen > cloudHistLen + 1) {
+                cloudLastSync = new Date();
+                updateCloudStatus('online', '本地数据比云端新（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地数据，点「上传云端」可同步');
+                return true;
+            }
             localStorage.setItem(STORE_KEY, JSON.stringify(data.data));
             P.loadLocal();
             renderAll();
@@ -4309,6 +4367,182 @@ function bindCloudEvents() {
             document.getElementById('cloudBar').style.display = 'none';
         }
     });
+    // 备份/恢复按钮
+    var backupBtn = document.getElementById('backupRestoreBtn');
+    if (backupBtn) backupBtn.addEventListener('click', openBackupModal);
+}
+// ========== 备份/恢复功能（需管理员密码） ==========
+var BACKUP_ADMIN_PASSWORD = 'admin2026'; // 与访问控制模块管理员密码一致
+function openBackupModal() {
+    if (!supabaseClient) { alert('请先配置并连接云同步，才能使用云端备份功能'); return; }
+    document.getElementById('backupPwdArea').style.display = 'block';
+    document.getElementById('backupActionArea').style.display = 'none';
+    document.getElementById('backupPwdInput').value = '';
+    document.getElementById('backupPwdError').style.display = 'none';
+    document.getElementById('backupStatusMsg').textContent = '';
+    document.getElementById('backupModalOverlay').classList.add('open');
+}
+function closeBackupModal() {
+    document.getElementById('backupModalOverlay').classList.remove('open');
+}
+function verifyBackupPwd() {
+    var pwd = document.getElementById('backupPwdInput').value;
+    if (pwd !== BACKUP_ADMIN_PASSWORD) {
+        document.getElementById('backupPwdError').style.display = 'block';
+        return;
+    }
+    document.getElementById('backupPwdError').style.display = 'none';
+    document.getElementById('backupPwdArea').style.display = 'none';
+    document.getElementById('backupActionArea').style.display = 'block';
+    document.getElementById('backupStatusMsg').textContent = '';
+    loadBackupList();
+}
+function doBackup() { /* 兼容旧调用，实际用 doCloudBackup */ doCloudBackup(); }
+function doRestore() { /* 兼容旧调用 */ }
+// ========== 云端备份/恢复 ==========
+function doCloudBackup() {
+    if (!supabaseClient) { alert('未配置云同步，无法使用云端备份'); return; }
+    var msg = document.getElementById('backupStatusMsg');
+    msg.style.color = '#302b63';
+    msg.textContent = '正在创建备份...';
+    try {
+        var saveData = {
+            history: P.history ? P.history.slice() : [],
+            predHistory: P.predHistory ? P.predHistory.slice() : [],
+            accuracy: P.accuracy ? P.accuracy.slice() : [],
+            profitAccuracy: P.profitAccuracy ? P.profitAccuracy.slice() : [],
+            modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
+            modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
+            windowPerf: P.windowPerf ? Object.assign({}, P.windowPerf) : {},
+            windowWeights: P.windowWeights ? Object.assign({}, P.windowWeights) : {},
+            learnIterations: P.learnIterations || 0,
+            reflectionLog: P.reflectionLog ? P.reflectionLog.slice() : [],
+            maxStreakEver: P.maxStreakEver || 0,
+            bestBrier: isFinite(P._bestBrier) ? P._bestBrier : null,
+            patternHitCache: P.patternHitCache ? Object.assign({}, P.patternHitCache) : {}
+        };
+        var now = new Date();
+        var backupId = 'backup_' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0') + String(now.getSeconds()).padStart(2,'0');
+        supabaseClient.from(CLOUD_TABLE).upsert(
+            { id: backupId, data: saveData, updated_at: now.toISOString() },
+            { onConflict: 'id' }
+        ).then(function(res) {
+            if (res.error) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份失败：' + res.error.message; return; }
+            msg.style.color = '#2e7d32';
+            msg.textContent = '✅ 备份成功（' + saveData.history.length + '局），已存入云端';
+            loadBackupList();
+        }).catch(function(e) {
+            msg.style.color = '#e74c3c';
+            msg.textContent = '❌ 备份异常：' + e.message;
+        });
+    } catch(e) {
+        msg.style.color = '#e74c3c';
+        msg.textContent = '❌ 备份失败：' + e.message;
+    }
+}
+function loadBackupList() {
+    if (!supabaseClient) return;
+    var tbody = document.getElementById('backupListBody');
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#999;">加载中...</td></tr>';
+    supabaseClient.from(CLOUD_TABLE).select('id, updated_at').like('id', 'backup_%').order('updated_at', {ascending: false})
+        .then(function(res) {
+            if (res.error) { tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载失败：' + res.error.message + '</td></tr>'; return; }
+            var list = res.data || [];
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#999;">暂无备份，点上方「创建新备份」</td></tr>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < list.length; i++) {
+                var item = list[i];
+                var t = item.updated_at ? new Date(item.updated_at) : null;
+                var tStr = t ? t.toLocaleString('zh-CN') : item.id;
+                html += '<tr>' +
+                    '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
+                    '<td style="padding:8px;" id="backupCount_' + i + '">加载中...</td>' +
+                    '<td style="padding:8px;">' +
+                        '<button onclick="restoreFromBackup(\'' + item.id + '\')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px;">恢复</button>' +
+                        '<button onclick="deleteBackup(\'' + item.id + '\')" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
+                    '</td>' +
+                    '</tr>';
+            }
+            tbody.innerHTML = html;
+            // 异步加载每个备份的历史局数
+            for (var j = 0; j < list.length; j++) {
+                (function(idx, bid) {
+                    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', bid).maybeSingle().then(function(r) {
+                        var el = document.getElementById('backupCount_' + idx);
+                        if (el && r.data && r.data.data && r.data.data.history) {
+                            el.textContent = r.data.data.history.length + ' 局';
+                        } else if (el) { el.textContent = '-'; }
+                    }).catch(function() { var el = document.getElementById('backupCount_' + idx); if (el) el.textContent = '-'; });
+                })(j, list[j].id);
+            }
+        }).catch(function(e) {
+            tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载异常：' + e.message + '</td></tr>';
+        });
+}
+function restoreFromBackup(backupId) {
+    if (!confirm('确定要恢复此备份吗？当前所有数据将被覆盖，此操作不可撤销！')) return;
+    var msg = document.getElementById('backupStatusMsg');
+    msg.style.color = '#302b63';
+    msg.textContent = '正在恢复...';
+    supabaseClient.from(CLOUD_TABLE).select('data, updated_at').eq('id', backupId).maybeSingle()
+        .then(function(res) {
+            if (res.error) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 恢复失败：' + res.error.message; return; }
+            if (!res.data || !res.data.data) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份数据为空'; return; }
+            var data = res.data.data;
+            if (!data.history || !Array.isArray(data.history)) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份格式不正确'; return; }
+            // 恢复到本地
+            P.clearAll();
+            P.history = data.history.slice();
+            P.predHistory = data.predHistory ? data.predHistory.slice() : [];
+            P.accuracy = data.accuracy ? data.accuracy.slice() : [];
+            P.profitAccuracy = data.profitAccuracy ? data.profitAccuracy.slice() : [];
+            if (data.modelWeights) P.modelWeights = Object.assign({}, data.modelWeights);
+            if (data.modelPerf) P.modelPerf = Object.assign({}, data.modelPerf);
+            if (data.windowPerf) P.windowPerf = Object.assign({}, data.windowPerf);
+            if (data.windowWeights) P.windowWeights = Object.assign({}, data.windowWeights);
+            P.learnIterations = data.learnIterations || 0;
+            P.reflectionLog = data.reflectionLog ? data.reflectionLog.slice() : [];
+            P.maxStreakEver = data.maxStreakEver || calcMaxStreak(P.history);
+            if (data.bestBrier !== undefined && isFinite(data.bestBrier)) P._bestBrier = data.bestBrier;
+            if (data.patternHitCache) P.patternHitCache = Object.assign({}, data.patternHitCache);
+            if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
+            normalizeWindowWeights();
+            renderAll();
+            P.saveLocal();
+            // 同步覆盖云端 main 数据
+            var now = new Date().toISOString();
+            var mainData = {
+                history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
+                profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf,
+                windowPerf: P.windowPerf, learnIterations: P.learnIterations,
+                reflectionLog: (P.reflectionLog || []).slice(-50), bestBrier: P._bestBrier || null,
+                patternHitCache: P.patternHitCache || {}
+            };
+            return supabaseClient.from(CLOUD_TABLE).upsert({ id: CLOUD_ROW_ID, data: mainData, updated_at: now }, { onConflict: 'id' });
+        })
+        .then(function(upsertRes) {
+            if (upsertRes && upsertRes.error) { msg.style.color = '#e67e22'; msg.textContent = '⚠️ 本地已恢复，但同步云端失败：' + upsertRes.error.message; return; }
+            cloudLastSync = new Date();
+            msg.style.color = '#2e7d32';
+            msg.textContent = '✅ 恢复成功！共 ' + P.history.length + ' 局，已同步到云端主数据';
+            loadBackupList();
+        })
+        .catch(function(e) {
+            msg.style.color = '#e74c3c';
+            msg.textContent = '❌ 恢复异常：' + e.message;
+        });
+}
+function deleteBackup(backupId) {
+    if (!confirm('确定删除此备份吗？删除后不可恢复！')) return;
+    supabaseClient.from(CLOUD_TABLE).delete().eq('id', backupId)
+        .then(function(res) {
+            if (res.error) { alert('删除失败：' + res.error.message); return; }
+            loadBackupList();
+        })
+        .catch(function(e) { alert('删除异常：' + e.message); });
 }
 // ============================================================
 // UI 渲染
@@ -5559,7 +5793,9 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     }
     
     renderAll();
-    debouncedSave();
+    // v26.4：导入是大操作，立即保存+上传，不用防抖（避免刷新时数据还没存上）
+    P.saveLocal();
+    if (supabaseClient && cloudOnline) cloudSave();
     
     var progressFill = document.getElementById('importProgressFill');
     var progressText = document.getElementById('importProgressText');
@@ -6098,6 +6334,44 @@ setTimeout(function(){
 <div class="import-modal-actions">
 <button class="btn-modal-cancel" onclick="closeImportModal()">取消</button>
 <button class="btn-modal-confirm" id="importModalConfirm" onclick="confirmImport()">确认导入</button>
+</div>
+</div>
+</div>
+<!-- ========== 备份/恢复模态框 ========== -->
+<div class="import-modal-overlay" id="backupModalOverlay">
+<div class="import-modal" style="max-width:560px;">
+<h3>💾 云端备份与恢复</h3>
+<p class="modal-sub">备份数据存储在云数据库中，即使本地数据被误改也可随时回滚。需管理员密码验证。</p>
+<!-- 密码验证区 -->
+<div id="backupPwdArea">
+<div style="text-align:left;margin-bottom:12px;">
+<label style="font-size:13px;color:#555;">管理员密码：</label>
+<input type="password" id="backupPwdInput" placeholder="请输入管理员密码" style="width:100%;margin-top:4px;" autocomplete="off">
+</div>
+<p id="backupPwdError" style="color:#e74c3c;font-size:13px;margin:0 0 12px;display:none;">密码错误</p>
+<div class="import-modal-actions">
+<button class="btn-modal-cancel" onclick="closeBackupModal()">取消</button>
+<button class="btn-modal-confirm" onclick="verifyBackupPwd()">验证</button>
+</div>
+</div>
+<!-- 操作区（验证通过后显示） -->
+<div id="backupActionArea" style="display:none;">
+<div style="display:flex;gap:10px;margin-bottom:14px;">
+<button class="btn-modal-confirm" style="background:#2e7d32;flex:1;" onclick="doCloudBackup()">📤 创建新备份</button>
+<button class="btn-modal-cancel" style="flex:1;" onclick="loadBackupList()">🔄 刷新列表</button>
+</div>
+<p id="backupStatusMsg" style="font-size:13px;margin:0 0 10px;min-height:18px;"></p>
+<div style="max-height:320px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;">
+<table class="pred-history-table" style="font-size:13px;">
+<thead><tr><th style="padding:8px;">备份时间</th><th style="padding:8px;">历史局数</th><th style="padding:8px;">操作</th></tr></thead>
+<tbody id="backupListBody">
+<tr><td colspan="3" style="padding:16px;color:#999;">加载中...</td></tr>
+</tbody>
+</table>
+</div>
+<div class="import-modal-actions" style="margin-top:16px;">
+<button class="btn-modal-cancel" onclick="closeBackupModal()">关闭</button>
+</div>
 </div>
 </div>
 </div>
