@@ -4611,19 +4611,11 @@ function initCloud() {
             cloudOnline = true;
             updateCloudStatus('syncing', '正在从云端拉取数据...');
             cloudLoad(true);
-            // v26.0: 启动自动拉取（每30秒静默拉取一次）
-            if (_autoPullTimer) clearInterval(_autoPullTimer);
-            _autoPullTimer = setInterval(function() {
-                if (supabaseClient && cloudOnline && !_cloudSaving) {
-                    // v26.4：如果用户最近30秒内有修改，跳过本次自动拉取，避免覆盖刚录入的数据
-                    if (Date.now() - _lastLocalChange > 30000) {
-                        cloudLoad(true);
-                    }
-                }
-            }, 30000);
-            // v26.4：每10分钟完整对比同步一次（本地多就上传，云端多就拉取）
-            if (_autoSyncTimer) clearInterval(_autoSyncTimer);
-            _autoSyncTimer = setInterval(autoSyncCompare, 600000);
+            // v27.0修复：禁用自动拉取和自动对比定时器，避免多设备竞态条件导致数据重复
+            // 之前每30秒自动拉取+每10分钟自动对比，多设备同时在线时会导致数据混乱
+            // 现在：只在用户主动操作（录入/导入/修改/点拉取最新）时同步
+            if (_autoPullTimer) { clearInterval(_autoPullTimer); _autoPullTimer = null; }
+            if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
         } else {
             updateCloudStatus('error', 'Supabase SDK 未加载，请检查网络后刷新');
         }
@@ -4760,25 +4752,12 @@ function checkAutoBackup() {
 if (_autoBackupTimer) clearInterval(_autoBackupTimer);
 _autoBackupTimer = setInterval(checkAutoBackup, 600000);
 
-// v26.4：每10分钟完整对比同步——对比本地和云端数据量，自动决定上传或拉取
+// v27.0修复：禁用定时自动对比同步，避免多设备竞态条件导致数据重复
+// 之前的自动对比会在本地多就上传、云端多就拉取，但多设备同时在线时会导致竞态条件
+// 现在：只在用户主动操作（录入/导入/修改）时同步，不再定时自动对比
 async function autoSyncCompare() {
-    if (!supabaseClient || !cloudOnline || _cloudSaving) return;
-    try {
-        var res = await supabaseClient.from(CLOUD_TABLE).select('data, updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
-        if (res.error) return;
-        var localLen = P.history ? P.history.length : 0;
-        var cloudLen = (res.data && res.data.data && res.data.data.history) ? res.data.data.history.length : 0;
-        if (localLen > cloudLen) {
-            // 本地比云端多：自动上传
-            updateCloudStatus('syncing', '定时对比：本地' + localLen + '局 > 云端' + cloudLen + '局，自动上传...');
-            await cloudSave();
-        } else if (cloudLen > localLen) {
-            // 云端比本地多：自动拉取
-            updateCloudStatus('syncing', '定时对比：云端' + cloudLen + '局 > 本地' + localLen + '局，自动拉取...');
-            await cloudLoad(true);
-        }
-        // 数量相同：不操作
-    } catch(e) { /* 定时对比失败，静默跳过 */ }
+    // v27.0：禁用定时自动对比，避免多设备同步冲突
+    return;
 }
 
 async function cloudSave(manual) {
@@ -4825,79 +4804,10 @@ async function cloudSave(manual) {
                 await cloudLoad(true);
             }
         } catch(e) { /* 检查失败，继续上传 */ }
-        // v26.0: 冲突检测 - 上传前先查云端更新时间
-        if (cloudLastSync && Date.now() - _lastCloudLoadTime > 10000) {
-            try {
-                var chkRes = await supabaseClient.from(CLOUD_TABLE).select('updated_at, data').eq('id', CLOUD_ROW_ID).maybeSingle();
-                if (chkRes.data && chkRes.data.updated_at) {
-                    var cTime = new Date(chkRes.data.updated_at).getTime();
-                    var lTime = cloudLastSync.getTime();
-                    if (cTime > lTime + 2000) {
-                        // v26.4：自动上传时直接合并，不弹确认框；手动上传才弹确认
-                        var doMerge = manual ? confirm('⚠️ 云端数据比本地新（别人可能修改了）\n\n点「确定」= 合并云端和本地数据后上传（推荐）\n点「取消」= 强制上传覆盖云端') : true;
-                        if (doMerge) {
-                            var cloudHist = (chkRes.data.data && chkRes.data.data.history) ? chkRes.data.data.history : [];
-                            var localHist = P.history ? P.history.slice() : [];
-                            var existKeys = {};
-                            var existAbcKeys = {}; // v26.5：ABC分数组合去重，防止timeSlot不一致导致重复
-                            var merged = [];
-                            var conflictCount = 0;
-                            // 先加入云端数据
-                            for (var ci = 0; ci < cloudHist.length; ci++) {
-                                var ck = cloudHist[ci].timeSlot || ('k_' + cloudHist[ci].a + '_' + cloudHist[ci].b + '_' + cloudHist[ci].c);
-                                var abcKey = 'abc_' + cloudHist[ci].a + '_' + cloudHist[ci].b + '_' + cloudHist[ci].c;
-                                if (!existKeys[ck] && !existAbcKeys[abcKey]) {
-                                    existKeys[ck] = true;
-                                    existAbcKeys[abcKey] = true;
-                                    merged.push(cloudHist[ci]);
-                                }
-                            }
-                            // 再加入本地数据，已存在的跳过或更新
-                            for (var li = 0; li < localHist.length; li++) {
-                                var lk = localHist[li].timeSlot || ('k_' + localHist[li].a + '_' + localHist[li].b + '_' + localHist[li].c);
-                                var lAbcKey = 'abc_' + localHist[li].a + '_' + localHist[li].b + '_' + localHist[li].c;
-                                if (!existKeys[lk] && !existAbcKeys[lAbcKey]) {
-                                    existKeys[lk] = true;
-                                    existAbcKeys[lAbcKey] = true;
-                                    merged.push(localHist[li]);
-                                } else {
-                                    // 已存在，检查数据是否不同，冲突时保留本地数据
-                                    var existing = merged.find(function(m) {
-                                        var mk = m.timeSlot || ('k_' + m.a + '_' + m.b + '_' + m.c);
-                                        var mAbc = 'abc_' + m.a + '_' + m.b + '_' + m.c;
-                                        return mk === lk || mAbc === lAbcKey;
-                                    });
-                                    if (existing && (existing.a !== localHist[li].a || existing.b !== localHist[li].b || existing.c !== localHist[li].c)) {
-                                        conflictCount++;
-                                        existing.a = localHist[li].a;
-                                        existing.b = localHist[li].b;
-                                        existing.c = localHist[li].c;
-                                        existing.profitWinner = localHist[li].profitWinner;
-                                    }
-                                }
-                            }
-                            // 用合并后的数据重建预测器
-                            P.clearAll();
-                            var cumMerge = new Predictor();
-                            for (var mi = 0; mi < merged.length; mi++) {
-                                var mr = merged[mi];
-                                cumMerge.addRecord(mr.a, mr.b, mr.c, mr.timeSlot, mr.profitWinner, mr.profitA, mr.profitB, mr.profitC);
-                            }
-                            P.history = cumMerge.history.slice();
-                            P.predHistory = cumMerge.predHistory.slice();
-                            P.accuracy = cumMerge.accuracy.slice();
-                            P.profitAccuracy = cumMerge.profitAccuracy ? cumMerge.profitAccuracy.slice() : [];
-                            P.modelWeights = Object.assign({}, cumMerge.modelWeights);
-                            P.learnIterations = cumMerge.learnIterations;
-                            P.maxStreakEver = calcMaxStreak(P.history);
-                            renderAll();
-                            var conflictMsg = conflictCount > 0 ? '，检测到' + conflictCount + '条冲突（已保留本地数据）' : '';
-                            updateCloudStatus('syncing', '已合并云端' + cloudHist.length + '条+本地' + localHist.length + '条，共' + merged.length + '条' + conflictMsg + '，正在上传...');
-                        }
-                    }
-                }
-            } catch(e) { /* 冲突检测失败，继续正常上传 */ }
-        }
+        // v27.0修复：禁用自动合并，改为简单可靠的同步逻辑
+        // 之前的自动合并去重逻辑不可靠（timeSlot格式差异+ABC组合不唯一），导致多设备同步时数据重复
+        // 现在：本地有修改就直接上传覆盖云端，不再自动合并
+        // 云端更新的判断由_syncEpoch在cloudLoad时处理
         var saveData = {
             history: P.history,
             predHistory: P.predHistory || [], // v26.2：完整保存
