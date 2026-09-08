@@ -1,10 +1,10 @@
-
+﻿
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v27.0 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v27.3 · 智能预测云端协同</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
 <script>var XLSX = window.XLSX || null;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
@@ -466,8 +466,8 @@ body.dark-mode .access-box p{color:#aaa;}
 <div class="watermark-topright">素素</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v27.0</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v27.0</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v27.3</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v27.3</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -595,16 +595,13 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="btn-primary" id="btnAddRecord">✅ 录入并预测</button>
 <button class="btn-secondary" id="btnUndo">↩️ 撤销</button>
 <button class="btn-danger" id="btnClear">🗑️ 清空</button>
-<button class="btn-excel" id="btnImport">📥 导入Excel</button>
-<button class="btn-excel" id="btnImportCSV" style="background:#6c5ce7;">📥 导入CSV</button>
+<button class="btn-excel" id="btnImport">📥 导入数据</button>
 <button class="btn-excel" id="btnImportClipboard" style="background:#00b894;">📋 剪贴板导入</button>
 <button class="btn-excel" id="btnExportData" style="background:#0984e3;">📤 导出数据</button>
-<button class="btn-export" id="btnExport">📤 导出Excel</button>
 <button class="btn-simulate" id="btnSimulate">🎲 模拟10局</button>
 <button class="btn-backtest" id="btnRunBacktest">📈 运行回测</button>
 <button class="btn-learn" id="btnQuickLearn">🧠 快速学习</button>
-<input type="file" id="excelInput" accept=".xlsx,.xls">
-<input type="file" id="csvInput" accept=".csv" style="display:none;">
+<input type="file" id="excelInput" accept=".xlsx,.xls,.csv">
 <span id="learningIndicator">🧠 学习中...</span>
 </div>
 <div class="excel-tip">💡 Excel格式：列名含A/商会A、B/商会B、C/商会C（值0/0.5/1/2/3）；可选"日期"列（如"8月25日"）+"时间"列（如"15:00-16:00"或"15:00-15:30"），或合并的"时间段"列；<strong>收益列支持：获胜的商会收益、A收益、B收益、C收益（值大/中/小）</strong>；无时间列时自动按导入时间往前推算（按当前局间隔：半小时/一小时）；导入时可选择增量/追加/覆盖三种模式</div>
@@ -803,7 +800,31 @@ create policy "ac update" on access_control for update using (true);</textarea><
   var ADMIN_PASSWORD = 'asd123123';
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v27.0';
+  var APP_VERSION = 'v27.3';
+
+  // v27.3：统一提示弹窗函数（提前定义，供全局使用）
+  function showRecordResult(success, title, msg) {
+    try {
+      var iconEl = document.getElementById('recordResultIcon');
+      var titleEl = document.getElementById('recordResultTitle');
+      var msgEl = document.getElementById('recordResultMsg');
+      var modalEl = document.getElementById('recordResultModal');
+      if (iconEl) iconEl.textContent = success ? '✅' : '❌';
+      if (titleEl) { titleEl.textContent = title; titleEl.style.color = success ? '#27ae60' : '#e74c3c'; }
+      if (msgEl) msgEl.textContent = msg;
+      if (modalEl) modalEl.classList.add('open');
+    } catch(e) {
+      // 降级：使用原生alert
+      if (window._originalAlert) window._originalAlert(title + '\n' + msg);
+    }
+  }
+  function closeRecordResultModal() {
+    var m = document.getElementById('recordResultModal');
+    if (m) m.classList.remove('open');
+  }
+  // v27.3：暴露到全局作用域，供IIFE外部的HTML onclick和其他script调用
+  window.showRecordResult = showRecordResult;
+  window.closeRecordResultModal = closeRecordResultModal;
 var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
 
   var deviceId = localStorage.getItem(DEVICE_KEY) || '';
@@ -968,12 +989,12 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       var pwd = document.getElementById('accessPasswordInput').value;
       if (_loginType === 'admin') {
         // v26.4：管理员登录——验证管理员密码，直接进入，无需授权
-        if (pwd !== ADMIN_PASSWORD) { alert('管理员密码错误'); return; }
+        if (pwd !== ADMIN_PASSWORD) { showRecordResult(false, '提示', '管理员密码错误'); return; }
         hide();
         return;
       }
       // 用户登录——验证用户密码，注册设备，等待授权
-      if (pwd !== ACCESS_PASSWORD) { alert('用户密码错误'); return; }
+      if (pwd !== ACCESS_PASSWORD) { showRecordResult(false, '提示', '用户密码错误'); return; }
       // v26.5：保存设备备注名（注册时就带上，管理员能看到）
       var loginName = document.getElementById('loginDeviceName');
       if (loginName && loginName.value.trim()) {
@@ -988,7 +1009,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
         if (poll) clearInterval(poll);
         checkStatus();
         poll = setInterval(checkStatus, 5000);
-      }).catch(function(e) { alert('注册失败：' + e.message); });
+      }).catch(function(e) { showRecordResult(false, '注册失败', e.message); });
     };
     document.getElementById('accessPasswordInput').onkeydown = function(e) { if (e.key === 'Enter') document.getElementById('accessPasswordBtn').click(); };
     document.getElementById('accessRefreshBtn').onclick = checkStatus;
@@ -1010,8 +1031,13 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
         if (poll) clearInterval(poll);
         checkStatus();
         poll = setInterval(checkStatus, 5000);
-      }).catch(function(e) { alert('重新申请失败：' + e.message); });
+      }).catch(function(e) { showRecordResult(false, '重新申请失败', e.message); });
     };
+
+    // v27.3：页面关闭时清理poll定时器，避免内存泄漏
+    window.addEventListener('beforeunload', function() {
+      if (typeof poll !== 'undefined' && poll) { clearInterval(poll); poll = null; }
+    });
 
     document.getElementById('adminEntryLink').onclick = function(e) {
       e.preventDefault();
@@ -1022,8 +1048,8 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       document.getElementById('adminPasswordInput').value = '';
     };
     document.getElementById('adminPasswordBtn').onclick = function() {
-      if (document.getElementById('adminPasswordInput').value !== ADMIN_PASSWORD) { alert('管理员密码错误'); return; }
-      if (!loadSbCfg()) { alert('请先配置云同步'); return; }
+      if (document.getElementById('adminPasswordInput').value !== ADMIN_PASSWORD) { showRecordResult(false, '提示', '管理员密码错误'); return; }
+      if (!loadSbCfg()) { showRecordResult(false, '提示', '请先配置云同步'); return; }
       document.getElementById('adminLoginArea').style.display = 'none';
       document.getElementById('adminPanelArea').style.display = 'block';
       loadAdmin();
@@ -1053,14 +1079,14 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       var authed = list.filter(function(d) { return d.status === 'authorized'; });
       renderList('adminPendingList', pending, 'pending');
       renderList('adminAuthorizedList', authed, 'authed');
-    }).catch(function(e) { alert('加载失败：' + e.message); });
+    }).catch(function(e) { showRecordResult(false, '加载失败', e.message); });
   }
 
   // v26.4：一键全部同意
   function approveAll() {
     getAll().then(function(list) {
       var pending = list.filter(function(d) { return d.status === 'pending'; });
-      if (pending.length === 0) { alert('没有待授权的设备'); return; }
+      if (pending.length === 0) { showRecordResult(false, '提示', '没有待授权的设备'); return; }
       if (!confirm('确定一键同意全部 ' + pending.length + ' 台待授权设备？')) return;
       var done = 0, fail = 0;
       for (var i = 0; i < pending.length; i++) {
@@ -1070,16 +1096,16 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       }
       setTimeout(function() {
         loadAdmin();
-        alert('操作完成：成功 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
+        showRecordResult(fail === 0, '操作完成', '成功 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
       }, 800);
-    }).catch(function(e) { alert('加载失败：' + e.message); });
+    }).catch(function(e) { showRecordResult(false, '加载失败', e.message); });
   }
 
   // v26.4：一键全部拒绝
   function rejectAll() {
     getAll().then(function(list) {
       var pending = list.filter(function(d) { return d.status === 'pending'; });
-      if (pending.length === 0) { alert('没有待授权的设备'); return; }
+      if (pending.length === 0) { showRecordResult(false, '提示', '没有待授权的设备'); return; }
       if (!confirm('确定一键拒绝全部 ' + pending.length + ' 台待授权设备？')) return;
       var done = 0, fail = 0;
       for (var i = 0; i < pending.length; i++) {
@@ -1089,16 +1115,16 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       }
       setTimeout(function() {
         loadAdmin();
-        alert('操作完成：成功拒绝 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
+        showRecordResult(fail === 0, '操作完成', '成功拒绝 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
       }, 800);
-    }).catch(function(e) { alert('加载失败：' + e.message); });
+    }).catch(function(e) { showRecordResult(false, '加载失败', e.message); });
   }
 
   // v26.4：一键全部撤销
   function revokeAll() {
     getAll().then(function(list) {
       var authed = list.filter(function(d) { return d.status === 'authorized'; });
-      if (authed.length === 0) { alert('没有已授权的设备'); return; }
+      if (authed.length === 0) { showRecordResult(false, '提示', '没有已授权的设备'); return; }
       if (!confirm('确定一键撤销全部 ' + authed.length + ' 台已授权设备？\n\n撤销后这些设备需要重新申请授权。')) return;
       var done = 0, fail = 0;
       for (var i = 0; i < authed.length; i++) {
@@ -1108,9 +1134,9 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       }
       setTimeout(function() {
         loadAdmin();
-        alert('操作完成：成功撤销 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
+        showRecordResult(fail === 0, '操作完成', '成功撤销 ' + done + ' 台' + (fail > 0 ? '，失败 ' + fail + ' 台' : ''));
       }, 800);
-    }).catch(function(e) { alert('加载失败：' + e.message); });
+    }).catch(function(e) { showRecordResult(false, '加载失败', e.message); });
   }
 
   function renderList(cid, arr, type) {
@@ -1135,7 +1161,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
         var act = this.className.indexOf('approve') >= 0 ? 'authorized' : this.className.indexOf('reject') >= 0 ? 'rejected' : 'pending';
         var name = act === 'authorized' ? '同意' : act === 'rejected' ? '拒绝' : '撤销';
         if (confirm('确定' + name + '该设备？')) {
-          setStatus(id, act).then(loadAdmin).catch(function(e) { alert('操作失败：' + e.message); });
+          setStatus(id, act).then(loadAdmin).catch(function(e) { showRecordResult(false, '操作失败', e.message); });
         }
       };
     }
@@ -1417,12 +1443,12 @@ function showSavedToast() {
     }, 1500);
 }
 var _debounceSaveTimer = null;
-// v27.0：自动同步控制标志位——覆盖导入后设为false，手动上传后设为true
+// v27.3：自动同步控制标志位——覆盖导入后设为false，手动上传后设为true
 var _autoSyncEnabled = true;
 function setAutoSync(enabled) {
     _autoSyncEnabled = enabled;
     console.log('[同步] 自动同步已' + (enabled ? '启用' : '禁用'));
-    // v27.0：自动同步状态可视化，在状态栏显示
+    // v27.3：自动同步状态可视化，在状态栏显示
     var bar = document.getElementById('cloudBar');
     var statusText = document.getElementById('cloudStatusText');
     if (bar && statusText) {
@@ -1448,7 +1474,7 @@ function debouncedSave() {
     _debounceSaveTimer = setTimeout(function(){
         P.saveLocal();
         showSavedToast();
-        // v27.0：只有自动同步启用时才同步云端（覆盖导入后会临时禁用）
+        // v27.3：只有自动同步启用时才同步云端（覆盖导入后会临时禁用）
         if (_autoSyncEnabled && supabaseClient && cloudOnline) cloudSave();
     }, 300);
 }
@@ -4321,14 +4347,14 @@ if(curBrier > 0.3){
             if (typeof isEncrypted === 'function' && isEncrypted(raw)) {
                 var encPwd = localStorage.getItem(ENC_PWD_KEY);
                 if (!encPwd) {
-                    alert('⚠️ 本地数据已加密，请输入加密密码解锁。');
+                    showRecordResult(false, '提示', '本地数据已加密，请输入加密密码解锁。');
                     encPwd = prompt('请输入加密密码：');
                     if (!encPwd) return;
                     localStorage.setItem(ENC_PWD_KEY, encPwd);
                 }
                 var decrypted = xorDecrypt(raw, encPwd);
                 if (!decrypted) {
-                    alert('❌ 密码错误，无法解密数据！');
+                    showRecordResult(false, '解密失败', '密码错误，无法解密数据！');
                     localStorage.removeItem(ENC_PWD_KEY);
                     return;
                 }
@@ -4512,7 +4538,7 @@ function restoreSnapshot(idx) {
         renderAll();
         debouncedSave();
         return true;
-    } catch(e) { alert('回滚失败：' + e.message); return false; }
+    } catch(e) { showRecordResult(false, '回滚失败', e.message); return false; }
 }
 
 // v26.4：内置默认云同步配置（无需每次手动配置）
@@ -4565,17 +4591,17 @@ function toggleAdminMode() {
         try { localStorage.removeItem(ADMIN_MODE_KEY); } catch(e) {}
         var btn = document.getElementById('adminModeBtn');
         if (btn) { btn.textContent = '👑 管理员模式'; btn.style.background = '#795548'; }
-        alert('已退出管理员模式');
+        showRecordResult(true, '成功', '已退出管理员模式');
         return;
     }
     var pwd = prompt('请输入管理员密码：');
     if (pwd === null) return;
-    if (pwd !== ADMIN_MODE_PWD) { alert('密码错误'); return; }
+    if (pwd !== ADMIN_MODE_PWD) { showRecordResult(false, '提示', '密码错误'); return; }
     _isAdmin = true;
     try { localStorage.setItem(ADMIN_MODE_KEY, '1'); } catch(e) {}
     var btn2 = document.getElementById('adminModeBtn');
     if (btn2) { btn2.textContent = '👑 管理员模式✅'; btn2.style.background = '#4caf50'; }
-    alert('已进入管理员模式！\n\n您上传或恢复的数据将强制覆盖其他所有设备。');
+    showRecordResult(true, '成功', '已进入管理员模式！\n您上传或恢复的数据将强制覆盖其他所有设备。');
 }
 function initCloud() {
     var cfg = getCloudConfig();
@@ -4611,7 +4637,7 @@ function initCloud() {
             cloudOnline = true;
             updateCloudStatus('syncing', '正在从云端拉取数据...');
             cloudLoad(true);
-            // v27.0修复：禁用自动拉取和自动对比定时器，避免多设备竞态条件导致数据重复
+            // v27.3修复：禁用自动拉取和自动对比定时器，避免多设备竞态条件导致数据重复
             // 之前每30秒自动拉取+每10分钟自动对比，多设备同时在线时会导致数据混乱
             // 现在：只在用户主动操作（录入/导入/修改/点拉取最新）时同步
             if (_autoPullTimer) { clearInterval(_autoPullTimer); _autoPullTimer = null; }
@@ -4703,7 +4729,7 @@ async function cloudLoad(silent) {
     }
 }
 
-// v27.0：定期自动备份——每天中午12点和晚上12点自动备份到云端
+// v27.3：定期自动备份——每天中午12点和晚上12点自动备份到云端
 var _lastAutoBackupDate = '';
 var _autoBackupTimer = null;
 function checkAutoBackup() {
@@ -4752,11 +4778,11 @@ function checkAutoBackup() {
 if (_autoBackupTimer) clearInterval(_autoBackupTimer);
 _autoBackupTimer = setInterval(checkAutoBackup, 600000);
 
-// v27.0修复：禁用定时自动对比同步，避免多设备竞态条件导致数据重复
+// v27.3修复：禁用定时自动对比同步，避免多设备竞态条件导致数据重复
 // 之前的自动对比会在本地多就上传、云端多就拉取，但多设备同时在线时会导致竞态条件
 // 现在：只在用户主动操作（录入/导入/修改）时同步，不再定时自动对比
 async function autoSyncCompare() {
-    // v27.0：禁用定时自动对比，避免多设备同步冲突
+    // v27.3：禁用定时自动对比，避免多设备同步冲突
     return;
 }
 
@@ -4804,7 +4830,7 @@ async function cloudSave(manual) {
                 await cloudLoad(true);
             }
         } catch(e) { /* 检查失败，继续上传 */ }
-        // v27.0修复：禁用自动合并，改为简单可靠的同步逻辑
+        // v27.3修复：禁用自动合并，改为简单可靠的同步逻辑
         // 之前的自动合并去重逻辑不可靠（timeSlot格式差异+ABC组合不唯一），导致多设备同步时数据重复
         // 现在：本地有修改就直接上传覆盖云端，不再自动合并
         // 云端更新的判断由_syncEpoch在cloudLoad时处理
@@ -4834,7 +4860,7 @@ async function cloudSave(manual) {
             return false;
         }
         cloudLastSync = new Date();
-        setAutoSync(true); // v27.0：手动上传成功后启用自动同步
+        setAutoSync(true); // v27.3：手动上传成功后启用自动同步
         updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端');
         return true;
     } catch(e) {
@@ -4849,8 +4875,8 @@ function bindCloudEvents() {
     if (btn) btn.addEventListener('click', function() {
         var url = document.getElementById('cloudUrlInput').value.trim();
         var key = document.getElementById('cloudKeyInput').value.trim();
-        if (!url || !key) { alert('请填写 Supabase URL 和 anon key'); return; }
-        if (url.indexOf('http') !== 0) { alert('URL 必须以 http(s):// 开头'); return; }
+        if (!url || !key) { showRecordResult(false, '提示', '请填写 Supabase URL 和 anon key'); return; }
+        if (url.indexOf('http') !== 0) { showRecordResult(false, '提示', 'URL 必须以 http(s):// 开头'); return; }
         saveCloudConfig(url, key);
         initCloud();
     });
@@ -5207,7 +5233,7 @@ function recalcPredSnapshots() {
     if (P.predHistory.length > 1200) P.predHistory = P.predHistory.slice(-1200);
     debouncedSave();
     renderAll();
-    alert('✅ 已重新计算 ' + snaps.length + ' 局预测快照');
+    showRecordResult(true, '成功', '已重新计算 ' + snaps.length + ' 局预测快照');
 }
 function renderAll() {
     var fns = [
@@ -5824,11 +5850,11 @@ function applyTimeEdit(idx, field, value) {
     var ts = splitTimeSlot(rec.timeSlot);
     if (field === 'date') {
         var newDate = parseDateInput(value);
-        if (!newDate) { alert('日期格式不正确，请输入如 "8月25日" 或 "8-25"'); renderHistory(); return; }
+        if (!newDate) { showRecordResult(false, '提示', '日期格式不正确，请输入如「8月25日」或「8-25」'); renderHistory(); return; }
         ts.date = newDate;
     } else {
         var newTime = parseTimeInput(value);
-        if (!newTime) { alert('时间格式不正确，请输入起始时间，如 "15" 或 "15:30"（结束时间按当前局间隔自动计算）'); renderHistory(); return; }
+        if (!newTime) { showRecordResult(false, '提示', '时间格式不正确，请输入起始时间，如「15」或「15:30」'); renderHistory(); return; }
         ts.time = newTime;
     }
     // 更新当前行
@@ -6173,7 +6199,6 @@ function renderBacktestTab() {
 }
 // ========== CSV & Excel 导入 ==========
 document.getElementById('btnImport').addEventListener('click',function(){document.getElementById('excelInput').click();});
-document.getElementById('btnImportCSV').addEventListener('click',function(){document.getElementById('csvInput').click();});
 // ========== v26.5：数据导出 ==========
 function _bindExportDataBtn() {
     var btn = document.getElementById('btnExportData');
@@ -6182,6 +6207,40 @@ function _bindExportDataBtn() {
             if (!P.history || P.history.length === 0) { showRecordResult(false, '导出失败', '当前没有数据可导出'); return; }
             document.getElementById('exportCount').textContent = P.history.length;
             document.getElementById('exportModal').classList.add('open');
+            document.getElementById('exportCount').textContent = P.history ? P.history.length : 0;
+            // 初始化范围输入框的默认值
+            var total = P.history ? P.history.length : 0;
+            var rs = document.getElementById('exportRangeStart');
+            var re = document.getElementById('exportRangeEnd');
+            if (rs) rs.value = 1;
+            if (re) re.value = total;
+            // v27.3：填充日期下拉框（从数据中提取所有可用日期）
+            var dateStartSel = document.getElementById('exportDateStart');
+            var dateEndSel = document.getElementById('exportDateEnd');
+            if (dateStartSel && dateEndSel && P.history) {
+                var dateSet = {};
+                for (var di = 0; di < P.history.length; di++) {
+                    var ts = P.history[di].timeSlot || '';
+                    var dm = ts.match(/(\d+月\d+日)/);
+                    if (dm) dateSet[dm[1]] = true;
+                }
+                var dates = Object.keys(dateSet).sort(function(a,b){
+                    var am=a.match(/(\d+)月(\d+)日/), bm=b.match(/(\d+)月(\d+)日/);
+                    return (parseInt(am[1])*100+parseInt(am[2])) - (parseInt(bm[1])*100+parseInt(bm[2]));
+                });
+                dateStartSel.innerHTML = '<option value="">开始日期</option>';
+                dateEndSel.innerHTML = '<option value="">结束日期</option>';
+                for (var dsi = 0; dsi < dates.length; dsi++) {
+                    dateStartSel.innerHTML += '<option value="'+dates[dsi]+'">'+dates[dsi]+'</option>';
+                    dateEndSel.innerHTML += '<option value="'+dates[dsi]+'">'+dates[dsi]+'</option>';
+                }
+                // 默认选中最早和最晚日期
+                if (dates.length > 0) {
+                    dateStartSel.value = dates[0];
+                    dateEndSel.value = dates[dates.length-1];
+                }
+            }
+            toggleExportRange();
         });
         console.log('[导出] btnExportData 绑定成功');
     } else {
@@ -6209,71 +6268,250 @@ if (document.readyState === 'loading') {
     _bindExportDataBtn();
 }
 function closeExportModal() { document.getElementById('exportModal').classList.remove('open'); }
+// 解析日期字符串（如 "8月10日"）为可比较的数值
+function _parseExportDate(dateStr) {
+    if (!dateStr) return null;
+    var m = String(dateStr).match(/(\d+)月(\d+)日/);
+    if (m) return parseInt(m[1]) * 100 + parseInt(m[2]);
+    return null;
+}
+
+// 切换导出范围选项
+function toggleExportRange() {
+    var range = document.querySelector('input[name="exportRange"]:checked').value;
+    document.getElementById('exportRecentCount').disabled = (range !== 'recent');
+    document.getElementById('exportRangeStart').disabled = (range !== 'range');
+    document.getElementById('exportRangeEnd').disabled = (range !== 'range');
+    document.getElementById('exportDateStart').disabled = (range !== 'date');
+    document.getElementById('exportDateEnd').disabled = (range !== 'date');
+}
+
+// 全选/全不选导出列
+function selectAllExportCols(checked) {
+    var cols = document.querySelectorAll('.export-col');
+    for (var i = 0; i < cols.length; i++) cols[i].checked = checked;
+}
+
+// 应用导出预设
+function applyExportPreset(type) {
+    var cols = document.querySelectorAll('.export-col');
+    for (var i = 0; i < cols.length; i++) {
+        var val = cols[i].value;
+        if (type === 'full') {
+            cols[i].checked = true;
+        } else if (type === 'raw') {
+            cols[i].checked = ['a','b','c','time','profit'].indexOf(val) >= 0;
+        } else if (type === 'abc') {
+            cols[i].checked = ['a','b','c'].indexOf(val) >= 0;
+        }
+    }
+}
+
+// 兼容旧的doExport调用
 function doExport(type) {
+    if (type === 'full') applyExportPreset('full');
+    else applyExportPreset('raw');
+    doCustomExport();
+}
+
+// 自定义导出
+function doCustomExport() {
     try {
-        console.log('[导出] 开始导出，类型:', type, '记录数:', P.history ? P.history.length : 0);
         if (!P.history || P.history.length === 0) {
             showRecordResult(false, '导出失败', '当前没有数据可导出');
             return;
         }
-        var csv = '';
-        if (type === 'full') {
-            csv = '局号,日期,时间,A,B,C,获胜方,获胜收益,预测方,预测收益,预测概率,对错,规律来源\n';
-            for (var i = 0; i < P.history.length; i++) {
-                var r = P.history[i] || {};
-                var pred = (P.predHistory && P.predHistory[i]) ? P.predHistory[i] : null;
-                var ts = r.timeSlot ? String(r.timeSlot).replace(/,/g, ' ') : '';
-                var parts = ts.split(' ');
-                var date = parts[0] || '';
-                var time = parts[1] || '';
-                var winner = '';
-                try { winner = getWinner(r) || ''; } catch(e) { winner = ''; }
-                var predGuild = pred && pred.guild ? pred.guild : '';
-                var predProb = '';
-                if (pred && pred.probs && pred.guild && pred.probs[pred.guild] !== undefined) {
-                    var pv = parseFloat(pred.probs[pred.guild]);
-                    predProb = isNaN(pv) ? '' : (pv * 100).toFixed(1) + '%';
+
+        // 1. 获取导出范围
+        var range = document.querySelector('input[name="exportRange"]:checked').value;
+        var startIdx = 0, endIdx = P.history.length - 1;
+
+        if (range === 'recent') {
+            var count = parseInt(document.getElementById('exportRecentCount').value) || 100;
+            startIdx = Math.max(0, P.history.length - count);
+        } else if (range === 'range') {
+            var s = parseInt(document.getElementById('exportRangeStart').value) || 1;
+            var e = parseInt(document.getElementById('exportRangeEnd').value) || P.history.length;
+            startIdx = Math.max(0, s - 1);
+            endIdx = Math.min(P.history.length - 1, e - 1);
+        } else if (range === 'date') {
+            var ds = _parseExportDate(document.getElementById('exportDateStart').value);
+            var de = _parseExportDate(document.getElementById('exportDateEnd').value);
+            if (!ds || !de) {
+                showRecordResult(false, '导出失败', '日期格式不正确，请输入如「8月10日」的格式');
+                return;
+            }
+            // 找到日期范围内的记录
+            var dateRecords = [];
+            for (var di = 0; di < P.history.length; di++) {
+                var r = P.history[di];
+                var ts = r.timeSlot || '';
+                var rd = _parseExportDate(ts);
+                if (rd && rd >= ds && rd <= de) {
+                    dateRecords.push(di);
                 }
-                var correct = pred && pred.guild ? (pred.guild === winner ? '✓' : '✗') : '';
-                var source = pred && pred.source ? pred.source : '';
-                csv += [i+1, date, time, r.a !== undefined ? r.a : '', r.b !== undefined ? r.b : '', r.c !== undefined ? r.c : '', winner, r.profitWinner || '', predGuild, '', predProb, correct, source].join(',') + '\n';
+            }
+            if (dateRecords.length === 0) {
+                showRecordResult(false, '导出失败', '所选日期范围内没有数据');
+                return;
+            }
+            startIdx = dateRecords[0];
+            endIdx = dateRecords[dateRecords.length - 1];
+        }
+
+        if (startIdx > endIdx) {
+            showRecordResult(false, '导出失败', '导出范围无效，请检查起始和结束位置');
+            return;
+        }
+
+        var exportCount = endIdx - startIdx + 1;
+
+        // 2. 获取选中的列
+        var colCheckboxes = document.querySelectorAll('.export-col:checked');
+        if (colCheckboxes.length === 0) {
+            showRecordResult(false, '导出失败', '请至少选择一列要导出');
+            return;
+        }
+        var selectedCols = [];
+        for (var ci = 0; ci < colCheckboxes.length; ci++) {
+            selectedCols.push(colCheckboxes[ci].value);
+        }
+
+        // 列名映射
+        var colNames = {
+            index: '局号', date: '日期', time: '时间',
+            a: 'A', b: 'B', c: 'C',
+            winner: '获胜方', profit: '获胜收益',
+            predGuild: '预测方', predProb: '预测概率',
+            correct: '对错', source: '规律来源'
+        };
+
+        // 3. 构建CSV
+        var headers = selectedCols.map(function(c) { return colNames[c] || c; }).join(',');
+        var csv = headers + '\n';
+
+        for (var i = startIdx; i <= endIdx; i++) {
+            var r = P.history[i] || {};
+            var pred = (P.predHistory && P.predHistory[i]) ? P.predHistory[i] : null;
+            var ts = r.timeSlot ? String(r.timeSlot).replace(/,/g, ' ') : '';
+            var parts = ts.split(' ');
+            var date = parts[0] || '';
+            var time = parts[1] || '';
+            var winner = '';
+            try { winner = getWinner(r) || ''; } catch(e) { winner = ''; }
+            var predGuild = pred && pred.guild ? pred.guild : '';
+            var predProb = '';
+            if (pred && pred.probs && pred.guild && pred.probs[pred.guild] !== undefined) {
+                var pv = parseFloat(pred.probs[pred.guild]);
+                predProb = isNaN(pv) ? '' : (pv * 100).toFixed(1) + '%';
+            }
+            var correct = pred && pred.guild ? (pred.guild === winner ? '✓' : '✗') : '';
+            var source = pred && pred.source ? pred.source : '';
+
+            var rowData = {
+                index: i + 1, date: date, time: time,
+                a: r.a !== undefined ? r.a : '', b: r.b !== undefined ? r.b : '', c: r.c !== undefined ? r.c : '',
+                winner: winner, profit: r.profitWinner || '',
+                predGuild: predGuild, predProb: predProb,
+                correct: correct, source: source
+            };
+
+            var row = selectedCols.map(function(c) { return rowData[c] !== undefined ? rowData[c] : ''; }).join(',');
+            csv += row + '\n';
+        }
+
+        // 4. 获取导出格式
+        var formatRadio = document.querySelector('input[name="exportFormat"]:checked');
+        var exportFormat = formatRadio ? formatRadio.value : 'excel';
+        var rangeDesc = range === 'all' ? '全部' : (range === 'recent' ? '最近' + exportCount + '条' : (range === 'range' ? '第' + (startIdx+1) + '-' + (endIdx+1) + '条' : '日期范围'));
+
+        if (exportFormat === 'excel') {
+            // Excel导出
+            if (!XLSX) {
+                showRecordResult(false, '导出失败', 'Excel库未加载成功，请检查网络后刷新页面，或选择CSV格式导出');
+                return;
+            }
+            try {
+                // 构建列名映射
+                var colNames = {
+                    index: '局号', date: '日期', time: '时间',
+                    a: 'A', b: 'B', c: 'C',
+                    winner: '获胜方', profit: '获胜收益',
+                    predGuild: '预测方', predProb: '预测概率',
+                    correct: '对错', source: '规律来源'
+                };
+                // 构建Excel数据
+                var excelData = [];
+                for (var ei = startIdx; ei <= endIdx; ei++) {
+                    var r = P.history[ei] || {};
+                    var pred = (P.predHistory && P.predHistory[ei]) ? P.predHistory[ei] : null;
+                    var ts = r.timeSlot ? String(r.timeSlot).replace(/,/g, ' ') : '';
+                    var parts = ts.split(' ');
+                    var date = parts[0] || '';
+                    var time = parts[1] || '';
+                    var winner = '';
+                    try { winner = getWinner(r) || ''; } catch(e) { winner = ''; }
+                    var predGuild = pred && pred.guild ? pred.guild : '';
+                    var predProb = '';
+                    if (pred && pred.probs && pred.guild && pred.probs[pred.guild] !== undefined) {
+                        var pv = parseFloat(pred.probs[pred.guild]);
+                        predProb = isNaN(pv) ? '' : (pv * 100).toFixed(1) + '%';
+                    }
+                    var correct = pred && pred.guild ? (pred.guild === winner ? '✓' : '✗') : '';
+                    var source = pred && pred.source ? pred.source : '';
+                    var rowData = {
+                        index: ei + 1, date: date, time: time,
+                        a: r.a !== undefined ? r.a : '', b: r.b !== undefined ? r.b : '', c: r.c !== undefined ? r.c : '',
+                        winner: winner, profit: r.profitWinner || '',
+                        predGuild: predGuild, predProb: predProb,
+                        correct: correct, source: source
+                    };
+                    var row = {};
+                    for (var ci = 0; ci < selectedCols.length; ci++) {
+                        var colKey = selectedCols[ci];
+                        row[colNames[colKey] || colKey] = rowData[colKey] !== undefined ? rowData[colKey] : '';
+                    }
+                    excelData.push(row);
+                }
+                var ws = XLSX.utils.json_to_sheet(excelData);
+                var wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, '历史记录');
+                var now = new Date();
+                var dateStr = now.getFullYear() + '' + (now.getMonth()+1<10?'0':'') + (now.getMonth()+1) + '' + (now.getDate()<10?'0':'') + now.getDate();
+                var fname = '商会预测数据_' + dateStr + '_' + rangeDesc + '_' + exportCount + '条.xlsx';
+                XLSX.writeFile(wb, fname);
+                closeExportModal();
+                showRecordResult(true, '导出成功', '已导出 ' + exportCount + ' 条记录到Excel\n范围：' + rangeDesc + '\n列：' + selectedCols.length + ' 列\n文件名：' + fname);
+                console.log('[导出] Excel完成，导出' + exportCount + '条，' + selectedCols.length + '列');
+            } catch(e) {
+                console.error('[Excel导出] 失败:', e);
+                showRecordResult(false, '导出失败', 'Excel导出出错：' + e.message);
             }
         } else {
-            csv = 'A,B,C,时间,获胜收益\n';
-            for (var j = 0; j < P.history.length; j++) {
-                var r2 = P.history[j] || {};
-                csv += [r2.a !== undefined ? r2.a : '', r2.b !== undefined ? r2.b : '', r2.c !== undefined ? r2.c : '', r2.timeSlot || '', r2.profitWinner || ''].join(',') + '\n';
-            }
+            // CSV导出
+            var blob = new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8;'});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = '商会预测数据_' + new Date().toISOString().slice(0,10) + '_' + rangeDesc + '_' + exportCount + '条.csv';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+
+            closeExportModal();
+            showRecordResult(true, '导出成功', '已导出 ' + exportCount + ' 条记录\n范围：' + rangeDesc + '\n列：' + selectedCols.length + ' 列\n请检查浏览器下载栏');
+            console.log('[导出] CSV完成，导出' + exportCount + '条，' + selectedCols.length + '列');
         }
-        console.log('[导出] CSV构建完成，大小:', csv.length, '字节');
-        var blob = new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8;'});
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = '商会预测数据_' + new Date().toISOString().slice(0,10) + (type === 'full' ? '_完整' : '_原始') + '.csv';
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
-        closeExportModal();
-        showRecordResult(true, '导出成功', '已导出' + P.history.length + '条记录\n类型：' + (type === 'full' ? '完整数据' : '原始数据') + '\n请检查浏览器下载栏');
-        console.log('[导出] 完成');
     } catch(e) {
         console.error('[导出] 失败:', e);
         closeExportModal();
-        showRecordResult(false, '导出失败', '导出过程出错：' + e.message + '\n\n请按F12打开控制台查看详细错误，或尝试使用「导出Excel」按钮');
+        showRecordResult(false, '导出失败', '导出过程出错：' + e.message + '\n\n请按F12打开控制台查看详细错误');
     }
 }
 // 录入结果提示
-function showRecordResult(success, title, msg) {
-    document.getElementById('recordResultIcon').textContent = success ? '✅' : '❌';
-    document.getElementById('recordResultTitle').textContent = title;
-    document.getElementById('recordResultTitle').style.color = success ? '#27ae60' : '#e74c3c';
-    document.getElementById('recordResultMsg').textContent = msg;
-    document.getElementById('recordResultModal').classList.add('open');
-}
-function closeRecordResultModal() { document.getElementById('recordResultModal').classList.remove('open'); }
+// v27.3：showRecordResult已提前定义，此处删除避免重复
 // ========== 剪贴板导入（PC/手机通用） ==========
 document.getElementById('btnImportClipboard').addEventListener('click', async function() {
     var st = document.getElementById('importStatus');
@@ -6416,69 +6654,35 @@ function _cbPn(v) {
     var n = parseFloat(String(v).trim());
     return isNaN(n) ? NaN : n;
 }
-document.getElementById('csvInput').addEventListener('change',function(e){
-    var file=e.target.files[0];if(!file)return;
-    var st=document.getElementById('importStatus');st.style.display='block';
-    var reader=new FileReader();
-    reader.onload=function(ev){
-        try{
-            var text=ev.target.result;var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
-            if(lines.length<2)throw new Error('CSV至少需表头+1行数据');
-            var header=lines[0].split(',').map(function(s){return s.trim().toLowerCase();});
-            var colMap={};var rules={'A':['a','商会a','商會a','guilda'],'B':['b','商会b','商會b','guildb'],'C':['c','商会c','商會c','guildc'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['a收益','商会a收益','商會a收益','profita','profit_a'],'PB':['b收益','商会b收益','商會b收益','profitb','profit_b'],'PC':['c收益','商会c收益','商會c收益','profitc','profit_c']};
-            for(var hi=0;hi<header.length;hi++){var s=header[hi];Object.keys(rules).forEach(function(g){rules[g].forEach(function(n){if(n===s)colMap[g]=hi;});});}
-            if(!colMap.A)colMap.A=0;if(!colMap.B)colMap.B=1;if(!colMap.C)colMap.C=2;
-            var hasTimeCol = (colMap.TIME !== undefined);
-            var hasDateCol = (colMap.DATE !== undefined);
-            var hasSeparateCols = hasTimeCol && hasDateCol;
-            var hasProfitCols = (colMap.PW !== undefined) || (colMap.PA !== undefined);
-            var recs=[];
-            for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(parts[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}recs.push(rec);}}
-            if(recs.length===0)throw new Error('CSV无有效数据');
-            // v24: 无时间列时自动往前推算（按当前局间隔）
-            if(!hasTimeCol && !hasSeparateCols){
-                var nowCsv=new Date();
-                for(var ti2=0;ti2<recs.length;ti2++){
-                    recs[ti2].timeSlot = getTimeSlotHoursAgo(recs.length-1-ti2, nowCsv);
-                }
-            }
-            if(recs.length===0)throw new Error('CSV无有效数据');
-            // v22: 导入模式选择（有数据弹出模态框，无数据直接分批导入）
-            if (P.history.length > 0) {
-                openImportModal(recs, 'csv');
-            } else {
-                P.clearAll();
-                var cumCSV=new Predictor();
-                cumCSV.modelWeights=Object.assign({},P.modelWeights);
-                var csvBatch=20,csvTotal=recs.length,csvDone=0;
-                function csvNext(){
-                    var end=Math.min(csvDone+csvBatch,csvTotal);
-                    for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}
-                    csvDone=end;
-                    if(csvDone<csvTotal){setTimeout(csvNext,0);}
-                    else{
-                        P.history=cumCSV.history.slice();
-                        P.predHistory=cumCSV.predHistory.slice();
-                        P.accuracy=cumCSV.accuracy.slice();
-                        P.modelWeights=Object.assign({},cumCSV.modelWeights);
-                        P.learnIterations=cumCSV.learnIterations;
-                        P.maxStreakEver=calcMaxStreak(P.history);
-                        if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;
-                        renderAll();debouncedSave();
-                        st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';
-                        setTimeout(function(){st.style.display='none';},4500);
-                    }
-                }
-                csvNext();
-            }
-        }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
-    };
-    reader.readAsText(file);this.value='';
-});
 document.getElementById('excelInput').addEventListener('change',function(e){
     var file=e.target.files[0]; if(!file) return;
     var st=document.getElementById('importStatus'); st.style.display='block';
-    if(!file.name.match(/\.(xlsx|xls)$/i)){st.className='import-status import-error';st.textContent='❌ 需Excel文件';return;}
+    // v27.3：自动识别文件格式（Excel或CSV）
+    var isCSV = file.name.match(/\.csv$/i);
+    var isExcel = file.name.match(/\.(xlsx|xls)$/i);
+    if(!isCSV && !isExcel){st.className='import-status import-error';st.textContent='❌ 请选择Excel(.xlsx/.xls)或CSV文件';return;}
+    if(isCSV){
+        // CSV格式：调用CSV导入逻辑
+        var readerCSV=new FileReader();
+        readerCSV.onload=function(ev){
+            try{
+                var text=ev.target.result;var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
+                if(lines.length<2)throw new Error('CSV至少需表头+1行数据');
+                var header=lines[0].split(',').map(function(s){return s.trim().toLowerCase();});
+                var colMap={};var rules={'A':['a','商会a','商會a','guilda'],'B':['b','商会b','商會b','guildb'],'C':['c','商会c','商會c','guildc'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['a收益','商会a收益','商會a收益','profita','profit_a'],'PB':['b收益','商会b收益','商會b收益','profitb','profit_b'],'PC':['c收益','商会c收益','商會c收益','profitc','profit_c']};
+                for(var hi=0;hi<header.length;hi++){var s=header[hi];Object.keys(rules).forEach(function(g){rules[g].forEach(function(n){if(n===s)colMap[g]=hi;});});}
+                if(!colMap.A)colMap.A=0;if(!colMap.B)colMap.B=1;if(!colMap.C)colMap.C=2;
+                var hasTimeCol=(colMap.TIME!==undefined),hasDateCol=(colMap.DATE!==undefined),hasSeparateCols=hasTimeCol&&hasDateCol,hasProfitCols=(colMap.PW!==undefined)||(colMap.PA!==undefined);
+                var recs=[];
+                for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(parts[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}recs.push(rec);}}
+                if(recs.length===0)throw new Error('CSV无有效数据');
+                if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
+                if(P.history.length>0){openImportModal(recs,'csv');}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);var csvBatch=20,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,0);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
+            }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
+        };
+        readerCSV.readAsText(file);this.value='';
+        return;
+    }
     var reader=new FileReader();
     reader.onload=function(ev){
         try{
@@ -6727,7 +6931,7 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     if (supabaseClient && cloudOnline && mode !== 'replace') {
         cloudSave();
     } else if (mode === 'replace' && supabaseClient && cloudOnline) {
-        setAutoSync(false); // v27.0：覆盖导入后禁用自动同步，避免意外同步
+        setAutoSync(false); // v27.3：覆盖导入后禁用自动同步，避免意外同步
         updateCloudStatus('online', '⚠️ 覆盖导入已完成（本地' + P.history.length + '条），确认无误后请点「上传云端」同步');
     }
     
@@ -6825,32 +7029,7 @@ function importRecords(recs,replace,st){
     P.maxStreakEver=calcMaxStreak(P.history);
     if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;
 }
-// ========== 导出 ==========
-document.getElementById('btnExport').addEventListener('click',function(){
-    if(P.history.length===0){ showRecordResult(false, '导出失败', '当前没有数据可导出'); return; }
-    if(!XLSX){ showRecordResult(false, '导出失败', 'Excel库未加载成功，请检查网络后刷新页面，或使用「导出数据」按钮导出CSV'); return; }
-    try {
-        var phLen = (P.predHistory && P.predHistory.length) ? P.predHistory.length : 0;
-        var data=P.history.map(function(r,i){
-            var pg='',corr='',r1='',r2='',r3='',src='',pp='';
-            if(i>0&&i-1<phLen){var ph=P.predHistory[i-1];pg=ph.guild;corr=(getWinner(r)===ph.guild)?'是':'否';r1='A:'+(ph.probs.A*100).toFixed(1)+'%';r2='B:'+(ph.probs.B*100).toFixed(1)+'%';r3='C:'+(ph.probs.C*100).toFixed(1)+'%';src=ph.source||'';pp=(ph.profitPrediction&&ph.profitPrediction.predicted)?ph.profitPrediction.predicted:'';}
-            else if(i===0){pg='首局';corr='-';r1='-';r2='-';r3='-';src='-';pp='-';}
-            var ts = splitTimeSlot(r.timeSlot);
-            return {局号:i+1,日期:ts.date||'',时间:ts.time||'',A:r.a,B:r.b,C:r.c,获胜方:getWinner(r)||'平局','获胜的商会收益':r.profitWinner||'',预测收益:pp,A收益:r.profitA||'',B收益:r.profitB||'',C收益:r.profitC||'',预测方:pg,概率A:r1,概率B:r2,概率C:r3,规律来源:src,是否正确:corr};
-        });
-        var ws=XLSX.utils.json_to_sheet(data);
-        ws['!cols']=[{wch:6},{wch:10},{wch:16},{wch:6},{wch:6},{wch:6},{wch:8},{wch:14},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},{wch:10},{wch:10},{wch:10},{wch:10},{wch:8}];
-        var wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'历史记录');
-        var now=new Date();
-        var dateStr=now.getFullYear()+''+(now.getMonth()+1<10?'0':'')+(now.getMonth()+1)+''+(now.getDate()<10?'0':'')+now.getDate();
-        var fname='商会数据_'+dateStr+'_'+P.history.length+'局.xlsx';
-        XLSX.writeFile(wb,fname);
-        showRecordResult(true, '导出成功', '已导出' + P.history.length + '条记录到Excel\n文件名：' + fname);
-    } catch(e) {
-        console.error('[Excel导出] 失败:', e);
-        showRecordResult(false, '导出失败', '导出过程出错：' + e.message + '\n\n可能原因：Excel库未加载成功\n请尝试：1.刷新页面 2.使用「导出数据」按钮导出CSV');
-    }
-});
+// v27.3：导出功能已合并到统一的导出模态框，此处删除旧的Excel导出按钮代码
 // ========== 按钮事件 ==========
 function showLearningIndicator(show) {
     document.getElementById('learningIndicator').style.display = show ? 'inline' : 'none';
@@ -6921,10 +7100,10 @@ document.getElementById('btnClear').addEventListener('click',function(){
     createSnapshot('清空全部数据');
     P.clearAll();
     P._syncEpoch = (P._syncEpoch || 0) + 1;
-    setAutoSync(false); // v27.0：清空后禁用自动同步，避免误清空立刻污染云端
+    setAutoSync(false); // v27.3：清空后禁用自动同步，避免误清空立刻污染云端
     renderAll();
     P.saveLocal();
-    // v27.0：清空后不自动同步，由用户确认后手动上传
+    // v27.3：清空后不自动同步，由用户确认后手动上传
     updateCloudStatus('online', '⚠️ 数据已清空（' + count + '条），确认无误后请点「上传云端」同步');
     showRecordResult(true, '清空成功（防护已生效）', '已清空全部' + count + '条记录\n\n🛡️ 防护：未自动同步云端\n   云端仍是清空前的数据，不会被污染\n\n确认后请手动点「☁️ 上传云端」同步');
 });
@@ -6956,11 +7135,11 @@ document.getElementById('btnSimulate').addEventListener('click',function(){
     },10);
 });
 document.getElementById('configToggleBtn').addEventListener('click',function(){document.getElementById('configPanel').classList.toggle('open');});
-document.getElementById('applyConfigBtn').addEventListener('click',function(){reloadConfig();renderAll();debouncedSave();alert('参数已应用');}); // v18.0：防抖保存
+document.getElementById('applyConfigBtn').addEventListener('click',function(){reloadConfig();renderAll();debouncedSave();showRecordResult(true, '成功', '参数已应用');}); // v18.0：防抖保存
 document.getElementById('btnRunBacktest').addEventListener('click',function(){document.querySelector('.tab-btn[data-tab="backtest"]').click();});
 document.getElementById('btnQuickLearn').addEventListener('click',function(){document.querySelector('.tab-btn[data-tab="learn"]').click();});
 document.getElementById('btnForceLearn').addEventListener('click',function(){
-    if(P.history.length<5){alert('数据不足，至少需要5局');return;}
+    if(P.history.length<5){showRecordResult(false, '提示', '数据不足，至少需要5局');return;}
     var btn = document.getElementById('btnForceLearn');
     if (btn.disabled) return;
     var hist = P.history.slice();
@@ -6990,7 +7169,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
             showLearningIndicator(false);
             btn.disabled = false;
             btn.textContent = originalText;
-            alert('✅ 已重新学习所有历史数据（'+P.learnIterations+'次迭代）');
+            showRecordResult(true, '成功', '已重新学习所有历史数据（'+P.learnIterations+'次迭代）');
         }
     }
     setTimeout(processBatch, 10);
@@ -7000,7 +7179,7 @@ document.getElementById('btnResetLearn').addEventListener('click',function(){
     P.modelWeights={global:0.16,multiWindow:0.16,score:0.14,streak:0.10,rotation:0.08,alternation:0.07,trend:0.05,regression:0.05,similarPattern:0.19}; // v17: 添加similarPattern
     P.modelPerf={};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
     CONFIG.win6W=0.32;CONFIG.win7W=0.20;CONFIG.win8W=0.28;CONFIG.win10W=0.12;CONFIG.globalW=0.08;
-    normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();alert('✅ 学习状态已重置'); // v18.0：防抖保存
+    normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();showRecordResult(true, '成功', '学习状态已重置'); // v18.0：防抖保存
 });
 document.getElementById('btnStartOptimize').addEventListener('click',function(){
     var btn=document.getElementById('btnStartOptimize');
@@ -7026,7 +7205,7 @@ document.getElementById('btnStartOptimize').addEventListener('click',function(){
     });
 });
 document.getElementById('btnApplyOptimal').addEventListener('click',function(){
-    if(!window._optimalParams){alert('无可用参数');return;}
+    if(!window._optimalParams){showRecordResult(false, '提示', '无可用参数');return;}
     var p=window._optimalParams;
     document.getElementById('cfgStreakDecayMax').value=p.streakDecayMax||0.18;
     document.getElementById('cfgColdBonusCap').value=p.coldBonusCap||0.025;
@@ -7036,7 +7215,7 @@ document.getElementById('btnApplyOptimal').addEventListener('click',function(){
     document.getElementById('cfgWin10W').value=p.win10W||0.12;
     document.getElementById('cfgGlobalW').value=p.globalW||0.08;
     document.getElementById('cfgLearnRate').value=p.learnRate||0.06;
-    reloadConfig();renderAll();debouncedSave();alert('✅ 最优参数已应用！'); // v18.0：防抖保存
+    reloadConfig();renderAll();debouncedSave();showRecordResult(true, '成功', '最优参数已应用！'); // v18.0：防抖保存
 });
 // ============================================================
 // 初始化 + 自测
@@ -7090,7 +7269,7 @@ try {
 // 云同步初始化
 bindCloudEvents();
 initCloud();
-// v27.0：导出按钮绑定已统一到 _bindExportDataBtn 函数，此处删除避免重复绑定
+// v27.3：导出按钮绑定已统一到 _bindExportDataBtn 函数，此处删除避免重复绑定
 // v26.5：快捷键支持
 document.addEventListener('keydown', function(e) {
     // 如果焦点在输入框，不拦截数字键（但Ctrl组合键仍生效）
@@ -7105,7 +7284,7 @@ document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         debouncedSave();
-        // v27.0：只有自动同步启用时才同步
+        // v27.3：只有自动同步启用时才同步
         if (_autoSyncEnabled && supabaseClient && cloudOnline) cloudSave();
         return;
     }
@@ -7645,21 +7824,107 @@ if (clearFilterBtn) clearFilterBtn.onclick = function() {
 </div>
 <!-- 导出数据模态框 -->
 <div class="import-modal-overlay" id="exportModal">
-<div class="import-modal" style="max-width:420px;">
+<div class="import-modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
 <h3>📤 导出数据</h3>
-<p class="modal-sub">选择导出类型，共 <strong id="exportCount">0</strong> 条记录</p>
-<div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
-<button id="exportFullBtn" style="padding:14px;border:2px solid #302b63;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;text-align:left;">
-<strong style="color:#302b63;">📊 导出完整数据</strong><br>
-<span style="font-size:12px;color:#666;">含预测列、准确率、规律来源等全部字段</span>
-</button>
-<button id="exportRawBtn" style="padding:14px;border:2px solid #6c757d;border-radius:8px;background:#fff;cursor:pointer;font-size:14px;text-align:left;">
-<strong style="color:#6c757d;">📋 仅导出原始数据</strong><br>
-<span style="font-size:12px;color:#666;">仅A/B/C分数、时间、获胜收益</span>
-</button>
+<p class="modal-sub">共 <strong id="exportCount">0</strong> 条记录，可自定义导出范围和列</p>
+
+<!-- 导出范围 -->
+<div style="margin:16px 0;text-align:left;">
+<strong style="font-size:14px;color:#333;">📌 导出范围</strong>
+<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px;">
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+<input type="radio" name="exportRange" value="all" checked onchange="toggleExportRange()"> 全部数据
+</label>
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+<input type="radio" name="exportRange" value="recent" onchange="toggleExportRange()"> 最近
+<input type="number" id="exportRecentCount" value="100" min="1" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;"> 条
+</label>
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+<input type="radio" name="exportRange" value="range" onchange="toggleExportRange()"> 从第
+<input type="number" id="exportRangeStart" value="1" min="1" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;"> 条到第
+<input type="number" id="exportRangeEnd" value="100" min="1" style="width:70px;padding:4px;border:1px solid #ddd;border-radius:4px;"> 条
+</label>
+<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;">
+<input type="radio" name="exportRange" value="date" onchange="toggleExportRange()"> 日期范围：
+<select id="exportDateStart" style="width:100px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px;"><option value="">开始日期</option></select> 到
+<select id="exportDateEnd" style="width:100px;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:12px;"><option value="">结束日期</option></select>
+</label>
 </div>
+</div>
+
+<!-- 导出列选择 -->
+<div style="margin:16px 0;text-align:left;">
+<strong style="font-size:14px;color:#333;">📋 导出列（勾选要导出的字段）</strong>
+<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="index" checked> 局号
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="date" checked> 日期
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="time" checked> 时间
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="a" checked> A
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="b" checked> B
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="c" checked> C
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="winner" checked> 获胜方
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="profit" checked> 获胜收益
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="predGuild"> 预测方
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="predProb"> 预测概率
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="correct"> 对错
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="source"> 规律来源
+</label>
+</div>
+<div style="margin-top:8px;display:flex;gap:10px;">
+<button onclick="selectAllExportCols(true)" style="padding:4px 10px;font-size:11px;border:1px solid #302b63;background:#fff;color:#302b63;border-radius:4px;cursor:pointer;">全选</button>
+<button onclick="selectAllExportCols(false)" style="padding:4px 10px;font-size:11px;border:1px solid #999;background:#fff;color:#666;border-radius:4px;cursor:pointer;">全不选</button>
+</div>
+</div>
+
+<!-- 快速预设 -->
+<div style="margin:16px 0;text-align:left;">
+<strong style="font-size:14px;color:#333;">⚡ 快速预设</strong>
+<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+<button onclick="applyExportPreset('full')" style="padding:6px 12px;font-size:12px;border:1px solid #302b63;background:#fff;color:#302b63;border-radius:4px;cursor:pointer;">📊 完整数据</button>
+<button onclick="applyExportPreset('raw')" style="padding:6px 12px;font-size:12px;border:1px solid #6c757d;background:#fff;color:#6c757d;border-radius:4px;cursor:pointer;">📋 原始数据</button>
+<button onclick="applyExportPreset('abc')" style="padding:6px 12px;font-size:12px;border:1px solid #0984e3;background:#fff;color:#0984e3;border-radius:4px;cursor:pointer;">🎯 仅ABC</button>
+</div>
+</div>
+
+<!-- 导出格式选择 -->
+<div style="margin:16px 0;text-align:left;">
+<strong style="font-size:14px;color:#333;">📁 导出格式</strong>
+<div style="margin-top:10px;display:flex;gap:20px;">
+<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+<input type="radio" name="exportFormat" value="csv"> 📄 CSV文件
+</label>
+<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+<input type="radio" name="exportFormat" value="excel" checked> 📊 Excel文件（.xlsx，推荐）
+</label>
+</div>
+</div>
+
 <div class="import-modal-actions">
 <button class="btn-modal-cancel" onclick="closeExportModal()">取消</button>
+<button class="btn-modal-confirm" id="exportConfirmBtn" onclick="doCustomExport()" style="background:#302b63;color:#fff;">📤 开始导出</button>
 </div>
 </div>
 </div>
@@ -7720,13 +7985,13 @@ function toggleEncryption() {
         localStorage.setItem(ENC_KEY, '1');
         localStorage.setItem(ENC_PWD_KEY, pwd);
         P.saveLocal();
-        alert('✅ 加密已开启！请牢记密码，忘记密码将无法恢复数据！');
+        showRecordResult(true, '成功', '加密已开启！请牢记密码，忘记密码将无法恢复数据！');
     } else {
         var savedPwd = localStorage.getItem(ENC_PWD_KEY);
         if (pwd !== savedPwd) { errEl.textContent = '密码错误，无法关闭加密'; errEl.style.display = 'block'; return; }
         localStorage.setItem(ENC_KEY, '0');
         P.saveLocal();
-        alert('✅ 加密已关闭，本地数据恢复明文存储。');
+        showRecordResult(true, '成功', '加密已关闭，本地数据恢复明文存储。');
     }
     closeEncryptModal();
 }
@@ -7737,6 +8002,12 @@ if (encryptToggleBtn) encryptToggleBtn.onclick = toggleEncryption;
 </script>
 </body>
 </html>
+
+
+
+
+
+
 
 
 
