@@ -4395,6 +4395,21 @@ if(curBrier > 0.3){
                 }
                 this._syncEpoch = p._syncEpoch || 0; // v26.4：恢复同步纪元
                 this._adminOverride = p._adminOverride || null; // v26.4：恢复管理员标记
+                // v26.6修复：兼容编辑记录功能产生的格式错误predHistory条目（predict()原始返回值被直接存入，缺guild/probs字段）
+                if (Array.isArray(this.predHistory)) {
+                    var _fixCnt = 0;
+                    for (var _fi = 0; _fi < this.predHistory.length; _fi++) {
+                        var _ph = this.predHistory[_fi];
+                        if (_ph && _ph.probs === undefined && _ph.probabilities !== undefined) {
+                            _ph.guild = _ph.guild || _ph.predictedGuild;
+                            _ph.probs = {A: _ph.probabilities.A, B: _ph.probabilities.B, C: _ph.probabilities.C};
+                            if (_ph.rank === undefined) { var _rk = computeRank(_ph.probabilities); _ph.rank = _rk.rank; _ph.sorted = _rk.sorted; }
+                            _ph.source = _ph.sourceKey || _ph.source;
+                            _fixCnt++;
+                        }
+                    }
+                    if (_fixCnt > 0) console.log("[loadLocal] 自动修复了 " + _fixCnt + " 条格式错误的predHistory记录");
+                }
             }
             if (p.modelWeights) {
                 // v25.8修复：合并旧权重与新字段默认值，防止旧数据缺少profitPattern导致NaN
@@ -7750,10 +7765,17 @@ function saveEditRecord() {
         if (i > 0) {
             var pred = P.predict();
             if (pred) {
-                P.predHistory.push(pred);
+                var predEntry = {
+                    guild: pred.predictedGuild,
+                    probs: {A: pred.probabilities.A, B: pred.probabilities.B, C: pred.probabilities.C},
+                    rank: {A: pred.rank.A, B: pred.rank.B, C: pred.rank.C},
+                    sorted: pred.sorted.map(function(x){return [x[0],x[1]];}),
+                    source: pred.sourceKey
+                };
+                P.predHistory.push(predEntry);
                 var actualWinner = getWinner(P.history[i]);
-                P.accuracy.push(pred.guild === actualWinner);
-                P.learnFromResult(P.history[i], pred);
+                P.accuracy.push(pred.predictedGuild === actualWinner);
+                P.learnFromResult(pred, actualWinner, i);
             }
         }
     }
