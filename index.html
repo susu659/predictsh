@@ -13,6 +13,9 @@
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
 /* v18.0新增：右上角水印 */
 .watermark-topright{position:fixed;top:10px;right:20px;z-index:9999;font-size:14px;color:rgba(255,255,255,0.35);font-weight:600;letter-spacing:2px;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,0.2);}
+/* v27.4: 保存提示/学习提示 toast */
+#saveToast{position:fixed;top:20px;right:20px;z-index:99998;background:#28a745;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.2);opacity:0;transform:translateX(20px);transition:all .3s ease;pointer-events:none;}
+#learnTip{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(-10px);z-index:99998;background:linear-gradient(90deg,#0f0c29,#302b63);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.25);opacity:0;transition:all .3s ease;pointer-events:none;max-width:80%;text-align:center;}
 .container{max-width:1600px;margin:0 auto;background:rgba(255,255,255,.98);border-radius:18px;box-shadow:0 16px 48px rgba(0,0,0,.35);overflow:hidden}
 header{background:linear-gradient(90deg,#0f0c29,#302b63,#24243e);color:#fff;padding:22px 28px;text-align:center}
 h1{font-size:clamp(22px,4vw,32px);margin-bottom:6px;text-shadow:0 2px 6px rgba(0,0,0,.3)}
@@ -464,6 +467,8 @@ body.dark-mode .access-box p{color:#aaa;}
 </div>
 <!-- v18.0新增：右上角水印 -->
 <div class="watermark-topright">素素</div>
+<div id="saveToast">✅ 已保存</div>
+<div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
 <h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v27.3</span></h1>
@@ -918,6 +923,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     getStatus().then(function(s) {
       if (s === 'authorized') {
         if (poll) clearInterval(poll);
+        localStorage.setItem(AUTH_CACHE_KEY, '1'); // v27.4: 缓存授权状态，网络波动时无需重复输密码
         hide();
       } else if (s === 'rejected') {
         if (poll) clearInterval(poll);
@@ -1179,13 +1185,30 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     }
     document.getElementById('accessCloudUrl').value = sbUrl;
     document.getElementById('accessCloudKey').value = sbKey;
-    // v26.4：纯云端认证——每次打开从云端查设备状态，不依赖本地缓存
-    if (deviceId) {
+    // v27.4：本地授权缓存优先——已授权设备即使网络波动也能直接进入，后台异步验证云端
+    var _localAuthed = localStorage.getItem(AUTH_CACHE_KEY) === '1';
+    if (deviceId && _localAuthed) {
+      // 本地已授权：遮罩已被hide()隐藏，直接进入系统，后台异步验证云端（不阻塞UI）
       getStatus().then(function(s) {
         if (s === 'authorized') {
+          localStorage.setItem(AUTH_CACHE_KEY, '1'); // 续期
+        } else if (s === 'rejected') {
+          // 云端已撤销授权：清除本地缓存，要求重新授权
+          localStorage.removeItem(AUTH_CACHE_KEY);
+          document.getElementById('accessOverlay').style.display = 'flex';
+          document.getElementById('accessDeviceId').textContent = deviceId;
+          document.getElementById('accessPendingHint').innerHTML = '<span style="color:#e74c3c;font-weight:600;">设备授权已被管理员撤销</span><br>请重新输入密码申请授权';
+          show('pw');
+        }
+        // pending或网络异常：保持本地授权，不打扰用户
+      }).catch(function() { /* 网络错误：保持本地授权 */ });
+    } else if (deviceId) {
+      // 有设备ID但无本地授权缓存：走云端验证
+      getStatus().then(function(s) {
+        if (s === 'authorized') {
+          localStorage.setItem(AUTH_CACHE_KEY, '1');
           return; // 已授权：直接进入
         } else if (s === 'pending') {
-          // 待授权：显示等待页，继续轮询
           document.getElementById('accessOverlay').style.display = 'flex';
           document.getElementById('accessDeviceId').textContent = deviceId;
           document.getElementById('accessPendingHint').textContent = '设备名称：' + devName();
@@ -1193,12 +1216,10 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
           if (poll) clearInterval(poll);
           poll = setInterval(checkStatus, 5000);
         } else {
-          // 被拒绝或不存在：显示密码页重新注册
           document.getElementById('accessOverlay').style.display = 'flex';
           show('pw');
         }
       }).catch(function() {
-        // 网络错误：显示密码页，用户可重新注册
         document.getElementById('accessOverlay').style.display = 'flex';
         show('pw');
       });
@@ -5727,12 +5748,12 @@ function renderHistory() {
     var endIdx=Math.min(startIdx+pageSize,total);
     // v26.5：性能优化——用字符串拼接+一次性innerHTML，替代createElement逐个append
     var rowsHtml = '';
+    // v27.4: 索引偏移移到循环外计算，避免300次重复计算
+    var _phOffset = P.history.length - P.predHistory.length;
     for (var pi=startIdx; pi<endIdx; pi++) {
         var idx = filtered[pi].origIdx;
         var rec=filtered[pi].rec, winner=getWinner(rec);
         var predDisp='—',snapDisp='—',actualRankDisp='—',probDisp='—',corrDisp='—',sourceDisp='—',predProfitDisp='—';
-        // v27.4: 修复predHistory被上限截断后与history的索引偏移问题
-        var _phOffset = P.history.length - P.predHistory.length;
         var _phIdx = idx - _phOffset;
         if (idx>0 && _phIdx>=0 && _phIdx<P.predHistory.length) {
             var ph=P.predHistory[_phIdx];
@@ -6388,9 +6409,11 @@ function doCustomExport() {
         var headers = selectedCols.map(function(c) { return colNames[c] || c; }).join(',');
         var csv = headers + '\n';
 
+        var _exportPhOff = P.history.length - P.predHistory.length;
         for (var i = startIdx; i <= endIdx; i++) {
             var r = P.history[i] || {};
-            var pred = (P.predHistory && P.predHistory[i]) ? P.predHistory[i] : null;
+            var _epIdx = i - _exportPhOff;
+            var pred = (P.predHistory && _epIdx >= 0 && _epIdx < P.predHistory.length) ? P.predHistory[_epIdx] : null;
             var ts = r.timeSlot ? String(r.timeSlot).replace(/,/g, ' ') : '';
             var parts = ts.split(' ');
             var date = parts[0] || '';
@@ -6440,9 +6463,11 @@ function doCustomExport() {
                 };
                 // 构建Excel数据
                 var excelData = [];
+                var _exportPhOff2 = P.history.length - P.predHistory.length;
                 for (var ei = startIdx; ei <= endIdx; ei++) {
                     var r = P.history[ei] || {};
-                    var pred = (P.predHistory && P.predHistory[ei]) ? P.predHistory[ei] : null;
+                    var _epIdx2 = ei - _exportPhOff2;
+                    var pred = (P.predHistory && _epIdx2 >= 0 && _epIdx2 < P.predHistory.length) ? P.predHistory[_epIdx2] : null;
                     var ts = r.timeSlot ? String(r.timeSlot).replace(/,/g, ' ') : '';
                     var parts = ts.split(' ');
                     var date = parts[0] || '';
@@ -7766,8 +7791,9 @@ function saveEditRecord() {
     P.history[_editRecordIdx].b = b;
     P.history[_editRecordIdx].c = c;
     if (profit) P.history[_editRecordIdx].profitWinner = profit;
-    P.predHistory = P.predHistory.slice(0, _editRecordIdx);
-    P.accuracy = P.accuracy.slice(0, _editRecordIdx);
+    // v27.4: 修复截断位置——predHistory[i]对应history[i+1]的预测，编辑第N局应截断到N-1
+    P.predHistory = P.predHistory.slice(0, Math.max(0, _editRecordIdx - 1));
+    P.accuracy = P.accuracy.slice(0, Math.max(0, _editRecordIdx - 1));
     for (var i = _editRecordIdx; i < P.history.length; i++) {
         if (i > 0) {
             var pred = P.predict();
@@ -7777,7 +7803,12 @@ function saveEditRecord() {
                     probs: {A: pred.probabilities.A, B: pred.probabilities.B, C: pred.probabilities.C},
                     rank: {A: pred.rank.A, B: pred.rank.B, C: pred.rank.C},
                     sorted: pred.sorted.map(function(x){return [x[0],x[1]];}),
-                    source: pred.sourceKey
+                    source: pred.sourceKey,
+                    profitPrediction: pred.profitPrediction ? {
+                        predicted: pred.profitPrediction.predicted,
+                        probs: pred.profitPrediction.probs,
+                        confidence: pred.profitPrediction.confidence
+                    } : null
                 };
                 P.predHistory.push(predEntry);
                 var actualWinner = getWinner(P.history[i]);
