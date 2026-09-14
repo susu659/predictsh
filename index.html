@@ -4059,7 +4059,7 @@ if(curBrier > 0.3){
                     } : null
                 });
                 this.accuracy.push(winner === prevPrediction.predictedGuild);
-                if (this.accuracy.length > 1200) this.accuracy.shift();
+                if (this.accuracy.length > 100000) this.accuracy.shift();
                 // v25.8: 收益预测学习记录
                 var actualProfit = rec.profitWinner;
                 var prevProfitPred = prevPrediction.profitPrediction;
@@ -4067,14 +4067,14 @@ if(curBrier > 0.3){
                     var profitCorrect = (prevProfitPred.predicted === actualProfit);
                     this.profitAccuracy = this.profitAccuracy || [];
                     this.profitAccuracy.push(profitCorrect);
-                    if (this.profitAccuracy.length > 1200) this.profitAccuracy.shift();
+                    if (this.profitAccuracy.length > 100000) this.profitAccuracy.shift();
                     // 收益预测Brier分数
                     var profitBrier = Math.pow(prevProfitPred.probs[actualProfit] - 1, 2) +
                         Math.pow(prevProfitPred.probs[['大','中','小'].filter(function(x){return x!==actualProfit;})[0]], 2) +
                         Math.pow(prevProfitPred.probs[['大','中','小'].filter(function(x){return x!==actualProfit;})[1]], 2);
                     this.profitBrierHistory = this.profitBrierHistory || [];
                     this.profitBrierHistory.push(profitBrier);
-                    if (this.profitBrierHistory.length > 1200) this.profitBrierHistory.shift();
+                    if (this.profitBrierHistory.length > 100000) this.profitBrierHistory.shift();
                 }
                 // v26.2：快速重建模式跳过学习和反思日志（重建只需要predHistory用于显示）
                 if (!this._fastRebuild) {
@@ -4126,7 +4126,7 @@ if(curBrier > 0.3){
                     } : null
                 });
             }
-            if (this.predHistory.length > 1200) this.predHistory.shift();
+            if (this.predHistory.length > 100000) this.predHistory.shift();
         }
         this.history.push(rec);
         // 不再push录入后的result，下一局录入时会重新计算prevPrediction
@@ -5013,8 +5013,6 @@ function verifyBackupPwd() {
     document.getElementById('backupStatusMsg').textContent = '';
     loadBackupList();
 }
-function doBackup() { /* 兼容旧调用，实际用 doCloudBackup */ doCloudBackup(); }
-function doRestore() { /* 兼容旧调用 */ }
 // ========== 云端备份/恢复 ==========
 function doCloudBackup() {
     if (!supabaseClient) { showRecordResult(false, '提示', '未配置云同步，无法使用云端备份'); return; }
@@ -5245,7 +5243,7 @@ function recalcPredSnapshots() {
             }
         }
     }
-    if (P.predHistory.length > 1200) P.predHistory = P.predHistory.slice(-1200);
+    if (P.predHistory.length > 100000) P.predHistory = P.predHistory.slice(-100000);
     debouncedSave();
     renderAll();
     showRecordResult(true, '成功', '已重新计算 ' + snaps.length + ' 局预测快照');
@@ -5716,7 +5714,7 @@ function renderHistory() {
         filtered.push({origIdx: fi, rec: frec});
     }
     var total=filtered.length;
-    var pageSize=100; // v18.0：每页100条
+    var pageSize=300; // v27.4：每页300条
     var totalPages=Math.max(1,Math.ceil(total/pageSize));
     // Read current page from a data attr; default to LAST page on first load
     var container=document.getElementById('historyContainer');
@@ -5733,8 +5731,11 @@ function renderHistory() {
         var idx = filtered[pi].origIdx;
         var rec=filtered[pi].rec, winner=getWinner(rec);
         var predDisp='—',snapDisp='—',actualRankDisp='—',probDisp='—',corrDisp='—',sourceDisp='—',predProfitDisp='—';
-        if (idx>0 && idx-1<P.predHistory.length) {
-            var ph=P.predHistory[idx-1];
+        // v27.4: 修复predHistory被上限截断后与history的索引偏移问题
+        var _phOffset = P.history.length - P.predHistory.length;
+        var _phIdx = idx - _phOffset;
+        if (idx>0 && _phIdx>=0 && _phIdx<P.predHistory.length) {
+            var ph=P.predHistory[_phIdx];
             if (ph.profitPrediction && ph.profitPrediction.predicted) {
                 var predP = ph.profitPrediction.predicted;
                 var actualP = rec.profitWinner;
@@ -5821,7 +5822,7 @@ function gotoHistoryPage(p){
     var container=document.querySelector('.history-table-container')||document.getElementById('historyContainer');
     if(!container)return;
     var total=P.history.length;
-    var totalPages=Math.max(1,Math.ceil(total/100)); // v18.0：每页100条
+    var totalPages=Math.max(1,Math.ceil(total/300)); // v27.4：每页300条
     if(p<1)p=1; if(p>totalPages)p=totalPages;
     container.setAttribute('data-page',p);
     renderHistory();
@@ -5884,23 +5885,27 @@ function applyTimeEdit(idx, field, value) {
     renderHistory();
 }
 function renderPredHistory() {
-    var tb=document.getElementById('predHistoryBody'); tb.innerHTML='';
+    var tb=document.getElementById('predHistoryBody');
     var start=Math.max(0,P.predHistory.length-50);
+    // v27.4: 修复predHistory被截断后的索引偏移，改用字符串拼接+一次性innerHTML提升性能
+    var _phOff = P.history.length - P.predHistory.length;
+    var html = '';
     for (var i=start;i<P.predHistory.length;i++) {
-        var ph=P.predHistory[i], gameIdx=i+2;
-        var actual=(i+1<P.history.length)?getWinner(P.history[i+1]):null;
-        var isTie = ph.isTie || (actual===null && i+1<P.history.length);
+        var ph=P.predHistory[i];
+        var histIdx = i + _phOff;
+        var gameIdx = histIdx + 1;
+        var actual=(histIdx<P.history.length)?getWinner(P.history[histIdx]):null;
+        var isTie = ph.isTie || (actual===null && histIdx<P.history.length);
         var corr=(actual!==null)&&(actual===ph.guild);
         var actualRDisp='待定';
-        if (actual!==null && ph.rank[actual]!==undefined) { var ar=ph.rank[actual]; actualRDisp=ar===1?'🥇':ar===2?'🥈':'🥉'; }
-        var tr=document.createElement('tr');
-        tr.className=isTie?'tie-bg':(corr?'correct-bg':'wrong-bg');
-        tr.innerHTML='<td>'+gameIdx+'</td><td>'+ph.guild+'</td><td style="font-size:11px;">'+rankSnapshot(ph.sorted)+'</td>'+
+        if (actual!==null && ph.rank && ph.rank[actual]!==undefined) { var ar=ph.rank[actual]; actualRDisp=ar===1?'🥇':ar===2?'🥈':'🥉'; }
+        var rowCls=isTie?'tie-bg':(corr?'correct-bg':'wrong-bg');
+        html += '<tr class="'+rowCls+'"><td>'+gameIdx+'</td><td>'+ph.guild+'</td><td style="font-size:11px;">'+rankSnapshot(ph.sorted)+'</td>'+
             '<td>'+(actual||(isTie?'平局':'待定'))+'</td><td>'+actualRDisp+'</td>'+
             '<td>'+(ph.probs.A*100).toFixed(0)+'%</td><td>'+(ph.probs.B*100).toFixed(0)+'%</td><td>'+(ph.probs.C*100).toFixed(0)+'%</td>'+
-            '<td>'+sourceBadge(ph.source)+'</td><td>'+(isTie?'🤝':(corr?'✅':'❌'))+'</td>';
-        tb.appendChild(tr);
+            '<td>'+sourceBadge(ph.source)+'</td><td>'+(isTie?'🤝':(corr?'✅':'❌'))+'</td></tr>';
     }
+    tb.innerHTML = html;
 }
 // ========== 学习Tab ==========
 function renderLearnTab() {
@@ -6261,21 +6266,6 @@ function _bindExportDataBtn() {
     } else {
         console.warn('[导出] btnExportData 未找到');
     }
-    // 绑定模态框内的导出按钮（确保一定绑定成功）
-    var fullBtn = document.getElementById('exportFullBtn');
-    if (fullBtn) {
-        fullBtn.onclick = function() { doExport('full'); };
-        console.log('[导出] exportFullBtn 绑定成功');
-    } else {
-        console.warn('[导出] exportFullBtn 未找到');
-    }
-    var rawBtn = document.getElementById('exportRawBtn');
-    if (rawBtn) {
-        rawBtn.onclick = function() { doExport('raw'); };
-        console.log('[导出] exportRawBtn 绑定成功');
-    } else {
-        console.warn('[导出] exportRawBtn 未找到');
-    }
 }
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _bindExportDataBtn);
@@ -6320,13 +6310,6 @@ function applyExportPreset(type) {
             cols[i].checked = ['a','b','c'].indexOf(val) >= 0;
         }
     }
-}
-
-// 兼容旧的doExport调用
-function doExport(type) {
-    if (type === 'full') applyExportPreset('full');
-    else applyExportPreset('raw');
-    doCustomExport();
 }
 
 // 自定义导出
@@ -7049,6 +7032,18 @@ function importRecords(recs,replace,st){
 function showLearningIndicator(show) {
     document.getElementById('learningIndicator').style.display = show ? 'inline' : 'none';
 }
+// v27.4: ABC任意商会出现3分时，自动默认获胜收益为"大"
+function _autoSetProfitOnScore3() {
+    var a = parseFloat(document.getElementById('inputA').value);
+    var b = parseFloat(document.getElementById('inputB').value);
+    var c = parseFloat(document.getElementById('inputC').value);
+    if (a === 3 || b === 3 || c === 3) {
+        document.getElementById('inputProfitWinner').value = '大';
+    }
+}
+document.getElementById('inputA').addEventListener('change', _autoSetProfitOnScore3);
+document.getElementById('inputB').addEventListener('change', _autoSetProfitOnScore3);
+document.getElementById('inputC').addEventListener('change', _autoSetProfitOnScore3);
 document.getElementById('btnAddRecord').addEventListener('click',function(){
     var a=parseFloat(document.getElementById('inputA').value);
     var b=parseFloat(document.getElementById('inputB').value);
@@ -7089,7 +7084,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         document.getElementById('inputProfitWinner').value='';
         // 录入新记录后自动跳到最后一页（最新记录）
         var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
-        if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 100)); _hc.setAttribute('data-page', _tp); }
+        if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 300)); _hc.setAttribute('data-page', _tp); }
         renderAll();
         debouncedSave(); // v26.4修复：录入后必须保存，否则自动拉取会把数据覆盖没
         showLearningIndicator(false);
@@ -7238,7 +7233,19 @@ document.getElementById('btnApplyOptimal').addEventListener('click',function(){
 loadIntervalSetting();
 updateIntervalUI();
 P.loadLocal();
-renderAll();
+// v27.4：首次加载分帧渲染——先出预测卡片和统计，下一帧再渲染历史表格，大幅减少卡顿
+var _initHC = document.getElementById('historyContainer');
+if (_initHC) _initHC.removeAttribute('data-page'); // 确保打开时默认在最后一页
+try { renderCards(); } catch(e) { console.error('[init] renderCards:', e); }
+try { updateStats(); } catch(e) { console.error('[init] updateStats:', e); }
+requestAnimationFrame(function() {
+    try { renderHistory(); } catch(e) { console.error('[init] renderHistory:', e); }
+    try { renderPredHistory(); } catch(e) { console.error('[init] renderPredHistory:', e); }
+});
+requestAnimationFrame(function() {
+    try { renderPieCharts(); } catch(e) { console.error('[init] renderPieCharts:', e); }
+    try { renderInsightPanel(); } catch(e) { console.error('[init] renderInsightPanel:', e); }
+});
 // v26.1：如果predHistory被截断，异步分批重建，不阻塞UI
 if (P._rebuildPending) {
     var rebuildTip = document.createElement('div');
