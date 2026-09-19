@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v27.3 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v29.3 · 智能预测云端协同</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
 <script>var XLSX = window.XLSX || null;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
@@ -471,8 +471,8 @@ body.dark-mode .access-box p{color:#aaa;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v27.3</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v27.3</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v29.3</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v29.3</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -603,7 +603,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="btn-excel" id="btnImport">📥 导入数据</button>
 <button class="btn-excel" id="btnImportClipboard" style="background:#00b894;">📋 剪贴板导入(表格)</button>
 <button class="btn-excel" id="btnExportData" style="background:#0984e3;">📤 导出数据</button>
-<button class="btn-simulate" id="btnSimulate">🎲 模拟10局</button>
+<button class="btn-simulate" id="btnSimulate" style="display:none;">🎲 模拟10局</button>
 <button class="btn-backtest" id="btnRunBacktest">📈 运行回测</button>
 <button class="btn-learn" id="btnQuickLearn">🧠 快速学习</button>
 <input type="file" id="excelInput" accept=".xlsx,.xls,.csv">
@@ -715,6 +715,15 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 </div>
 </div>
+<!-- v29.0: 子模型长期命中率 + 联合信号 -->
+<div class="insight-panel" id="modelAccPanel" style="margin-top:18px;">
+<h3>🏷️ 各子模型长期命中率</h3>
+<div id="modelAccBody">等待数据...</div>
+</div>
+<div class="insight-panel" id="jointPanel" style="margin-top:18px;">
+<h3>🔗 胜负×收益 联合信号</h3>
+<div id="jointBody">等待数据...</div>
+</div>
 <!-- ============ 学习与反思Tab ============ -->
 <div class="tab-content" id="tab-learn" style="display:none;">
 <div class="backtest-panel open" style="display:block;background:#f0f4ff;border-color:#90caf9;">
@@ -809,7 +818,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v27.3';
+  var APP_VERSION = 'v29.3';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2344,24 +2353,24 @@ function predictFromSimilarProfitPattern(history) {
     // v25.9: 与相似盘(predictFromSimilarPattern)完全一致的逻辑
     var minSim = 0.42;
     var allResults = [];
-    // 5连起匹配，与相似盘一致
-    var windowLengths = [5, 6, 7, 8];
+    // 5连起匹配，与相似盘一致（v28.2: [5,6,7,8,10,12]六档）
+    var windowLengths = [5, 6, 7, 8, 10, 12];
     for (var wi = 0; wi < windowLengths.length; wi++) {
         var wLen = windowLengths[wi];
         if (history.length < wLen + 1) continue;
-        var results = findSimilarProfitSegments(history, {minSim: minSim, maxResults: 18, winLen: wLen});
+        var results = findSimilarProfitSegments(history, {minSim: _minSimForLen(wLen), maxResults: 18, winLen: wLen}); // v28.3: 按窗口长度自适应阈值
         for (var ri = 0; ri < results.length; ri++) {
             results[ri].scanWindowLen = wLen;
         }
         allResults = allResults.concat(results);
     }
     if (allResults.length === 0) return null;
-    // 长度加权排名（与相似盘一致）：100%匹配第一梯队(按长度降序)，非100%匹配第二梯队(按相似度降序)
+    // v28.4: 高质量匹配按长度优先，弱匹配按相似度排序（与相似盘一致，详见 _matchSortKey）
     for (var ri2 = 0; ri2 < allResults.length; ri2++) {
         var ml = allResults[ri2].matchLen || allResults[ri2].scanWindowLen || 5;
         var isExact = (allResults[ri2].exactSim !== undefined && allResults[ri2].exactSim >= 0.999);
         allResults[ri2].isExactMatch = isExact;
-        allResults[ri2].sortKey = (isExact ? 100000 + ml * 1000 : allResults[ri2].similarity * 1000);
+        allResults[ri2].sortKey = _matchSortKey(allResults[ri2].similarity, ml);
     }
     allResults.sort(function(a, b) { return b.sortKey - a.sortKey; });
     // 智能去重：基于重叠范围去重，重叠超过较短匹配长度的50%视为重复，保留排序靠前的
@@ -2411,9 +2420,9 @@ function predictFromSimilarProfitPattern(history) {
         if (sim >= 0.80) bonus = 2.0;
         else if (sim >= 0.70) bonus = 1.5;
         else if (sim >= 0.60) bonus = 1.2;
-        // 长匹配长度加成（与相似盘一致：8局+6%/7局+4%/6局+2%/5局+0%）
+        // 长匹配长度加成（12局+18%/10局+12%/8局+6%/6局+0%）：相似度平方为主，长度仅微调
         var ml3 = r2.matchLen || r2.scanWindowLen || 5;
-        var lenBonus = 1 + Math.max(0, (ml3 - 5)) * 0.02;
+        var lenBonus = 1 + Math.max(0, (ml3 - 6)) * 0.03;
         var voteW = baseW * bonus * lenBonus;
         weightedCount[r2.nextProfit] += voteW;
         weightSum += voteW;
@@ -2709,6 +2718,23 @@ function _winnerSeqSimilarity(seq1, seq2) {
     }
     return match / total;
 }
+// v28.3: 窗口越长要求越严，避免长窗口低质量匹配混入（前提是匹配）
+function _minSimForLen(wLen) {
+    if (wLen >= 12) return 0.55;
+    if (wLen >= 10) return 0.52;
+    if (wLen >= 8) return 0.50;
+    if (wLen >= 7) return 0.48;
+    return 0.45; // 5/6局
+}
+// v28.5: 匹配排序键——高质量匹配(相似度>=0.90)按长度优先（覆盖当前窗口更长的更有代表性）；
+// 弱匹配(<0.90)仍按相似度排序，避免带错配的长片段混上来。12局为上限。
+function _matchSortKey(s, ml) {
+    var strong = (s >= 0.90) ? 1 : 0;
+    return strong * 2000000
+        + (strong ? Math.min(12, ml) * 10000 : 0)
+        + (strong ? 0 : Math.round(s * 10000))
+        + Math.round(s * 100);
+}
 // 查找历史中与当前窗口"结构相似"的片段
 // window: 当前最近N局的记录数组
 // history: 完整历史记录数组
@@ -2751,10 +2777,10 @@ function findSimilarSegments(window, history, opts) {
         }
     }
     scoreDistSim /= winLen;
-    // v15: 综合 = 指纹40% + 序列40% + 分数分布20%
+    // v28.3: 综合 = 指纹30% + 序列50% + 分数分布20%（序列走势权重提高，更贴近肉眼判断）
     var histWinSeq = _toWinnerSeq(histSlice);
     var wsSim = _winnerSeqSimilarity(winSeq, histWinSeq);
-    var combinedSim = fpSim * 0.4 + wsSim * 0.4 + scoreDistSim * 0.2;
+    var combinedSim = fpSim * 0.3 + wsSim * 0.5 + scoreDistSim * 0.2;
         if (combinedSim >= minSim) {
             var nextIdx = start + winLen;
             if (nextIdx < history.length) {
@@ -2799,15 +2825,15 @@ function predictFromSimilarPattern(window, history) {
     // v20: 核心原则 — 纯相似度排名，智能去重，更多候选
     var minSim = 0.42;  // v23: 恢复为0.42，确保匹配质量
     var allResults = [];
-    // v25.4: 仅5连及以上入选，移除4连窗口
-    var windowLengths = [5, 6, 7, 8];
+    // v28.2: 扫描档位补回5/7局，找回高相似短片段 — [5,6,7,8,10,12]六档，12局为上限
+    var windowLengths = [5, 6, 7, 8, 10, 12];
     
     // 多窗口长度匹配，收集所有候选
     for (var wi = 0; wi < windowLengths.length; wi++) {
         var wLen = windowLengths[wi];
         if (history.length < wLen + 1) continue;
         var curWindow = history.slice(-wLen);
-        var results = findSimilarSegments(curWindow, history, {minSim: minSim, maxResults: 18}); // v25.4: 从25降到18，5连起更精准
+        var results = findSimilarSegments(curWindow, history, {minSim: _minSimForLen(wLen), maxResults: 18}); // v28.3: 按窗口长度自适应阈值
         for (var ri = 0; ri < results.length; ri++) {
             results[ri].scanWindowLen = wLen;
         }
@@ -2816,17 +2842,14 @@ function predictFromSimilarPattern(window, history) {
     
     if (allResults.length === 0) return null;
     
-    // ===== v21: 长度加权排名（长匹配更有预测价值，8局为上限）=====
-    // v25.4: 仅5连及以上，排名分 = 相似度 * (1 + (匹配长度-5)*0.03)，8局+9%/7局+6%/6局+3%/5局+0%
+    // ===== v28.4: 高质量匹配按长度优先，弱匹配按相似度排序（详见 _matchSortKey）=====
     for (var ri = 0; ri < allResults.length; ri++) {
         var ml = allResults[ri].matchLen || allResults[ri].scanWindowLen || 5;
-        var ml2 = allResults[ri].matchLen || allResults[ri].scanWindowLen || 5;
         var isExact = (allResults[ri].wsSim !== undefined && allResults[ri].wsSim >= 0.999);
-        // v23: 100%匹配第一梯队(按长度降序)，非100%匹配第二梯队(按相似度降序)
         allResults[ri].isExactMatch = isExact;
-        allResults[ri].sortKey = (isExact ? 100000 + ml2 * 1000 : allResults[ri].similarity * 1000);
+        allResults[ri].sortKey = _matchSortKey(allResults[ri].similarity, ml);
     }
-    allResults.sort(function(a, b) { return b.sortKey - a.sortKey; });  // v23: 先相似度降序，再长度降序
+    allResults.sort(function(a, b) { return b.sortKey - a.sortKey; });
     
     // v20: 智能去重 — 基于重叠范围去重，而非简单的startIdx
     // 两个匹配如果重叠超过较短匹配长度的50%，视为重复，保留相似度更高的
@@ -2888,9 +2911,9 @@ function predictFromSimilarPattern(window, history) {
         else if (sim >= 0.70) bonus = 1.5;  // 高相似度：1.5倍
         else if (sim >= 0.60) bonus = 1.2;  // 中高相似度：1.2倍
         
-        // v25.4: 长匹配长度加成（仅5连及以上，8局+6%/7局+4%/6局+2%/5局+0%）
+        // 长匹配长度加成（12局+18%/10局+12%/8局+6%/6局+0%）：相似度平方为主，长度仅微调
         var ml2 = r.matchLen || r.scanWindowLen || 5;
-        var lenBonus = 1 + Math.max(0, (ml2 - 5)) * 0.02;
+        var lenBonus = 1 + Math.max(0, (ml2 - 6)) * 0.03;
         var voteW = baseW * bonus * lenBonus;
         weightedCount[r.nextWinner] += voteW;
         weightSum += voteW;
@@ -3716,6 +3739,21 @@ class Predictor {
         this._lastSource = source;
         // v14: 返回时附带完整相似盘结果（如果有的话）
         var simInfo = this._lastSimResult || null;
+        // v29.0: 记录每个子模型首选，供长期命中率统计
+        var _mpKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+        var modelPicks = {};
+        if (predAll && predAll.models) {
+            for (var _mki = 0; _mki < _mpKeys.length; _mki++) {
+                var _mk = _mpKeys[_mki];
+                var _mp = predAll.models[_mk];
+                if (_mp) {
+                    var _mt = 'A';
+                    if (_mp.B > _mp[_mt]) _mt = 'B';
+                    if (_mp.C > _mp[_mt]) _mt = 'C';
+                    modelPicks[_mk] = _mt;
+                }
+            }
+        }
         return {
             predictedGuild: rankInfo.predictedGuild,
             probabilities: finalProbs,
@@ -3733,7 +3771,9 @@ class Predictor {
             windowWeights: {w6: w6, w7: w7, w8: w8, w10: w10, wg: wg},
             windowAccuracy: {win6: acc6, win7: acc7, win8: acc8, win10: acc10, global: accG},
             // v25.6: 收益预测（相似收益盘 + 收益规律综合）
-            profitPrediction: this._predictProfit()
+            profitPrediction: this._predictProfit(),
+            // v29.0: 各子模型首选
+            modelPicks: modelPicks
         };
     }
     // ===== 多轮学习（含回滚保护）=====
@@ -4135,6 +4175,7 @@ if(curBrier > 0.3){
                     sorted: prevPrediction.sorted.map(function(x){return [x[0],x[1]];}),
                     source: prevPrediction.sourceKey,
                     pattern: prevPrediction.patternName,
+                    mp: prevPrediction.modelPicks || null,
                     profitPrediction: prevPrediction.profitPrediction ? {
                         predicted: prevPrediction.profitPrediction.predicted,
                         probs: prevPrediction.profitPrediction.probs,
@@ -4202,6 +4243,7 @@ if(curBrier > 0.3){
                     source: prevPrediction.sourceKey,
                     pattern: prevPrediction.patternName,
                     isTie: true,
+                    mp: prevPrediction.modelPicks || null,
                     profitPrediction: prevPrediction.profitPrediction ? {
                         predicted: prevPrediction.profitPrediction.predicted,
                         probs: prevPrediction.profitPrediction.probs,
@@ -4785,12 +4827,84 @@ function loadSnapshots() {
 function saveSnapshots() {
     try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(_snapshots.slice(-10))); } catch(e) {}
 }
+// v29.2: 跨设备操作日志——快照同步到云端 oplog 行，各设备都能看到并回滚
+var OLOG_ID = 'oplog';
+var _cloudSnaps = [];
+var _viewSnaps = [];
+function pushOlogToCloud(snap) {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle().then(function(res){
+        var items = (res.data && res.data.data && res.data.data.items) ? res.data.data.items.slice() : [];
+        var key = snap.time + '|' + snap.reason + '|' + (snap.device || '');
+        var exists = items.some(function(x){ return (x.time + '|' + x.reason + '|' + (x.device||'')) === key; });
+        if (!exists) items.push(snap);
+        items = items.slice(-20);
+        return supabaseClient.from(CLOUD_TABLE).upsert({id: OLOG_ID, data: {items: items}, updated_at: new Date().toISOString()}, {onConflict: 'id'});
+    }).catch(function(){});
+}
+function fetchOlogFromCloud(cb) {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) { _cloudSnaps = []; cb && cb(); return; }
+    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle().then(function(res){
+        _cloudSnaps = (res.data && res.data.data && res.data.data.items) ? res.data.data.items.slice() : [];
+    }).catch(function(){ _cloudSnaps = []; })
+    .then(function(){ cb && cb(); });
+}
+function syncOlogToCloud() {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    var seen = {}, items = [];
+    function addArr(arr){ (arr||[]).forEach(function(s){ var k = s.time + '|' + s.reason + '|' + (s.device||''); if (!seen[k]) { seen[k] = 1; items.push(s); } }); }
+    addArr(_snapshots); addArr(_cloudSnaps);
+    items.sort(function(a,b){ return new Date(a.time) - new Date(b.time); });
+    items = items.slice(-20);
+    supabaseClient.from(CLOUD_TABLE).upsert({id: OLOG_ID, data: {items: items}, updated_at: new Date().toISOString()}, {onConflict: 'id'}).then(function(){}, function(){});
+}
+function clearAllSnapshots() {
+    var total = (_snapshots ? _snapshots.length : 0) + (_cloudSnaps ? _cloudSnaps.length : 0);
+    if (!confirm('确定清空全部操作日志（共 ' + total + ' 条）？\n\n包括本机和其他设备的回滚快照，清空后不可恢复！')) return;
+    _snapshots = []; _cloudSnaps = [];
+    try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        supabaseClient.from(CLOUD_TABLE).delete().eq('id', OLOG_ID).then(function(){}, function(){});
+    }
+    renderSnapshotList();
+    var msg = document.getElementById('snapshotStatusMsg');
+    if (msg) msg.textContent = '✅ 已清空全部操作日志';
+}
+function deleteSnapshot(idx) {
+    var s = _viewSnaps && _viewSnaps[idx];
+    if (!s) return;
+    if (!confirm('删除这条日志？\n' + new Date(s.time).toLocaleString() + ' ' + s.reason + (s.device ? '（' + s.device + '）' : ''))) return;
+    var key = s.time + '|' + s.reason + '|' + (s.device||'');
+    _snapshots = (_snapshots||[]).filter(function(x){ return (x.time+'|'+x.reason+'|'+(x.device||'')) !== key; });
+    _cloudSnaps = (_cloudSnaps||[]).filter(function(x){ return (x.time+'|'+x.reason+'|'+(x.device||'')) !== key; });
+    try { saveSnapshots(); } catch(e){}
+    syncOlogToCloud();
+    renderSnapshotList();
+    var msg = document.getElementById('snapshotStatusMsg');
+    if (msg) msg.textContent = '✅ 已删除该条日志';
+}
+function deleteSnapshotsByDevice() {
+    var sel = document.getElementById('ologDeviceSel');
+    if (!sel || !sel.value) { alert('请先选择要清理的设备'); return; }
+    var dev = sel.value;
+    var n1 = (_snapshots||[]).filter(function(s){ return (s.device||'本机') === dev; }).length;
+    var n2 = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') === dev; }).length;
+    if (!confirm('删除设备「' + dev + '」的全部操作日志（本机 ' + n1 + ' 条 + 云端 ' + n2 + ' 条）？')) return;
+    _snapshots = (_snapshots||[]).filter(function(s){ return (s.device||'本机') !== dev; });
+    _cloudSnaps = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') !== dev; });
+    try { saveSnapshots(); } catch(e){}
+    syncOlogToCloud();
+    renderSnapshotList();
+    var msg = document.getElementById('snapshotStatusMsg');
+    if (msg) msg.textContent = '✅ 已删除设备「' + dev + '」全部日志';
+}
 function createSnapshot(reason) {
     try {
         var snap = {
             time: new Date().toISOString(),
             reason: reason || '操作',
             count: P.history ? P.history.length : 0,
+            device: (typeof devName === 'function') ? devName() : '本机',
             data: JSON.stringify({
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights,
@@ -4805,12 +4919,17 @@ function createSnapshot(reason) {
         _snapshots.push(snap);
         if (_snapshots.length > 10) _snapshots = _snapshots.slice(-10);
         saveSnapshots();
+        try { pushOlogToCloud(snap); } catch(e2) {}
     } catch(e) { console.warn("snapshot failed", e); try { showRecordResult(false, "快照生成失败", e.message); } catch(e2){} }
 }
 function restoreSnapshot(idx) {
-    if (idx < 0 || idx >= _snapshots.length) return false;
+    var s = _snapshots[idx];
+    return s ? restoreSnapshotObject(s) : false;
+}
+function restoreSnapshotObject(s) {
+    if (!s || !s.data) return false;
     try {
-        var d = JSON.parse(_snapshots[idx].data);
+        var d = JSON.parse(s.data);
         P.clearAll();
         P.history = d.history.slice();
         P.predHistory = d.predHistory ? d.predHistory.slice() : [];
@@ -5055,24 +5174,19 @@ async function cloudLoad(silent) {
     }
 }
 
-// v27.4：定期自动备份——每天4次（0/6/12/18点），旧备份只保留2天
+// v27.5：定期自动备份——每小时一次，只保留最近24个备份
 var _lastAutoBackupDate = '';
 var _autoBackupTimer = null;
-var AUTO_BACKUP_HOURS = [0, 6, 12, 18]; // 每天4个备份时间点
-var AUTO_BACKUP_KEEP_DAYS = 2; // 自动备份保留天数
+var AUTO_BACKUP_KEEP_COUNT = 24; // 自动备份只保留最近24个
 function checkAutoBackup() {
     var now = new Date();
-    var hour = now.getHours();
     var dateStr = now.toISOString().slice(0,10);
-    // 检查当前小时是否在备份时间点内
-    var timeIdx = AUTO_BACKUP_HOURS.indexOf(hour);
-    if (timeIdx < 0) return;
-    var timeKey = String(AUTO_BACKUP_HOURS[timeIdx]).padStart(2, '0') + '00';
-    var backupKey = dateStr + '_' + timeKey;
-    if (_lastAutoBackupDate === backupKey) return; // 这个时间点已经备份过了
+    var hourKey = String(now.getHours()).padStart(2, '0');
+    var backupKey = dateStr + '_' + hourKey;
+    if (_lastAutoBackupDate === backupKey) return; // 本小时已备份过
     _lastAutoBackupDate = backupKey;
     if (!supabaseClient || !cloudOnline || !P.history || P.history.length === 0) return;
-    console.log('[自动备份] 开始自动备份，时间点:', timeKey);
+    console.log('[自动备份] 开始每小时自动备份，时间:', hourKey + '时');
     try {
         var saveData = {
             history: P.history.slice(),
@@ -5084,7 +5198,7 @@ function checkAutoBackup() {
             learnIterations: P.learnIterations || 0,
             _syncEpoch: P._syncEpoch || 0
         };
-        var backupId = 'backup_autodaily_' + dateStr.replace(/-/g,'') + '_' + timeKey;
+        var backupId = 'backup_autohour_' + dateStr.replace(/-/g,'') + '_' + hourKey;
         supabaseClient.from(CLOUD_TABLE).upsert(
             { id: backupId, data: saveData, updated_at: now.toISOString() },
             { onConflict: 'id' }
@@ -5093,7 +5207,7 @@ function checkAutoBackup() {
                 console.error('[自动备份] 失败:', res.error.message);
             } else {
                 console.log('[自动备份] 成功:', backupId, '(' + saveData.history.length + '条)');
-                // v27.4：备份成功后清理超过保留天数的旧备份
+                // 备份成功后清理旧备份，只保留最近24个
                 cleanupOldAutoBackups();
             }
         }).catch(function(e) {
@@ -5103,29 +5217,25 @@ function checkAutoBackup() {
         console.error('[自动备份] 异常:', e.message);
     }
 }
-// v27.4：清理超过保留天数的自动备份记录
+// v27.5：清理自动备份记录，只保留最近24个（含旧格式autodaily）
 async function cleanupOldAutoBackups() {
     if (!supabaseClient) return;
     try {
-        // 计算截止日期（保留天数内的不删）
-        var cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - AUTO_BACKUP_KEEP_DAYS);
-        var cutoffStr = cutoff.toISOString().slice(0,10).replace(/-/g,'');
-        // 查询所有自动备份记录
-        var res = await supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'backup_autodaily_%');
+        // 查询所有自动备份（新格式autohour + 旧格式autodaily）
+        var res = await supabaseClient.from(CLOUD_TABLE)
+            .select('id, updated_at')
+            .or('id.like.backup_autohour_%,id.like.backup_autodaily_%')
+            .order('updated_at', {ascending: false});
         if (res.error || !res.data) return;
+        // 前24个保留，其余删除
+        var toDelete = res.data.slice(AUTO_BACKUP_KEEP_COUNT);
         var deleted = 0;
-        for (var idx = 0; idx < res.data.length; idx++) {
-            var bid = res.data[idx].id;
-            // 解析ID中的日期: backup_autodaily_YYYYMMDD_HHMM
-            var parts = bid.split('_');
-            if (parts.length >= 3 && parts[2] < cutoffStr) {
-                await supabaseClient.from(CLOUD_TABLE).delete().eq('id', bid);
-                deleted++;
-                console.log('[自动备份清理] 已删除旧备份:', bid);
-            }
+        for (var idx = 0; idx < toDelete.length; idx++) {
+            await supabaseClient.from(CLOUD_TABLE).delete().eq('id', toDelete[idx].id);
+            deleted++;
+            console.log('[自动备份清理] 已删除旧备份:', toDelete[idx].id);
         }
-        if (deleted > 0) console.log('[自动备份清理] 共清理 ' + deleted + ' 条旧备份');
+        if (deleted > 0) console.log('[自动备份清理] 共清理 ' + deleted + ' 条旧备份，保留最近24条');
     } catch(e) {
         console.error('[自动备份清理] 异常:', e.message);
     }
@@ -5352,7 +5462,9 @@ function closeBackupModal() {
 // v26.5：操作日志/快照回滚
 function openSnapshotModal() {
     loadSnapshots();
-    renderSnapshotList();
+    var msg = document.getElementById('snapshotStatusMsg');
+    if (msg) msg.textContent = '正在同步各设备操作日志...';
+    fetchOlogFromCloud(function(){ renderSnapshotList(); });
     document.getElementById('snapshotModalOverlay').classList.add('open');
 }
 function closeSnapshotModal() {
@@ -5360,30 +5472,60 @@ function closeSnapshotModal() {
 }
 function renderSnapshotList() {
     var tbody = document.getElementById('snapshotListBody');
-    if (!_snapshots || _snapshots.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="padding:16px;color:#999;">暂无快照（录入/撤销/清空后自动生成）</td></tr>';
+    var seen = {};
+    var merged = [];
+    function addSrc(arr) {
+        for (var i = 0; i < (arr||[]).length; i++) {
+            var s = arr[i];
+            var k = s.time + '|' + s.reason + '|' + (s.device||'');
+            if (!seen[k]) { seen[k] = 1; merged.push(s); }
+        }
+    }
+    addSrc(_snapshots); addSrc(_cloudSnaps);
+    merged.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
+    _viewSnaps = merged;
+    // 填充设备下拉
+    var sel = document.getElementById('ologDeviceSel');
+    if (sel) {
+        var devs = {};
+        merged.forEach(function(s){ devs[s.device||'本机'] = 1; });
+        var curSel = sel.value;
+        var opts = '<option value="">选择设备...</option>';
+        Object.keys(devs).forEach(function(d){ opts += '<option value="' + d + '">' + d + '</option>'; });
+        sel.innerHTML = opts;
+        if (curSel && devs[curSel]) sel.value = curSel;
+    }
+    if (merged.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;color:#999;">暂无快照（录入/撤销/清空后自动生成）</td></tr>';
         return;
     }
     var html = '';
-    for (var i = _snapshots.length - 1; i >= 0; i--) {
-        var s = _snapshots[i];
+    for (var i = 0; i < merged.length; i++) {
+        var s = merged[i];
         var t = new Date(s.time);
         var tStr = t.toLocaleString('zh-CN');
+        var dev = s.device || '本机';
+        var isLocal = _snapshots.indexOf(s) >= 0;
         html += '<tr>' +
             '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
+            '<td style="padding:8px;font-size:12px;">' + dev + (isLocal ? ' <span style="color:#2e7d32;font-size:10px;">(本机)</span>' : '') + '</td>' +
             '<td style="padding:8px;font-size:12px;">' + s.reason + '</td>' +
             '<td style="padding:8px;font-size:12px;">' + s.count + ' 局</td>' +
-            '<td style="padding:8px;"><button onclick="doRestoreSnapshot(' + i + ')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">回滚</button></td>' +
+            '<td style="padding:8px;white-space:nowrap;">' +
+                '<button onclick="doRestoreSnapshot(' + i + ')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:4px;">回滚</button>' +
+                '<button onclick="deleteSnapshot(' + i + ')" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
+            '</td>' +
             '</tr>';
     }
     tbody.innerHTML = html;
 }
 function doRestoreSnapshot(idx) {
-    var s = _snapshots[idx];
+    var s = (_viewSnaps && _viewSnaps[idx]) || _snapshots[idx];
     if (!s) return;
-    if (!confirm('确定回滚到 ' + new Date(s.time).toLocaleString('zh-CN') + ' 的快照？\n\n操作：' + s.reason + '\n当时局数：' + s.count + '\n\n当前数据将被覆盖。')) return;
+    var devTxt = s.device ? '（' + s.device + '）' : '';
+    if (!confirm('确定回滚到 ' + new Date(s.time).toLocaleString('zh-CN') + ' 的快照' + devTxt + '？\n\n操作：' + s.reason + '\n当时局数：' + s.count + '\n\n当前数据将被覆盖。')) return;
     createSnapshot('回滚前自动备份');
-    if (restoreSnapshot(idx)) {
+    if (restoreSnapshotObject(s)) {
         document.getElementById('snapshotStatusMsg').textContent = '✅ 回滚成功！';
         renderSnapshotList();
         setTimeout(closeSnapshotModal, 800);
@@ -5635,12 +5777,158 @@ function recalcPredSnapshots() {
     renderAll();
     showRecordResult(true, '成功', '已重新计算 ' + snaps.length + ' 局预测快照');
 }
+
+// ===== v29.0: 子模型长期命中率 + 联合信号 + 数据健康 =====
+var _MODEL_KEYS = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+var _MODEL_LABELS = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律'};
+function _alignWinners() {
+    var off = P.history.length - P.predHistory.length;
+    var arr = [];
+    for (var i = 0; i < P.predHistory.length; i++) {
+        var ph = P.predHistory[i];
+        if (ph.isTie) continue;
+        var hi = i + off;
+        if (hi < 0 || hi >= P.history.length) continue;
+        var w = getWinner(P.history[hi]);
+        if (!w) continue;
+        arr.push({ph: ph, winner: w});
+    }
+    return arr;
+}
+function renderModelAccuracy() {
+    var body = document.getElementById('modelAccBody');
+    if (!body) return;
+    var rows = _alignWinners();
+    // 数据健康：连续重复局检查
+    var dup = 0;
+    for (var hi = 1; hi < P.history.length; hi++) {
+        var r1 = P.history[hi-1], r2 = P.history[hi];
+        if (r1 && r2 && r1.a === r2.a && r1.b === r2.b && r1.c === r2.c) dup++;
+    }
+    var warnHtml = dup > 0
+        ? '<div style="background:#fff3e0;border-left:4px solid #f57c00;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#e65100;">⚠️ 数据健康：发现 '+dup+' 处连续重复记录（a/b/c完全相同），请检查是否重复录入。</div>'
+        : '';
+    // 新一局时对弱模型温和降权（近60局命中率<33%才触发，每新局最多乘0.93，下限0.02）
+    var dampNote = '';
+    var pc = P.predHistory.length;
+    if (P._lastDampCount !== pc && pc >= 40) {
+        P._lastDampCount = pc;
+        var recent = rows.slice(-60);
+        var damped = [];
+        _MODEL_KEYS.forEach(function(k){
+            var t = 0, h = 0;
+            recent.forEach(function(r){ var p = r.ph.mp ? r.ph.mp[k] : null; if (p) { t++; if (p === r.winner) h++; } });
+            if (t >= 15 && h / t < 0.33 && P.modelWeights[k] > 0.02) {
+                P.modelWeights[k] = Math.max(0.02, P.modelWeights[k] * 0.93);
+                damped.push(_MODEL_LABELS[k] + '→' + P.modelWeights[k].toFixed(3));
+            }
+        });
+        if (damped.length) {
+            dampNote = '<div style="margin-top:6px;color:#e53935;font-size:12px;">🤖 自动降权（近60局低于随机）：' + damped.join('、') + '</div>';
+            try { debouncedSave(); } catch(e) {}
+        }
+    }
+    var rowsHtml = '';
+    _MODEL_KEYS.forEach(function(k){
+        var tot = 0, hit = 0;
+        var rtot = 0, rhit = 0;
+        var recent = rows.slice(-60);
+        for (var i = 0; i < rows.length; i++) {
+            var p = rows[i].ph.mp ? rows[i].ph.mp[k] : null;
+            if (p) { tot++; if (p === rows[i].winner) hit++; }
+        }
+        for (var j = 0; j < recent.length; j++) {
+            var rp = recent[j].ph.mp ? recent[j].ph.mp[k] : null;
+            if (rp) { rtot++; if (rp === recent[j].winner) rhit++; }
+        }
+        var acc = tot > 0 ? hit / tot : null;
+        var racc = rtot > 0 ? rhit / rtot : null;
+        var curW = (P.modelWeights && P.modelWeights[k]) || 0;
+        var st = '<span style="color:#999">⏳ 积累中</span>';
+        if (acc !== null) {
+            if (racc !== null && rtot >= 15 && racc < 0.33) st = '<span style="color:#e53935;font-weight:700">🔴 低于随机</span>';
+            else if (acc < 0.40) st = '<span style="color:#f57c00">🟡 偏弱</span>';
+            else st = '<span style="color:#2e7d32">✅ 可用</span>';
+        }
+        rowsHtml += '<tr><td style="padding:4px 8px;">' + _MODEL_LABELS[k] + '</td>'
+            + '<td style="padding:4px 8px;">' + (acc === null ? '—' : (acc*100).toFixed(0) + '% (' + hit + '/' + tot + ')') + '</td>'
+            + '<td style="padding:4px 8px;">' + (racc === null ? '—' : (racc*100).toFixed(0) + '%') + '</td>'
+            + '<td style="padding:4px 8px;">' + curW.toFixed(3) + '</td>'
+            + '<td style="padding:4px 8px;">' + st + '</td></tr>';
+    });
+    body.innerHTML = warnHtml
+        + '<table style="width:100%;font-size:13px;border-collapse:collapse;">'
+        + '<tr style="color:#666;border-bottom:1px solid #eee;"><td style="padding:4px 8px;">模型</td><td style="padding:4px 8px;">全历史命中率</td><td style="padding:4px 8px;">近60局</td><td style="padding:4px 8px;">当前权重</td><td style="padding:4px 8px;">评价</td></tr>'
+        + rowsHtml + '</table>'
+        + '<div style="margin-top:8px;"><button class="btn" onclick="applyWeightsByAcc()" style="padding:4px 12px;font-size:12px;">🎯 按命中率一键重调权重</button></div>'
+        + dampNote
+        + '<div style="margin-top:6px;color:#999;font-size:11px;">命中率自 v29.0 起按局累计（旧预测无分模型记录）；平局不计入；近60局低于33%时系统会温和自动降权。</div>';
+}
+function applyWeightsByAcc() {
+    var rows = _alignWinners();
+    var offW = {};
+    _MODEL_KEYS.forEach(function(k){
+        var tot = 0, hit = 0;
+        rows.forEach(function(r){ var p = r.ph.mp ? r.ph.mp[k] : null; if (p) { tot++; if (p === r.winner) hit++; } });
+        var acc = tot >= 15 ? hit / tot : 0.34;
+        offW[k] = Math.max(0, acc - 0.33);
+    });
+    var sum = 0; for (var k2 in offW) sum += offW[k2];
+    if (sum <= 0) { alert('样本不足，无法调整权重'); return; }
+    _MODEL_KEYS.forEach(function(k3){ P.modelWeights[k3] = 0.02 + (offW[k3] / sum) * 0.98; });
+    try { debouncedSave(); } catch(e) {}
+    renderAll();
+}
+function renderJointSignal() {
+    var body = document.getElementById('jointBody');
+    if (!body) return;
+    var rows = _alignWinners();
+    var stat = {};
+    rows.forEach(function(r){
+        var g = r.ph.guild;
+        var pf = r.ph.profitPrediction ? r.ph.profitPrediction.predicted : '';
+        if (!g || !pf) return;
+        var key = g + '|' + pf;
+        if (!stat[key]) stat[key] = {tot: 0, hit: 0};
+        stat[key].tot++;
+        if (g === r.winner) stat[key].hit++;
+    });
+    var lastRes = window._predCache && window._predCache.result;
+    var curG = lastRes ? lastRes.predictedGuild : null;
+    var curP = lastRes && lastRes.profitPrediction ? lastRes.profitPrediction.predicted : null;
+    var html = '';
+    if (curG && curP) {
+        var cs = stat[curG + '|' + curP];
+        if (cs && cs.tot > 0) {
+            var pct = Math.round(cs.hit / cs.tot * 100);
+            var color = pct >= 45 ? '#2e7d32' : (pct >= 35 ? '#f57c00' : '#e53935');
+            html += '<div style="font-size:14px;margin-bottom:8px;">当前组合 <b>' + curG + '</b>（胜负）× <b>' + curP + '</b>（收益）：历史 <b style="color:' + color + '">' + pct + '%</b>（' + cs.hit + '/' + cs.tot + '）</div>';
+        } else {
+            html += '<div style="font-size:13px;color:#999;">当前组合 ' + curG + '×' + curP + ' 暂无历史样本，继续积累。</div>';
+        }
+    } else {
+        html += '<div style="font-size:13px;color:#999;">等待预测结果。</div>';
+    }
+    var best = null, worst = null;
+    for (var k in stat) {
+        if (stat[k].tot < 10) continue;
+        var rt = stat[k].hit / stat[k].tot;
+        if (!best || rt > best.r) best = {k: k, r: rt, n: stat[k].tot};
+        if (!worst || rt < worst.r) worst = {k: k, r: rt, n: stat[k].tot};
+    }
+    if (best) html += '<div style="font-size:12px;color:#2e7d32;">✅ 历史最稳组合：' + best.k.replace('|', ' × ') + '　' + Math.round(best.r*100) + '%（' + best.n + '局）</div>';
+    if (worst) html += '<div style="font-size:12px;color:#e53935;">⚠️ 历史最坑组合：' + worst.k.replace('|', ' × ') + '　' + Math.round(worst.r*100) + '%（' + worst.n + '局）</div>';
+    body.innerHTML = html;
+}
+
 function renderAll() {
     var fns = [
         ['renderCards', renderCards],
         ['renderHistory', renderHistory],
         ['renderPredHistory', renderPredHistory],
-        ['updateStats', updateStats]
+        ['updateStats', updateStats],
+        ['renderModelAccuracy', renderModelAccuracy],
+        ['renderJointSignal', renderJointSignal]
     ];
     fns.forEach(function(item) {
         try { item[1](); }
@@ -5912,8 +6200,8 @@ function renderCards() {
         if (siProbs.C > siProbs[simBestG2]) simBestG2 = 'C';
         // 构建推理链文字
         var lines = [];
-        lines.push('<div style="margin-bottom:6px;"><strong>📌 当前窗口（近8局）：</strong>');
-        var curWindow = P.history.slice(-8);
+        lines.push('<div style="margin-bottom:6px;"><strong>📌 当前窗口（近12局）：</strong>');
+        var curWindow = P.history.slice(-12);
         var curSeq = curWindow.map(function(r){var w=getWinner(r);return w?'<span style="color:'+(w==='A'?'#e74c3c':w==='B'?'#3498db':'#2ecc71')+'">'+w+'</span>':'平';}).join(' → ');
         lines.push(curSeq + '</div>');
         lines.push('<div style="margin-bottom:6px;"><strong>📊 相似盘投票（简单计数）：</strong>');
@@ -5932,43 +6220,117 @@ function renderCards() {
         lines.push('C=<strong>'+((siProbs.C||0)*100).toFixed(1)+'%</strong> ');
         lines.push('| 最高相似度: <strong>'+((si.topSimilarity||si.avgSimilarity||0)*100).toFixed(0)+'%</strong>');
         lines.push('| 平均相似度: <strong>'+(si.avgSimilarity*100).toFixed(0)+'%</strong></div>');
+        // v28.3: 相似盘信号历史命中率（与renderPredHistory同口径：predHistory[i] 对齐 history[i+_phOff]）
+        (function(){
+            var _phOff2 = P.history.length - P.predHistory.length;
+            var simTotalN = 0, simTotalHit = 0, recentHits = 0, recentN = 0;
+            for (var _s = P.predHistory.length - 1; _s >= 0; _s--) {
+                var sph = P.predHistory[_s];
+                if (sph.source !== 'similar' || sph.isTie) continue;
+                var shIdx = _s + _phOff2;
+                var sW = (shIdx < P.history.length) ? getWinner(P.history[shIdx]) : null;
+                if (sW === null) continue;
+                simTotalN++;
+                if (sW === sph.guild) simTotalHit++;
+                if (recentN < 20) { recentN++; if (sW === sph.guild) recentHits++; }
+            }
+            if (simTotalN >= 3) {
+                var rRate = (recentN > 0 ? recentHits/recentN*100 : 0);
+                var tRate = simTotalHit/simTotalN*100;
+                var warn = (tRate < 40 && simTotalN >= 10) ? ' <span style="color:#c0392b;">⚠ 整体命中率低于40%，相似盘信号偏弱，建议下调其权重</span>' : '';
+                lines.push('<div style="margin-bottom:6px;"><strong>📈 相似盘信号历史命中率：</strong>近20局 '+rRate.toFixed(0)+'%（'+recentHits+'/'+recentN+'）| 全部 '+tRate.toFixed(0)+'%（'+simTotalHit+'/'+simTotalN+'）'+warn+'</div>');
+            } else {
+                lines.push('<div style="margin-bottom:6px;color:#888;"><strong>📈 相似盘信号历史命中率：</strong>相似盘历史样本不足（'+simTotalN+'局），多录几局后自动统计</div>');
+            }
+        })();
         // v25.4: 5连起匹配，展示前20个（从30降到20，减少DOM渲染）
         var matches = (si.matches || []).slice().sort(function(a,b){
             var aExact = (a.wsSim !== undefined && a.wsSim >= 0.999);
             var bExact = (b.wsSim !== undefined && b.wsSim >= 0.999);
-            var aKey = (aExact ? 100000 + (a.matchLen||5)*1000 : a.similarity*1000);
-            var bKey = (bExact ? 100000 + (b.matchLen||5)*1000 : b.similarity*1000);
+            var aKey = _matchSortKey(a.similarity||0, a.matchLen||6);
+            var bKey = _matchSortKey(b.similarity||0, b.matchLen||6);
             return bKey - aKey;
         }).slice(0, 20);
+
+        // v27.5: 相同序列+相同结果的记录分组，用框框起来，列出所有局号
+        var _mergedMap = {};
+        for (var _mi = 0; _mi < matches.length; _mi++) {
+            var _mm = matches[_mi];
+            var _seqKey = '';
+            if (_mm.matchedSlice) {
+                _seqKey = _mm.matchedSlice.map(function(r){ return getWinner(r) || 'X'; }).join('');
+            }
+            var _gKey = _seqKey + '|' + (_mm.nextWinner || '?');
+            if (!_mergedMap[_gKey]) { _mergedMap[_gKey] = { count: 0, best: _mm, anyExact: false, ranges: [] }; }
+            var _grp = _mergedMap[_gKey];
+            _grp.count++;
+            if (_mm.similarity > _grp.best.similarity) _grp.best = _mm;
+            if (_mm.wsSim !== undefined && _mm.wsSim >= 0.999) _grp.anyExact = true;
+            _grp.ranges.push('第'+(_mm.startIdx+1)+'~'+(_mm.startIdx+(_mm.matchLen||6))+'局');
+        }
+        matches = [];
+        for (var _gk in _mergedMap) {
+            var _g2 = _mergedMap[_gk];
+            _g2.best.mergedCount = _g2.count;
+            _g2.best.mergedExact = _g2.anyExact;
+            _g2.best.mergedRanges = _g2.ranges;
+            matches.push(_g2.best);
+        }
+        matches.sort(function(a, b) {
+            var aE = a.mergedExact;
+            var bE = b.mergedExact;
+            var aK = _matchSortKey(a.similarity||0, a.matchLen||6);
+            var bK = _matchSortKey(b.similarity||0, b.matchLen||6);
+            return bK - aK;
+        });
         if (matches.length > 0) {
             var totalMatches = (si.matches || []).length;
-            lines.push('<div style="margin-top:6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><strong>🎯 匹配的历史片段（100%匹配按长度降序，其余按相似度降序）</strong>');
-            lines.push('<span style="font-size:11px;color:#888;">显示前'+matches.length+'个 / 共'+totalMatches+'个</span></div>');
+            lines.push('<div style="margin-top:6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><strong>🎯 匹配的历史片段（相同模式已分组）</strong>');
+            lines.push('<span style="font-size:11px;color:#888;">共'+matches.length+'组 / '+totalMatches+'个匹配</span></div>');
             lines.push('<div class="match-history-list" style="max-height:260px;overflow-y:auto;border:1px solid #e1bee7;border-radius:6px;padding:6px;background:#faf5fc;">');
+            var mColors = {A:'#e74c3c',B:'#3498db',C:'#2ecc71'};
             for (var mi2 = 0; mi2 < matches.length; mi2++) {
                 var m2 = matches[mi2];
                 var mSimPct = (m2.similarity * 100).toFixed(0);
                 var mNextW = m2.nextWinner || '?';
-                var mColors = {A:'#e74c3c',B:'#3498db',C:'#2ecc71'};
-                var mColor = mColors[mNextW] || '#666';
-                var rangeStr2 = '第'+(m2.startIdx+1)+'~'+(m2.startIdx+(m2.matchLen||6))+'局';
+                var mColor = mColors[m2.nextWinner] || '#666';
                 var mSeq = '';
                 if (m2.matchedSlice) {
-                    mSeq = m2.matchedSlice.map(function(r){
+                    var _curWinW = P.history.slice(-m2.matchedSlice.length).map(function(rw){ return getWinner(rw); });
+                    mSeq = m2.matchedSlice.map(function(r, idx){
                         var w=getWinner(r);
                         if(!w) return '<span style="color:#999;">平</span>';
+                        var isDiff = (_curWinW[idx] !== undefined && _curWinW[idx] !== w);
+                        if (isDiff) return '<span style="color:#fff;background:#e53935;border-radius:3px;padding:0 3px;font-weight:700;">'+w+'</span>';
                         return '<span style="color:'+mColors[w]+';font-weight:600;">'+w+'</span>';
                     }).join('-');
                 }
+                var isExactMatch = m2.mergedExact || (m2.wsSim !== undefined && m2.wsSim >= 0.999);
                 var simBg = isExactMatch ? '#ffd700' : (mSimPct>=80?'#ce93d8':mSimPct>=70?'#d8a5df':mSimPct>=60?'#e1bee7':mSimPct>=50?'#e8d5ed':'#f3e5f5');
-                var isExactMatch = (m2.wsSim !== undefined && m2.wsSim >= 0.999);
                 var simFg = mSimPct>=60?'#4a148c':'#999';
-                lines.push('<div class="match-history-item" style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid #f0e0f5;font-size:12px;line-height:1.5;">'+
-                    '<span class="match-history-sim" style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+simBg+';color:'+simFg+';font-weight:700;">'+mSimPct+'%</span> '+ 
-                    '<span class="match-history-range" style="flex:0 0 auto;color:#888;min-width:70px;font-size:11px;">'+rangeStr2+'</span> '+
-                    '<span class="match-history-seq" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">['+mSeq+']</span>'+
-                    '<span style="flex:0 0 auto;">→</span>'+
-                    '<span class="match-history-winner" style="flex:0 0 auto;font-weight:700;color:'+mColor+';min-width:22px;text-align:center;">'+mNextW+'</span></div>');
+                var isGrouped = (m2.mergedCount && m2.mergedCount > 1);
+                if (isGrouped) {
+                    var rangesHtml = m2.mergedRanges.join(' · ');
+                    lines.push('<div style="border:2px solid '+simBg+';border-radius:8px;margin:4px 0;padding:6px 8px;background:#fff;">'+
+                        '<div style="display:flex;align-items:center;gap:8px;">'+
+                        '<span style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+simBg+';color:'+simFg+';font-weight:700;">'+mSimPct+'%</span>'+
+                        '<span style="flex:0 0 auto;background:#7b1fa2;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">'+(m2.matchLen||6)+'局</span>'+
+                        '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">['+mSeq+']</span>'+
+                        '<span style="flex:0 0 auto;font-weight:700;color:'+mColor+';">&#8594; '+mNextW+'</span>'+
+                        '<span style="flex:0 0 auto;background:#9c27b0;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">x'+m2.mergedCount+'</span>'+
+                        '</div>'+
+                        '<div style="font-size:11px;color:#888;margin-top:4px;padding-left:52px;line-height:1.8;">'+rangesHtml+'</div>'+
+                        '</div>');
+                } else {
+                    var rangeStr2 = '第'+(m2.startIdx+1)+'~'+(m2.startIdx+(m2.matchLen||6))+'局';
+                    lines.push('<div class="match-history-item" style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid #f0e0f5;font-size:12px;line-height:1.5;">'+
+                        '<span class="match-history-sim" style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+simBg+';color:'+simFg+';font-weight:700;">'+mSimPct+'%</span>'+
+                        '<span class="match-history-range" style="flex:0 0 auto;color:#888;min-width:70px;font-size:11px;">'+rangeStr2+'</span>'+
+                        '<span style="flex:0 0 auto;background:#7b1fa2;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">'+(m2.matchLen||6)+'局</span>'+
+                        '<span class="match-history-seq" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">['+mSeq+']</span>'+
+                        '<span style="flex:0 0 auto;">&#8594;</span>'+
+                        '<span class="match-history-winner" style="flex:0 0 auto;font-weight:700;color:'+mColor+';min-width:22px;text-align:center;">'+mNextW+'</span></div>');
+                }
             }
             lines.push('</div>');
         }
@@ -6014,8 +6376,8 @@ function renderCards() {
         simProfitPanel.style.display = 'block';
         var pfLines = [];
         // 当前收益窗口
-        var curProfitSeq = P.history.slice(-6).map(function(r){return r.profitWinner ? profitTag(r.profitWinner) : '?';}).join(' → ');
-        pfLines.push('<div style="margin-bottom:8px;"><strong>📌 当前获胜收益窗口（近6局）：</strong>' + curProfitSeq + '</div>');
+        var curProfitSeq = P.history.slice(-12).map(function(r){return r.profitWinner ? profitTag(r.profitWinner) : '?';}).join(' → ');
+        pfLines.push('<div style="margin-bottom:8px;"><strong>📌 当前获胜收益窗口（近12局）：</strong>' + curProfitSeq + '</div>');
         // 预测结果
         pfLines.push('<div style="margin-bottom:8px;"><strong>🎯 收益预测：</strong>' +
             profitTag(simProfitInfo.predicted) +
@@ -6031,8 +6393,8 @@ function renderCards() {
             var isExact = (m.exactSim !== undefined && m.exactSim >= 0.999);
             var exactBadge = isExact ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;background:#ffd700;color:#333;">100%匹配</span>' : '';
             // v25.9: 匹配长度颜色（与相似盘一致：6局+红/5局橙/其他灰）
-            var lenBg = m.matchLen >= 6 ? '#ff5252' : m.matchLen >= 5 ? '#ff9800' : '#e0e0e0';
-            var lenFg = m.matchLen >= 5 ? '#fff' : '#666';
+            var lenBg = m.matchLen >= 12 ? '#c62828' : m.matchLen >= 10 ? '#e53935' : m.matchLen >= 8 ? '#ff7043' : m.matchLen >= 6 ? '#ff9800' : '#e0e0e0';
+            var lenFg = m.matchLen >= 6 ? '#fff' : '#666';
             pfLines.push('<div style="margin:4px 0;padding:6px 10px;background:rgba(255,255,255,0.7);border-radius:6px;font-size:13px;">' +
                 '<span style="font-weight:600;">#' + (idx+1) + '</span> ' + rangeStr +
                 ' <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;background:' + lenBg + ';color:' + lenFg + ';">' + m.matchLen + '局</span>' +
@@ -6613,6 +6975,7 @@ function _bindExportDataBtn() {
         btn.addEventListener('click', function() {
             if (!P.history || P.history.length === 0) { showRecordResult(false, '导出失败', '当前没有数据可导出'); return; }
             document.getElementById('exportCount').textContent = P.history.length;
+            document.querySelector('input[name="exportRange"][value="date"]').checked = true;
             document.getElementById('exportModal').classList.add('open');
             document.getElementById('exportCount').textContent = P.history ? P.history.length : 0;
             // 初始化范围输入框的默认值
@@ -6641,10 +7004,17 @@ function _bindExportDataBtn() {
                     dateStartSel.innerHTML += '<option value="'+dates[dsi]+'">'+dates[dsi]+'</option>';
                     dateEndSel.innerHTML += '<option value="'+dates[dsi]+'">'+dates[dsi]+'</option>';
                 }
-                // 默认选中最早和最晚日期
+                // v27.5: 默认选中当天日期
                 if (dates.length > 0) {
-                    dateStartSel.value = dates[0];
-                    dateEndSel.value = dates[dates.length-1];
+                    var _now = new Date();
+                    var _today = (_now.getMonth()+1) + '月' + _now.getDate() + '日';
+                    if (dates.indexOf(_today) >= 0) {
+                        dateStartSel.value = _today;
+                        dateEndSel.value = _today;
+                    } else {
+                        dateStartSel.value = dates[0];
+                        dateEndSel.value = dates[dates.length-1];
+                    }
                 }
             }
             toggleExportRange();
@@ -8163,12 +8533,17 @@ setTimeout(function(){
 <!-- ========== 操作日志/快照回滚模态框 ========== -->
 <div class="import-modal-overlay" id="snapshotModalOverlay">
 <div class="import-modal" style="max-width:560px;">
-<h3>📜 操作日志（本地快照回滚）</h3>
-<p class="modal-sub">自动保存最近10次操作前的快照，可一键回滚到任意时间点。快照仅保存在本地浏览器。</p>
+<h3>📜 操作日志（跨设备快照回滚）</h3>
+<p class="modal-sub">自动保存每次操作前的快照，可一键回滚；日志已同步云端，各设备操作都会显示。</p>
 <p id="snapshotStatusMsg" style="font-size:13px;margin:0 0 10px;min-height:18px;"></p>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px;">
+  <label style="color:#555;">按设备清理：</label>
+  <select id="ologDeviceSel" style="padding:4px 8px;max-width:200px;"><option value="">选择设备...</option></select>
+  <button onclick="deleteSnapshotsByDevice()" style="background:#f57c00;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除该设备全部</button>
+</div>
 <div style="max-height:360px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;">
 <table class="pred-history-table" style="font-size:13px;">
-<thead><tr><th style="padding:8px;">时间</th><th style="padding:8px;">操作</th><th style="padding:8px;">局数</th><th style="padding:8px;">操作</th></tr></thead>
+<thead><tr><th style="padding:8px;">时间</th><th style="padding:8px;">设备</th><th style="padding:8px;">操作</th><th style="padding:8px;">局数</th><th style="padding:8px;">回滚/删除</th></tr></thead>
 <tbody id="snapshotListBody">
 <tr><td colspan="4" style="padding:16px;color:#999;">暂无快照</td></tr>
 </tbody>
@@ -8176,6 +8551,7 @@ setTimeout(function(){
 </div>
 <div class="import-modal-actions" style="margin-top:16px;">
 <button class="btn-modal-cancel" onclick="closeSnapshotModal()">关闭</button>
+<button class="btn-modal-cancel" onclick="clearAllSnapshots()" style="background:#e74c3c;color:#fff;margin-left:auto;">🗑️ 清空日志</button>
 </div>
 </div>
 </div>
@@ -8375,7 +8751,7 @@ if (clearFilterBtn) clearFilterBtn.onclick = function() {
 <strong style="font-size:14px;color:#333;">📋 导出列（勾选要导出的字段）</strong>
 <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
 <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
-<input type="checkbox" class="export-col" value="index" checked> 局号
+<input type="checkbox" class="export-col" value="index"> 局号
 </label>
 <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
 <input type="checkbox" class="export-col" value="date" checked> 日期
@@ -8393,7 +8769,7 @@ if (clearFilterBtn) clearFilterBtn.onclick = function() {
 <input type="checkbox" class="export-col" value="c" checked> C
 </label>
 <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
-<input type="checkbox" class="export-col" value="winner" checked> 获胜方
+<input type="checkbox" class="export-col" value="winner"> 获胜方
 </label>
 <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
 <input type="checkbox" class="export-col" value="profit" checked> 获胜收益
