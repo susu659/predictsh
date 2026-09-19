@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v29.3 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v29.7 · 智能预测云端协同</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
 <script>var XLSX = window.XLSX || null;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
@@ -471,8 +471,8 @@ body.dark-mode .access-box p{color:#aaa;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v29.3</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v29.3</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v29.7</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v29.7</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -533,7 +533,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔐 设备管理</button>
 <button class="cloud-btn" id="backupRestoreBtn" style="background:#00bcd4;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">💾 备份/恢复</button>
 <button class="cloud-btn" id="adminModeBtn" style="background:#795548;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">👑 管理员模式</button>
-<button class="cloud-btn" id="snapshotBtn" style="background:#607d8b;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 操作日志</button>
+<button class="cloud-btn" id="snapshotBtn" style="display:none;background:#607d8b;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 操作日志</button>
 <button class="cloud-btn" id="darkModeBtn" style="background:#455a64;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🌙 深色模式</button>
 <button class="cloud-btn" id="encryptBtn" style="background:#5d4037;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔒 数据加密</button><button class="cloud-btn" id="testModeBtn" style="background:#e91e63;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🧪 测试模式</button>
 </div>
@@ -818,7 +818,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v29.3';
+  var APP_VERSION = 'v29.7';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -4825,7 +4825,7 @@ function loadSnapshots() {
     try { var raw = localStorage.getItem(SNAPSHOT_KEY); if (raw) _snapshots = JSON.parse(raw); } catch(e) { _snapshots = []; }
 }
 function saveSnapshots() {
-    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(_snapshots.slice(-10))); } catch(e) {}
+    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(_snapshots.slice(-20))); } catch(e) {}
 }
 // v29.2: 跨设备操作日志——快照同步到云端 oplog 行，各设备都能看到并回滚
 var OLOG_ID = 'oplog';
@@ -4917,7 +4917,7 @@ function createSnapshot(reason) {
             })
         };
         _snapshots.push(snap);
-        if (_snapshots.length > 10) _snapshots = _snapshots.slice(-10);
+        if (_snapshots.length > 20) _snapshots = _snapshots.slice(-20);
         saveSnapshots();
         try { pushOlogToCloud(snap); } catch(e2) {}
     } catch(e) { console.warn("snapshot failed", e); try { showRecordResult(false, "快照生成失败", e.message); } catch(e2){} }
@@ -5003,6 +5003,7 @@ function toggleAdminMode() {
         try { localStorage.removeItem(ADMIN_MODE_KEY); } catch(e) {}
         var btn = document.getElementById('adminModeBtn');
         if (btn) { btn.textContent = '👑 管理员模式'; btn.style.background = '#795548'; }
+        var sb1 = document.getElementById('snapshotBtn'); if (sb1) sb1.style.display = 'none';
         showRecordResult(true, '成功', '已退出管理员模式');
         return;
     }
@@ -5013,6 +5014,7 @@ function toggleAdminMode() {
     try { localStorage.setItem(ADMIN_MODE_KEY, '1'); } catch(e) {}
     var btn2 = document.getElementById('adminModeBtn');
     if (btn2) { btn2.textContent = '👑 管理员模式✅'; btn2.style.background = '#4caf50'; }
+    var sb2 = document.getElementById('snapshotBtn'); if (sb2) sb2.style.display = '';
     showRecordResult(true, '成功', '已进入管理员模式！\n您上传或恢复的数据将强制覆盖其他所有设备。');
 }
 function initCloud() {
@@ -5032,6 +5034,7 @@ function initCloud() {
             _isAdmin = true;
             var amb = document.getElementById('adminModeBtn');
             if (amb) { amb.textContent = '👑 管理员模式✅'; amb.style.background = '#4caf50'; }
+            var sb3 = document.getElementById('snapshotBtn'); if (sb3) sb3.style.display = '';
         }
     } catch(e) {}
     // 绑定管理员模式按钮
@@ -5460,11 +5463,41 @@ function closeBackupModal() {
     document.getElementById('backupModalOverlay').classList.remove('open');
 }
 // v26.5：操作日志/快照回滚
+function syncLocalToCloud() {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle().then(function(res){
+        var items = (res.data && res.data.data && res.data.data.items) ? res.data.data.items.slice() : [];
+        var seen = {};
+        items.forEach(function(x){ seen[x.time+'|'+x.reason+'|'+(x.device||'')] = 1; });
+        var added = 0;
+        (_snapshots||[]).forEach(function(s){
+            var k = s.time+'|'+s.reason+'|'+(s.device||'');
+            if (!seen[k]) { seen[k] = 1; items.push(s); added++; }
+        });
+        if (!added) return;
+        items.sort(function(a,b){ return new Date(a.time) - new Date(b.time); });
+        items = items.slice(-20);
+        return supabaseClient.from(CLOUD_TABLE).upsert({id: OLOG_ID, data: {items: items}, updated_at: new Date().toISOString()}, {onConflict:'id'}).then(function(){
+            _cloudSnaps = items.slice();
+        }, function(){});
+    }).catch(function(){});
+}
 function openSnapshotModal() {
     loadSnapshots();
     var msg = document.getElementById('snapshotStatusMsg');
     if (msg) msg.textContent = '正在同步各设备操作日志...';
-    fetchOlogFromCloud(function(){ renderSnapshotList(); });
+    fetchOlogFromCloud(function(){
+        syncLocalToCloud();
+        renderSnapshotList();
+        var cmsg = document.getElementById('snapshotStatusMsg');
+        if (cmsg) {
+            var localN = (_snapshots||[]).length;
+            var cloudN = (_cloudSnaps||[]).length;
+            var txt = '本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
+            if (cloudN === 0 && localN > 0) txt += '（其他设备需升级到 v29.2+ 并做一次录入/撤销后才会上传日志）';
+            cmsg.textContent = txt;
+        }
+    });
     document.getElementById('snapshotModalOverlay').classList.add('open');
 }
 function closeSnapshotModal() {
@@ -5504,8 +5537,9 @@ function renderSnapshotList() {
         var s = merged[i];
         var t = new Date(s.time);
         var tStr = t.toLocaleString('zh-CN');
+        var localDev = (typeof devName === 'function') ? devName() : '';
         var dev = s.device || '本机';
-        var isLocal = _snapshots.indexOf(s) >= 0;
+        var isLocal = (!s.device) || s.device === localDev;
         html += '<tr>' +
             '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
             '<td style="padding:8px;font-size:12px;">' + dev + (isLocal ? ' <span style="color:#2e7d32;font-size:10px;">(本机)</span>' : '') + '</td>' +
