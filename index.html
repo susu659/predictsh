@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v29.7 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v30.0 · 智能预测云端协同</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
 <script>var XLSX = window.XLSX || null;</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
@@ -471,8 +471,8 @@ body.dark-mode .access-box p{color:#aaa;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v29.7</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v29.7</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v30.0</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v30.0</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -637,7 +637,13 @@ create policy "ac update" on access_control for update using (true);</textarea><
     <strong>💰 相似收益盘推理详情</strong>
     <div id="simProfitDetailBody" style="margin-top:6px;"></div>
 </div>
+<!-- v29.10: 血本相似盘（0分方预测）——样式对齐相似盘 -->
+<div class="sim-detail-panel" id="lossSimPanel" style="display:none;margin-top:12px;background:#fce4ec;border-left:4px solid #e91e63;">
+    <strong style="color:#ad1457;">🩸 血本相似盘（每局0分方 → 预测下局谁是血本）</strong>
+    <div id="lossSimBody" style="margin-top:6px;"></div>
+</div>
 <div class="summary-box">
+<div id="autoBrierBadge" style="margin-bottom:6px;font-size:12px;color:#666;"></div>
 <div class="summary-text" id="predSummary">暂无足够数据，请先录入至少一局。</div>
 <div id="confidenceDisplay" style="margin-top:12px;"></div>
 <div class="law-box" id="lawSummary"><strong>📜 核心规律：</strong>等待数据录入后自动检测...</div>
@@ -818,7 +824,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v29.7';
+  var APP_VERSION = 'v30.0';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1494,6 +1500,14 @@ function getWinner(rec) {
     if (maxVal >= 2) {
         for (var i = 0; i < 3; i++) { if (vals[i] >= 2) return GUILDS[i]; }
     }
+    return null;
+}
+// v29.8: 血本方——ABC中得0分的那一方（有效局只有一个0分）
+function getLossSide(rec) {
+    if (!rec) return null;
+    if (rec.a === 0) return 'A';
+    if (rec.b === 0) return 'B';
+    if (rec.c === 0) return 'C';
     return null;
 }
 // v18.0新增：保存提示toast（防抖300ms）
@@ -3488,7 +3502,7 @@ class Predictor {
         var w = {
             global: mw.global,
             multiWindow: models.multiWindow ? mw.multiWindow : 0,
-            score: mw.score,
+            score: models.score ? mw.score : 0, // v30.1修复:score模型返回null时权重置0
             streak: models.streak ? mw.streak : 0,
             rotation: models.rotation ? mw.rotation : 0,
             alternation: models.alternation ? mw.alternation : 0,
@@ -3870,7 +3884,7 @@ class Predictor {
             else if (globalCorrect === false) CONFIG.globalW -= lr * errorPenalty;
             normalizeWindowWeights();
             // 调整子模型权重
-            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern'];
+            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern']; // v30.1修复:补充profitPattern
             if (pAll && pAll.models) {
                 var self = this;
                 modelNames.forEach(function(name) {
@@ -4045,7 +4059,7 @@ if(curBrier > 0.3){
                     adjMade.push('分数模型+');
                 }
                 // 重新归一化子模型权重
-                var _allModels = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern'];
+                var _allModels = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern']; // v30.1修复:补充profitPattern
                 var _adjSum = 0;
                 var _selfAdj = this;
                 _allModels.forEach(function(n){ _adjSum += (_selfAdj.modelWeights[n] || 0); });
@@ -4162,7 +4176,12 @@ if(curBrier > 0.3){
         rec.profitB = profitB || '';
         rec.profitC = profitC || '';
         var winner = getWinner(rec);
-        var prevPrediction = this.history.length > 0 ? this.predict() : null;
+        // v29.8: 预测计算即使抛异常也不能阻止本局入库
+        var prevPrediction = null;
+        if (this.history.length > 0) {
+            try { prevPrediction = this.predict(); }
+            catch(e) { console.warn('[录入]预测计算失败，仍保存本局:', e.message); prevPrediction = null; }
+        }
         // v16修复：将录入前的预测(prevPrediction)存入predHistory，与用户界面看到的预测一致
         // 旧代码存的是录入后的result(学习后预测)，导致历史记录与用户看到的预测对不上
         if (prevPrediction) {
@@ -4265,14 +4284,17 @@ if(curBrier > 0.3){
         var lastWinner = getWinner(lastRec);
         this.history.pop();
         if (lastWinner && this.accuracy.length > 0) this.accuracy.pop();
-        if (this.profitAccuracy && this.profitAccuracy.length > 0) this.profitAccuracy.pop();
+        // v30.1修复:只有当上一局有获胜方且有收益数据时才弹出profitAccuracy，避免数据错位
+        if (lastWinner && this.profitAccuracy && this.profitAccuracy.length > 0 && lastRec.profitWinner) this.profitAccuracy.pop();
+        // v30.1修复:同步弹出profitBrierHistory
+        if (lastWinner && this.profitBrierHistory && this.profitBrierHistory.length > 0 && lastRec.profitWinner) this.profitBrierHistory.pop();
         if (this.predHistory.length > 0) this.predHistory.pop();
         if (this.reflectionLog.length > 0 && this.reflectionLog[0].gameIdx === this.history.length + 1) this.reflectionLog.shift();
         this.lastPrediction = this.predHistory.length > 0 ? this.predHistory[this.predHistory.length-1].guild : null;
     }
     clearAll() {
         this.history = []; this.predHistory = []; this.accuracy = []; this.profitAccuracy = []; this.lastPrediction = null; this.maxStreakEver = 0;
-        this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27}; // v17: similarPattern提高
+        this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27,profitPattern:0.09}; // v17: similarPattern提高; v30.1修复:补充profitPattern权重
         this.modelPerf = {};
         this.windowWeights = {win6:0.32,win7:0.20,win8:0.28,win10:0.12,global:0.08};
         this.windowPerf = {win6:[],win7:[],win8:[],win10:[],global:[]};
@@ -4780,12 +4802,12 @@ var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
 // v27.4：云同步性能与可靠性优化
-var CLOUD_TIMEOUT_MS = 20000;
+var CLOUD_TIMEOUT_MS = 60000; // v29优化：20s->60s，大数据量上传不易超时
 var CLOUD_SAVE_THROTTLE_MS = 8000;
 var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
 var _cloudSaveRetryCount = 0;
-var CLOUD_MAX_RETRY = 2;
+var CLOUD_MAX_RETRY = 3; // v29优化：2->3次重试
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
 var TEST_MODE_KEY = 'mm_test_mode_v1';
 var _testMode = false;
@@ -4904,7 +4926,12 @@ function createSnapshot(reason) {
             time: new Date().toISOString(),
             reason: reason || '操作',
             count: P.history ? P.history.length : 0,
-            device: (typeof devName === 'function') ? devName() : '本机',
+            device: (function(){
+                var n = (typeof devName === 'function') ? devName() : '本机';
+                var d = '';
+                try { d = localStorage.getItem('mm_access_device_id') || ''; } catch(e) {}
+                return d ? (n + '·' + d.slice(-6)) : n;
+            })(),
             data: JSON.stringify({
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights,
@@ -5769,47 +5796,98 @@ document.querySelectorAll('.tab-btn').forEach(function(btn) {
 });
 // v18.0新增：批量重新计算所有历史局的预测快照（回填predSnap）
 function recalcPredSnapshots() {
-    if (!confirm('将根据当前权重重新计算所有历史局的预测快照，数据量大时可能较慢，确定继续？')) return;
+    if (!confirm('将根据当前权重重新计算所有历史局的预测快照，数据量大时可能需要几十秒，确定继续？')) return;
+    var total = P.history.length;
+    if (total === 0) { showRecordResult(false, '提示', '暂无数据可计算'); return; }
+    
+    // 显示进度条模态框
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = '<div style="background:#fff;border-radius:12px;padding:30px;width:420px;max-width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);">' +
+        '<h3 style="margin:0 0 16px;font-size:16px;color:#302b63;">🔄 重新计算预测快照</h3>' +
+        '<div style="font-size:13px;color:#6c757d;margin-bottom:10px;" id="recalcStatus">准备中...</div>' +
+        '<div style="width:100%;height:12px;background:#e9ecef;border-radius:6px;overflow:hidden;margin-bottom:12px;">' +
+        '<div id="recalcBar" style="height:100%;width:0%;background:linear-gradient(90deg,#667eea,#764ba2);transition:width 0.2s;border-radius:6px;"></div>' +
+        '</div>' +
+        '<div style="text-align:right;"><button id="recalcCancel" style="padding:6px 16px;border:1px solid #dee2e6;background:#fff;border-radius:6px;cursor:pointer;font-size:13px;">取消</button></div>' +
+        '</div>';
+    document.body.appendChild(overlay);
+    
+    var cancelFlag = false;
+    document.getElementById('recalcCancel').onclick = function() { cancelFlag = true; };
+    
     var recalcP = new Predictor();
+    recalcP.modelWeights = Object.assign({}, P.modelWeights);
+    recalcP._fastRebuild = true; // 跳过O(n²)相似盘匹配，大幅提速
+    
     var snaps = [];
-    for (var i = 0; i < P.history.length; i++) {
-        var h = P.history[i];
-        var pred = (i > 0 || recalcP.history.length > 0) ? recalcP.predict() : null;
-        snaps.push(pred ? {
-            guild: pred.predictedGuild,
-            probs: {A: pred.probabilities.A, B: pred.probabilities.B, C: pred.probabilities.C},
-            rank: {A: pred.rank.A, B: pred.rank.B, C: pred.rank.C},
-            sorted: pred.sorted.map(function(x){return [x[0],x[1]];}),
-            source: pred.sourceKey,
-            pattern: pred.patternName,
-            profitPrediction: pred.profitPrediction ? {
-                predicted: pred.profitPrediction.predicted,
-                probs: pred.profitPrediction.probs,
-                confidence: pred.profitPrediction.confidence
-            } : null
-        } : null);
-        recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC);
-    }
-    // 回填到P.predHistory
-    P.predHistory = [];
-    for (var j = 0; j < snaps.length; j++) {
-        if (snaps[j]) {
-            var snap = snaps[j];
-            var winner = getWinner(P.history[j]);
-            if (winner) {
-                P.accuracy[j] = (winner === snap.guild);
-                P.predHistory.push(snap);
-                P.predHistory[P.predHistory.length - 1].isTie = false;
-            } else {
-                P.predHistory.push(snap);
-                P.predHistory[P.predHistory.length - 1].isTie = true;
+    var batchSize = 50; // 每批50条
+    var i = 0;
+    
+    function processBatch() {
+        if (cancelFlag) {
+            document.body.removeChild(overlay);
+            showRecordResult(false, '已取消', '重新计算已取消');
+            return;
+        }
+        var end = Math.min(i + batchSize, total);
+        for (; i < end; i++) {
+            var h = P.history[i];
+            var pred = (i > 0 || recalcP.history.length > 0) ? recalcP.predict() : null;
+            snaps.push(pred ? {
+                guild: pred.predictedGuild,
+                probs: {A: pred.probabilities.A, B: pred.probabilities.B, C: pred.probabilities.C},
+                rank: {A: pred.rank.A, B: pred.rank.B, C: pred.rank.C},
+                sorted: pred.sorted.map(function(x){return [x[0],x[1]];}),
+                source: pred.sourceKey,
+                pattern: pred.patternName,
+                profitPrediction: pred.profitPrediction ? {
+                    predicted: pred.profitPrediction.predicted,
+                    probs: pred.profitPrediction.probs,
+                    confidence: pred.profitPrediction.confidence
+                } : null
+            } : null);
+            recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC);
+        }
+        var pct = Math.round((i / total) * 100);
+        document.getElementById('recalcBar').style.width = pct + '%';
+        document.getElementById('recalcStatus').textContent = '正在处理 ' + i + ' / ' + total + ' 局（' + pct + '%）...';
+        
+        if (i < total) {
+            setTimeout(processBatch, 0); // 让出UI线程
+        } else {
+            // 完成：回填predHistory（v29修复：accuracy用push保持与predHistory对齐）
+            P.predHistory = [];
+            P.accuracy = [];
+            P.profitAccuracy = P.profitAccuracy || [];
+            P.profitBrierHistory = P.profitBrierHistory || [];
+            for (var j = 0; j < snaps.length; j++) {
+                if (snaps[j]) {
+                    var snap = snaps[j];
+                    // snaps[j] 是对 history[j+1] 的预测（predict在addRecord之前调用）
+                    var histIdx = j + 1; // 对应的实际局号（从1开始）
+                    if (histIdx < P.history.length) {
+                        var winner = getWinner(P.history[histIdx]);
+                        if (winner) {
+                            P.accuracy.push(winner === snap.guild); // v29修复：用push保持索引对齐
+                            snap.isTie = false;
+                        } else {
+                            snap.isTie = true; // 平局不记录accuracy
+                        }
+                    } else {
+                        snap.isTie = true;
+                    }
+                    P.predHistory.push(snap);
+                }
             }
+            if (P.predHistory.length > 100000) P.predHistory = P.predHistory.slice(-100000);
+            document.body.removeChild(overlay);
+            debouncedSave();
+            renderAll();
+            showRecordResult(true, '成功', '已重新计算 ' + snaps.length + ' 局预测快照');
         }
     }
-    if (P.predHistory.length > 100000) P.predHistory = P.predHistory.slice(-100000);
-    debouncedSave();
-    renderAll();
-    showRecordResult(true, '成功', '已重新计算 ' + snaps.length + ' 局预测快照');
+    processBatch();
 }
 
 // ===== v29.0: 子模型长期命中率 + 联合信号 + 数据健康 =====
@@ -5833,14 +5911,24 @@ function renderModelAccuracy() {
     var body = document.getElementById('modelAccBody');
     if (!body) return;
     var rows = _alignWinners();
-    // 数据健康：连续重复局检查
-    var dup = 0;
+    // v29.14: 数据健康——只报"同一比分+时间间隔<5分钟"的可疑重复（正常连续相同比分是游戏随机结果，不算重复录入）
+    var dupSuspicious = 0;
     for (var hi = 1; hi < P.history.length; hi++) {
         var r1 = P.history[hi-1], r2 = P.history[hi];
-        if (r1 && r2 && r1.a === r2.a && r1.b === r2.b && r1.c === r2.c) dup++;
+        if (!r1 || !r2 || r1.a !== r2.a || r1.b !== r2.b || r1.c !== r2.c) continue;
+        // 解析时间间隔：timeSlot 格式 "M月D日 HH:MM:SS-HH:MM:SS"，粗判——如果两局时间几乎一样就算可疑
+        var t1 = r1.timeSlot || '', t2 = r2.timeSlot || '';
+        var m1 = t1.match(/(\d{2}):(\d{2}):(\d{2})/), m2 = t2.match(/(\d{2}):(\d{2}):(\d{2})/);
+        var suspicious = false;
+        if (m1 && m2) {
+            var mins1 = parseInt(m1[1])*60 + parseInt(m1[2]);
+            var mins2 = parseInt(m2[1])*60 + parseInt(m2[2]);
+            if (Math.abs(mins1 - mins2) < 5) suspicious = true; // 同一时刻录了两遍
+        }
+        if (suspicious) dupSuspicious++;
     }
-    var warnHtml = dup > 0
-        ? '<div style="background:#fff3e0;border-left:4px solid #f57c00;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#e65100;">⚠️ 数据健康：发现 '+dup+' 处连续重复记录（a/b/c完全相同），请检查是否重复录入。</div>'
+    var warnHtml = dupSuspicious > 0
+        ? '<div style="background:#fff3e0;border-left:4px solid #f57c00;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#e65100;">⚠️ 数据健康：发现 '+dupSuspicious+' 处疑似重复录入（同一比分+时间间隔<5分钟），请检查。连续相同比分但时间正常的不算。</div>'
         : '';
     // 新一局时对弱模型温和降权（近60局命中率<33%才触发，每新局最多乘0.93，下限0.02）
     var dampNote = '';
@@ -5955,24 +6043,200 @@ function renderJointSignal() {
     body.innerHTML = html;
 }
 
-function renderAll() {
-    var fns = [
-        ['renderCards', renderCards],
-        ['renderHistory', renderHistory],
-        ['renderPredHistory', renderPredHistory],
-        ['updateStats', updateStats],
-        ['renderModelAccuracy', renderModelAccuracy],
-        ['renderJointSignal', renderJointSignal]
-    ];
-    fns.forEach(function(item) {
-        try { item[1](); }
-        catch(e) { console.error('[renderAll] '+item[0]+' 出错:', e.message, e.stack); }
+// v29.10: 血本相似盘——按每局0分方序列匹配历史，样式对齐相似盘
+function renderLossSimPanel() {
+    var panel = document.getElementById('lossSimPanel');
+    var body = document.getElementById('lossSimBody');
+    if (!panel || !body) return;
+    if (!P.history || P.history.length < 8) { panel.style.display = 'none'; return; }
+    var seq = P.history.map(getLossSide);
+    var L = seq.length;
+    var windows = [3,4,5,6,8,10];
+    var votes = {A:0, B:0, C:0};
+    var matchRows = [];
+    windows.forEach(function(w){
+        if (L < w + 1) return;
+        var target = seq.slice(L - w);
+        var hasNull = false;
+        for (var ti = 0; ti < target.length; ti++) if (!target[ti]) hasNull = true;
+        if (hasNull) return;
+        for (var j = w; j < L; j++) {
+            var ok = true;
+            for (var k = 0; k < w; k++) {
+                if (seq[j-w+k] !== target[k]) { ok = false; break; }
+            }
+            if (!ok) continue;
+            var nextLoss = seq[j];
+            if (!nextLoss) continue;
+            votes[nextLoss] = (votes[nextLoss]||0) + w;
+            matchRows.push({w: w, at: j, next: nextLoss});
+        }
     });
-    // v26.5：性能优化——饼图和洞察面板用requestAnimationFrame延迟渲染，不阻塞主界面
-    if (window._pieRaf) cancelAnimationFrame(window._pieRaf);
-    window._pieRaf = requestAnimationFrame(function() {
-        try { renderPieCharts(); } catch(e) { console.error('[renderPieCharts]', e.message); }
-        try { renderInsightPanel(); } catch(e) { console.error('[renderInsightPanel]', e.message); }
+    var totalVotes = (votes.A||0)+(votes.B||0)+(votes.C||0);
+    if (totalVotes === 0) { panel.style.display = 'none'; return; }
+    var predicted = 'A';
+    if (votes.B > votes[predicted]) predicted = 'B';
+    if (votes.C > votes[predicted]) predicted = 'C';
+    var mColors = {A:'#e74c3c', B:'#3498db', C:'#2ecc71'};
+    function lossTag(g){
+        if(!g) return '<span style="color:#999;">?</span>';
+        return '<span style="color:'+mColors[g]+';font-weight:600;">'+g+'</span>';
+    }
+    var lines = [];
+    // 当前血本窗口
+    lines.push('<div style="margin-bottom:6px;"><strong style="color:#ad1457;">📌 当前血本窗口（近12局0分方）：</strong>');
+    lines.push(seq.slice(-12).map(lossTag).join(' → ') + '</div>');
+    // 简单投票
+    lines.push('<div style="margin-bottom:6px;"><strong style="color:#ad1457;">📊 历史匹配投票（按窗口长度加权）：</strong>');
+    lines.push('A=<strong>'+votes.A+'票</strong> ');
+    lines.push('B=<strong>'+votes.B+'票</strong> ');
+    lines.push('C=<strong>'+votes.C+'票</strong></div>');
+    // 加权后预测
+    var pctA = (votes.A/totalVotes*100).toFixed(0);
+    var pctB = (votes.B/totalVotes*100).toFixed(0);
+    var pctC = (votes.C/totalVotes*100).toFixed(0);
+    lines.push('<div style="margin-bottom:6px;"><strong style="color:#ad1457;">⚖️ 加权后下局血本：</strong>');
+    lines.push('A=<strong>'+pctA+'%</strong> ');
+    lines.push('B=<strong>'+pctB+'%</strong> ');
+    lines.push('C=<strong>'+pctC+'%</strong>');
+    lines.push('| 预测 <span style="color:'+mColors[predicted]+';font-size:16px;font-weight:700;">'+predicted+'</span>');
+    lines.push(' | 共'+matchRows.length+'个历史相似</div>');
+    // 匹配片段——先合并相同(窗口+序列+下局血本)的组，再按窗口长度排序
+    var _merged = {};
+    matchRows.forEach(function(m){
+        var _key = m.w + '|' + seq.slice(m.at - m.w, m.at).join('') + '|' + m.next;
+        if (!_merged[_key]) {
+            _merged[_key] = { w: m.w, seqArr: seq.slice(m.at - m.w, m.at).slice(), next: m.next, positions: [] };
+        }
+        _merged[_key].positions.push(m.at);
+    });
+    var groups = [];
+    for (var _k in _merged) groups.push(_merged[_k]);
+    groups.sort(function(a,b){ return (b.w - a.w) || (b.positions.length - a.positions.length); });
+    var topGroups = groups.slice(0, 20);
+    lines.push('<div style="margin-top:6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><strong style="color:#ad1457;">🎯 匹配的历史血本片段（相同模式已合并）</strong>');
+    lines.push('<span style="font-size:11px;color:#888;">共'+groups.length+'组 / '+matchRows.length+'个匹配</span></div>');
+    lines.push('<div class="match-history-list" style="max-height:300px;overflow-y:auto;border:1px solid #f8bbd0;border-radius:6px;padding:6px;background:#fff;">');
+    topGroups.forEach(function(g){
+        var rSeqHtml = g.seqArr.map(lossTag).join(' → ');
+        var nextColor = mColors[g.next];
+        var lenBg = g.w >= 8 ? '#880e4f' : (g.w >= 6 ? '#c2185b' : (g.w >= 5 ? '#e91e63' : '#f06292'));
+        var isGrouped = g.positions.length > 1;
+        var positionsStr = g.positions.map(function(p){ return '第'+p+'局'; }).join(' · ');
+        if (isGrouped) {
+            lines.push('<div style="border:2px solid #f8bbd0;border-radius:8px;margin:4px 0;padding:6px 8px;background:#fff;">'
+                + '<div style="display:flex;align-items:center;gap:8px;">'
+                + '<span style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+lenBg+';color:#fff;font-weight:700;">'+g.w+'局</span>'
+                + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+rSeqHtml+'</span>'
+                + '<span style="flex:0 0 auto;font-weight:700;color:'+nextColor+';">→ '+g.next+'</span>'
+                + '<span style="flex:0 0 auto;background:#9c27b0;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">x'+g.positions.length+'</span>'
+                + '</div>'
+                + '<div style="font-size:11px;color:#888;margin-top:4px;padding-left:52px;line-height:1.8;">'+positionsStr+'</div>'
+                + '</div>');
+        } else {
+            lines.push('<div class="match-history-item" style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid #fce4ec;font-size:12px;line-height:1.5;">'
+                + '<span style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+lenBg+';color:#fff;font-weight:700;">'+g.w+'局</span>'
+                + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+rSeqHtml+'</span>'
+                + '<span style="flex:0 0 auto;">→</span>'
+                + '<span style="flex:0 0 auto;font-weight:700;color:'+nextColor+';min-width:22px;text-align:center;">'+g.next+'</span>'
+                + '<span style="flex:0 0 auto;color:#999;font-size:11px;">第'+g.positions[0]+'局</span>'
+                + '</div>');
+        }
+    });
+    lines.push('</div>');
+    body.innerHTML = lines.join('');
+    panel.style.display = 'block';
+}
+// v30.0: 自动回测——每20局后台跑一次，结果缓存在 _lastBacktest
+var _lastBacktest = null;
+var _lastBacktestCount = 0;
+function autoBacktestTick() {
+    if (!P.history || P.history.length < 50) return;
+    if (P.history.length - _lastBacktestCount < 20) return; // 每20局跑一次
+    _lastBacktestCount = P.history.length;
+    setTimeout(function(){
+        try {
+            var m = P.runBacktest();
+            if (m) {
+                _lastBacktest = m;
+                // 在主界面显示紧凑摘要
+                var el = document.getElementById('autoBrierBadge');
+                if (el) {
+                    el.innerHTML = '📊 回测准确率 <strong>'+(m.acc1*100).toFixed(1)+'%</strong> | Brier <strong>'+m.avgBrier.toFixed(3)+'</strong> | 收益 <strong>'+(m.profitCount>0?(m.profitAcc*100).toFixed(0)+'%':'—')+'</strong>';
+                }
+            }
+        } catch(e) { console.warn('[autoBacktest]', e.message); }
+    }, 100);
+}
+// v30.0: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
+var _lastOptimizeCount = 0;
+function autoOptimizeTick() {
+    if (!P.history || P.history.length < 200) return;
+    if (P.history.length - _lastOptimizeCount < 100) return;
+    if (window._optRunning) return;
+    _lastOptimizeCount = P.history.length;
+    window._optRunning = true;
+    var oldAcc = 0;
+    if (_lastBacktest) oldAcc = _lastBacktest.acc1;
+    P.autoOptimize(function(result){
+        if (result.done) {
+            window._optRunning = false;
+            if (!result.bestCombo) return;
+            var newAcc = result.bestScore; // bestScore 综合分
+            var oldScore = oldAcc;
+            // 自动应用：如果新参数比当前好超过2%
+            if (result.bestScore > oldScore + 0.02) {
+                var p = result.bestCombo;
+                try {
+                    document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
+                    document.getElementById('cfgColdBonusCap').value = p.coldBonusCap||0.025;
+                    document.getElementById('cfgWin6W').value = p.win6W||0.32;
+                    document.getElementById('cfgWin7W').value = p.win7W||0.20;
+                    document.getElementById('cfgWin8W').value = p.win8W||0.28;
+                    document.getElementById('cfgWin10W').value = p.win10W||0.12;
+                    document.getElementById('cfgGlobalW').value = p.globalW||0.08;
+                    document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
+                    reloadConfig();
+                    console.log('[autoOptimize] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
+                } catch(e) { console.warn('[autoOptimize] apply failed:', e.message); }
+            }
+            window._optimalParams = result.bestCombo;
+        }
+    });
+}
+function renderAll() {
+    // v29性能优化：分三层渲染——关键路径同步，重操作延迟，图表再延迟
+    var syncFns = [
+        ['renderCards', renderCards],
+        ['updateStats', updateStats]
+    ];
+    syncFns.forEach(function(item) {
+        try { item[1](); }
+        catch(e) { console.error('[renderAll.sync] '+item[0]+' error:', e.message); }
+    });
+    // 延迟层：重渲染不阻塞录入主流程
+    if (window._renderRaf) cancelAnimationFrame(window._renderRaf);
+    window._renderRaf = requestAnimationFrame(function() {
+        var deferFns = [
+            ['renderHistory', renderHistory],
+            ['renderPredHistory', renderPredHistory],
+            ['renderModelAccuracy', renderModelAccuracy],
+            ['renderJointSignal', renderJointSignal],
+            ['renderLossSimPanel', renderLossSimPanel],
+            ['renderLearnTab', renderLearnTab],
+            ['autoBacktestTick', autoBacktestTick],
+            ['autoOptimizeTick', autoOptimizeTick]
+        ];
+        deferFns.forEach(function(item) {
+            try { item[1](); }
+            catch(e) { console.error('[renderAll.defer] '+item[0]+' error:', e.message); }
+        });
+        // 图表层：饼图和洞察面板再延迟一帧
+        if (window._pieRaf) cancelAnimationFrame(window._pieRaf);
+        window._pieRaf = requestAnimationFrame(function() {
+            try { renderPieCharts(); } catch(e) { console.error('[renderPieCharts]', e.message); }
+            try { renderInsightPanel(); } catch(e) { console.error('[renderInsightPanel]', e.message); }
+        });
     });
 }
 function renderCards() {
@@ -6417,26 +6681,66 @@ function renderCards() {
             profitTag(simProfitInfo.predicted) +
             ' 大' + (simProfitInfo.probs.大*100).toFixed(0) + '% 中' + (simProfitInfo.probs.中*100).toFixed(0) + '% 小' + (simProfitInfo.probs.小*100).toFixed(0) + '%' +
             ' | 置信度' + (simProfitInfo.confidence*100).toFixed(0) + '%</div>');
-        // 匹配片段列表
-        pfLines.push('<div style="margin-bottom:4px;"><strong>🔍 匹配到' + simProfitInfo.matchCount + '个相似收益片段：</strong></div>');
-        simProfitInfo.matches.slice(0, 8).forEach(function(m, idx) {
-            var rangeStr = '第' + m.startIdx + '~' + (m.startIdx + m.matchLen - 1) + '局';
-            var matchSeq = m.matchedWindow ? m.matchedWindow.map(function(p){return profitTag(p);}).join('→') : '';
-            var simColor = m.similarity >= 0.8 ? '#16a34a' : m.similarity >= 0.65 ? '#f59e0b' : '#6b7280';
-            // v25.9: 100%匹配标识（与相似盘一致）
-            var isExact = (m.exactSim !== undefined && m.exactSim >= 0.999);
-            var exactBadge = isExact ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;background:#ffd700;color:#333;">100%匹配</span>' : '';
-            // v25.9: 匹配长度颜色（与相似盘一致：6局+红/5局橙/其他灰）
+        // v29.13: 收益相似盘——相同(序列+下局收益)合并分组，卡片式对齐相似盘
+        var _pfMerged = {};
+        simProfitInfo.matches.forEach(function(m){
+            var _seqKey = m.matchedWindow ? m.matchedWindow.join('') : '';
+            var _gKey = _seqKey + '|' + (m.nextProfit || '?');
+            if (!_pfMerged[_gKey]) {
+                _pfMerged[_gKey] = { count: 0, best: m, exact: false, ranges: [] };
+            }
+            var _g = _pfMerged[_gKey];
+            _g.count++;
+            if (m.similarity > _g.best.similarity) _g.best = m;
+            if (m.exactSim !== undefined && m.exactSim >= 0.999) _g.exact = true;
+            _g.ranges.push('第' + (m.startIdx+1) + '~' + (m.startIdx + m.matchLen) + '局');
+        });
+        var pfGroups = [];
+        for (var _gk2 in _pfMerged) pfGroups.push(_pfMerged[_gk2]);
+        pfGroups.sort(function(a,b){
+            var aE = a.exact, bE = b.exact;
+            if (aE !== bE) return aE ? -1 : 1;
+            return b.best.similarity - a.best.similarity;
+        });
+        var totalPf = simProfitInfo.matches.length;
+        var topPf = pfGroups.slice(0, 20);
+        pfLines.push('<div style="margin-top:6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><strong>🎯 匹配的历史收益片段（相同模式已合并）</strong>');
+        pfLines.push('<span style="font-size:11px;color:#888;">共'+pfGroups.length+'组 / '+totalPf+'个匹配</span></div>');
+        pfLines.push('<div class="match-history-list" style="max-height:300px;overflow-y:auto;border:1px solid #fde68a;border-radius:6px;padding:6px;background:#fff;">');
+        topPf.forEach(function(g){
+            var m = g.best;
+            var mSimPct = (m.similarity*100).toFixed(0);
+            var matchSeq = m.matchedWindow ? m.matchedWindow.map(function(p){ return '<span style="font-weight:600;">'+profitTag(p)+'</span>'; }).join(' → ') : '';
+            var isGrouped = g.count > 1;
+            var exactBadge = g.exact ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;background:#ffd700;color:#333;">100%</span>' : '';
             var lenBg = m.matchLen >= 12 ? '#c62828' : m.matchLen >= 10 ? '#e53935' : m.matchLen >= 8 ? '#ff7043' : m.matchLen >= 6 ? '#ff9800' : '#e0e0e0';
             var lenFg = m.matchLen >= 6 ? '#fff' : '#666';
-            pfLines.push('<div style="margin:4px 0;padding:6px 10px;background:rgba(255,255,255,0.7);border-radius:6px;font-size:13px;">' +
-                '<span style="font-weight:600;">#' + (idx+1) + '</span> ' + rangeStr +
-                ' <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;background:' + lenBg + ';color:' + lenFg + ';">' + m.matchLen + '局</span>' +
-                exactBadge +
-                ' 相似度<span style="color:' + simColor + ';font-weight:700;">' + (m.similarity*100).toFixed(0) + '%</span>' +
-                '<br>匹配序列: ' + matchSeq +
-                ' → 下一局获胜收益=' + profitTag(m.nextProfit) + '</div>');
+            var simBg = g.exact ? '#ffd700' : (m.similarity>=0.8?'#86efac':m.similarity>=0.65?'#fde68a':'#f3f4f6');
+            var simFg = m.similarity>=0.65?'#1f2937':'#9ca3af';
+            if (isGrouped) {
+                pfLines.push('<div style="border:2px solid #fde68a;border-radius:8px;margin:4px 0;padding:6px 8px;background:#fff;">'
+                    + '<div style="display:flex;align-items:center;gap:8px;">'
+                    + '<span style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+simBg+';color:'+simFg+';font-weight:700;">'+mSimPct+'%</span>'
+                    + '<span style="flex:0 0 auto;background:'+lenBg+';color:'+lenFg+';font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">'+m.matchLen+'局</span>'
+                    + exactBadge
+                    + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+matchSeq+'</span>'
+                    + '<span style="flex:0 0 auto;font-weight:700;">→ '+profitTag(m.nextProfit)+'</span>'
+                    + '<span style="flex:0 0 auto;background:#f59e0b;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">x'+g.count+'</span>'
+                    + '</div>'
+                    + '<div style="font-size:11px;color:#888;margin-top:4px;padding-left:52px;line-height:1.8;">'+g.ranges.join(' · ')+'</div>'
+                    + '</div>');
+            } else {
+                pfLines.push('<div class="match-history-item" style="display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid #fef3c7;font-size:12px;line-height:1.5;">'
+                    + '<span style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+simBg+';color:'+simFg+';font-weight:700;">'+mSimPct+'%</span>'
+                    + '<span style="flex:0 0 auto;background:'+lenBg+';color:'+lenFg+';font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">'+m.matchLen+'局</span>'
+                    + exactBadge
+                    + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+matchSeq+'</span>'
+                    + '<span style="flex:0 0 auto;">→</span>'
+                    + '<span style="flex:0 0 auto;font-weight:700;">'+profitTag(m.nextProfit)+'</span>'
+                    + '</div>');
+            }
         });
+        pfLines.push('</div>');
         simProfitBody.innerHTML = pfLines.join('');
     } else {
         simProfitPanel.style.display = 'none';
@@ -7363,8 +7667,8 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
             '<div class="import-progress-text" id="clipboardProgressText">准备中...</div>' +
             '</div>';
 
-        // 异步分批导入（每批20条，避免UI卡顿）
-        var batchSize = 20;
+        // 异步分批导入（每批100条，避免UI卡顿）
+        var batchSize = 100;
         var totalBatches = Math.ceil(recs.length / batchSize);
         var currentBatch = 0;
         var errorCount = 0;
@@ -7377,6 +7681,7 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
 
         var cumP = new Predictor();
         cumP.modelWeights = Object.assign({}, P.modelWeights);
+        cumP._fastRebuild = true; // 批量导入跳过O(n²)相似盘匹配
         var existingLen = isReplace ? 0 : P.history.length;
 
         // 如果是追加模式，先把现有数据加入cumP
@@ -7532,7 +7837,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(parts[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}recs.push(rec);}}
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
-                if(P.history.length>0){openImportModal(recs,'csv');}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);var csvBatch=20,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,0);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
+                if(P.history.length>0){openImportModal(recs,'csv');}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=100,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,0);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
         };
         readerCSV.readAsText(file);this.value='';
@@ -7572,7 +7877,8 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 P.clearAll();
                 var cumP=new Predictor();
                 cumP.modelWeights=Object.assign({},P.modelWeights);
-                var xlsBatch=20,xlsTotal=recs.length,xlsDone=0;
+                cumP._fastRebuild=true;
+                var xlsBatch=100,xlsTotal=recs.length,xlsDone=0;
                 function xlsNext(){
                     var end=Math.min(xlsDone+xlsBatch,xlsTotal);
                     for(var ri=xlsDone;ri<end;ri++){cumP.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}
@@ -7607,10 +7913,10 @@ var _pendingImportSource = ''; // 'excel' or 'csv'
 // 生成记录的唯一键（用于去重）
 // 优先用timeSlot，其次用a|b|c分数组合
 function _recordKey(rec) {
-    if (rec.timeSlot && rec.timeSlot.trim()) {
-        return 'ts_' + rec.timeSlot.trim();
-    }
-    return 'sc_' + rec.a + '|' + rec.b + '|' + rec.c;
+    // v29修复：以abc分数组合为唯一去重键，不依赖timeSlot
+    // 原因：无时间列Excel每次自动生成timeSlot不同、手动录入与Excel导入格式不一致，都会导致去重失效
+    // abc分数组合（a|b|c）在业务上可唯一标识一局比赛
+    return 'rec_' + rec.a + '|' + rec.b + '|' + rec.c;
 }
 // 增量去重：从newRecs中过滤掉已存在于existingRecs的记录
 // 返回 {unique: [], duplicates: [], dupCount: number}
@@ -7685,6 +7991,7 @@ function closeImportModal() {
 }
 // 确认导入（根据选择的模式执行）
 function confirmImport() {
+    _importErrors = []; // v29修复：重置导入错误列表
     var recs = _pendingImportRecs;
     var mode = _pendingImportMode;
     var confirmBtn = document.getElementById('importModalConfirm');
@@ -7736,12 +8043,17 @@ function confirmImport() {
     }
     
     // v22: 分批异步导入，避免UI卡顿
-    // 用累积Predictor重建，每批处理20条
+    // v29优化：每批100条（原20条），开启_fastRebuild跳过O(n²)相似盘匹配，大幅提速
+    // v29修复：先保存当前modelWeights，再clearAll，否则复制的是重置后的默认权重
+    var _savedWeights = Object.assign({}, P.modelWeights);
+    var _savedWindowWeights = Object.assign({}, P.windowWeights || {});
     P.clearAll();
     var cumP = new Predictor();
-    cumP.modelWeights = Object.assign({}, P.modelWeights);
+    cumP.modelWeights = Object.assign({}, _savedWeights); // 用导入前的权重
+    cumP.windowWeights = Object.assign({}, _savedWindowWeights); // v29修复：窗口权重也保留
+    cumP._fastRebuild = true; // 批量重建：跳过相似盘匹配+learnFromResult
     
-    var batchSize = 20;
+    var batchSize = 100;
     var totalBatches = Math.ceil(hist.length / batchSize);
     var currentBatch = 0;
     
@@ -7772,7 +8084,11 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     P.history = cumP.history.slice();
     P.predHistory = cumP.predHistory.slice();
     P.accuracy = cumP.accuracy.slice();
+    P.profitAccuracy = cumP.profitAccuracy ? cumP.profitAccuracy.slice() : [];
+    P.profitBrierHistory = cumP.profitBrierHistory ? cumP.profitBrierHistory.slice() : [];
     P.modelWeights = Object.assign({}, cumP.modelWeights);
+    P.modelPerf = cumP.modelPerf ? Object.assign({}, cumP.modelPerf) : {};
+    P.windowPerf = cumP.windowPerf ? Object.assign({}, cumP.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
     P.learnIterations = cumP.learnIterations;
     P.maxStreakEver = calcMaxStreak(P.history);
     if (P.predHistory.length > 0) {
@@ -7782,6 +8098,57 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     renderAll();
     // v26.4：导入是大操作，立即保存本地
     P.saveLocal();
+    // v29优化：批量导入后自动触发一次回测+参数优化（后台异步），让模型基于新数据重新学习
+    // 因为_fastRebuild跳过了逐局learnFromResult，这里用autoOptimize做整体优化补上
+    setTimeout(function() {
+        try {
+            if (P.history && P.history.length >= 50) {
+                // 立即跑一次回测（不等20局间隔）
+                _lastBacktestCount = P.history.length; // 重置计数，立即触发
+                var m = P.runBacktest();
+                if (m) {
+                    _lastBacktest = m;
+                    var el = document.getElementById('autoBrierBadge');
+                    if (el) {
+                        el.innerHTML = '📊 回测准确率 <strong>'+(m.acc1*100).toFixed(1)+'%</strong> | Brier <strong>'+m.avgBrier.toFixed(3)+'</strong> | 收益 <strong>'+(m.profitCount>0?(m.profitAcc*100).toFixed(0)+'%':'—')+'</strong>';
+                    }
+                    console.log('[导入后回测] 准确率', (m.acc1*100).toFixed(1)+'%');
+                }
+            }
+            if (P.history && P.history.length >= 200 && !window._optRunning) {
+                // 数据量足够时，后台自动优化参数
+                _lastOptimizeCount = P.history.length; // 重置计数，立即触发
+                window._optRunning = true; // 防止与autoOptimizeTick重复触发
+                console.log('[导入后优化] 开始自动参数优化...');
+                P.autoOptimize(function(result) {
+                    if (result.done && result.bestCombo) {
+                        window._optRunning = false;
+                        var oldScore = _lastBacktest ? _lastBacktest.acc1 : 0;
+                        if (result.bestScore > oldScore + 0.01) { // 导入后阈值放宽到1%
+                            var p = result.bestCombo;
+                            try {
+                                document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
+                                document.getElementById('cfgColdBonusCap').value = p.coldBonusCap||0.025;
+                                document.getElementById('cfgWin6W').value = p.win6W||0.32;
+                                document.getElementById('cfgWin7W').value = p.win7W||0.20;
+                                document.getElementById('cfgWin8W').value = p.win8W||0.28;
+                                document.getElementById('cfgWin10W').value = p.win10W||0.12;
+                                document.getElementById('cfgGlobalW').value = p.globalW||0.08;
+                                document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
+                                reloadConfig();
+                                console.log('[导入后优化] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
+                                // 优化后重新渲染
+                                renderAll();
+                            } catch(e) { console.warn('[导入后优化] apply failed:', e.message); }
+                        } else {
+                            console.log('[导入后优化] 当前参数已较优，无需调整');
+                        }
+                        window._optimalParams = result.bestCombo;
+                    }
+                });
+            }
+        } catch(e) { console.warn('[导入后自动优化]', e.message); }
+    }, 500);
     // 防护：覆盖模式不自动同步云端，避免误操作立刻污染云端；由用户确认后手动上传
     if (supabaseClient && cloudOnline && mode !== 'replace') {
         cloudSave();
@@ -7934,19 +8301,19 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     var pWConfirm = document.getElementById('inputProfitWinner').value;
     var profitText = pWConfirm ? ('获胜商会收益：' + pWConfirm) : '获胜商会收益：未选';
     if(!confirm('确认录入本局数据？\n\nA：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' + profitText + '\n\n点「确定」录入，点「取消」返回修改。')) return;
-    createSnapshot('录入：A' + a + ' B' + b + ' C' + c); // v26.5：操作前快照
+    try { createSnapshot('录入：A' + a + ' B' + b + ' C' + c); } catch(e) { console.warn('[录入]快照失败，继续:', e.message); } // v29.12
     showLearningIndicator(true);
     setTimeout(function(){
         // v26.0: 直接录入获胜收益（大/中/小）
         var pW = document.getElementById('inputProfitWinner').value;
-        P.addRecord(a,b,c,null,pW,'','','');
+        try { P.addRecord(a,b,c,null,pW,'','',''); } catch(e) { console.error('[录入]addRecord失败:', e.message); } // v29.12
         // 录入后重置收益选择
         document.getElementById('inputProfitWinner').value='';
         // 录入新记录后自动跳到最后一页（最新记录）
         var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
         if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 300)); _hc.setAttribute('data-page', _tp); }
-        renderAll();
-        debouncedSave(); // v26.4修复：录入后必须保存，否则自动拉取会把数据覆盖没
+        try { renderAll(); } catch(e) { console.error('[录入]renderAll失败:', e.message); }
+        try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
         showLearnTip(); // v18.0：自动学习提示
         // v26.5：录入成功弹窗
@@ -8046,7 +8413,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
 });
 document.getElementById('btnResetLearn').addEventListener('click',function(){
     if(!confirm('确定重置学习状态？模型权重将恢复默认'))return;
-    P.modelWeights={global:0.16,multiWindow:0.16,score:0.14,streak:0.10,rotation:0.08,alternation:0.07,trend:0.05,regression:0.05,similarPattern:0.19}; // v17: 添加similarPattern
+    P.modelWeights={global:0.16,multiWindow:0.16,score:0.14,streak:0.10,rotation:0.08,alternation:0.07,trend:0.05,regression:0.05,similarPattern:0.19,profitPattern:0.09}; // v17: 添加similarPattern; v30.1修复:补充profitPattern
     P.modelPerf={};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
     CONFIG.win6W=0.32;CONFIG.win7W=0.20;CONFIG.win8W=0.28;CONFIG.win10W=0.12;CONFIG.globalW=0.08;
     normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();showRecordResult(true, '成功', '学习状态已重置'); // v18.0：防抖保存
@@ -8127,6 +8494,9 @@ try { updateStats(); } catch(e) { console.error('[init] updateStats:', e); }
 requestAnimationFrame(function() {
     try { renderHistory(); } catch(e) { console.error('[init] renderHistory:', e); }
     try { renderPredHistory(); } catch(e) { console.error('[init] renderPredHistory:', e); }
+    try { renderModelAccuracy(); } catch(e) { console.error('[init] renderModelAccuracy:', e); }
+    try { renderJointSignal(); } catch(e) { console.error('[init] renderJointSignal:', e); }
+    try { renderLossSimPanel(); } catch(e) { console.error('[init] renderLossSimPanel:', e); }
 });
 requestAnimationFrame(function() {
     try { renderPieCharts(); } catch(e) { console.error('[init] renderPieCharts:', e); }
