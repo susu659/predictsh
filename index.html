@@ -8,7 +8,7 @@
 <title>商会三竞预测系统 v30.0 · 智能预测云端协同</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
 <script>var XLSX = window.XLSX || null;</script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js';"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js';"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -8509,6 +8509,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     try { createSnapshot('录入：A' + a + ' B' + b + ' C' + c); } catch(e) { console.warn('[录入]快照失败，继续:', e.message); } // v29.12
     showLearningIndicator(true);
     setTimeout(function(){
+        try {
         // v26.0: 直接录入获胜收益（大/中/小）
         var pW = document.getElementById('inputProfitWinner').value;
         try { P.addRecord(a,b,c,null,pW,'','',''); } catch(e) { console.error('[录入]addRecord失败:', e.message); } // v29.12
@@ -8520,11 +8521,13 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try { renderAll(); } catch(e) { console.error('[录入]renderAll失败:', e.message); }
         try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
-        showLearnTip(); // v18.0：自动学习提示
+        try { showLearnTip(); } catch(e) {}
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
         showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt);
-        if (_btn) { _btn.disabled = false; _btn.style.opacity = ''; }
+        } finally {
+            if (_btn) { _btn.disabled = false; _btn.style.opacity = ''; }
+        }
     }, 10);
 });
 document.getElementById('btnUndo').addEventListener('click',function(){
