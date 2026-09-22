@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -4806,6 +4807,7 @@ var CLOUD_TIMEOUT_MS = 60000; // v29优化：20s->60s，大数据量上传不易
 var CLOUD_SAVE_THROTTLE_MS = 8000;
 var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
+var _cloudThrottleTimer = null;
 var _cloudSaveRetryCount = 0;
 var CLOUD_MAX_RETRY = 3; // v29优化：2->3次重试
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
@@ -4844,41 +4846,200 @@ var _isAdmin = false;
 var SNAPSHOT_KEY = 'mm_snapshots_v1';
 var _snapshots = [];
 function loadSnapshots() {
-    try { var raw = localStorage.getItem(SNAPSHOT_KEY); if (raw) _snapshots = JSON.parse(raw); } catch(e) { _snapshots = []; }
+    // v30.3: 合并而非覆盖——保留内存中刚 push 的新快照，避免 localStorage 写失败时丢失
+    try {
+        var raw = localStorage.getItem(SNAPSHOT_KEY);
+        if (raw) {
+            var stored = JSON.parse(raw);
+            if (!Array.isArray(stored)) stored = [];
+            var existing = {};
+            (_snapshots||[]).forEach(function(s){ existing[s.time+'|'+s.reason+'|'+(s.device||'')] = s; });
+            stored.forEach(function(s){
+                var k = s.time+'|'+s.reason+'|'+(s.device||'');
+                if (!existing[k]) existing[k] = s;
+            });
+            var merged = Object.keys(existing).map(function(k){return existing[k];});
+            merged.sort(function(a,b){ return new Date(b.time) - new Date(a.time); });
+            _snapshots = merged.slice(-100);
+        }
+    } catch(e) { /* 保留内存中的 _snapshots */ }
 }
 function saveSnapshots() {
-    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(_snapshots.slice(-20))); } catch(e) {}
+    // v30.3: 本地只存最近 5 条（每条快照含完整历史数据很大，localStorage 仅 5MB），全量在云端
+    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify((_snapshots||[]).slice(-5))); } catch(e) { console.warn('localStorage 快照保存失败（配额满），云端仍有:', e && e.message); }
 }
 // v29.2: 跨设备操作日志——快照同步到云端 oplog 行，各设备都能看到并回滚
 var OLOG_ID = 'oplog';
 var _cloudSnaps = [];
 var _viewSnaps = [];
+// v30.1: 设备备注（管理员给设备起别名，备注后操作日志中显示备注名；云端同步，所有设备可见）
+var ALIASES_ID = 'device_aliases';
+var ALIASES_LOCAL_KEY = 'mm_device_aliases_v1';
+var _deviceAliases = {};
+function escHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+function loadDeviceAliases() {
+    try {
+        var raw = localStorage.getItem(ALIASES_LOCAL_KEY);
+        if (raw) { var o = JSON.parse(raw); if (o && typeof o === 'object') _deviceAliases = o; }
+    } catch(e) { _deviceAliases = {}; }
+}
+function saveDeviceAliasesLocal() {
+    try { localStorage.setItem(ALIASES_LOCAL_KEY, JSON.stringify(_deviceAliases || {})); } catch(e) {}
+}
+function fetchDeviceAliasesFromCloud(cb) {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) { cb && cb(); return; }
+    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', ALIASES_ID).maybeSingle().then(function(res){
+        if (res && res.data && res.data.data && res.data.data.aliases && typeof res.data.data.aliases === 'object') {
+            _deviceAliases = res.data.data.aliases;
+            saveDeviceAliasesLocal();
+        }
+    }).catch(function(){})
+    .then(function(){ cb && cb(); });
+}
+function persistDeviceAliasesCloud() {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    supabaseClient.from(CLOUD_TABLE).upsert({
+        id: ALIASES_ID,
+        data: { aliases: _deviceAliases || {} },
+        updated_at: new Date().toISOString()
+    }, { onConflict: 'id' }).then(function(){}, function(){});
+}
+function getDeviceAlias(dev) {
+    if (!dev) return '';
+    return (_deviceAliases && _deviceAliases[dev]) || '';
+}
+function displayDeviceName(dev) {
+    if (!dev) dev = '本机';
+    var a = getDeviceAlias(dev);
+    return a ? a : dev;
+}
+function saveDeviceAlias() {
+    if (!_isAdmin) { alert('仅管理员可设置设备备注'); return; }
+    var sel = document.getElementById('aliasDeviceSel');
+    var input = document.getElementById('aliasInput');
+    if (!sel || !sel.value) { alert('请先选择要备注的设备'); return; }
+    var dev = sel.value;
+    var alias = input ? (input.value || '').trim() : '';
+    if (alias) {
+        _deviceAliases[dev] = alias;
+    } else {
+        delete _deviceAliases[dev];
+    }
+    saveDeviceAliasesLocal();
+    persistDeviceAliasesCloud();
+    if (input) input.value = '';
+    var msg = document.getElementById('snapshotStatusMsg');
+    if (msg) msg.textContent = alias ? ('✅ 已为「' + displayDeviceName(dev) + '」设置备注：' + alias) : ('✅ 已清除「' + dev + '」的备注');
+    renderAliasManager();
+    renderSnapshotList();
+}
+function onAliasDeviceChange() {
+    var sel = document.getElementById('aliasDeviceSel');
+    var input = document.getElementById('aliasInput');
+    if (sel && input) input.value = sel.value ? (getDeviceAlias(sel.value) || '') : '';
+}
+function renderAliasManager() {
+    var sel = document.getElementById('aliasDeviceSel');
+    var input = document.getElementById('aliasInput');
+    var adminRow = document.getElementById('aliasAdminRow');
+    var listEl = document.getElementById('aliasList');
+    if (adminRow) adminRow.style.display = _isAdmin ? '' : 'none';
+    if (sel) {
+        var devs = {};
+        (_snapshots||[]).forEach(function(s){ devs[s.device||'本机'] = 1; });
+        (_cloudSnaps||[]).forEach(function(s){ devs[s.device||'本机'] = 1; });
+        var curSel = sel.value;
+        var opts = '<option value="">选择设备...</option>';
+        Object.keys(devs).sort().forEach(function(d){
+            var a = getDeviceAlias(d);
+            var label = a ? (a + '（' + d + '）') : d;
+            opts += '<option value="' + escHtml(d) + '">' + escHtml(label) + '</option>';
+        });
+        sel.innerHTML = opts;
+        if (curSel && devs[curSel]) {
+            sel.value = curSel;
+            if (input) input.value = getDeviceAlias(curSel) || '';
+        }
+    }
+    if (listEl) {
+        var keys = Object.keys(_deviceAliases || {}).filter(function(k){ return _deviceAliases[k]; });
+        if (keys.length === 0) {
+            listEl.innerHTML = '<span style="color:#999;">暂无设备备注</span>';
+        } else {
+            listEl.innerHTML = keys.map(function(k){
+                return '<span style="display:inline-block;background:#e8f0fe;color:#1a73e8;padding:2px 8px;border-radius:10px;margin:2px;font-size:12px;">'
+                    + escHtml(_deviceAliases[k]) + ' <span style="color:#888;">← ' + escHtml(k) + '</span></span>';
+            }).join('');
+        }
+    }
+}
+// v30.2: 每条快照独立一行（id=olog_<time>_<dev>），避免多设备共用一个数组导致 read-modify-write 互相覆盖
+function ologRowId(snap) {
+    var t = (snap && snap.time) ? String(snap.time).replace(/[^0-9]/g, '') : '0';
+    var d = (snap && snap.device) ? String(snap.device).replace(/[^a-zA-Z0-9]/g, '').slice(-12) : 'local';
+    return 'olog_' + t + '_' + d;
+}
 function pushOlogToCloud(snap) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle().then(function(res){
-        var items = (res.data && res.data.data && res.data.data.items) ? res.data.data.items.slice() : [];
-        var key = snap.time + '|' + snap.reason + '|' + (snap.device || '');
-        var exists = items.some(function(x){ return (x.time + '|' + x.reason + '|' + (x.device||'')) === key; });
-        if (!exists) items.push(snap);
-        items = items.slice(-20);
-        return supabaseClient.from(CLOUD_TABLE).upsert({id: OLOG_ID, data: {items: items}, updated_at: new Date().toISOString()}, {onConflict: 'id'});
+    // 直接 upsert 单条，不读整个数组，不阻塞其他设备写入
+    supabaseClient.from(CLOUD_TABLE).upsert({
+        id: ologRowId(snap),
+        data: snap,
+        updated_at: new Date().toISOString()
+    }, {onConflict: 'id'}).then(function(){
+        pruneOldOlogRows(100);
+    }, function(e){ console.warn('olog push fail', e && e.message); });
+}
+// 保留最近 maxKeep 条云端快照，删掉更老的独立行
+function pruneOldOlogRows(maxKeep) {
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'olog_%').order('id', {ascending: false}).limit(1000).then(function(res){
+        var rows = (res && res.data) ? res.data : [];
+        if (rows.length <= maxKeep) return;
+        var oldRows = rows.slice(maxKeep);
+        var ids = oldRows.map(function(r){ return r.id; });
+        supabaseClient.from(CLOUD_TABLE).delete().in('id', ids).then(function(){}, function(){});
     }).catch(function(){});
 }
 function fetchOlogFromCloud(cb) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) { _cloudSnaps = []; cb && cb(); return; }
-    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle().then(function(res){
-        _cloudSnaps = (res.data && res.data.data && res.data.data.items) ? res.data.data.items.slice() : [];
+    var got = [];
+    // 1) 拉所有独立快照行
+    supabaseClient.from(CLOUD_TABLE).select('id,data').like('id', 'olog_%').order('id', {ascending: false}).limit(100).then(function(res){
+        if (res && res.data) {
+            res.data.forEach(function(r){
+                if (r && r.data && r.data.time) got.push(r.data);
+            });
+        }
+    }).catch(function(){}).then(function(){
+        // 2) 兼容旧 oplog 行（items 数组）
+        return supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle();
+    }).then(function(res){
+        if (res && res.data && res.data.data && Array.isArray(res.data.data.items)) {
+            res.data.data.items.forEach(function(s){ if (s && s.time) got.push(s); });
+        }
+        // 去重 + 排序
+        var seen = {}, uniq = [];
+        got.forEach(function(s){ var k = s.time + '|' + s.reason + '|' + (s.device||''); if (!seen[k]) { seen[k] = 1; uniq.push(s); } });
+        uniq.sort(function(a,b){ return new Date(b.time) - new Date(a.time); });
+        _cloudSnaps = uniq.slice(0, 100);
     }).catch(function(){ _cloudSnaps = []; })
     .then(function(){ cb && cb(); });
 }
 function syncOlogToCloud() {
+    // 把本地快照逐条 upsert 到云端（不存在才写，不覆盖其他设备）
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    var seen = {}, items = [];
-    function addArr(arr){ (arr||[]).forEach(function(s){ var k = s.time + '|' + s.reason + '|' + (s.device||''); if (!seen[k]) { seen[k] = 1; items.push(s); } }); }
-    addArr(_snapshots); addArr(_cloudSnaps);
-    items.sort(function(a,b){ return new Date(a.time) - new Date(b.time); });
-    items = items.slice(-20);
-    supabaseClient.from(CLOUD_TABLE).upsert({id: OLOG_ID, data: {items: items}, updated_at: new Date().toISOString()}, {onConflict: 'id'}).then(function(){}, function(){});
+    (_snapshots||[]).forEach(function(snap){
+        supabaseClient.from(CLOUD_TABLE).upsert({
+            id: ologRowId(snap),
+            data: snap,
+            updated_at: new Date().toISOString()
+        }, {onConflict: 'id'}).then(function(){}, function(){});
+    });
 }
 function clearAllSnapshots() {
     var total = (_snapshots ? _snapshots.length : 0) + (_cloudSnaps ? _cloudSnaps.length : 0);
@@ -4886,6 +5047,7 @@ function clearAllSnapshots() {
     _snapshots = []; _cloudSnaps = [];
     try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        supabaseClient.from(CLOUD_TABLE).delete().like('id', 'olog_%').then(function(){}, function(){});
         supabaseClient.from(CLOUD_TABLE).delete().eq('id', OLOG_ID).then(function(){}, function(){});
     }
     renderSnapshotList();
@@ -4900,7 +5062,10 @@ function deleteSnapshot(idx) {
     _snapshots = (_snapshots||[]).filter(function(x){ return (x.time+'|'+x.reason+'|'+(x.device||'')) !== key; });
     _cloudSnaps = (_cloudSnaps||[]).filter(function(x){ return (x.time+'|'+x.reason+'|'+(x.device||'')) !== key; });
     try { saveSnapshots(); } catch(e){}
-    syncOlogToCloud();
+    // 删除云端对应行（新独立行 + 旧 oplog 行里的该条）
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        supabaseClient.from(CLOUD_TABLE).delete().eq('id', ologRowId(s)).then(function(){}, function(){});
+    }
     renderSnapshotList();
     var msg = document.getElementById('snapshotStatusMsg');
     if (msg) msg.textContent = '✅ 已删除该条日志';
@@ -4912,10 +5077,15 @@ function deleteSnapshotsByDevice() {
     var n1 = (_snapshots||[]).filter(function(s){ return (s.device||'本机') === dev; }).length;
     var n2 = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') === dev; }).length;
     if (!confirm('删除设备「' + dev + '」的全部操作日志（本机 ' + n1 + ' 条 + 云端 ' + n2 + ' 条）？')) return;
+    var removed = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') === dev; });
     _snapshots = (_snapshots||[]).filter(function(s){ return (s.device||'本机') !== dev; });
     _cloudSnaps = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') !== dev; });
     try { saveSnapshots(); } catch(e){}
-    syncOlogToCloud();
+    // 批量删除云端对应行
+    if (typeof supabaseClient !== 'undefined' && supabaseClient && removed.length) {
+        var ids = removed.map(ologRowId);
+        supabaseClient.from(CLOUD_TABLE).delete().in('id', ids).then(function(){}, function(){});
+    }
     renderSnapshotList();
     var msg = document.getElementById('snapshotStatusMsg');
     if (msg) msg.textContent = '✅ 已删除设备「' + dev + '」全部日志';
@@ -4944,7 +5114,7 @@ function createSnapshot(reason) {
             })
         };
         _snapshots.push(snap);
-        if (_snapshots.length > 20) _snapshots = _snapshots.slice(-20);
+        if (_snapshots.length > 100) _snapshots = _snapshots.slice(-100);
         saveSnapshots();
         try { pushOlogToCloud(snap); } catch(e2) {}
     } catch(e) { console.warn("snapshot failed", e); try { showRecordResult(false, "快照生成失败", e.message); } catch(e2){} }
@@ -5491,30 +5661,41 @@ function closeBackupModal() {
 }
 // v26.5：操作日志/快照回滚
 function syncLocalToCloud() {
+    // v30.2: 逐条 upsert，不再读-改-写整个 oplog 数组（避免覆盖其他设备记录）
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle().then(function(res){
-        var items = (res.data && res.data.data && res.data.data.items) ? res.data.data.items.slice() : [];
-        var seen = {};
-        items.forEach(function(x){ seen[x.time+'|'+x.reason+'|'+(x.device||'')] = 1; });
-        var added = 0;
-        (_snapshots||[]).forEach(function(s){
-            var k = s.time+'|'+s.reason+'|'+(s.device||'');
-            if (!seen[k]) { seen[k] = 1; items.push(s); added++; }
-        });
-        if (!added) return;
-        items.sort(function(a,b){ return new Date(a.time) - new Date(b.time); });
-        items = items.slice(-20);
-        return supabaseClient.from(CLOUD_TABLE).upsert({id: OLOG_ID, data: {items: items}, updated_at: new Date().toISOString()}, {onConflict:'id'}).then(function(){
-            _cloudSnaps = items.slice();
-        }, function(){});
-    }).catch(function(){});
+    (_snapshots||[]).forEach(function(snap){
+        supabaseClient.from(CLOUD_TABLE).upsert({
+            id: ologRowId(snap),
+            data: snap,
+            updated_at: new Date().toISOString()
+        }, {onConflict: 'id'}).then(function(){}, function(){});
+    });
+}
+function refreshOlog() {
+    var msg = document.getElementById('snapshotStatusMsg');
+    if (msg) msg.textContent = '正在刷新...';
+    fetchOlogFromCloud(function(){
+        renderSnapshotList();
+        var cmsg = document.getElementById('snapshotStatusMsg');
+        if (cmsg) {
+            var localN = (_snapshots||[]).length;
+            var cloudN = (_cloudSnaps||[]).length;
+            cmsg.textContent = '已刷新 · 本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
+        }
+    });
 }
 function openSnapshotModal() {
     loadSnapshots();
+    loadDeviceAliases();
     var msg = document.getElementById('snapshotStatusMsg');
     if (msg) msg.textContent = '正在同步各设备操作日志...';
-    fetchOlogFromCloud(function(){
+    // v30.1: 备注与日志并行拉取，互不阻塞；两者都完成后再渲染
+    var _pending = 2;
+    function _onReady() {
+        _pending--;
+        if (_pending > 0) return;
         syncLocalToCloud();
+        renderAliasManager();
         renderSnapshotList();
         var cmsg = document.getElementById('snapshotStatusMsg');
         if (cmsg) {
@@ -5524,7 +5705,9 @@ function openSnapshotModal() {
             if (cloudN === 0 && localN > 0) txt += '（其他设备需升级到 v29.2+ 并做一次录入/撤销后才会上传日志）';
             cmsg.textContent = txt;
         }
-    });
+    }
+    fetchDeviceAliasesFromCloud(_onReady);
+    fetchOlogFromCloud(_onReady);
     document.getElementById('snapshotModalOverlay').classList.add('open');
 }
 function closeSnapshotModal() {
@@ -5544,14 +5727,18 @@ function renderSnapshotList() {
     addSrc(_snapshots); addSrc(_cloudSnaps);
     merged.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
     _viewSnaps = merged;
-    // 填充设备下拉
+    // 填充设备下拉（v30.1: 有备注的显示为「备注（原ID）」）
     var sel = document.getElementById('ologDeviceSel');
     if (sel) {
         var devs = {};
         merged.forEach(function(s){ devs[s.device||'本机'] = 1; });
         var curSel = sel.value;
         var opts = '<option value="">选择设备...</option>';
-        Object.keys(devs).forEach(function(d){ opts += '<option value="' + d + '">' + d + '</option>'; });
+        Object.keys(devs).forEach(function(d){
+            var a = getDeviceAlias(d);
+            var label = a ? (a + '（' + d + '）') : d;
+            opts += '<option value="' + escHtml(d) + '">' + escHtml(label) + '</option>';
+        });
         sel.innerHTML = opts;
         if (curSel && devs[curSel]) sel.value = curSel;
     }
@@ -5566,10 +5753,15 @@ function renderSnapshotList() {
         var tStr = t.toLocaleString('zh-CN');
         var localDev = (typeof devName === 'function') ? devName() : '';
         var dev = s.device || '本机';
+        var alias = getDeviceAlias(dev);
+        var disp = alias ? alias : dev;
         var isLocal = (!s.device) || s.device === localDev;
+        var devCell = escHtml(disp);
+        if (alias) devCell += ' <span style="color:#999;font-size:10px;">(' + escHtml(dev) + ')</span>';
+        if (isLocal) devCell += ' <span style="color:#2e7d32;font-size:10px;">(本机)</span>';
         html += '<tr>' +
             '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
-            '<td style="padding:8px;font-size:12px;">' + dev + (isLocal ? ' <span style="color:#2e7d32;font-size:10px;">(本机)</span>' : '') + '</td>' +
+            '<td style="padding:8px;font-size:12px;">' + devCell + '</td>' +
             '<td style="padding:8px;font-size:12px;">' + s.reason + '</td>' +
             '<td style="padding:8px;font-size:12px;">' + s.count + ' 局</td>' +
             '<td style="padding:8px;white-space:nowrap;">' +
@@ -8936,16 +9128,26 @@ setTimeout(function(){
 </div>
 <!-- ========== 操作日志/快照回滚模态框 ========== -->
 <div class="import-modal-overlay" id="snapshotModalOverlay">
-<div class="import-modal" style="max-width:560px;">
+<div class="import-modal" style="max-width:680px;">
 <h3>📜 操作日志（跨设备快照回滚）</h3>
 <p class="modal-sub">自动保存每次操作前的快照，可一键回滚；日志已同步云端，各设备操作都会显示。</p>
-<p id="snapshotStatusMsg" style="font-size:13px;margin:0 0 10px;min-height:18px;"></p>
-<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px;">
+<div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
+<p id="snapshotStatusMsg" style="font-size:13px;margin:0;min-height:18px;flex:1;"></p>
+<button onclick="refreshOlog()" style="background:#1a73e8;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;">🔄 刷新</button>
+</div>
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px;flex-wrap:wrap;">
   <label style="color:#555;">按设备清理：</label>
   <select id="ologDeviceSel" style="padding:4px 8px;max-width:200px;"><option value="">选择设备...</option></select>
   <button onclick="deleteSnapshotsByDevice()" style="background:#f57c00;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除该设备全部</button>
 </div>
-<div style="max-height:360px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;">
+<div id="aliasAdminRow" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-size:13px;flex-wrap:wrap;">
+  <label style="color:#555;">🏷️ 设备备注：</label>
+  <select id="aliasDeviceSel" onchange="onAliasDeviceChange()" style="padding:4px 8px;max-width:180px;"><option value="">选择设备...</option></select>
+  <input id="aliasInput" type="text" placeholder="输入备注名（留空则清除备注）" style="padding:4px 8px;flex:1;min-width:140px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+  <button onclick="saveDeviceAlias()" style="background:#1a73e8;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">保存备注</button>
+</div>
+<div id="aliasList" style="font-size:12px;color:#555;margin-bottom:8px;line-height:1.8;"></div>
+<div style="max-height:520px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;">
 <table class="pred-history-table" style="font-size:13px;">
 <thead><tr><th style="padding:8px;">时间</th><th style="padding:8px;">设备</th><th style="padding:8px;">操作</th><th style="padding:8px;">局数</th><th style="padding:8px;">回滚/删除</th></tr></thead>
 <tbody id="snapshotListBody">
