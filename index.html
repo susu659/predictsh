@@ -4983,8 +4983,9 @@ function ologRowId(snap) {
     var d = (snap && snap.device) ? String(snap.device).replace(/[^a-zA-Z0-9]/g, '').slice(-12) : 'local';
     return 'olog_' + t + '_' + d;
 }
-function pushOlogToCloud(snap) {
+function pushOlogToCloud(snap, retry) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    retry = retry || 0;
     // 直接 upsert 单条，不读整个数组，不阻塞其他设备写入
     supabaseClient.from(CLOUD_TABLE).upsert({
         id: ologRowId(snap),
@@ -4992,7 +4993,15 @@ function pushOlogToCloud(snap) {
         updated_at: new Date().toISOString()
     }, {onConflict: 'id'}).then(function(){
         pruneOldOlogRows(100);
-    }, function(e){ console.warn('olog push fail', e && e.message); });
+    }, function(e){
+        console.warn('olog push fail (try ' + (retry+1) + '):', e && e.message);
+        // 失败自动重试 2 次（2秒/5秒后），防止网络抖动丢日志
+        if (retry < 2) {
+            setTimeout(function(){ pushOlogToCloud(snap, retry+1); }, 2000 * (retry+1));
+        } else {
+            console.error('olog push 最终失败，快照 id=' + ologRowId(snap));
+        }
+    });
 }
 // 保留最近 maxKeep 条云端快照，删掉更老的独立行
 function pruneOldOlogRows(maxKeep) {
@@ -8493,6 +8502,10 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     var pWConfirm = document.getElementById('inputProfitWinner').value;
     var profitText = pWConfirm ? ('获胜商会收益：' + pWConfirm) : '获胜商会收益：未选';
     if(!confirm('确认录入本局数据？\n\nA：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' + profitText + '\n\n点「确定」录入，点「取消」返回修改。')) return;
+    // v30.4：防重复点击——录入过程中禁用按钮，防止 setTimeout 期间重复拍快照
+    var _btn = document.getElementById('btnAddRecord');
+    if (_btn && _btn.disabled) return;
+    if (_btn) { _btn.disabled = true; _btn.style.opacity = '0.6'; }
     try { createSnapshot('录入：A' + a + ' B' + b + ' C' + c); } catch(e) { console.warn('[录入]快照失败，继续:', e.message); } // v29.12
     showLearningIndicator(true);
     setTimeout(function(){
@@ -8511,6 +8524,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
         showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt);
+        if (_btn) { _btn.disabled = false; _btn.style.opacity = ''; }
     }, 10);
 });
 document.getElementById('btnUndo').addEventListener('click',function(){
