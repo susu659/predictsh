@@ -4632,7 +4632,10 @@ if(curBrier > 0.3){
         this.clearAll();
         var predHistComplete = Array.isArray(p.predHistory) && p.predHistory.length > 0
             && p.predHistory.length >= p.history.length - 1;
-        if (predHistComplete) {
+        // v30.4：predHistory不完整但modelWeights已保存时，不用重构，直接恢复（提高打开速度）
+        var hasModelWeights = p.modelWeights && Object.keys(p.modelWeights).length > 3;
+        var canSkipRebuild = !predHistComplete && hasModelWeights;
+        if (predHistComplete || canSkipRebuild) {
             this.history = p.history.slice();
             this.predHistory = p.predHistory.slice();
             this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
@@ -4915,7 +4918,7 @@ var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
 var _cloudThrottleTimer = null;
 var _cloudSaveRetryCount = 0;
-var CLOUD_MAX_RETRY = 5; // v30.6：3->5次重试，网络更稳
+var CLOUD_MAX_RETRY = 8; // v30.7：5->8次重试，全量数据上传更稳
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
 var TEST_MODE_KEY = 'mm_test_mode_v1';
 var _testMode = false;
@@ -5671,7 +5674,7 @@ async function cloudSave(manual) {
         // 云端更新的判断由_syncEpoch在cloudLoad时处理
         // v27.4：精简云端上传——predHistory超2000条截断，去掉patternHitCache（可重建）
         var _cloudPredHist = P.predHistory || [];
-        if (_cloudPredHist.length > 2000) _cloudPredHist = _cloudPredHist.slice(-2000);
+        // v30.5：predHistory全量上传，不截断（用户要求完整）
         var saveData = {
             history: P.history,
             predHistory: _cloudPredHist,
