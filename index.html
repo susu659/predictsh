@@ -4060,7 +4060,7 @@ if(curBrier > 0.3){
                 reason: '连续' + this.consecutiveErrors + '局预测错误，触发紧急调整：权重回归默认值+相似盘降权40%+全局权重提升',
                 timestamp: Date.now()
             });
-            if (this.reflectionLog.length > 80) this.reflectionLog.length = 80;
+            if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.3
         }
         // v23: 紧急模式下，每局都额外检查是否需要退出
         if (this.emergencyMode && wasCorrect) {
@@ -4133,7 +4133,7 @@ if(curBrier > 0.3){
                 existingErr.reason = existingReasons.join('；');
             }
             // 最多保留最近50条
-            if (this.reflectionLog.length > 50) this.reflectionLog.length = 50;
+            if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.3：保留200条
             // ===== v27: 基于反思分析的针对性权重调整 =====
             // 让反思结果真正参与学习，而不是只记录
             try {
@@ -4355,7 +4355,7 @@ if(curBrier > 0.3){
                         timestamp: Date.now()
                     };
                     this.reflectionLog.unshift(reflectionEntry);
-                    if (this.reflectionLog.length > 80) this.reflectionLog.length = 80;
+                    if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.3
                 }
             } else {
                 // 平局：存入对这局的预测，标记isTie，不参与学习
@@ -4591,7 +4591,7 @@ if(curBrier > 0.3){
                 modelPerf: this.modelPerf,
                 windowPerf: this.windowPerf,
                 learnIterations: this.learnIterations,
-                reflectionLog: this.reflectionLog.slice(-50), // v18.0：保留最近50条
+                reflectionLog: this.reflectionLog.slice(-200), // v30.3：保留最近200条，防止操作日志丢失
                 bestBrier: safeV(this._bestBrier),
                 patternHitCache: this.patternHitCache || {},
                 _syncEpoch: this._syncEpoch || 0,
@@ -4695,7 +4695,7 @@ if(curBrier > 0.3){
                 seen[key] = true;
                 deduped.unshift(r);
             }
-            this.reflectionLog = deduped.slice(-50);
+            this.reflectionLog = deduped.slice(-200); // v30.3：恢复200条
         }
         normalizeWindowWeights();
         return true;
@@ -4803,7 +4803,7 @@ if(curBrier > 0.3){
                     seen[key] = true;
                     deduped.unshift(r);
                 }
-                this.reflectionLog = deduped.slice(-50);
+                this.reflectionLog = deduped.slice(-200); // v30.3：恢复200条
             }
             if (p.bestBrier && isFinite(p.bestBrier)) this._bestBrier = p.bestBrier;
             if (p.patternHitCache) this.patternHitCache = p.patternHitCache;
@@ -4846,6 +4846,8 @@ if(curBrier > 0.3){
                 self._rebuildPending = false;
                 self._rebuildHist = null;
                 self._rebuildModelWeights = null;
+                // v30.3: 重构完成后立即保存完整数据到IndexedDB，下次打开不用再重构
+                try { self.saveLocal(); } catch(e) { console.warn('[rebuild] saveLocal after rebuild failed:', e.message); }
                 if (onDone) onDone();
             }
         }
@@ -5679,7 +5681,7 @@ async function cloudSave(manual) {
             modelPerf: P.modelPerf,
             windowPerf: P.windowPerf,
             learnIterations: P.learnIterations,
-            reflectionLog: (P.reflectionLog || []).slice(-50),
+            reflectionLog: (P.reflectionLog || []).slice(-200), // v30.3：云端也保留200条
             bestBrier: P._bestBrier || null,
             _syncEpoch: P._syncEpoch || 0, // v26.4：同步权威纪元
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null) // v26.4：管理员权威标记
@@ -6256,7 +6258,7 @@ function restoreFromBackup(backupId) {
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf,
                 windowPerf: P.windowPerf, learnIterations: P.learnIterations,
-                reflectionLog: (P.reflectionLog || []).slice(-50), bestBrier: P._bestBrier || null,
+                reflectionLog: (P.reflectionLog || []).slice(-200), // v30.3：云端也保留200条 bestBrier: P._bestBrier || null,
                     _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride || null // v26.4：管理员权威标记
             };
