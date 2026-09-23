@@ -1,3 +1,4 @@
+﻿
 
 
 
@@ -207,9 +208,12 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
 .btn-delete-row{background:#dc3545;color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:14px;cursor:pointer;transition:all .15s;margin:4px 0}
 .btn-delete-row:hover{background:#c82333;transform:scale(1.05)}
 .score-badge{display:inline-block;padding:5px 18px;border-radius:16px;font-weight:600;font-size:16px;min-width:46px;text-align:center;line-height:1.8}
+.score-red-dark{background:#b71c1c;color:#fff}
 .score-red{background:#dc3545;color:#fff}
-.score-green{background:#28a745;color:#fff}
+.score-green-light{background:#c8e6c9;color:#2e7d32}
+.score-green-dark{background:#2e7d32;color:#fff}
 .score-white{background:#fff;color:#333;border:1px solid #dee2e6}
+.score-badge.score-compact{padding:2px 8px;border-radius:10px;font-size:12px;min-width:28px;line-height:1.6}
     /* v16: similarity length-weight badges */
     .sim-len-tag{display:inline-block;padding:2px 8px;border-radius:9px;font-size:11px;font-weight:700;margin-left:4px;}
     .sim-len-6{background:#ff5252;color:#fff;}
@@ -1401,7 +1405,7 @@ const CONFIG = {
     win10W: 0.12,
     globalW: 0.08,
     learnRate: 0.06,
-    learnIters: 3,
+    learnIters: 4, // v30.2.1平衡性能与学习深度
     learnDecay: 0.7,
     minData: 3,
     patternThreshold: 0.60,
@@ -1416,8 +1420,8 @@ const CONFIG = {
     fusionTrendW: 0.08,
     fusionTempW: 0.08,
     fusionStreakW: 0.08,
-    fusionPatternW: 0.12,
-    fusionSimW: 0.30, // v17提高
+    fusionPatternW: 0.18, // v30.2提升模式权重
+    fusionSimW: 0.38, // v30.2提升相似盘权重
 };
 function reloadConfig() {
     CONFIG.streakDecayMax = parseFloat(document.getElementById('cfgStreakDecayMax').value) || 0.18;
@@ -1543,7 +1547,7 @@ function multiDimFusion(history) {
     if (n >= 8) {
         var simWindow = history.slice(-6);
         var simResult = predictFromSimilarPattern(simWindow, history);
-        if (simResult && simResult.confidence >= 0.35) {
+        if (simResult && simResult.confidence >= 0.30) {  // v30.2降低门槛，更多相似盘信号入选
             var simProbs = simResult.probs;
             var simW = (CONFIG.fusionSimW || 0.30) * (0.5 + simResult.confidence * 0.5);  // 置信度越高权重越大
             result.A += simProbs.A * simW; result.B += simProbs.B * simW; result.C += simProbs.C * simW;
@@ -1559,7 +1563,7 @@ function applyFusionRefinement(finalProbs, history) {
     var fusion = multiDimFusion(history);
     if (!fusion) return finalProbs;
     // Fusion is a refinement: blend at 30% max
-    var blend = 0.55;  // v17: 从0.45提高
+    var blend = 0.62;  // v30.2加强融合修正
     return normalizeProbs({
         A: finalProbs.A * (1 - blend) + fusion.A * blend,
         B: finalProbs.B * (1 - blend) + fusion.B * blend,
@@ -1675,8 +1679,19 @@ function showLearnTip() {
 }
 function scoreSpan(val) {
     var cls = 'score-badge ';
-    if (val >= 2) cls += 'score-red';
-    else if (val <= 0.5) cls += 'score-green';
+    if (val >= 3) cls += 'score-red-dark';
+    else if (val >= 2) cls += 'score-red';
+    else if (val <= 0) cls += 'score-green-dark';
+    else if (val <= 0.5) cls += 'score-green-light';
+    else cls += 'score-white';
+    return '<span class="' + cls + '">' + val + '</span>';
+}
+function scoreSpanCompact(val) {
+    var cls = 'score-badge score-compact ';
+    if (val >= 3) cls += 'score-red-dark';
+    else if (val >= 2) cls += 'score-red';
+    else if (val <= 0) cls += 'score-green-dark';
+    else if (val <= 0.5) cls += 'score-green-light';
     else cls += 'score-white';
     return '<span class="' + cls + '">' + val + '</span>';
 }
@@ -2822,7 +2837,8 @@ function _matchSortKey(s, ml) {
     var strong = (s >= 0.90) ? 1 : 0;
     return strong * 2000000
         + (strong ? Math.min(12, ml) * 10000 : 0)
-        + (strong ? 0 : Math.round(s * 10000))
+        + (strong ? 0 : Math.round(s * 100000))
+        + Math.min(12, ml) * 100
         + Math.round(s * 100);
 }
 // 查找历史中与当前窗口"结构相似"的片段
@@ -2911,7 +2927,16 @@ function findSimilarSegments(window, history, opts) {
 // window: 当前最近N局的记录
 // history: 完整历史
 // 返回: {name, confidence, probs, detail, similarCount, bestMatch}
+// v30.2.2: 相似盘结果缓存——同一次预测中history不变，只算一次
+var _simPatternCache = { key: null, result: null };
+
 function predictFromSimilarPattern(window, history) {
+    // 缓存key：history长度 + 最后一条的timeSlot，history没变就直接复用
+    var lastRec = history[history.length - 1];
+    var cacheKey = history.length + '_' + (lastRec ? lastRec.timeSlot : 'empty');
+    if (_simPatternCache.key === cacheKey && _simPatternCache.result) {
+        return _simPatternCache.result;
+    }
     // v20: 核心原则 — 纯相似度排名，智能去重，更多候选
     var minSim = 0.42;  // v23: 恢复为0.42，确保匹配质量
     var allResults = [];
@@ -3136,7 +3161,7 @@ function predictFromSimilarPattern(window, history) {
         };
     });
     
-    return {
+    var result = {
         name: '相似盘模式',
         confidence: confidence,
         probs: probs,
@@ -3151,6 +3176,10 @@ function predictFromSimilarPattern(window, history) {
         weightBreakdown: weightBreakdown,
         matchLen: useResults[0] ? (useResults[0].matchLen || useResults[0].scanWindowLen || 0) : 0
     };
+    // 存入缓存
+    _simPatternCache.key = cacheKey;
+    _simPatternCache.result = result;
+    return result;
 }
 function analyzeSimilarTrajectory(window, history) {
     var results = findSimilarSegments(window, history, {minSim: 0.55, maxResults: 10});
@@ -5924,9 +5953,9 @@ function renderDailySnapshot() {
         html += '<tr>' +
             '<td class="ds-num" style="color:#6c757d;">' + row.idx + '</td>' +
             '<td style="color:#495057;font-size:12px;">' + row.time + '</td>' +
-            '<td class="ds-num" style="color:#e74c3c;">' + rec.a + '</td>' +
-            '<td class="ds-num" style="color:#3498db;">' + rec.b + '</td>' +
-            '<td class="ds-num" style="color:#2ecc71;">' + rec.c + '</td>' +
+            '<td>' + scoreSpanCompact(rec.a) + '</td>' +
+            '<td>' + scoreSpanCompact(rec.b) + '</td>' +
+            '<td>' + scoreSpanCompact(rec.c) + '</td>' +
             '<td>' + winBadge + '</td>' +
             '<td>' + pfBadge + '</td>' +
             '</tr>';
@@ -6652,7 +6681,7 @@ var _lastBacktest = null;
 var _lastBacktestCount = 0;
 function autoBacktestTick() {
     if (!P.history || P.history.length < 50) return;
-    if (P.history.length - _lastBacktestCount < 20) return; // 每20局跑一次
+    if (P.history.length - _lastBacktestCount < 15) return; // 每15局跑一次
     _lastBacktestCount = P.history.length;
     setTimeout(function(){
         try {
@@ -6672,7 +6701,7 @@ function autoBacktestTick() {
 var _lastOptimizeCount = 0;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 200) return;
-    if (P.history.length - _lastOptimizeCount < 100) return;
+    if (P.history.length - _lastOptimizeCount < 50) return;
     if (window._optRunning) return;
     _lastOptimizeCount = P.history.length;
     window._optRunning = true;
@@ -6685,7 +6714,7 @@ function autoOptimizeTick() {
             var newAcc = result.bestScore; // bestScore 综合分
             var oldScore = oldAcc;
             // 自动应用：如果新参数比当前好超过2%
-            if (result.bestScore > oldScore + 0.02) {
+            if (result.bestScore > oldScore + 0.01) {
                 var p = result.bestCombo;
                 try {
                     document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
@@ -6698,6 +6727,14 @@ function autoOptimizeTick() {
                     document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
                     reloadConfig();
                     console.log('[autoOptimize] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
+                    // v30.1: 优化成功后在主界面显示绿色提示
+                    var badge = document.getElementById('autoBrierBadge');
+                    if (badge) {
+                        var oldHtml = badge.innerHTML;
+                        badge.innerHTML = '<span style="color:#27ae60;font-weight:700;">⚡ 已自动优化参数（提升'+((result.bestScore-oldScore)*100).toFixed(1)+'%）</span>';
+                        setTimeout(function(){ badge.innerHTML = oldHtml; }, 5000);
+                    }
+                    showLearnTip && showLearnTip();
                 } catch(e) { console.warn('[autoOptimize] apply failed:', e.message); }
             }
             window._optimalParams = result.bestCombo;
