@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -388,6 +389,39 @@ body.dark-mode .import-modal-overlay{background:rgba(0,0,0,0.7);}
 body.dark-mode .access-box{background:#16213e;}
 body.dark-mode .access-box h2{color:#e0e0e0;}
 body.dark-mode .access-box p{color:#aaa;}
+/* ========== 当日快照弹窗 ========== */
+.ds-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+.ds-modal-overlay.open{display:flex;}
+.ds-modal{background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:94%;max-width:680px;overflow:hidden;animation:modalIn .25s ease-out;display:flex;flex-direction:column;max-height:92vh;}
+.ds-header{background:linear-gradient(135deg,#1a1740,#302b63);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.ds-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.ds-header-right{display:flex;align-items:center;gap:8px;}
+.ds-date-input{padding:6px 10px;border:none;border-radius:8px;font-size:14px;font-weight:600;color:#302b63;cursor:pointer;}
+.ds-close{background:rgba(255,255,255,.15);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.ds-close:hover{background:rgba(255,255,255,.3);}
+.ds-summary{padding:10px 20px;font-size:14px;font-weight:600;color:#302b63;background:#f8f7ff;border-bottom:1px solid #e8ecf0;}
+.ds-table-wrap{overflow-y:auto;flex:1;padding:0;}
+.ds-table{width:100%;border-collapse:collapse;font-size:13px;}
+.ds-table th{background:#f0efff;color:#495057;font-weight:700;padding:7px 4px;text-align:center;font-size:12px;position:sticky;top:0;z-index:1;}
+.ds-table td{padding:5px 4px;text-align:center;border-bottom:1px solid #f0f2f5;white-space:nowrap;}
+.ds-table tr:hover td{background:#f8f9ff;}
+.ds-num{font-weight:600;font-size:13px;}
+.ds-winner-badge{display:inline-block;padding:3px 10px;border-radius:6px;color:#fff;font-weight:700;font-size:13px;min-width:32px;text-align:center;}
+.ds-winner-A{background:#e74c3c;}
+.ds-winner-B{background:#3498db;}
+.ds-winner-C{background:#2ecc71;}
+.ds-profit-badge{display:inline-block;padding:3px 10px;border-radius:6px;color:#fff;font-weight:700;font-size:13px;min-width:28px;text-align:center;}
+.ds-profit-大{background:#e74c3c;}
+.ds-profit-中{background:#f39c12;}
+.ds-profit-小{background:#27ae60;}
+.ds-zoom-btn{background:rgba(255,255,255,.15);color:#fff;border:none;width:28px;height:28px;border-radius:6px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;font-weight:700;}
+.ds-zoom-btn:hover{background:rgba(255,255,255,.3);}
+.ds-zoom-level{color:#fff;font-size:12px;font-weight:600;min-width:42px;text-align:center;}.ds-empty{padding:40px;text-align:center;color:#999;font-size:14px;}
+body.dark-mode .ds-modal{background:#16213e;color:#e0e0e0;}
+body.dark-mode .ds-summary{background:#1a1a3e;color:#e0e0e0;}
+body.dark-mode .ds-table th{background:#1a1a3e;color:#aaa;}
+body.dark-mode .ds-table td{border-bottom-color:#2a2a4a;}
+body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 </style>
 </head>
 <body>
@@ -604,6 +638,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="btn-excel" id="btnImport">📥 导入数据</button>
 <button class="btn-excel" id="btnImportClipboard" style="background:#00b894;">📋 剪贴板导入(表格)</button>
 <button class="btn-excel" id="btnExportData" style="background:#0984e3;">📤 导出数据</button>
+<button class="btn-excel" id="dailySnapshotBtn" style="background:#ff5722;">📷 当日快照</button>
 <button class="btn-simulate" id="btnSimulate" style="display:none;">🎲 模拟10局</button>
 <button class="btn-backtest" id="btnRunBacktest">📈 运行回测</button>
 <button class="btn-learn" id="btnQuickLearn">🧠 快速学习</button>
@@ -5249,6 +5284,8 @@ function initCloud() {
     // 绑定操作日志按钮
     var snapBtn = document.getElementById('snapshotBtn');
     if (snapBtn && !snapBtn._bound) { snapBtn._bound = true; snapBtn.onclick = openSnapshotModal; }
+    var dsBtn = document.getElementById('dailySnapshotBtn');
+    if (dsBtn && !dsBtn._bound) { dsBtn._bound = true; dsBtn.onclick = openDailySnapshot; }
     // 页面加载时恢复快照
     loadSnapshots();
     try {
@@ -5721,6 +5758,127 @@ function openSnapshotModal() {
 }
 function closeSnapshotModal() {
     document.getElementById('snapshotModalOverlay').classList.remove('open');
+}
+
+// ========== 当日快照 ==========
+function openDailySnapshot() {
+    var overlay = document.getElementById('dailySnapshotOverlay');
+    var dateInput = document.getElementById('dsDateInput');
+    // 默认今天
+    var now = new Date();
+    var yyyy = now.getFullYear();
+    var mm = (now.getMonth() + 1 < 10 ? '0' : '') + (now.getMonth() + 1);
+    var dd = (now.getDate() < 10 ? '0' : '') + now.getDate();
+    dateInput.value = yyyy + '-' + mm + '-' + dd;
+    dateInput.onchange = renderDailySnapshot;
+    _dsZoom = null;
+    overlay.classList.add('open');
+    renderDailySnapshot();
+}
+function closeDailySnapshot() {
+    document.getElementById('dailySnapshotOverlay').classList.remove('open');
+}
+function renderDailySnapshot() {
+    var dateInput = document.getElementById('dsDateInput');
+    var tbody = document.getElementById('dsTableBody');
+    var summary = document.getElementById('dsSummary');
+    var emptyTip = document.getElementById('dsEmpty');
+    tbody.innerHTML = '';
+    emptyTip.style.display = 'none';
+
+    var sel = dateInput.value; // "2026-09-23"
+    if (!sel) { summary.textContent = '请选择日期'; return; }
+    var parts = sel.split('-');
+    var targetDateStr = parseInt(parts[1]) + '月' + parseInt(parts[2]) + '日';
+
+    var rows = [];
+    for (var i = 0; i < P.history.length; i++) {
+        var rec = P.history[i];
+        var ts = splitTimeSlot(rec.timeSlot);
+        if (ts.date !== targetDateStr) continue;
+        // 时间只取开始部分 "HH:MM:SS"
+        var startStr = ts.time ? ts.time.split('-')[0] : '';
+        rows.push({ idx: i + 1, rec: rec, time: startStr });
+    }
+
+    // 统计
+    var cntA = 0, cntB = 0, cntC = 0;
+    var cntBig = 0, cntMid = 0, cntSmall = 0;
+    for (var r = 0; r < rows.length; r++) {
+        var w = getWinner(rows[r].rec);
+        if (w === 'A') cntA++; else if (w === 'B') cntB++; else if (w === 'C') cntC++;
+        var pf = rows[r].rec.profitWinner;
+        if (pf === '大') cntBig++; else if (pf === '中') cntMid++; else if (pf === '小') cntSmall++;
+    }
+
+    summary.innerHTML = targetDateStr + ' · 共' + rows.length + '局 · ' +
+        '<span style="color:#e74c3c;font-weight:700;">A' + cntA + '</span> ' +
+        '<span style="color:#3498db;font-weight:700;">B' + cntB + '</span> ' +
+        '<span style="color:#2ecc71;font-weight:700;">C' + cntC + '</span> · ' +
+        '大' + cntBig + ' 中' + cntMid + ' 小' + cntSmall;
+
+    if (rows.length === 0) {
+        emptyTip.style.display = 'block';
+        return;
+    }
+
+    var html = '';
+    for (var k = 0; k < rows.length; k++) {
+        var row = rows[k];
+        var rec = row.rec;
+        var win = getWinner(rec);
+        var pf = rec.profitWinner || '';
+        // 获胜方徽章
+        var winBadge = win
+            ? '<span class="ds-winner-badge ds-winner-' + win + '">' + win + '</span>'
+            : '<span style="color:#ccc;font-size:12px;">—</span>';
+        // 收益徽章
+        var pfBadge = pf
+            ? '<span class="ds-profit-badge ds-profit-' + pf + '">' + pf + '</span>'
+            : '<span style="color:#ccc;font-size:12px;">—</span>';
+        html += '<tr>' +
+            '<td class="ds-num" style="color:#6c757d;">' + row.idx + '</td>' +
+            '<td style="color:#495057;font-size:12px;">' + row.time + '</td>' +
+            '<td class="ds-num" style="color:#e74c3c;">' + rec.a + '</td>' +
+            '<td class="ds-num" style="color:#3498db;">' + rec.b + '</td>' +
+            '<td class="ds-num" style="color:#2ecc71;">' + rec.c + '</td>' +
+            '<td>' + winBadge + '</td>' +
+            '<td>' + pfBadge + '</td>' +
+            '</tr>';
+    }
+    tbody.innerHTML = html;
+    // 自动缩放：让所有行在一页内显示
+    applyDsAutoZoom(rows.length);
+}
+var _dsZoom = null;
+function applyDsAutoZoom(rowCount) {
+    var tableWrap = document.querySelector('.ds-table-wrap');
+    if (!tableWrap) return;
+    // 弹窗可用高度 = 92vh - 标题栏 - 摘要
+    var availH = window.innerHeight * 0.92 - 56 - 40;
+    var rowH = 30; // 每行基础高度
+    var needH = rowCount * rowH + 36; // +表头
+    var zoom = 1;
+    if (needH > availH) {
+        zoom = availH / needH;
+        if (zoom < 0.5) zoom = 0.5;
+    }
+    if (_dsZoom !== null) zoom = _dsZoom; // 用户手动设置时覆盖
+    tableWrap.style.zoom = zoom;
+    var zl = document.getElementById('dsZoomLevel');
+    if (zl) zl.textContent = Math.round(zoom * 100) + '%';
+}
+function dsZoom(delta) {
+    var tableWrap = document.querySelector('.ds-table-wrap');
+    if (!tableWrap) return;
+    var curZoom = parseFloat(tableWrap.style.zoom) || 1;
+    var newZoom = curZoom + delta;
+    if (newZoom < 0.4) newZoom = 0.4;
+    if (newZoom > 2) newZoom = 2;
+    _dsZoom = newZoom;
+    tableWrap.style.zoom = newZoom;
+    var zl = document.getElementById('dsZoomLevel');
+    if (zl) zl.textContent = Math.round(newZoom * 100) + '%';
 }
 function renderSnapshotList() {
     var tbody = document.getElementById('snapshotListBody');
@@ -9175,6 +9333,29 @@ setTimeout(function(){
 <div class="import-modal-actions" style="margin-top:16px;">
 <button class="btn-modal-cancel" onclick="closeSnapshotModal()">关闭</button>
 <button class="btn-modal-cancel" onclick="clearAllSnapshots()" style="background:#e74c3c;color:#fff;margin-left:auto;">🗑️ 清空日志</button>
+</div>
+</div>
+</div>
+<!-- ========== 当日快照弹窗 ========== -->
+<div class="ds-modal-overlay" id="dailySnapshotOverlay">
+<div class="ds-modal">
+<div class="ds-header">
+<div class="ds-title">📷 当日快照</div>
+<div class="ds-header-right">
+<button class="ds-zoom-btn" onclick="dsZoom(-0.1)" title="缩小">−</button>
+<span class="ds-zoom-level" id="dsZoomLevel">100%</span>
+<button class="ds-zoom-btn" onclick="dsZoom(0.1)" title="放大">＋</button>
+<input type="date" class="ds-date-input" id="dsDateInput">
+<button class="ds-close" onclick="closeDailySnapshot()">✕</button>
+</div>
+</div>
+<div class="ds-summary" id="dsSummary">—</div>
+<div class="ds-table-wrap">
+<table class="ds-table">
+<thead><tr><th style="width:50px;">局号</th><th style="width:90px;">时间</th><th>A收分</th><th>B收分</th><th>C收分</th><th style="width:60px;">获胜方</th><th style="width:55px;">收益</th></tr></thead>
+<tbody id="dsTableBody"></tbody>
+</table>
+<div class="ds-empty" id="dsEmpty" style="display:none;">当天暂无记录</div>
 </div>
 </div>
 </div>
