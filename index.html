@@ -14,12 +14,12 @@
     'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
     'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
     'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    'https://registry.npmmirror.com/xlsx/0.18.5/files/dist/xlsx.full.min.js'
   ];
   var supabaseUrls = [
     'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
     'https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/@supabase/supabase-js/2.45.0/umd/supabase.min.js'
+    'https://registry.npmmirror.com/@supabase/supabase-js/2.45.0/files/dist/umd/supabase.js'
   ];
   function loadScript(urls, idx, onOk, onFail) {
     if (idx >= urls.length) { onFail && onFail(); return; }
@@ -4935,13 +4935,13 @@ function loadSnapshots() {
             });
             var merged = Object.keys(existing).map(function(k){return existing[k];});
             merged.sort(function(a,b){ return new Date(b.time) - new Date(a.time); });
-            _snapshots = merged.slice(-100);
+            _snapshots = merged.slice(-200);
         }
     } catch(e) { /* 保留内存中的 _snapshots */ }
 }
 function saveSnapshots() {
     // v30.3: 本地只存最近 5 条（每条快照含完整历史数据很大，localStorage 仅 5MB），全量在云端
-    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify((_snapshots||[]).slice(-5))); } catch(e) { console.warn('localStorage 快照保存失败（配额满），云端仍有:', e && e.message); }
+    try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify((_snapshots||[]).slice(-20))); } catch(e) { console.warn('localStorage 快照保存失败（配额满），云端仍有:', e && e.message); }
 }
 // v29.2: 跨设备操作日志——快照同步到云端 oplog 行，各设备都能看到并回滚
 var OLOG_ID = 'oplog';
@@ -5058,25 +5058,59 @@ function ologRowId(snap) {
     var d = (snap && snap.device) ? String(snap.device).replace(/[^a-zA-Z0-9]/g, '').slice(-12) : 'local';
     return 'olog_' + t + '_' + d;
 }
+// 待上传队列：云端不可用时暂存，网络恢复后自动补传
+// 待上传队列：云端不可用时暂存，网络恢复后自动补传（持久化到localStorage）
+var _pendingOlogUploads = [];
+var _PENDING_OLOG_KEY = "mm_pending_olog_uploads";
+function _savePendingOlog() {
+    try { localStorage.setItem(_PENDING_OLOG_KEY, JSON.stringify(_pendingOlogUploads.slice(-50))); } catch(e) {}
+}
+function _loadPendingOlog() {
+    try {
+        var raw = localStorage.getItem(_PENDING_OLOG_KEY);
+        if (raw) { var arr = JSON.parse(raw); if (Array.isArray(arr)) _pendingOlogUploads = arr; }
+    } catch(e) {}
+}
+_loadPendingOlog();
 function pushOlogToCloud(snap, retry) {
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
     retry = retry || 0;
-    // 直接 upsert 单条，不读整个数组，不阻塞其他设备写入
-    supabaseClient.from(CLOUD_TABLE).upsert({
-        id: ologRowId(snap),
-        data: snap,
-        updated_at: new Date().toISOString()
-    }, {onConflict: 'id'}).then(function(){
-        pruneOldOlogRows(100);
-    }, function(e){
-        console.warn('olog push fail (try ' + (retry+1) + '):', e && e.message);
-        // 失败自动重试 2 次（2秒/5秒后），防止网络抖动丢日志
-        if (retry < 2) {
-            setTimeout(function(){ pushOlogToCloud(snap, retry+1); }, 2000 * (retry+1));
-        } else {
-            console.error('olog push 最终失败，快照 id=' + ologRowId(snap));
-        }
-    });
+    // 云端不可用：存入待传队列，等 initCloud 成功后自动补传
+    if (typeof supabaseClient === "undefined" || !supabaseClient) {
+        if (_pendingOlogUploads.indexOf(snap) < 0) _pendingOlogUploads.push(snap);
+        if (_pendingOlogUploads.length > 50) _pendingOlogUploads = _pendingOlogUploads.slice(-50);
+        _savePendingOlog();
+        return;
+    }
+    try {
+        supabaseClient.from(CLOUD_TABLE).upsert({
+            id: ologRowId(snap),
+            data: snap,
+            updated_at: new Date().toISOString()
+        }, {onConflict: "id"}).then(function(){
+            pruneOldOlogRows(200);
+        }, function(e){
+            console.warn("olog push fail (try " + (retry+1) + "):", e && e.message);
+            if (retry < 2) {
+                setTimeout(function(){ pushOlogToCloud(snap, retry+1); }, 2000 * (retry+1));
+            } else {
+                console.error("olog push 最终失败，加入待传队列:", ologRowId(snap));
+                if (_pendingOlogUploads.indexOf(snap) < 0) _pendingOlogUploads.push(snap);
+            _savePendingOlog();
+            }
+        });
+    } catch(e) {
+        if (_pendingOlogUploads.indexOf(snap) < 0) _pendingOlogUploads.push(snap);
+    _savePendingOlog();
+    }
+}
+// 云端连接成功后，补传所有待传快照
+function flushPendingOlog() {
+    if (!_pendingOlogUploads || _pendingOlogUploads.length === 0) return;
+    console.log("[olog] 补传待上传快照: " + _pendingOlogUploads.length + " 条");
+    var pend = _pendingOlogUploads.slice();
+    _pendingOlogUploads = [];
+    _savePendingOlog();
+    pend.forEach(function(snap){ pushOlogToCloud(snap); });
 }
 // 保留最近 maxKeep 条云端快照，删掉更老的独立行
 function pruneOldOlogRows(maxKeep) {
@@ -5093,7 +5127,7 @@ function fetchOlogFromCloud(cb) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) { _cloudSnaps = []; cb && cb(); return; }
     var got = [];
     // 1) 拉所有独立快照行
-    supabaseClient.from(CLOUD_TABLE).select('id,data').like('id', 'olog_%').order('id', {ascending: false}).limit(100).then(function(res){
+    supabaseClient.from(CLOUD_TABLE).select('id,data').like('id', 'olog_%').order('id', {ascending: false}).limit(200).then(function(res){
         if (res && res.data) {
             res.data.forEach(function(r){
                 if (r && r.data && r.data.time) got.push(r.data);
@@ -5110,7 +5144,7 @@ function fetchOlogFromCloud(cb) {
         var seen = {}, uniq = [];
         got.forEach(function(s){ var k = s.time + '|' + s.reason + '|' + (s.device||''); if (!seen[k]) { seen[k] = 1; uniq.push(s); } });
         uniq.sort(function(a,b){ return new Date(b.time) - new Date(a.time); });
-        _cloudSnaps = uniq.slice(0, 100);
+        _cloudSnaps = uniq.slice(0, 200);
     }).catch(function(){ _cloudSnaps = []; })
     .then(function(){ cb && cb(); });
 }
@@ -5198,7 +5232,7 @@ function createSnapshot(reason) {
             })
         };
         _snapshots.push(snap);
-        if (_snapshots.length > 100) _snapshots = _snapshots.slice(-100);
+        if (_snapshots.length > 200) _snapshots = _snapshots.slice(-200);
         saveSnapshots();
         try { pushOlogToCloud(snap); } catch(e2) {}
     } catch(e) { console.warn("snapshot failed", e); try { showRecordResult(false, "快照生成失败", e.message); } catch(e2){} }
@@ -5339,6 +5373,8 @@ var _cloudFetchWithTimeout = function(url, opts) {
 supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
             // v26.4：客户端创建成功即置为在线，允许上传；首次拉取失败不影响上传能力
             cloudOnline = true;
+            // v30.6：云端连接成功后，补传之前网络不好时暂存的操作日志
+            try { flushPendingOlog(); } catch(e) {}
             // v27.4：恢复登录类型和测试模式状态
             try {
                 var _savedLoginType = localStorage.getItem(LOGIN_TYPE_KEY);
@@ -5469,38 +5505,43 @@ function checkAutoBackup() {
     var dateStr = now.toISOString().slice(0,10);
     var hourKey = String(now.getHours()).padStart(2, '0');
     var backupKey = dateStr + '_' + hourKey;
-    if (_lastAutoBackupDate === backupKey) return; // 本小时已备份过
+    if (_lastAutoBackupDate === backupKey) return;
     _lastAutoBackupDate = backupKey;
-    if (!supabaseClient || !cloudOnline || !P.history || P.history.length === 0) return;
-    console.log('[自动备份] 开始每小时自动备份，时间:', hourKey + '时');
-    try {
-        var saveData = {
-            history: P.history.slice(),
-            predHistory: P.predHistory ? P.predHistory.slice() : [],
-            accuracy: P.accuracy ? P.accuracy.slice() : [],
-            profitAccuracy: P.profitAccuracy ? P.profitAccuracy.slice() : [],
-            modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
-            modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
-            learnIterations: P.learnIterations || 0,
-            _syncEpoch: P._syncEpoch || 0
-        };
-        var backupId = 'backup_autohour_' + dateStr.replace(/-/g,'') + '_' + hourKey;
-        supabaseClient.from(CLOUD_TABLE).upsert(
-            { id: backupId, data: saveData, updated_at: now.toISOString() },
-            { onConflict: 'id' }
-        ).then(function(res) {
-            if (res.error) {
-                console.error('[自动备份] 失败:', res.error.message);
-            } else {
-                console.log('[自动备份] 成功:', backupId, '(' + saveData.history.length + '条)');
-                // 备份成功后清理旧备份，只保留最近24个
-                cleanupOldAutoBackups();
-            }
-        }).catch(function(e) {
-            console.error('[自动备份] 异常:', e.message);
-        });
-    } catch(e) {
-        console.error('[自动备份] 异常:', e.message);
+    if (!P.history || P.history.length === 0) return;
+    var saveData = {
+        history: P.history.slice(),
+        predHistory: P.predHistory ? P.predHistory.slice() : [],
+        accuracy: P.accuracy ? P.accuracy.slice() : [],
+        profitAccuracy: P.profitAccuracy ? P.profitAccuracy.slice() : [],
+        modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
+        modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
+        learnIterations: P.learnIterations || 0,
+        _syncEpoch: P._syncEpoch || 0
+    };
+    if (supabaseClient && cloudOnline) {
+        console.log('[自动备份] 云端备份，时间:', hourKey + '时');
+        try {
+            var backupId = 'backup_autohour_' + dateStr.replace(/-/g,'') + '_' + hourKey;
+            supabaseClient.from(CLOUD_TABLE).upsert(
+                { id: backupId, data: saveData, updated_at: now.toISOString() },
+                { onConflict: 'id' }
+            ).then(function(res) {
+                if (res.error) console.error('[自动备份] 云端失败:', res.error.message);
+                else { console.log('[自动备份] 云端成功:', backupId); cleanupOldAutoBackups(); }
+            }).catch(function(e) { console.error('[自动备份] 云端异常:', e.message); });
+        } catch(e) { console.error('[自动备份] 云端异常:', e.message); }
+    } else {
+        console.log('[自动备份] 本地备份，时间:', hourKey + '时');
+        try {
+            var LOCAL_BAK_KEY = 'mm_local_autobackups';
+            var localBaks = [];
+            try { localBaks = JSON.parse(localStorage.getItem(LOCAL_BAK_KEY) || '[]'); } catch(e) {}
+            localBaks.push({ id: 'local_' + backupKey, time: now.toISOString(), data: saveData });
+            var LOCAL_BAK_KEEP = 6;
+            if (localBaks.length > LOCAL_BAK_KEEP) localBaks = localBaks.slice(-LOCAL_BAK_KEEP);
+            localStorage.setItem(LOCAL_BAK_KEY, JSON.stringify(localBaks));
+            console.log('[自动备份] 本地成功，共' + localBaks.length + '个备份');
+        } catch(e) { console.error('[自动备份] 本地异常:', e.message); }
     }
 }
 // v27.5：清理自动备份记录，只保留最近24个（含旧格式autodaily）
@@ -5737,13 +5778,14 @@ function bindCloudEvents() {
 // ========== 备份/恢复功能（需管理员密码） ==========
 var BACKUP_ADMIN_PASSWORD = 'asd123123'; // 与访问控制模块管理员密码一致
 function openBackupModal() {
-    if (!supabaseClient) { showRecordResult(false, '提示', '请先配置并连接云同步，才能使用云端备份功能'); return; }
-    document.getElementById('backupPwdArea').style.display = 'block';
-    document.getElementById('backupActionArea').style.display = 'none';
-    document.getElementById('backupPwdInput').value = '';
-    document.getElementById('backupPwdError').style.display = 'none';
-    document.getElementById('backupStatusMsg').textContent = '';
-    document.getElementById('backupModalOverlay').classList.add('open');
+    // 本地备份不需要云端，直接打开；云端备份仍需密码验证
+    document.getElementById("backupPwdArea").style.display = "block";
+    document.getElementById("backupActionArea").style.display = "none";
+    document.getElementById("backupPwdInput").value = "";
+    document.getElementById("backupPwdError").style.display = "none";
+    document.getElementById("backupStatusMsg").textContent = "";
+    document.getElementById("backupModalOverlay").classList.add("open");
+    loadLocalBackupList();
 }
 function closeBackupModal() {
     document.getElementById('backupModalOverlay').classList.remove('open');
@@ -6090,6 +6132,62 @@ function loadBackupList() {
         }).catch(function(e) {
             tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载异常：' + e.message + '</td></tr>';
         });
+}
+// ========== 本地自动备份加载与恢复 ==========
+function loadLocalBackupList() {
+    var tbody = document.getElementById("localBackupListBody");
+    if (!tbody) return;
+    var baks = [];
+    try { baks = JSON.parse(localStorage.getItem("mm_local_autobackups") || "[]"); } catch(e) {}
+    if (!baks || baks.length === 0) {
+        tbody.innerHTML = "<tr><td colspan=\"3\" style=\"padding:12px;color:#999;\">暂无本地备份</td></tr>";
+        return;
+    }
+    var html = "";
+    for (var i = 0; i < baks.length; i++) {
+        var b = baks[i];
+        var t = b.time ? new Date(b.time) : null;
+        var tStr = t ? t.toLocaleString("zh-CN") : b.id;
+        var cnt = (b.data && b.data.history) ? b.data.history.length : "-";
+        html += "<tr>" +
+            "<td style=\"padding:6px;font-size:12px;\">" + tStr + "</td>" +
+            "<td style=\"padding:6px;\">" + cnt + " 局</td>" +
+            "<td style=\"padding:6px;\">" +
+                "<button onclick=\"restoreLocalBackup(" + i + ")\" style=\"background:#1976d2;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px;\">恢复</button>" +
+            "</td>" +
+            "</tr>";
+    }
+    tbody.innerHTML = html;
+}
+function restoreLocalBackup(idx) {
+    var baks = [];
+    try { baks = JSON.parse(localStorage.getItem("mm_local_autobackups") || "[]"); } catch(e) {}
+    if (!baks[idx]) { alert("备份不存在"); return; }
+    var b = baks[idx];
+    if (!b.data || !b.data.history) { alert("备份数据已损坏"); return; }
+    if (!confirm("确定要恢复此本地备份吗？\\n\\n时间：" + (b.time ? new Date(b.time).toLocaleString("zh-CN") : "") + "\\n局数：" + b.data.history.length + " 局\\n\\n当前所有数据将被覆盖！")) return;
+    try {
+        // 先备份当前数据
+        createSnapshot("恢复本地备份前自动备份");
+        P.history = b.data.history || [];
+        P.predHistory = b.data.predHistory || [];
+        P.accuracy = b.data.accuracy || [];
+        P.profitAccuracy = b.data.profitAccuracy || [];
+        P.modelWeights = b.data.modelWeights || {};
+        P.modelPerf = b.data.modelPerf || {};
+        P.windowPerf = b.data.windowPerf || {};
+        P.learnIterations = b.data.learnIterations || 0;
+        P._syncEpoch = b.data._syncEpoch || 0;
+        P.reflectionLog = b.data.reflectionLog || [];
+        P._bestBrier = b.data._bestBrier || null;
+        P.patternHitCache = b.data.patternHitCache || {};
+        P.saveLocal();
+        renderAll();
+        try { renderHistory(); } catch(e) {}
+        alert("✅ 本地备份已恢复（" + P.history.length + " 局）");
+    } catch(e) {
+        alert("恢复失败：" + e.message);
+    }
 }
 function restoreFromBackup(backupId) {
     if (!confirm('确定要恢复此备份吗？当前所有数据将被覆盖，此操作不可撤销！')) return;
@@ -9314,6 +9412,18 @@ setTimeout(function(){
 <div class="import-modal" style="max-width:560px;">
 <h3>💾 云端备份与恢复</h3>
 <p class="modal-sub">备份数据存储在云数据库中，即使本地数据被误改也可随时回滚。需管理员密码验证。</p>
+<!-- 本地自动备份区（无需密码） -->
+<div style="background:#e3f2fd;border-left:4px solid #1976d2;padding:12px 14px;border-radius:0 8px 8px 0;margin-bottom:16px;">
+<div style="font-weight:700;font-size:14px;color:#1565c0;margin-bottom:8px;">📱 本地自动备份（每小时自动备份，保留最近6个）</div>
+<div style="max-height:200px;overflow-y:auto;border:1px solid #bbdefb;border-radius:6px;background:#fff;">
+<table class="pred-history-table" style="font-size:12px;">
+<thead><tr><th style="padding:6px;">备份时间</th><th style="padding:6px;">局数</th><th style="padding:6px;">操作</th></tr></thead>
+<tbody id="localBackupListBody">
+<tr><td colspan="3" style="padding:12px;color:#999;">暂无本地备份</td></tr>
+</tbody>
+</table>
+</div>
+</div>
 <!-- 密码验证区 -->
 <div id="backupPwdArea">
 <div style="text-align:left;margin-bottom:12px;">
