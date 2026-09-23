@@ -7,9 +7,49 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>商会三竞预测系统 v30.0 · 智能预测云端协同</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';"></script>
-<script>var XLSX = window.XLSX || null;</script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js';"></script>
+<script>
+// v30.5: CDN 自动重试 + 多源备用
+(function(){
+  var xlsxUrls = [
+    'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  ];
+  var supabaseUrls = [
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+    'https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/@supabase/supabase-js/2.45.0/umd/supabase.min.js'
+  ];
+  function loadScript(urls, idx, onOk, onFail) {
+    if (idx >= urls.length) { onFail && onFail(); return; }
+    var s = document.createElement('script');
+    s.src = urls[idx];
+    s.onload = function(){ onOk && onOk(); };
+    s.onerror = function(){ loadScript(urls, idx+1, onOk, onFail); };
+    document.head.appendChild(s);
+  }
+  window._xlsxReady = false;
+  window._supabaseReady = false;
+  loadScript(xlsxUrls, 0, function(){ window._xlsxReady = true; window.XLSX = window.XLSX || null; }, function(){ console.warn('XLSX CDN 全部失败'); });
+  loadScript(supabaseUrls, 0, function(){ window._supabaseReady = true; }, function(){ console.warn('Supabase CDN 全部失败'); });
+  // 自动重试：每 5 秒检查一次，SDK 加载成功后自动 initCloud
+  var _cdnRetryCount = 0;
+  var _cdnRetryTimer = setInterval(function(){
+    if (window._supabaseReady && window.supabase && window.supabase.createClient && typeof initCloud === 'function') {
+      clearInterval(_cdnRetryTimer);
+      console.log('[CDN] Supabase SDK 已加载，自动重连云端...');
+      try { initCloud(); } catch(e) { console.error('initCloud after retry failed:', e); }
+      return;
+    }
+    _cdnRetryCount++;
+    if (_cdnRetryCount > 60) {
+      clearInterval(_cdnRetryTimer);
+      console.warn('[CDN] 自动重试超过 5 分钟，停止重试');
+    }
+  }, 5000);
+})();
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -4844,7 +4884,7 @@ var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
 var _cloudThrottleTimer = null;
 var _cloudSaveRetryCount = 0;
-var CLOUD_MAX_RETRY = 3; // v29优化：2->3次重试
+var CLOUD_MAX_RETRY = 5; // v30.6：3->5次重试，网络更稳
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
 var TEST_MODE_KEY = 'mm_test_mode_v1';
 var _testMode = false;
@@ -5583,7 +5623,7 @@ async function cloudSave(manual) {
             // v26.4：上传失败不置为离线，保持可重试
             // v27.4：上传失败自动重试（超时/5xx/网络错误）
             var _errMsg = res.error.message || JSON.stringify(res.error);
-            if (_cloudSaveRetryCount < CLOUD_MAX_RETRY && (_errMsg.indexOf('timeout') >= 0 || _errMsg.indexOf('Abort') >= 0 || _errMsg.indexOf('5') === 0 || _errMsg.indexOf('Network') >= 0)) {
+            if (_cloudSaveRetryCount < CLOUD_MAX_RETRY && !(_errMsg.indexOf('401') >= 0 || _errMsg.indexOf('403') >= 0 || _errMsg.indexOf('Invalid') >= 0 || _errMsg.indexOf('JWT') >= 0)) {
                 _cloudSaveRetryCount++;
                 updateCloudStatus('syncing', '上传失败，正在重试（第' + _cloudSaveRetryCount + '次）...');
                 _cloudSaving = false;
@@ -5594,6 +5634,7 @@ async function cloudSave(manual) {
             }
             _cloudSaveRetryCount = 0;
             updateCloudStatus('online', '⚠️ 上传失败: ' + _errMsg + '（可点「上传云端」重试）');
+            if (manual) alert('⚠️ 上传失败：' + _errMsg + '\n\n已自动重试5次仍失败。\n可能原因：网络不稳定 / 服务器繁忙。\n\n请检查网络后再点「上传云端」。');
             return false;
         }
         cloudLastSync = new Date();
@@ -5602,7 +5643,8 @@ async function cloudSave(manual) {
         return true;
     } catch(e) {
         // v27.4：识别超时错误，自动重试
-        var _isTimeout = e.name === 'AbortError' || (e.message && (e.message.indexOf('timeout') >= 0 || e.message.indexOf('Abort') >= 0 || e.message.indexOf('Network') >= 0));
+        var _isTimeout = true; // v30.6：所有异常都重试，除了明确的认证错误
+        if (e.message && (e.message.indexOf('401') >= 0 || e.message.indexOf('403') >= 0 || e.message.indexOf('Invalid API key') >= 0)) _isTimeout = false;
         if (_isTimeout && _cloudSaveRetryCount < CLOUD_MAX_RETRY) {
             _cloudSaveRetryCount++;
             updateCloudStatus('syncing', '网络超时，正在重试（第' + _cloudSaveRetryCount + '次）...');
@@ -5614,6 +5656,7 @@ async function cloudSave(manual) {
         }
         _cloudSaveRetryCount = 0;
         updateCloudStatus('online', '⚠️ 上传异常: ' + e.message + '（可点「上传云端」重试）');
+        if (manual) alert('⚠️ 上传异常：' + e.message + '\n\n已自动重试5次仍失败。\n请检查网络后再点「上传云端」。');
         return false;
     } finally {
         _cloudSaving = false;
@@ -8914,6 +8957,9 @@ try {
 // 云同步初始化
 bindCloudEvents();
 initCloud();
+// 当日快照按钮绑定（本地功能，不依赖云端配置）
+var _dsBtn = document.getElementById('dailySnapshotBtn');
+if (_dsBtn && !_dsBtn._bound) { _dsBtn._bound = true; _dsBtn.onclick = openDailySnapshot; }
 // v27.3：导出按钮绑定已统一到 _bindExportDataBtn 函数，此处删除避免重复绑定
 // v26.5：快捷键支持
 document.addEventListener('keydown', function(e) {
@@ -9337,7 +9383,7 @@ setTimeout(function(){
 </div>
 </div>
 <!-- ========== 当日快照弹窗 ========== -->
-<div class="ds-modal-overlay" id="dailySnapshotOverlay">
+<div class="ds-modal-overlay" id="dailySnapshotOverlay" onclick="if(event.target===this)closeDailySnapshot()">
 <div class="ds-modal">
 <div class="ds-header">
 <div class="ds-title">📷 当日快照</div>
