@@ -2834,12 +2834,15 @@ function _minSimForLen(wLen) {
 // v28.5: 匹配排序键——高质量匹配(相似度>=0.90)按长度优先（覆盖当前窗口更长的更有代表性）；
 // 弱匹配(<0.90)仍按相似度排序，避免带错配的长片段混上来。12局为上限。
 function _matchSortKey(s, ml) {
-    var strong = (s >= 0.90) ? 1 : 0;
-    return strong * 2000000
-        + (strong ? Math.min(12, ml) * 10000 : 0)
-        + (strong ? 0 : Math.round(s * 100000))
-        + Math.min(12, ml) * 100
-        + Math.round(s * 100);
+    var perfect = (s >= 0.85) ? 1 : 0;  // 完全匹配阈值降到85%（序列完全对上但分数有差异时也能识别）
+    // v31.1：两级排序——完全匹配组全部排在不完全匹配组前面
+    // 完全匹配组内：先按长度排，长的在前；长度相同时按相似度排
+    // 不完全匹配组内：按相似度排，高的在前
+    return perfect * 1000000
+        + (perfect ? Math.min(12, ml) * 100000 : 0)      // 完全匹配组：长度优先
+        + (perfect ? Math.round(s * 1000) : 0)            // 完全匹配组：长度相同时按相似度
+        + (perfect ? 0 : Math.round(s * 10000))           // 不完全匹配组：相似度排序
+        + (perfect ? 0 : Math.min(12, ml) * 100);         // 不完全匹配组：长度作为次要排序
 }
 // 查找历史中与当前窗口"结构相似"的片段
 // window: 当前最近N局的记录数组
