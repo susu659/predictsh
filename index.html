@@ -2475,7 +2475,7 @@ function predictFromSimilarProfitPattern(history) {
         var ml = allResults[ri2].matchLen || allResults[ri2].scanWindowLen || 5;
         var isExact = (allResults[ri2].exactSim !== undefined && allResults[ri2].exactSim >= 0.999);
         allResults[ri2].isExactMatch = isExact;
-        allResults[ri2].sortKey = _matchSortKey(allResults[ri2].similarity, ml);
+        allResults[ri2].sortKey = _matchSortKey(allResults[ri2].similarity, ml, allResults[ri2].isExactMatch);
     }
     allResults.sort(function(a, b) { return b.sortKey - a.sortKey; });
     // 智能去重：基于重叠范围去重，重叠超过较短匹配长度的50%视为重复，保留排序靠前的
@@ -2833,9 +2833,11 @@ function _minSimForLen(wLen) {
 }
 // v28.5: 匹配排序键——高质量匹配(相似度>=0.90)按长度优先（覆盖当前窗口更长的更有代表性）；
 // 弱匹配(<0.90)仍按相似度排序，避免带错配的长片段混上来。12局为上限。
-function _matchSortKey(s, ml) {
-    var perfect = (s >= 0.85) ? 1 : 0;  // 完全匹配阈值降到85%（序列完全对上但分数有差异时也能识别）
-    // v31.1：两级排序——完全匹配组全部排在不完全匹配组前面
+function _matchSortKey(s, ml, isExact) {
+    // v31.3：直接用isExact（获胜方序列是否完全对上）判断完全匹配
+    // isExact=true → 完全匹配组；isExact=false → 不完全匹配组
+    var perfect = (isExact === true) ? 1 : 0;
+    // 两级排序——完全匹配组全部排在不完全匹配组前面
     // 完全匹配组内：先按长度排，长的在前；长度相同时按相似度排
     // 不完全匹配组内：按相似度排，高的在前
     return perfect * 1000000
@@ -2965,7 +2967,7 @@ function predictFromSimilarPattern(window, history) {
         var ml = allResults[ri].matchLen || allResults[ri].scanWindowLen || 5;
         var isExact = (allResults[ri].wsSim !== undefined && allResults[ri].wsSim >= 0.999);
         allResults[ri].isExactMatch = isExact;
-        allResults[ri].sortKey = _matchSortKey(allResults[ri].similarity, ml);
+        allResults[ri].sortKey = _matchSortKey(allResults[ri].similarity, ml, allResults[ri].isExactMatch);
     }
     allResults.sort(function(a, b) { return b.sortKey - a.sortKey; });
     
@@ -3160,7 +3162,8 @@ function predictFromSimilarPattern(window, history) {
             nextWinner: r.nextWinner || null,
             matchedSlice: r.matchedSlice || null,
             matchLen: r.matchLen || r.scanWindowLen || 6,
-            wsSim: r.wsSim  // v23: 传递获胜方序列相似度，用于UI识别100%匹配
+            wsSim: r.wsSim,  // v23: 传递获胜方序列相似度，用于UI识别100%匹配
+            isExactMatch: r.isExactMatch || (r.wsSim !== undefined && r.wsSim >= 0.999)  // v31.4: 传递完全匹配标志
         };
     });
     
@@ -7088,10 +7091,10 @@ function renderCards() {
         })();
         // v25.4: 5连起匹配，展示前20个（从30降到20，减少DOM渲染）
         var matches = (si.matches || []).slice().sort(function(a,b){
-            var aExact = (a.wsSim !== undefined && a.wsSim >= 0.999);
-            var bExact = (b.wsSim !== undefined && b.wsSim >= 0.999);
-            var aKey = _matchSortKey(a.similarity||0, a.matchLen||6);
-            var bKey = _matchSortKey(b.similarity||0, b.matchLen||6);
+            var aExact = (a.wsSim !== undefined && a.wsSim >= 0.999) || a.isExactMatch || a.mergedExact || false;
+            var bExact = (b.wsSim !== undefined && b.wsSim >= 0.999) || b.isExactMatch || b.mergedExact || false;
+            var aKey = _matchSortKey(a.similarity||0, a.matchLen||6, aExact);
+            var bKey = _matchSortKey(b.similarity||0, b.matchLen||6, bExact);
             return bKey - aKey;
         }).slice(0, 20);
 
@@ -7117,13 +7120,15 @@ function renderCards() {
             _g2.best.mergedCount = _g2.count;
             _g2.best.mergedExact = _g2.anyExact;
             _g2.best.mergedRanges = _g2.ranges;
+            // v31.4：合并后同步isExactMatch，确保排序正确
+            if (_g2.anyExact) _g2.best.isExactMatch = true;
             matches.push(_g2.best);
         }
         matches.sort(function(a, b) {
             var aE = a.mergedExact;
             var bE = b.mergedExact;
-            var aK = _matchSortKey(a.similarity||0, a.matchLen||6);
-            var bK = _matchSortKey(b.similarity||0, b.matchLen||6);
+            var aK = _matchSortKey(a.similarity||0, a.matchLen||6, a.isExactMatch||a.mergedExact||false);
+            var bK = _matchSortKey(b.similarity||0, b.matchLen||6, b.isExactMatch||b.mergedExact||false);
             return bK - aK;
         });
         if (matches.length > 0) {
