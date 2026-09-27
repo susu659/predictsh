@@ -5159,7 +5159,7 @@ function flushPendingOlog() {
 // 保留最近 maxKeep 条云端快照，删掉更老的独立行
 function pruneOldOlogRows(maxKeep) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'olog_%').order('id', {ascending: false}).limit(1000).then(function(res){
+    supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'olog_%').order('id', {ascending: false}).limit(200).then(function(res){
         var rows = (res && res.data) ? res.data : [];
         if (rows.length <= maxKeep) return;
         var oldRows = rows.slice(maxKeep);
@@ -5174,7 +5174,7 @@ var _ologHasMore = true;
 var _ologLoading = false;
 // v30.10：分页加载，每页10条，避免一次拉太多数据超时
 var _ologPage = 0;
-var _ologPageSize = 5;
+var _ologPageSize = 2; // v30.12：改成每页2条，避免服务器500
 var _ologHasMore = true;
 var _ologLoading = false;
 function fetchOlogFromCloud(cb, append) {
