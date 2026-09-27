@@ -1,4 +1,5 @@
-﻿
+
+
 
 
 
@@ -17,9 +18,11 @@
     'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
     'https://registry.npmmirror.com/xlsx/0.18.5/files/dist/xlsx.full.min.js'
   ];
+  // v30.7：优先加载本地 SDK，彻底摆脱 CDN 不稳定问题
   var supabaseUrls = [
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+    './supabase.js',
     'https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
     'https://registry.npmmirror.com/@supabase/supabase-js/2.45.0/files/dist/umd/supabase.js'
   ];
   function loadScript(urls, idx, onOk, onFail) {
@@ -3372,7 +3375,8 @@ class Predictor {
     profitPattern: 0.09  // v25.5: 新增收益规律模型
 };
         this.modelPerf = {};
-        this.windowWeights = {win6: 0.32, win7: 0.20, win8: 0.28, win10: 0.12, global: 0.08};
+        // v30.12：更短窗口权重更高，global权重降低
+        this.windowWeights = {win3: 0.25, win5: 0.30, win8: 0.25, win10: 0.15, global: 0.05};
         this.windowPerf = {win6: [], win7: [], win8: [], win10: [], global: []};
         this.learnIterations = 0;
         this.reflectionLog = [];
@@ -4918,7 +4922,7 @@ var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
 // v27.4：云同步性能与可靠性优化
-var CLOUD_TIMEOUT_MS = 60000; // v29优化：20s->60s，大数据量上传不易超时
+var CLOUD_TIMEOUT_MS = 180000; // v30.11：60s->180s，大数据量上传不易超时
 var CLOUD_SAVE_THROTTLE_MS = 8000;
 var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
@@ -5127,7 +5131,7 @@ function pushOlogToCloud(snap, retry) {
             data: snap,
             updated_at: new Date().toISOString()
         }, {onConflict: "id"}).then(function(){
-            pruneOldOlogRows(200);
+            pruneOldOlogRows(100);
         }, function(e){
             console.warn("olog push fail (try " + (retry+1) + "):", e && e.message);
             if (retry < 2) {
@@ -5163,30 +5167,67 @@ function pruneOldOlogRows(maxKeep) {
         supabaseClient.from(CLOUD_TABLE).delete().in('id', ids).then(function(){}, function(){});
     }).catch(function(){});
 }
-function fetchOlogFromCloud(cb) {
+// v30.9：分页加载 + 列表瘦身（只取基本字段，不加载完整大data）
+var _ologPage = 0;
+var _ologPageSize = 20;
+var _ologHasMore = true;
+var _ologLoading = false;
+// v30.10：分页加载，每页10条，避免一次拉太多数据超时
+var _ologPage = 0;
+var _ologPageSize = 5;
+var _ologHasMore = true;
+var _ologLoading = false;
+function fetchOlogFromCloud(cb, append) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) { _cloudSnaps = []; cb && cb(); return; }
-    var got = [];
-    // 1) 拉所有独立快照行
-    supabaseClient.from(CLOUD_TABLE).select('id,data').like('id', 'olog_%').order('id', {ascending: false}).limit(200).then(function(res){
+    if (_ologLoading) { cb && cb(); return; }
+    _ologLoading = true;
+    if (!append) { _ologPage = 0; _cloudSnaps = []; }
+    var offset = _ologPage * _ologPageSize;
+    // 查 id,data，每页10条，数据量约12MB，不会超时
+    supabaseClient.from(CLOUD_TABLE).select('id,data').like('id', 'olog_%').order('id', {ascending: false}).range(offset, offset + _ologPageSize - 1).then(function(res){
         if (res && res.data) {
+            var newItems = [];
             res.data.forEach(function(r){
-                if (r && r.data && r.data.time) got.push(r.data);
+                if (r && r.data && r.data.time) {
+                    newItems.push(r.data);
+                }
             });
+            // 去重
+            var existingKeys = {};
+            _cloudSnaps.forEach(function(s){ existingKeys[s.time + '|' + s.reason + '|' + (s.device||'')] = 1; });
+            newItems.forEach(function(s){
+                var k = s.time + '|' + s.reason + '|' + (s.device||'');
+                if (!existingKeys[k]) { _cloudSnaps.push(s); existingKeys[k] = 1; }
+            });
+            _ologHasMore = (res.data.length >= _ologPageSize);
+            _ologPage++;
         }
-    }).catch(function(){}).then(function(){
-        // 2) 兼容旧 oplog 行（items 数组）
-        return supabaseClient.from(CLOUD_TABLE).select('data').eq('id', OLOG_ID).maybeSingle();
-    }).then(function(res){
-        if (res && res.data && res.data.data && Array.isArray(res.data.data.items)) {
-            res.data.data.items.forEach(function(s){ if (s && s.time) got.push(s); });
+    }).catch(function(e){
+        console.warn('[olog] 分页查询失败:', e && e.message);
+        _ologHasMore = false;
+    }).then(function(){
+        _ologLoading = false;
+        cb && cb();
+    });
+}
+// 回滚时才按需加载单条完整数据
+function loadOlogFullData(snap, cb) {
+    if (snap._hasFullData) { cb && cb(snap); return; }
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) { cb && cb(null); return; }
+    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', snap.id).maybeSingle().then(function(res){
+        if (res && res.data && res.data.data) {
+            // 把完整数据合并到 snap 对象上
+            var full = res.data.data;
+            snap.data = full.data;  // 完整的快照data
+            snap._hasFullData = true;
+            cb && cb(snap);
+        } else {
+            cb && cb(null);
         }
-        // 去重 + 排序
-        var seen = {}, uniq = [];
-        got.forEach(function(s){ var k = s.time + '|' + s.reason + '|' + (s.device||''); if (!seen[k]) { seen[k] = 1; uniq.push(s); } });
-        uniq.sort(function(a,b){ return new Date(b.time) - new Date(a.time); });
-        _cloudSnaps = uniq.slice(0, 200);
-    }).catch(function(){ _cloudSnaps = []; })
-    .then(function(){ cb && cb(); });
+    }).catch(function(e){
+        console.warn('[olog] 加载完整数据失败:', e && e.message);
+        cb && cb(null);
+    });
 }
 function syncOlogToCloud() {
     // 把本地快照逐条 upsert 到云端（不存在才写，不覆盖其他设备）
@@ -5847,13 +5888,10 @@ function refreshOlog() {
     if (msg) msg.textContent = '正在刷新...';
     fetchOlogFromCloud(function(){
         renderSnapshotList();
-        var cmsg = document.getElementById('snapshotStatusMsg');
-        if (cmsg) {
-            var localN = (_snapshots||[]).length;
-            var cloudN = (_cloudSnaps||[]).length;
-            cmsg.textContent = '已刷新 · 本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
-        }
-    });
+        var localN = (_snapshots||[]).length;
+        var cloudN = (_cloudSnaps||[]).length;
+        msg.textContent = '已刷新 · 本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
+    }, false);
 }
 function openSnapshotModal() {
     loadSnapshots();
@@ -5971,6 +6009,14 @@ function renderDailySnapshot() {
             '<td>' + pfBadge + '</td>' +
             '</tr>';
     }
+    // v30.9：分页加载更多按钮
+    if (_ologHasMore) {
+        html += '<tr><td colspan="5" style="padding:10px;text-align:center;">' +
+            '<button onclick="loadMoreOlog()" style="background:#f0f0f0;color:#1a73e8;border:1px solid #1a73e8;padding:6px 20px;border-radius:4px;cursor:pointer;font-size:13px;">加载更多 ↓</button>' +
+            '</td></tr>';
+    } else if (_cloudSnaps.length > 0) {
+        html += '<tr><td colspan="5" style="padding:8px;text-align:center;color:#999;font-size:12px;">— 已加载全部日志 —</td></tr>';
+    }
     tbody.innerHTML = html;
     // 自动缩放：让所有行在一页内显示
     applyDsAutoZoom(rows.length);
@@ -6018,12 +6064,18 @@ function renderSnapshotList() {
     }
     addSrc(_snapshots); addSrc(_cloudSnaps);
     merged.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
-    _viewSnaps = merged;
-    // 填充设备下拉（v30.1: 有备注的显示为「备注（原ID）」）
+    
+    // v30.11：按设备筛选
+    var filterSel = document.getElementById('ologFilterSel');
+    var filterDev = filterSel ? filterSel.value : '';
+    
+    // 填充设备下拉（清理用 + 筛选用）
+    var devs = {};
+    merged.forEach(function(s){ devs[s.device||'本机'] = 1; });
+    
+    // 填充清理下拉
     var sel = document.getElementById('ologDeviceSel');
     if (sel) {
-        var devs = {};
-        merged.forEach(function(s){ devs[s.device||'本机'] = 1; });
         var curSel = sel.value;
         var opts = '<option value="">选择设备...</option>';
         Object.keys(devs).forEach(function(d){
@@ -6034,13 +6086,34 @@ function renderSnapshotList() {
         sel.innerHTML = opts;
         if (curSel && devs[curSel]) sel.value = curSel;
     }
-    if (merged.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;color:#999;">暂无快照（录入/撤销/清空后自动生成）</td></tr>';
+    
+    // 填充筛选下拉
+    if (filterSel) {
+        var curFilter = filterSel.value;
+        var fopts = '<option value="">全部设备</option>';
+        Object.keys(devs).forEach(function(d){
+            var a = getDeviceAlias(d);
+            var label = a ? (a + '（' + d + '）') : d;
+            var selected = (curFilter === d) ? ' selected' : '';
+            fopts += '<option value="' + escHtml(d) + '"' + selected + '>' + escHtml(label) + '</option>';
+        });
+        filterSel.innerHTML = fopts;
+    }
+    
+    // 应用筛选
+    var filtered = merged;
+    if (filterDev) {
+        filtered = merged.filter(function(s){ return (s.device||'本机') === filterDev; });
+    }
+    _viewSnaps = filtered;
+    
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:16px;color:#999;">暂无快照' + (filterDev ? '（该设备暂无日志）' : '（录入/撤销/清空后自动生成）') + '</td></tr>';
         return;
     }
     var html = '';
-    for (var i = 0; i < merged.length; i++) {
-        var s = merged[i];
+    for (var i = 0; i < filtered.length; i++) {
+        var s = filtered[i];
         var t = new Date(s.time);
         var tStr = t.toLocaleString('zh-CN');
         var localDev = (typeof devName === 'function') ? devName() : '';
@@ -6062,18 +6135,56 @@ function renderSnapshotList() {
             '</td>' +
             '</tr>';
     }
+    // v30.11：分页加载更多按钮
+    if (_ologHasMore && !filterDev) {
+        html += '<tr><td colspan="5" style="padding:10px;text-align:center;">' +
+            '<button onclick="loadMoreOlog()" style="background:#f0f0f0;color:#1a73e8;border:1px solid #1a73e8;padding:6px 20px;border-radius:4px;cursor:pointer;font-size:13px;">加载更多 ↓</button>' +
+            '</td></tr>';
+    } else if (_cloudSnaps.length > 0 && !filterDev) {
+        html += '<tr><td colspan="5" style="padding:8px;text-align:center;color:#999;font-size:12px;">— 已加载全部 ' + _cloudSnaps.length + ' 条日志 —</td></tr>';
+    }
+    
     tbody.innerHTML = html;
+}
+function loadMoreOlog() {
+    if (_ologLoading || !_ologHasMore) return;
+    var statusMsg = document.getElementById('snapshotStatusMsg');
+    if (statusMsg) statusMsg.textContent = '正在加载更多...';
+    fetchOlogFromCloud(function(){
+        renderSnapshotList();
+        var localN = (_snapshots||[]).length;
+        var cloudN = (_cloudSnaps||[]).length;
+        statusMsg.textContent = '本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
+    }, true);
 }
 function doRestoreSnapshot(idx) {
     var s = (_viewSnaps && _viewSnaps[idx]) || _snapshots[idx];
     if (!s) return;
     var devTxt = s.device ? '（' + s.device + '）' : '';
     if (!confirm('确定回滚到 ' + new Date(s.time).toLocaleString('zh-CN') + ' 的快照' + devTxt + '？\n\n操作：' + s.reason + '\n当时局数：' + s.count + '\n\n当前数据将被覆盖。')) return;
+    // v30.9：如果是云端日志且没有完整数据，先加载
+    if (!s.data || s._hasFullData === false) {
+        var statusMsg = document.getElementById('snapshotStatusMsg');
+        if (statusMsg) statusMsg.textContent = '正在加载完整快照数据...';
+        loadOlogFullData(s, function(loaded) {
+            if (!loaded) {
+                alert('加载快照数据失败，请检查网络后重试');
+                return;
+            }
+            _doRestoreActual(s);
+        });
+    } else {
+        _doRestoreActual(s);
+    }
+}
+function _doRestoreActual(s) {
     createSnapshot('回滚前自动备份');
     if (restoreSnapshotObject(s)) {
         document.getElementById('snapshotStatusMsg').textContent = '✅ 回滚成功！';
         renderSnapshotList();
         setTimeout(closeSnapshotModal, 800);
+    } else {
+        alert('回滚失败：快照数据不完整');
     }
 }
 function verifyBackupPwd() {
@@ -8874,7 +8985,10 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
         showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt);
-        } finally {
+    } catch(e) {
+        console.error('[录入] 出错:', e);
+        showRecordResult(false, '录入出错', '出错了: ' + e.message + '\n\n请再点一次录入按钮重试。');
+    } finally {
             if (_btn) { _btn.disabled = false; _btn.style.opacity = ''; }
         }
     }, 10);
@@ -9517,6 +9631,10 @@ setTimeout(function(){
 <button onclick="refreshOlog()" style="background:#1a73e8;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;">🔄 刷新</button>
 </div>
 <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px;flex-wrap:wrap;">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-size:13px;flex-wrap:wrap;">
+  <label style="color:#555;">🔍 筛选设备：</label>
+  <select id="ologFilterSel" onchange="renderSnapshotList()" style="padding:4px 8px;max-width:200px;"><option value="">全部设备</option></select>
+</div>
   <label style="color:#555;">按设备清理：</label>
   <select id="ologDeviceSel" style="padding:4px 8px;max-width:200px;"><option value="">选择设备...</option></select>
   <button onclick="deleteSnapshotsByDevice()" style="background:#f57c00;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除该设备全部</button>
