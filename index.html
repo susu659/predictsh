@@ -9,9 +9,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v30.20 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v30.22 · 智能预测云端协同</title>
 <script>
-// v30.5: CDN 自动重试 + 多源备用
+// v30.22: CDN 自动重试 + 多源备用
 (function(){
   var xlsxUrls = [
     'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
@@ -19,7 +19,7 @@
     'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js',
     'https://registry.npmmirror.com/xlsx/0.18.5/files/dist/xlsx.full.min.js'
   ];
-  // v30.7：优先加载本地 SDK，彻底摆脱 CDN 不稳定问题
+  // v30.22：优先加载本地 SDK，彻底摆脱 CDN 不稳定问题
   var supabaseUrls = [
     './supabase.js',
     'https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
@@ -554,8 +554,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v30.20</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v30.20</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v30.22</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v30.22</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -703,6 +703,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="pred-card" id="cardA"><div class="card-header"><span class="guild-name">商会A</span><span class="win-prob" id="winProbA">—</span></div><div class="prob-detail" id="detailA">概率 —</div><div class="streak-info" id="streakA"></div></div>
 <div class="pred-card" id="cardB"><div class="card-header"><span class="guild-name">商会B</span><span class="win-prob" id="winProbB">—</span></div><div class="prob-detail" id="detailB">概率 —</div><div class="streak-info" id="streakB"></div></div>
 <div class="pred-card" id="cardC"><div class="card-header"><span class="guild-name">商会C</span><span class="win-prob" id="winProbC">—</span></div><div class="prob-detail" id="detailC">概率 —</div><div class="streak-info" id="streakC"></div></div>
+</div>
+<div id="betAdviceBar" style="margin:14px 0 4px;padding:14px 18px;border-radius:12px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:12px;background:#f1f3f5;color:#495057;">
+  <span id="betAdviceLabel" style="font-size:17px;">⏳ 分析中...</span>
+  <span id="betAdviceReason" style="font-weight:500;font-size:13px;color:#6c757d;"></span>
 </div>
 <!-- v25.7: 获胜收益预测卡片 -->
 <div style="font-weight:600;font-size:14px;color:#e67e22;margin:18px 0 8px;">💰 获胜商会收益预测（下一把开大/中/小）</div>
@@ -909,7 +913,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v30.20';
+  var APP_VERSION = 'v30.22';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1422,7 +1426,7 @@ const CONFIG = {
     win10W: 0.12,
     globalW: 0.08,
     learnRate: 0.06,
-    learnIters: 4, // v30.2.1平衡性能与学习深度
+    learnIters: 4, // v30.22.1平衡性能与学习深度
     learnDecay: 0.7,
     minData: 3,
     patternThreshold: 0.60,
@@ -1437,8 +1441,8 @@ const CONFIG = {
     fusionTrendW: 0.08,
     fusionTempW: 0.08,
     fusionStreakW: 0.08,
-    fusionPatternW: 0.18, // v30.2提升模式权重
-    fusionSimW: 0.38, // v30.2提升相似盘权重
+    fusionPatternW: 0.18, // v30.22提升模式权重
+    fusionSimW: 0.38, // v30.22提升相似盘权重
 };
 function reloadConfig() {
     CONFIG.streakDecayMax = parseFloat(document.getElementById('cfgStreakDecayMax').value) || 0.18;
@@ -1564,7 +1568,7 @@ function multiDimFusion(history) {
     if (n >= 8) {
         var simWindow = history.slice(-6);
         var simResult = predictFromSimilarPattern(simWindow, history);
-        if (simResult && simResult.confidence >= 0.30) {  // v30.2降低门槛，更多相似盘信号入选
+        if (simResult && simResult.confidence >= 0.30) {  // v30.22降低门槛，更多相似盘信号入选
             var simProbs = simResult.probs;
             var simW = (CONFIG.fusionSimW || 0.30) * (0.5 + simResult.confidence * 0.5);  // 置信度越高权重越大
             result.A += simProbs.A * simW; result.B += simProbs.B * simW; result.C += simProbs.C * simW;
@@ -1580,7 +1584,7 @@ function applyFusionRefinement(finalProbs, history) {
     var fusion = multiDimFusion(history);
     if (!fusion) return finalProbs;
     // Fusion is a refinement: blend at 30% max
-    var blend = 0.62;  // v30.2加强融合修正
+    var blend = 0.62;  // v30.22加强融合修正
     return normalizeProbs({
         A: finalProbs.A * (1 - blend) + fusion.A * blend,
         B: finalProbs.B * (1 - blend) + fusion.B * blend,
@@ -1591,13 +1595,9 @@ function applyFusionRefinement(finalProbs, history) {
 function getWinner(rec) {
     var vals = [rec.a, rec.b, rec.c];
     var maxVal = Math.max.apply(null, vals);
-    var winners = [];
-    for (var i = 0; i < 3; i++) { if (vals[i] === maxVal) winners.push(GUILDS[i]); }
-    if (winners.length === 1) return winners[0];
-    if (maxVal >= 2) {
-        for (var i = 0; i < 3; i++) { if (vals[i] >= 2) return GUILDS[i]; }
-    }
-    return null;
+    // v30.22：游戏无平局，永远返回一个赢家；并列按 A→B→C，绝不返回null
+    for (var i = 0; i < 3; i++) { if (vals[i] === maxVal) return GUILDS[i]; }
+    return 'A';
 }
 // v29.8: 血本方——ABC中得0分的那一方（有效局只有一个0分）
 function getLossSide(rec) {
@@ -2601,7 +2601,7 @@ function predictFromSimilarProfitPattern(history) {
         matches: matches
     };
 }
-// v30.20：相似血本盘预测——找历史上血本方序列相似的盘，投票预测下局赢家
+// v30.22：相似血本盘预测——找历史上血本方序列相似的盘，投票预测下局赢家
 function predictFromSimilarLossPattern(history) {
     if (history.length < 10) return null;
     // 取最近5局的血本方序列
@@ -2681,7 +2681,7 @@ function predictFromSimilarLossPattern(history) {
         detail: '匹配到' + useMatches.length + '个相似血本盘'
     };
 }
-// v30.20：马尔可夫链模型——状态转移概率
+// v30.22：马尔可夫链模型——状态转移概率
 function predictFromMarkov(history) {
     if (history.length < 10) return null;
     // 构建1阶马尔可夫转移矩阵：上一局赢家→下一局赢家
@@ -2718,7 +2718,7 @@ function predictFromMarkov(history) {
     };
 }
 
-// v30.20：贝叶斯更新模型——先验+近期证据
+// v30.22：贝叶斯更新模型——先验+近期证据
 function predictFromBayesian(history) {
     if (history.length < 10) return null;
     // 全局先验
@@ -2758,7 +2758,7 @@ function predictFromBayesian(history) {
     };
 }
 
-// v30.20：多尺度趋势模型——短期/中期/长期趋势
+// v30.22：多尺度趋势模型——短期/中期/长期趋势
 function predictFromMultiTrend(history) {
     if (history.length < 15) return null;
     function trendForWindow(winLen) {
@@ -2796,73 +2796,60 @@ function predictFromMultiTrend(history) {
         detail: '短5局+中15局+长50局趋势'
     };
 }
-// v30.20：连败反弹模型（均值回归）——某方连输后反弹概率
+// v30.22：连败反弹模型（均值回归）——某方连输后反弹概率
 function predictFromRebound(history) {
-    if (history.length < 12) return null;
-    // 统计历史上：某方连输N局后，下一局赢的概率
-    function reboundStat(lossStreak) {
-        var reboundCount = 0, totalCount = 0;
-        var curLoss = 0;
-        for (var i = 0; i < history.length; i++) {
-            var w = getWinner(history[i]);
-            // 简化：统计每个商会的连输后反弹
-        }
-        // 逐商会统计
-        var stats = {A:{r:0,t:0}, B:{r:0,t:0}, C:{r:0,t:0}};
-        GUILDS.forEach(function(g) {
-            var streak = 0;
-            for (var j = 0; j < history.length; j++) {
-                var ww = getWinner(history[j]);
-                if (ww !== g) {
-                    streak++;
-                } else {
-                    if (streak >= lossStreak) {
-                        stats[g].t++;
-                        stats[g].r++; // 这局赢了=反弹
-                    }
-                    streak = 0;
-                }
-            }
-        });
-        return stats;
+    // v30.22：自适应regime模型——检测当前是"反弹回归"还是"趋势延续"，自动切换方向
+    if (history.length < 20) return null;
+    var G2 = ['A','B','C'];
+    // 全局频率（概率分配基础）
+    var gc={A:0,B:0,C:0}; for(let i=0;i<history.length;i++){const w=getWinner(history[i]);if(w)gc[w]++;}
+    const gt=gc.A+gc.B+gc.C; const gf={A:gc.A/gt,B:gc.B/gt,C:gc.C/gt};
+    // 各商会当前连输局数
+    const lossN={A:0,B:0,C:0};
+    G2.forEach(g=>{let s=0;for(let i=history.length-1;i>=0;i--){if(getWinner(history[i])!==g)s++;else break;}lossN[g]=s;});
+    // === Regime检测：扫描最近lookback局，"连输≥5后"victim反弹比例 ===
+    function regimeRate(lookback,thresh){
+      let rebound=0,tot=0;
+      const start=Math.max(1,history.length-lookback);
+      for(let i=start;i<history.length;i++){
+        let victim=null,ml=0;
+        for(const g of G2){let s=0;for(let j=i-1;j>=0;j--){if(getWinner(history[j])!==g)s++;else break;}if(s>ml){ml=s;victim=g;}}
+        if(ml>=thresh){tot++;if(getWinner(history[i])===victim)rebound++;}
+      }
+      return {rebound,tot,rate:tot?rebound/tot:0.33};
     }
-    // 当前各商会的连输局数
-    var currentLossStreak = {A:0, B:0, C:0};
-    GUILDS.forEach(function(g) {
-        var s = 0;
-        for (var i = history.length - 1; i >= 0; i--) {
-            if (getWinner(history[i]) !== g) s++;
-            else break;
-        }
-        currentLossStreak[g] = s;
+    // 优先用近60局，样本不足扩展到120局
+    let rg=regimeRate(60,5); if(rg.tot<5) rg=regimeRate(120,5);
+    // 当前是否有连输信号触发
+    const maxLoss=Math.max(lossN.A,lossN.B,lossN.C);
+    if(maxLoss<4) return null;
+    // 决定regime：反弹率>=45%=反弹regime；<=32%=趋势regime；中间中性
+    let mode='neutral';
+    if(rg.tot>=4){ if(rg.rate>=0.45)mode='rebound'; else if(rg.rate<=0.32)mode='trend'; }
+    let probs={A:gf.A,B:gf.B,C:gf.C};
+    let conf=0.3, nameLabel='连输中性';
+    G2.forEach(g=>{
+      const ls=lossN[g]; if(ls<4)return;
+      const strength=Math.min(1,(ls-3)/4);
+      if(mode==='rebound'){
+        // 反弹regime：给连输方加概率
+        const oldP=probs[g]; const boost=Math.min(0.15,0.05*strength+0.04);
+        probs[g]=oldP+boost;
+        const others=G2.filter(x=>x!==g); const dec=boost/2; probs[others[0]]-=dec;probs[others[1]]-=dec;
+        conf=Math.min(0.6,0.4+rg.rate*0.2); nameLabel='连输反弹(近期)';
+      } else if(mode==='trend'){
+        // 趋势regime：压低连输方
+        const oldP=probs[g]; const keep=0.8-0.3*strength; const newP=Math.max(0.05,oldP*keep); const freed=oldP-newP;
+        probs[g]=newP;
+        const others=G2.filter(x=>x!==g); const sw=gf[others[0]]+gf[others[1]];
+        if(sw>0){probs[others[0]]+=freed*gf[others[0]]/sw;probs[others[1]]+=freed*gf[others[1]]/sw;}
+        conf=Math.min(0.6,0.4+(1-rg.rate)*0.2); nameLabel='连输回避(近期)';
+      }
     });
-    // 基础概率：全局频率
-    var probs = {A: 1/3, B: 1/3, C: 1/3};
-    var hasSignal = false;
-    GUILDS.forEach(function(g) {
-        var ls = currentLossStreak[g];
-        if (ls >= 3) {
-            // 连输3局以上，统计历史反弹率
-            var st = reboundStat(ls);
-            var t = st[g].t;
-            if (t >= 2) {
-                probs[g] = 0.33 + Math.min(0.2, (st[g].r / t - 0.33) * 0.8);
-                hasSignal = true;
-            } else {
-                // 样本不足，连输越多给一点反弹加成
-                probs[g] = 0.33 + Math.min(0.12, ls * 0.02);
-                hasSignal = true;
-            }
-        }
-    });
-    if (!hasSignal) return null;
-    probs = normalizeProbs(probs);
-    return {
-        name: '连败反弹',
-        confidence: 0.4,
-        probs: probs,
-        detail: '均值回归，连输方反弹'
-    };
+    if(mode==='neutral') return null;
+    probs=normalizeProbs(probs);
+    return { name:nameLabel, confidence:conf, probs:probs,
+      detail:'当前'+nameLabel+'（近'+(rg.tot<5?120:60)+'局样本'+rg.tot+'，反弹率'+(100*rg.rate).toFixed(0)+'%）' };
 }
 // ========== 规律检测器 ==========
 function detectPatterns(records) {
@@ -3212,7 +3199,7 @@ function findSimilarSegments(window, history, opts) {
 // window: 当前最近N局的记录
 // history: 完整历史
 // 返回: {name, confidence, probs, detail, similarCount, bestMatch}
-// v30.2.2: 相似盘结果缓存——同一次预测中history不变，只算一次
+// v30.22.2: 相似盘结果缓存——同一次预测中history不变，只算一次
 var _simPatternCache = { key: null, result: null };
 
 function predictFromSimilarPattern(window, history) {
@@ -3652,7 +3639,7 @@ class Predictor {
     profitPattern: 0.09  // v25.5: 新增收益规律模型
 };
         this.modelPerf = {};
-        // v30.20：更短窗口权重更高，global权重降低
+        // v30.22：更短窗口权重更高，global权重降低
         this.windowWeights = {win3: 0.25, win5: 0.30, win8: 0.25, win10: 0.15, global: 0.05};
         this.windowPerf = {win6: [], win7: [], win8: [], win10: [], global: []};
         this.learnIterations = 0;
@@ -3894,7 +3881,7 @@ class Predictor {
         var w = {
             global: mw.global,
             multiWindow: models.multiWindow ? mw.multiWindow : 0,
-            score: models.score ? mw.score : 0, // v30.1修复:score模型返回null时权重置0
+            score: models.score ? mw.score : 0, // v30.22修复:score模型返回null时权重置0
             streak: models.streak ? mw.streak : 0,
             rotation: models.rotation ? mw.rotation : 0,
             alternation: models.alternation ? mw.alternation : 0,
@@ -4080,7 +4067,7 @@ class Predictor {
             finalProbs = normalizeProbs(finalProbs);
         }
     }
-    // v30.20：多模型规律叠加——6大高级模型，权重各自跟随近期准确率（自主学习，优胜劣汰）
+    // v30.22：多模型规律叠加——6大高级模型，权重各自跟随近期准确率（自主学习，优胜劣汰）
         var patternBlends = [];
         var _advFactor = function(acc) { return Math.max(0.15, 0.35 + Math.max(0, acc - 0.33) * 4.0); };
         if (patternProbs && patternConf >= CONFIG.patternThreshold - 0.1) {
@@ -4119,12 +4106,16 @@ class Predictor {
         var rankInfo = computeRank(finalProbs);
         // 冷门补偿
         var ts2 = getTailStreak(this.history);
+        // v30.22：冷门补偿跟随当前regime，避免与自适应模型方向打架
+        var _coldMode = 'neutral';
+        try { var _cp = predictFromRebound(this.history); if (_cp) { if (_cp.name.indexOf('反弹')>=0) _coldMode='rebound'; else if (_cp.name.indexOf('回避')>=0) _coldMode='trend'; } } catch(e) {}
         GUILDS.forEach(function(g) {
             var dist = 0;
             for (var i = n - 1; i >= 0; i--) { if (getWinner(this.history[i]) === g) break; dist++; }
             if (dist >= 5 && dist >= n * 0.4) {
                 var bonus = Math.min(CONFIG.coldBonusCap, 0.008 * dist);
-                finalProbs[g] = Math.min(0.5, finalProbs[g] * (1 + bonus));
+                if (_coldMode==='rebound') finalProbs[g] = Math.min(0.5, finalProbs[g] * (1 + bonus));
+                else if (_coldMode==='trend') finalProbs[g] = Math.max(0.05, finalProbs[g] * (1 - bonus*1.5));
             }
         }, this);
         finalProbs = normalizeProbs(finalProbs);
@@ -4302,7 +4293,7 @@ class Predictor {
             else if (globalCorrect === false) CONFIG.globalW -= lr * errorPenalty;
             normalizeWindowWeights();
             // 调整子模型权重
-            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern']; // v30.1修复:补充profitPattern
+            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern']; // v30.22修复:补充profitPattern
             if (pAll && pAll.models) {
                 var self = this;
                 modelNames.forEach(function(name) {
@@ -4373,7 +4364,7 @@ if(curBrier > 0.3){
                 reason: '连续' + this.consecutiveErrors + '局预测错误，触发紧急调整：权重回归默认值+相似盘降权40%+全局权重提升',
                 timestamp: Date.now()
             });
-            if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.3
+            if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.22
         }
         // v23: 紧急模式下，每局都额外检查是否需要退出
         if (this.emergencyMode && wasCorrect) {
@@ -4446,7 +4437,7 @@ if(curBrier > 0.3){
                 existingErr.reason = existingReasons.join('；');
             }
             // 最多保留最近50条
-            if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.3：保留200条
+            if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.22：保留200条
             // ===== v27: 基于反思分析的针对性权重调整 =====
             // 让反思结果真正参与学习，而不是只记录
             try {
@@ -4477,7 +4468,7 @@ if(curBrier > 0.3){
                     adjMade.push('分数模型+');
                 }
                 // 重新归一化子模型权重
-                var _allModels = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern']; // v30.1修复:补充profitPattern
+                var _allModels = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern']; // v30.22修复:补充profitPattern
                 var _adjSum = 0;
                 var _selfAdj = this;
                 _allModels.forEach(function(n){ _adjSum += (_selfAdj.modelWeights[n] || 0); });
@@ -4585,7 +4576,7 @@ if(curBrier > 0.3){
         if (wasCorrect) cache[patternName].hits++;
     }
     // ===== 数据操作 =====
-    // v30.20：给6个高级模型对这局的预测打分（用录入前的history）
+    // v30.22：给6个高级模型对这局的预测打分（用录入前的history）
     _scoreAdvancedModels(actualWinner) {
         if (!actualWinner || !this.advancedModelPerf) return;
         var self = this;
@@ -4616,7 +4607,7 @@ if(curBrier > 0.3){
         try { record('trend', predictFromMultiTrend(this.history)); } catch(e) {}
         try { record('rebound', predictFromRebound(this.history)); } catch(e) {}
     }
-    // v30.20：取某高级模型最近N局准确率（不足返回0.5中性）
+    // v30.22：取某高级模型最近N局准确率（不足返回0.5中性）
     _advAcc(key, recentN) {
         if (!this.advancedModelPerf || !this.advancedModelPerf[key]) return 0.5;
         var arr = this.advancedModelPerf[key];
@@ -4625,6 +4616,54 @@ if(curBrier > 0.3){
         var correct = 0;
         for (var i = 0; i < use.length; i++) if (use[i]) correct++;
         return correct / use.length;
+    }
+    // v30.22：这局是否值得出手——用历史预测概率分桶校准，判断真实概率优势
+    _bettingAdvice() {
+        var pred;
+        try { pred = this.predict(); } catch(e) { pred = null; }
+        if (!pred) return {action:'skip', label:'信息不足', reason:'无法预测', rate:0.33};
+        var probs = pred.probabilities;
+        var lead = pred.predictedGuild;
+        var maxP = probs[lead];
+        // 1. 概率分桶校准：历史上"最高概率落在同一桶"时实际命中率
+        var edges = [0.36,0.40,0.44,0.50];
+        var bucket = -1;
+        for (var b0=0;b0<edges.length;b0++){ if (maxP<edges[b0]){ bucket=b0; break; } }
+        if (bucket<0) bucket=edges.length;
+        function inBucket(mp){
+            var bk=-1; for (var x=0;x<edges.length;x++){ if (mp<edges[x]){bk=x;break;} }
+            if (bk<0) bk=edges.length; return bk===bucket;
+        }
+        var hit=0, tot=0;
+        for (var i=0;i<this.predHistory.length;i++){
+            var ph=this.predHistory[i];
+            if (ph.isTie||!ph.probs) continue;
+            var mp=Math.max(ph.probs.A,ph.probs.B,ph.probs.C);
+            if (!inBucket(mp)) continue;
+            var rec=this.history[i+1]; if(!rec) continue;
+            var aw=getWinner(rec); if(!aw) continue;
+            // 该桶里预测的lead是否命中（按预测的最高概率方）
+            var phLead = ph.probs.A===mp?'A':ph.probs.B===mp?'B':'C';
+            tot++; if (aw===phLead) hit++;
+        }
+        var calibRate = tot>=15 ? hit/tot : maxP; // 样本不足用模型概率
+        // 2. 自适应regime强信号：读取regime模型当前方向（反弹/回避）
+        var regimeStrong=false, regimeName='';
+        try {
+            var rgPred = predictFromRebound(this.history);
+            if (rgPred && rgPred.confidence>=0.45) {
+                var rgLead='A';
+                if (rgPred.probs.B>rgPred.probs[rgLead]) rgLead='B';
+                if (rgPred.probs.C>rgPred.probs[rgLead]) rgLead='C';
+                if (rgLead===lead) { regimeStrong=true; regimeName=rgPred.name; }
+            }
+        } catch(e) {}
+        // 3. 决策
+        var edge = calibRate - 1/3;
+        if (regimeStrong && calibRate>=0.38) return {action:'bet', label:'✅ 建议出手'+lead, reason:regimeName+'强信号，校准命中'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
+        if (edge>=0.09) return {action:'bet', label:'✅ 建议出手'+lead, reason:'概率优势明显，校准命中'+(100*calibRate).toFixed(0)+'% (n='+tot+')', rate:calibRate};
+        if (edge>=0.05) return {action:'caution', label:'⚠️ 可小注/观望', reason:'优势不大，校准命中'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
+        return {action:'skip', label:'⏭️ 建议跳过本局', reason:'无概率优势，校准命中仅'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
     }
     addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC) {
         var rec = {a: a, b: b, c: c};
@@ -4641,6 +4680,8 @@ if(curBrier > 0.3){
             try { prevPrediction = this.predict(); }
             catch(e) { console.warn('[录入]预测计算失败，仍保存本局:', e.message); prevPrediction = null; }
         }
+        // v30.22：预测/学习整体保护，任何异常都不能阻止末尾 history.push（根治"显示成功但记录丢失"）
+        try {
         // v16修复：将录入前的预测(prevPrediction)存入predHistory，与用户界面看到的预测一致
         // 旧代码存的是录入后的result(学习后预测)，导致历史记录与用户看到的预测对不上
         if (prevPrediction) {
@@ -4661,7 +4702,7 @@ if(curBrier > 0.3){
                     } : null
                 });
                 this.accuracy.push(winner === prevPrediction.predictedGuild);
-                // v30.20：给6个高级模型打分（自主学习）
+                // v30.22：给6个高级模型打分（自主学习）
                 try { this._scoreAdvancedModels(winner); } catch(e) { console.warn('[高级模型评分]失败:', e.message); }
                 if (this.accuracy.length > 100000) this.accuracy.shift();
                 // v25.8: 收益预测学习记录
@@ -4711,7 +4752,7 @@ if(curBrier > 0.3){
                         timestamp: Date.now()
                     };
                     this.reflectionLog.unshift(reflectionEntry);
-                    if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.3
+                    if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.22
                 }
             } else {
                 // 平局：存入对这局的预测，标记isTie，不参与学习
@@ -4733,6 +4774,7 @@ if(curBrier > 0.3){
             }
             if (this.predHistory.length > 100000) this.predHistory.shift();
         }
+        } catch(e) { console.error('[录入]预测学习环节异常，记录仍入库:', e.message); }
         this.history.push(rec);
         // 不再push录入后的result，下一局录入时会重新计算prevPrediction
         this.lastPrediction = prevPrediction ? prevPrediction.predictedGuild : null;
@@ -4745,9 +4787,9 @@ if(curBrier > 0.3){
         var lastWinner = getWinner(lastRec);
         this.history.pop();
         if (lastWinner && this.accuracy.length > 0) this.accuracy.pop();
-        // v30.1修复:只有当上一局有获胜方且有收益数据时才弹出profitAccuracy，避免数据错位
+        // v30.22修复:只有当上一局有获胜方且有收益数据时才弹出profitAccuracy，避免数据错位
         if (lastWinner && this.profitAccuracy && this.profitAccuracy.length > 0 && lastRec.profitWinner) this.profitAccuracy.pop();
-        // v30.1修复:同步弹出profitBrierHistory
+        // v30.22修复:同步弹出profitBrierHistory
         if (lastWinner && this.profitBrierHistory && this.profitBrierHistory.length > 0 && lastRec.profitWinner) this.profitBrierHistory.pop();
         if (this.predHistory.length > 0) this.predHistory.pop();
         if (this.reflectionLog.length > 0 && this.reflectionLog[0].gameIdx === this.history.length + 1) this.reflectionLog.shift();
@@ -4755,7 +4797,7 @@ if(curBrier > 0.3){
     }
     clearAll() {
         this.history = []; this.predHistory = []; this.accuracy = []; this.profitAccuracy = []; this.lastPrediction = null; this.maxStreakEver = 0;
-        this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27,profitPattern:0.09}; // v17: similarPattern提高; v30.1修复:补充profitPattern权重
+        this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27,profitPattern:0.09}; // v17: similarPattern提高; v30.22修复:补充profitPattern权重
         this.modelPerf = {};
         this.windowWeights = {win6:0.32,win7:0.20,win8:0.28,win10:0.12,global:0.08};
         this.windowPerf = {win6:[],win7:[],win8:[],win10:[],global:[]};
@@ -4948,7 +4990,7 @@ if(curBrier > 0.3){
                 advancedModelPerf: this.advancedModelPerf,
                 windowPerf: this.windowPerf,
                 learnIterations: this.learnIterations,
-                reflectionLog: this.reflectionLog.slice(-200), // v30.3：保留最近200条，防止操作日志丢失
+                reflectionLog: this.reflectionLog.slice(-200), // v30.22：保留最近200条，防止操作日志丢失
                 bestBrier: safeV(this._bestBrier),
                 patternHitCache: this.patternHitCache || {},
                 _syncEpoch: this._syncEpoch || 0,
@@ -4989,7 +5031,7 @@ if(curBrier > 0.3){
         this.clearAll();
         var predHistComplete = Array.isArray(p.predHistory) && p.predHistory.length > 0
             && p.predHistory.length >= p.history.length - 1;
-        // v30.4：predHistory不完整但modelWeights已保存时，不用重构，直接恢复（提高打开速度）
+        // v30.22：predHistory不完整但modelWeights已保存时，不用重构，直接恢复（提高打开速度）
         var hasModelWeights = p.modelWeights && Object.keys(p.modelWeights).length > 3;
         var canSkipRebuild = !predHistComplete && hasModelWeights;
         if (predHistComplete || canSkipRebuild) {
@@ -5059,7 +5101,7 @@ if(curBrier > 0.3){
                 seen[key] = true;
                 deduped.unshift(r);
             }
-            this.reflectionLog = deduped.slice(-200); // v30.3：恢复200条
+            this.reflectionLog = deduped.slice(-200); // v30.22：恢复200条
         }
         normalizeWindowWeights();
         return true;
@@ -5167,7 +5209,7 @@ if(curBrier > 0.3){
                     seen[key] = true;
                     deduped.unshift(r);
                 }
-                this.reflectionLog = deduped.slice(-200); // v30.3：恢复200条
+                this.reflectionLog = deduped.slice(-200); // v30.22：恢复200条
             }
             if (p.bestBrier && isFinite(p.bestBrier)) this._bestBrier = p.bestBrier;
             if (p.patternHitCache) this.patternHitCache = p.patternHitCache;
@@ -5210,7 +5252,7 @@ if(curBrier > 0.3){
                 self._rebuildPending = false;
                 self._rebuildHist = null;
                 self._rebuildModelWeights = null;
-                // v30.3: 重构完成后立即保存完整数据到IndexedDB，下次打开不用再重构
+                // v30.22: 重构完成后立即保存完整数据到IndexedDB，下次打开不用再重构
                 try { self.saveLocal(); } catch(e) { console.warn('[rebuild] saveLocal after rebuild failed:', e.message); }
                 if (onDone) onDone();
             }
@@ -5273,13 +5315,13 @@ var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
 // v27.4：云同步性能与可靠性优化
-var CLOUD_TIMEOUT_MS = 180000; // v30.20：60s->180s，大数据量上传不易超时
+var CLOUD_TIMEOUT_MS = 180000; // v30.22：60s->180s，大数据量上传不易超时
 var CLOUD_SAVE_THROTTLE_MS = 8000;
 var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
 var _cloudThrottleTimer = null;
 var _cloudSaveRetryCount = 0;
-var CLOUD_MAX_RETRY = 8; // v30.7：5->8次重试，全量数据上传更稳
+var CLOUD_MAX_RETRY = 8; // v30.22：5->8次重试，全量数据上传更稳
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
 var TEST_MODE_KEY = 'mm_test_mode_v1';
 var _testMode = false;
@@ -5316,7 +5358,7 @@ var _isAdmin = false;
 var SNAPSHOT_KEY = 'mm_snapshots_v1';
 var _snapshots = [];
 function loadSnapshots() {
-    // v30.3: 合并而非覆盖——保留内存中刚 push 的新快照，避免 localStorage 写失败时丢失
+    // v30.22: 合并而非覆盖——保留内存中刚 push 的新快照，避免 localStorage 写失败时丢失
     try {
         var raw = localStorage.getItem(SNAPSHOT_KEY);
         if (raw) {
@@ -5335,14 +5377,14 @@ function loadSnapshots() {
     } catch(e) { /* 保留内存中的 _snapshots */ }
 }
 function saveSnapshots() {
-    // v30.3: 本地只存最近 5 条（每条快照含完整历史数据很大，localStorage 仅 5MB），全量在云端
+    // v30.22: 本地只存最近 5 条（每条快照含完整历史数据很大，localStorage 仅 5MB），全量在云端
     try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify((_snapshots||[]).slice(-20))); } catch(e) { console.warn('localStorage 快照保存失败（配额满），云端仍有:', e && e.message); }
 }
 // v29.2: 跨设备操作日志——快照同步到云端 oplog 行，各设备都能看到并回滚
 var OLOG_ID = 'oplog';
 var _cloudSnaps = [];
 var _viewSnaps = [];
-// v30.1: 设备备注（管理员给设备起别名，备注后操作日志中显示备注名；云端同步，所有设备可见）
+// v30.22: 设备备注（管理员给设备起别名，备注后操作日志中显示备注名；云端同步，所有设备可见）
 var ALIASES_ID = 'device_aliases';
 var ALIASES_LOCAL_KEY = 'mm_device_aliases_v1';
 var _deviceAliases = {};
@@ -5447,7 +5489,7 @@ function renderAliasManager() {
         }
     }
 }
-// v30.2: 每条快照独立一行（id=olog_<time>_<dev>），避免多设备共用一个数组导致 read-modify-write 互相覆盖
+// v30.22: 每条快照独立一行（id=olog_<time>_<dev>），避免多设备共用一个数组导致 read-modify-write 互相覆盖
 function ologRowId(snap) {
     var t = (snap && snap.time) ? String(snap.time).replace(/[^0-9]/g, '') : '0';
     var d = (snap && snap.device) ? String(snap.device).replace(/[^a-zA-Z0-9]/g, '').slice(-12) : 'local';
@@ -5518,14 +5560,14 @@ function pruneOldOlogRows(maxKeep) {
         supabaseClient.from(CLOUD_TABLE).delete().in('id', ids).then(function(){}, function(){});
     }).catch(function(){});
 }
-// v30.9：分页加载 + 列表瘦身（只取基本字段，不加载完整大data）
+// v30.22：分页加载 + 列表瘦身（只取基本字段，不加载完整大data）
 var _ologPage = 0;
 var _ologPageSize = 20;
 var _ologHasMore = true;
 var _ologLoading = false;
-// v30.20：分页加载，每页10条，避免一次拉太多数据超时
+// v30.22：分页加载，每页10条，避免一次拉太多数据超时
 var _ologPage = 0;
-var _ologPageSize = 2; // v30.20：改成每页2条，避免服务器500
+var _ologPageSize = 2; // v30.22：改成每页2条，避免服务器500
 var _ologHasMore = true;
 var _ologLoading = false;
 function fetchOlogFromCloud(cb, append) {
@@ -5805,7 +5847,7 @@ var _cloudFetchWithTimeout = function(url, opts) {
 supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
             // v26.4：客户端创建成功即置为在线，允许上传；首次拉取失败不影响上传能力
             cloudOnline = true;
-            // v30.6：云端连接成功后，补传之前网络不好时暂存的操作日志
+            // v30.22：云端连接成功后，补传之前网络不好时暂存的操作日志
             try { flushPendingOlog(); } catch(e) {}
             // v27.4：恢复登录类型和测试模式状态
             try {
@@ -6052,7 +6094,7 @@ async function cloudSave(manual) {
                 }
             } catch(_e) { console.warn('上传前检测失败:', _e); }
         }
-        // v30.20：只有手动上传才检查epoch并拉取，自动上传直接传，不覆盖本地
+        // v30.22：只有手动上传才检查epoch并拉取，自动上传直接传，不覆盖本地
         // 修复bug：录入后自动上传时，发现云端更新就拉取覆盖，把刚录的局冲掉了
         if (manual) {
             try {
@@ -6074,7 +6116,7 @@ async function cloudSave(manual) {
         // 云端更新的判断由_syncEpoch在cloudLoad时处理
         // v27.4：精简云端上传——predHistory超2000条截断，去掉patternHitCache（可重建）
         var _cloudPredHist = P.predHistory || [];
-        // v30.5：predHistory全量上传，不截断（用户要求完整）
+        // v30.22：predHistory全量上传，不截断（用户要求完整）
         var saveData = {
             history: P.history,
             predHistory: _cloudPredHist,
@@ -6084,7 +6126,7 @@ async function cloudSave(manual) {
             modelPerf: P.modelPerf,
             windowPerf: P.windowPerf,
             learnIterations: P.learnIterations,
-            reflectionLog: (P.reflectionLog || []).slice(-200), // v30.3：云端也保留200条
+            reflectionLog: (P.reflectionLog || []).slice(-200), // v30.22：云端也保留200条
             bestBrier: P._bestBrier || null,
             _syncEpoch: P._syncEpoch || 0, // v26.4：同步权威纪元
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null) // v26.4：管理员权威标记
@@ -6118,7 +6160,7 @@ async function cloudSave(manual) {
         return true;
     } catch(e) {
         // v27.4：识别超时错误，自动重试
-        var _isTimeout = true; // v30.6：所有异常都重试，除了明确的认证错误
+        var _isTimeout = true; // v30.22：所有异常都重试，除了明确的认证错误
         if (e.message && (e.message.indexOf('401') >= 0 || e.message.indexOf('403') >= 0 || e.message.indexOf('Invalid API key') >= 0)) _isTimeout = false;
         if (_isTimeout && _cloudSaveRetryCount < CLOUD_MAX_RETRY) {
             _cloudSaveRetryCount++;
@@ -6226,7 +6268,7 @@ function closeBackupModal() {
 }
 // v26.5：操作日志/快照回滚
 function syncLocalToCloud() {
-    // v30.2: 逐条 upsert，不再读-改-写整个 oplog 数组（避免覆盖其他设备记录）
+    // v30.22: 逐条 upsert，不再读-改-写整个 oplog 数组（避免覆盖其他设备记录）
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
     (_snapshots||[]).forEach(function(snap){
         supabaseClient.from(CLOUD_TABLE).upsert({
@@ -6251,7 +6293,7 @@ function openSnapshotModal() {
     loadDeviceAliases();
     var msg = document.getElementById('snapshotStatusMsg');
     if (msg) msg.textContent = '正在同步各设备操作日志...';
-    // v30.1: 备注与日志并行拉取，互不阻塞；两者都完成后再渲染
+    // v30.22: 备注与日志并行拉取，互不阻塞；两者都完成后再渲染
     var _pending = 2;
     function _onReady() {
         _pending--;
@@ -6362,7 +6404,7 @@ function renderDailySnapshot() {
             '<td>' + pfBadge + '</td>' +
             '</tr>';
     }
-    // v30.9：分页加载更多按钮
+    // v30.22：分页加载更多按钮
     if (_ologHasMore) {
         html += '<tr><td colspan="5" style="padding:10px;text-align:center;">' +
             '<button onclick="loadMoreOlog()" style="background:#f0f0f0;color:#1a73e8;border:1px solid #1a73e8;padding:6px 20px;border-radius:4px;cursor:pointer;font-size:13px;">加载更多 ↓</button>' +
@@ -6418,7 +6460,7 @@ function renderSnapshotList() {
     addSrc(_snapshots); addSrc(_cloudSnaps);
     merged.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
     
-    // v30.20：按设备筛选
+    // v30.22：按设备筛选
     var filterSel = document.getElementById('ologFilterSel');
     var filterDev = filterSel ? filterSel.value : '';
     
@@ -6488,7 +6530,7 @@ function renderSnapshotList() {
             '</td>' +
             '</tr>';
     }
-    // v30.20：分页加载更多按钮
+    // v30.22：分页加载更多按钮
     if (_ologHasMore && !filterDev) {
         html += '<tr><td colspan="5" style="padding:10px;text-align:center;">' +
             '<button onclick="loadMoreOlog()" style="background:#f0f0f0;color:#1a73e8;border:1px solid #1a73e8;padding:6px 20px;border-radius:4px;cursor:pointer;font-size:13px;">加载更多 ↓</button>' +
@@ -6515,7 +6557,7 @@ function doRestoreSnapshot(idx) {
     if (!s) return;
     var devTxt = s.device ? '（' + s.device + '）' : '';
     if (!confirm('确定回滚到 ' + new Date(s.time).toLocaleString('zh-CN') + ' 的快照' + devTxt + '？\n\n操作：' + s.reason + '\n当时局数：' + s.count + '\n\n当前数据将被覆盖。')) return;
-    // v30.9：如果是云端日志且没有完整数据，先加载
+    // v30.22：如果是云端日志且没有完整数据，先加载
     if (!s.data || s._hasFullData === false) {
         var statusMsg = document.getElementById('snapshotStatusMsg');
         if (statusMsg) statusMsg.textContent = '正在加载完整快照数据...';
@@ -6731,7 +6773,7 @@ function restoreFromBackup(backupId) {
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf,
                 windowPerf: P.windowPerf, learnIterations: P.learnIterations,
-                reflectionLog: (P.reflectionLog || []).slice(-200), // v30.3：云端也保留200条 bestBrier: P._bestBrier || null,
+                reflectionLog: (P.reflectionLog || []).slice(-200), // v30.22：云端也保留200条 bestBrier: P._bestBrier || null,
                     _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride || null // v26.4：管理员权威标记
             };
@@ -7151,7 +7193,7 @@ function renderLossSimPanel() {
     body.innerHTML = lines.join('');
     panel.style.display = 'block';
 }
-// v30.0: 自动回测——每20局后台跑一次，结果缓存在 _lastBacktest
+// v30.22: 自动回测——每20局后台跑一次，结果缓存在 _lastBacktest
 var _lastBacktest = null;
 var _lastBacktestCount = 0;
 function autoBacktestTick() {
@@ -7172,7 +7214,7 @@ function autoBacktestTick() {
         } catch(e) { console.warn('[autoBacktest]', e.message); }
     }, 100);
 }
-// v30.0: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
+// v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
 var _lastOptimizeCount = 0;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 200) return;
@@ -7202,7 +7244,7 @@ function autoOptimizeTick() {
                     document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
                     reloadConfig();
                     console.log('[autoOptimize] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
-                    // v30.1: 优化成功后在主界面显示绿色提示
+                    // v30.22: 优化成功后在主界面显示绿色提示
                     var badge = document.getElementById('autoBrierBadge');
                     if (badge) {
                         var oldHtml = badge.innerHTML;
@@ -7298,6 +7340,23 @@ function renderCards() {
             sb.textContent=ts.count+'连胜'; se.appendChild(sb);
         }
     }
+    // v30.22：更新"这局是否值得出手"建议条
+    try {
+        var advice = P._bettingAdvice();
+        var bar = document.getElementById('betAdviceBar');
+        if (bar) {
+            var colorMap = {
+                bet:    {bg:'linear-gradient(135deg,#d4edda,#c3e6cb)', tx:'#155724'},
+                caution:{bg:'linear-gradient(135deg,#fff3cd,#ffeaa7)', tx:'#856404'},
+                skip:   {bg:'linear-gradient(135deg,#f8d7da,#f5c6cb)', tx:'#721c24'}
+            };
+            var cm = colorMap[advice.action] || colorMap.skip;
+            bar.style.background = cm.bg; bar.style.color = cm.tx;
+            document.getElementById('betAdviceLabel').textContent = advice.label;
+            var reasonEl = document.getElementById('betAdviceReason');
+            reasonEl.textContent = advice.reason; reasonEl.style.color = cm.tx;
+        }
+    } catch(e) { console.warn('[出手建议渲染]失败:', e.message); }
     // v25.7: 获胜收益预测卡片渲染（大/中/小）
     var profitPred = result.profitPrediction;
     if (profitPred && profitPred.probs) {
@@ -7784,7 +7843,7 @@ function updateStats() {
         }
         if (cnt>0) document.getElementById('brierScore').textContent=(bs/(cnt*2)).toFixed(3);
     } else document.getElementById('brierScore').textContent='--';
-    // v30.20：统计预测最低准确率
+    // v30.22：统计预测最低准确率
     try {
         var lowCorrect = 0, lowTotal = 0;
         for (var li = 0; li < P.predHistory.length; li++) {
@@ -9340,7 +9399,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     var pWConfirm = document.getElementById('inputProfitWinner').value;
     var profitText = pWConfirm ? ('获胜商会收益：' + pWConfirm) : '获胜商会收益：未选';
     if(!confirm('确认录入本局数据？\n\nA：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' + profitText + '\n\n点「确定」录入，点「取消」返回修改。')) return;
-    // v30.4：防重复点击——录入过程中禁用按钮，防止 setTimeout 期间重复拍快照
+    // v30.22：防重复点击——录入过程中禁用按钮，防止 setTimeout 期间重复拍快照
     var _btn = document.getElementById('btnAddRecord');
     if (_btn && _btn.disabled) return;
     if (_btn) { _btn.disabled = true; _btn.style.opacity = '0.6'; }
@@ -9350,7 +9409,15 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try {
         // v26.0: 直接录入获胜收益（大/中/小）
         var pW = document.getElementById('inputProfitWinner').value;
-        try { P.addRecord(a,b,c,null,pW,'','',''); } catch(e) { console.error('[录入]addRecord失败:', e.message); } // v29.12
+        var _lenBefore = P.history.length, _addErr = null;
+        try { P.addRecord(a,b,c,null,pW,'','',''); } catch(e) { _addErr = e; console.error('[录入]addRecord失败:', e.message); }
+        // v30.22：验证记录真的入库，否则报失败而非假成功
+        if (_addErr || P.history.length !== _lenBefore + 1) {
+            showLearningIndicator(false);
+            if (_btn) { _btn.disabled = false; _btn.style.opacity = ''; }
+            showRecordResult(false, '录入失败', '本局未能保存（'+(_addErr?_addErr.message:'记录未写入')+'），请再点一次录入。');
+            return;
+        }
         // 录入后重置收益选择
         document.getElementById('inputProfitWinner').value='';
         // 录入新记录后自动跳到最后一页（最新记录）
@@ -9463,7 +9530,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
 });
 document.getElementById('btnResetLearn').addEventListener('click',function(){
     if(!confirm('确定重置学习状态？模型权重将恢复默认'))return;
-    P.modelWeights={global:0.16,multiWindow:0.16,score:0.14,streak:0.10,rotation:0.08,alternation:0.07,trend:0.05,regression:0.05,similarPattern:0.19,profitPattern:0.09}; // v17: 添加similarPattern; v30.1修复:补充profitPattern
+    P.modelWeights={global:0.16,multiWindow:0.16,score:0.14,streak:0.10,rotation:0.08,alternation:0.07,trend:0.05,regression:0.05,similarPattern:0.19,profitPattern:0.09}; // v17: 添加similarPattern; v30.22修复:补充profitPattern
     P.modelPerf={};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
     CONFIG.win6W=0.32;CONFIG.win7W=0.20;CONFIG.win8W=0.28;CONFIG.win10W=0.12;CONFIG.globalW=0.08;
     normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();showRecordResult(true, '成功', '学习状态已重置'); // v18.0：防抖保存
@@ -9509,13 +9576,26 @@ document.getElementById('btnApplyOptimal').addEventListener('click',function(){
 // ============================================================
 loadIntervalSetting();
 updateIntervalUI();
+// v30.22：修复历史里被错误标记平局的记录
+function fixFalseTies() {
+    if (!P.predHistory || !P.history) return 0;
+    var fixed = 0;
+    for (var i = 0; i < P.predHistory.length; i++) {
+        var ph = P.predHistory[i]; var rec = P.history[i+1];
+        if (ph.isTie && rec) { var w = getWinner(rec); if (w) { ph.isTie = false; fixed++; } }
+    }
+    if (fixed > 0) { console.log('[平局修复] 纠正'+fixed+'条'); try { debouncedSave(); } catch(e){} }
+    return fixed;
+}
 P.loadLocal();
+fixFalseTies();
 // v27.4：如果localStorage数据不完整（predHistory被截断），从IndexedDB加载完整数据
 if (P.predHistory && P.history && P.predHistory.length < P.history.length - 1) {
     console.log('[初始化] localStorage数据不完整，从IndexedDB加载完整数据...');
     idbLoad(STORE_KEY).then(function(fullData) {
         if (fullData && fullData.history) {
             P.restoreFromData(fullData); // v27.4：直接从IndexedDB数据恢复，绕过localStorage
+            try { fixFalseTies(); } catch(e) {}
             try { renderCards(); } catch(e) {}
             try { updateStats(); } catch(e) {}
             if (P._rebuildPending) {
