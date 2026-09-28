@@ -9,7 +9,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v30.16 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v30.20 · 智能预测云端协同</title>
 <script>
 // v30.5: CDN 自动重试 + 多源备用
 (function(){
@@ -554,8 +554,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v30.16</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v30.16</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v30.20</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v30.20</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -744,6 +744,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="stat-card"><div class="stat-title">当前连胜</div><div class="stat-value" id="curStreak">0</div></div>
 <div class="stat-card"><div class="stat-title">最大连胜</div><div class="stat-value" id="maxStreak">0</div></div>
 <div class="stat-card"><div class="stat-title">Brier分数</div><div class="stat-value" id="brierScore">--</div></div>
+<div class="stat-card" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);"><div class="stat-title" style="color:#1565c0;">🎯 预测最低准确率</div><div class="stat-value" id="lowestAccuracy" style="color:#1565c0;">--</div><div style="font-size:11px;color:#666;margin-top:4px;">猜谁垫底准不准</div></div>
 <div class="stat-card"><div class="stat-title">数据来源</div><div class="stat-value" id="dataSource" style="font-size:clamp(12px,1.8vw,16px);">—</div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#fff5f5,#ffe0e0);"><div class="stat-title" style="color:#c0392b;">🔥 最长未中预测商会</div><div class="stat-value" id="maxMissGuild" style="color:#c0392b;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissGuild">0</span> 局</div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#fff8f0,#ffe8cc);"><div class="stat-title" style="color:#d35400;">💰 最长未中预测收益</div><div class="stat-value" id="maxMissProfit" style="color:#d35400;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissProfit">0</span> 局</div></div>
@@ -908,7 +909,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v30.16';
+  var APP_VERSION = 'v30.20';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1121,7 +1122,11 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
         var testUserInput = document.getElementById('loginDeviceName');
         var testUsername = testUserInput ? testUserInput.value.trim() : '';
         if (testUsername !== TEST_USERNAME) { showRecordResult(false, '提示', '测试账号用户名错误'); return; }
-        if (pwd !== TEST_PASSWORD) { showRecordResult(false, '提示', '测试账号密码错误'); return; }
+        if (pwd !== TEST_PASSWORD) {
+        var hint3 = document.getElementById('loginTypeHint');
+        if (hint3) { hint3.textContent = '❌ 测试账号密码错误，请重试'; hint3.style.color = '#e74c3c'; }
+        return;
+    }
         _currentLoginType = 'test';
         try { localStorage.setItem(LOGIN_TYPE_KEY, 'test'); } catch(e) {}
         hide();
@@ -1129,14 +1134,22 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       }
       if (_loginType === 'admin') {
         // v26.4：管理员登录——验证管理员密码，直接进入，无需授权
-        if (pwd !== ADMIN_PASSWORD) { showRecordResult(false, '提示', '管理员密码错误'); return; }
+        if (pwd !== ADMIN_PASSWORD) {
+        var hint = document.getElementById('loginTypeHint');
+        if (hint) { hint.textContent = '❌ 管理员密码错误，请重试'; hint.style.color = '#e74c3c'; }
+        return;
+    }
         _currentLoginType = 'admin';
         try { localStorage.setItem(LOGIN_TYPE_KEY, 'admin'); } catch(e) {}
         hide();
         return;
       }
       // 用户登录——验证用户密码，注册设备，等待授权
-      if (pwd !== ACCESS_PASSWORD) { showRecordResult(false, '提示', '用户密码错误'); return; }
+      if (pwd !== ACCESS_PASSWORD) {
+        var hint2 = document.getElementById('loginTypeHint');
+        if (hint2) { hint2.textContent = '❌ 用户密码错误，请重试'; hint2.style.color = '#e74c3c'; }
+        return;
+    }
       // v26.5：保存设备备注名（注册时就带上，管理员能看到）
       var loginName = document.getElementById('loginDeviceName');
       if (loginName && loginName.value.trim()) {
@@ -2588,6 +2601,269 @@ function predictFromSimilarProfitPattern(history) {
         matches: matches
     };
 }
+// v30.20：相似血本盘预测——找历史上血本方序列相似的盘，投票预测下局赢家
+function predictFromSimilarLossPattern(history) {
+    if (history.length < 10) return null;
+    // 取最近5局的血本方序列
+    var currentLossSeq = [];
+    for (var i = history.length - 5; i < history.length; i++) {
+        if (i < 0) break;
+        var lossSide = getLossSide(history[i]);
+        if (lossSide) currentLossSeq.push(lossSide);
+    }
+    if (currentLossSeq.length < 3) return null;
+    
+    // 在历史里找相似的血本方序列
+    var matches = [];
+    for (var j = 5; j < history.length - 1; j++) {
+        var matchLen = 0;
+        var similarity = 0;
+        // 从j往前匹配
+        for (var k = 0; k < currentLossSeq.length; k++) {
+            var histIdx = j - k;
+            if (histIdx < 0) break;
+            var histLoss = getLossSide(history[histIdx]);
+            if (!histLoss) break;
+            var currentLoss = currentLossSeq[currentLossSeq.length - 1 - k];
+            if (histLoss === currentLoss) {
+                matchLen++;
+            } else {
+                break;
+            }
+        }
+        if (matchLen >= 3) {
+            similarity = matchLen / currentLossSeq.length;
+            var nextWinner = getWinner(history[j + 1]);
+            if (nextWinner) {
+                matches.push({
+                    similarity: similarity,
+                    matchLen: matchLen,
+                    nextWinner: nextWinner
+                });
+            }
+        }
+    }
+    
+    if (matches.length < 2) return null;
+    
+    // 按相似度排序
+    matches.sort(function(a, b) { return b.similarity - a.similarity; });
+    var useMatches = matches.slice(0, 20);
+    
+    // 加权投票
+    var weightedCount = {A:0, B:0, C:0};
+    var weightSum = 0;
+    for (var mi = 0; mi < useMatches.length; mi++) {
+        var m = useMatches[mi];
+        var w = m.similarity * m.similarity; // 相似度平方加权
+        weightedCount[m.nextWinner] += w;
+        weightSum += w;
+    }
+    
+    if (weightSum === 0) return null;
+    
+    var probs = {
+        A: weightedCount.A / weightSum,
+        B: weightedCount.B / weightSum,
+        C: weightedCount.C / weightSum
+    };
+    
+    // 置信度
+    var topSim = useMatches[0].similarity;
+    var topRatio = Math.max(probs.A, probs.B, probs.C);
+    var confidence = Math.min(0.8, topSim * 0.5 + topRatio * 0.3);
+    
+    return {
+        name: '相似血本盘',
+        confidence: confidence,
+        probs: probs,
+        matchCount: useMatches.length,
+        detail: '匹配到' + useMatches.length + '个相似血本盘'
+    };
+}
+// v30.20：马尔可夫链模型——状态转移概率
+function predictFromMarkov(history) {
+    if (history.length < 10) return null;
+    // 构建1阶马尔可夫转移矩阵：上一局赢家→下一局赢家
+    var transitions = {
+        A: {A:0, B:0, C:0},
+        B: {A:0, B:0, C:0},
+        C: {A:0, B:0, C:0}
+    };
+    for (var i = 1; i < history.length; i++) {
+        var prevWinner = getWinner(history[i-1]);
+        var currWinner = getWinner(history[i]);
+        if (prevWinner && currWinner) {
+            transitions[prevWinner][currWinner]++;
+        }
+    }
+    // 计算转移概率
+    var lastWinner = getWinner(history[history.length - 1]);
+    if (!lastWinner) return null;
+    var row = transitions[lastWinner];
+    var total = row.A + row.B + row.C;
+    if (total < 3) return null;
+    var probs = {
+        A: row.A / total,
+        B: row.B / total,
+        C: row.C / total
+    };
+    // 置信度：样本量越大置信度越高
+    var confidence = Math.min(0.6, total / 30);
+    return {
+        name: '马尔可夫链',
+        confidence: confidence,
+        probs: probs,
+        detail: '基于' + total + '次转移统计'
+    };
+}
+
+// v30.20：贝叶斯更新模型——先验+近期证据
+function predictFromBayesian(history) {
+    if (history.length < 10) return null;
+    // 全局先验
+    var globalCount = {A:0, B:0, C:0};
+    for (var i = 0; i < history.length; i++) {
+        var w = getWinner(history[i]);
+        if (w) globalCount[w]++;
+    }
+    var globalTotal = globalCount.A + globalCount.B + globalCount.C;
+    var prior = {
+        A: globalCount.A / globalTotal,
+        B: globalCount.B / globalTotal,
+        C: globalCount.C / globalTotal
+    };
+    // 近期证据（最近10局）
+    var recentCount = {A:0, B:0, C:0};
+    var recentN = Math.min(10, history.length);
+    for (var j = history.length - recentN; j < history.length; j++) {
+        var rw = getWinner(history[j]);
+        if (rw) recentCount[rw]++;
+    }
+    // 贝叶斯更新：先验权重 + 近期证据
+    var priorWeight = 5; // 伪计数
+    var evidenceWeight = recentN;
+    var totalWeight = priorWeight + evidenceWeight;
+    var probs = {
+        A: (prior.A * priorWeight + recentCount.A) / totalWeight,
+        B: (prior.B * priorWeight + recentCount.B) / totalWeight,
+        C: (prior.C * priorWeight + recentCount.C) / totalWeight
+    };
+    var confidence = Math.min(0.55, recentN / 20);
+    return {
+        name: '贝叶斯更新',
+        confidence: confidence,
+        probs: probs,
+        detail: '全局先验+近' + recentN + '局证据'
+    };
+}
+
+// v30.20：多尺度趋势模型——短期/中期/长期趋势
+function predictFromMultiTrend(history) {
+    if (history.length < 15) return null;
+    function trendForWindow(winLen) {
+        var count = {A:0, B:0, C:0};
+        var start = history.length - winLen;
+        for (var i = start; i < history.length; i++) {
+            var w = getWinner(history[i]);
+            if (w) count[w]++;
+        }
+        return {
+            A: count.A / winLen,
+            B: count.B / winLen,
+            C: count.C / winLen
+        };
+    }
+    var shortTrend = trendForWindow(5);
+    var midTrend = trendForWindow(15);
+    var longTrend = trendForWindow(Math.min(50, history.length));
+    // 加权：短期权重最高
+    var probs = {
+        A: shortTrend.A * 0.5 + midTrend.A * 0.3 + longTrend.A * 0.2,
+        B: shortTrend.B * 0.5 + midTrend.B * 0.3 + longTrend.B * 0.2,
+        C: shortTrend.C * 0.5 + midTrend.C * 0.3 + longTrend.C * 0.2
+    };
+    // 趋势一致性：三个趋势方向一致则置信度高
+    var shortMax = Math.max(shortTrend.A, shortTrend.B, shortTrend.C);
+    var midMax = Math.max(midTrend.A, midTrend.B, midTrend.C);
+    var shortLead = shortTrend.A === shortMax ? 'A' : shortTrend.B === shortMax ? 'B' : 'C';
+    var midLead = midTrend.A === midMax ? 'A' : midTrend.B === midMax ? 'B' : 'C';
+    var confidence = shortLead === midLead ? 0.55 : 0.35;
+    return {
+        name: '多尺度趋势',
+        confidence: confidence,
+        probs: probs,
+        detail: '短5局+中15局+长50局趋势'
+    };
+}
+// v30.20：连败反弹模型（均值回归）——某方连输后反弹概率
+function predictFromRebound(history) {
+    if (history.length < 12) return null;
+    // 统计历史上：某方连输N局后，下一局赢的概率
+    function reboundStat(lossStreak) {
+        var reboundCount = 0, totalCount = 0;
+        var curLoss = 0;
+        for (var i = 0; i < history.length; i++) {
+            var w = getWinner(history[i]);
+            // 简化：统计每个商会的连输后反弹
+        }
+        // 逐商会统计
+        var stats = {A:{r:0,t:0}, B:{r:0,t:0}, C:{r:0,t:0}};
+        GUILDS.forEach(function(g) {
+            var streak = 0;
+            for (var j = 0; j < history.length; j++) {
+                var ww = getWinner(history[j]);
+                if (ww !== g) {
+                    streak++;
+                } else {
+                    if (streak >= lossStreak) {
+                        stats[g].t++;
+                        stats[g].r++; // 这局赢了=反弹
+                    }
+                    streak = 0;
+                }
+            }
+        });
+        return stats;
+    }
+    // 当前各商会的连输局数
+    var currentLossStreak = {A:0, B:0, C:0};
+    GUILDS.forEach(function(g) {
+        var s = 0;
+        for (var i = history.length - 1; i >= 0; i--) {
+            if (getWinner(history[i]) !== g) s++;
+            else break;
+        }
+        currentLossStreak[g] = s;
+    });
+    // 基础概率：全局频率
+    var probs = {A: 1/3, B: 1/3, C: 1/3};
+    var hasSignal = false;
+    GUILDS.forEach(function(g) {
+        var ls = currentLossStreak[g];
+        if (ls >= 3) {
+            // 连输3局以上，统计历史反弹率
+            var st = reboundStat(ls);
+            var t = st[g].t;
+            if (t >= 2) {
+                probs[g] = 0.33 + Math.min(0.2, (st[g].r / t - 0.33) * 0.8);
+                hasSignal = true;
+            } else {
+                // 样本不足，连输越多给一点反弹加成
+                probs[g] = 0.33 + Math.min(0.12, ls * 0.02);
+                hasSignal = true;
+            }
+        }
+    });
+    if (!hasSignal) return null;
+    probs = normalizeProbs(probs);
+    return {
+        name: '连败反弹',
+        confidence: 0.4,
+        probs: probs,
+        detail: '均值回归，连输方反弹'
+    };
+}
 // ========== 规律检测器 ==========
 function detectPatterns(records) {
     var patterns = [];
@@ -3376,7 +3652,7 @@ class Predictor {
     profitPattern: 0.09  // v25.5: 新增收益规律模型
 };
         this.modelPerf = {};
-        // v30.12：更短窗口权重更高，global权重降低
+        // v30.20：更短窗口权重更高，global权重降低
         this.windowWeights = {win3: 0.25, win5: 0.30, win8: 0.25, win10: 0.15, global: 0.05};
         this.windowPerf = {win6: [], win7: [], win8: [], win10: [], global: []};
         this.learnIterations = 0;
@@ -3804,12 +4080,38 @@ class Predictor {
             finalProbs = normalizeProbs(finalProbs);
         }
     }
-    // 规律叠加
+    // v30.20：多模型规律叠加——6大高级模型，权重各自跟随近期准确率（自主学习，优胜劣汰）
+        var patternBlends = [];
+        var _advFactor = function(acc) { return Math.max(0.15, 0.35 + Math.max(0, acc - 0.33) * 4.0); };
         if (patternProbs && patternConf >= CONFIG.patternThreshold - 0.1) {
-            var blend = Math.min(0.55, patternConf * 0.6);  // v17: blend上限从0.4提高到0.55
-            finalProbs.A = finalProbs.A * (1 - blend) + patternProbs.A * blend;
-            finalProbs.B = finalProbs.B * (1 - blend) + patternProbs.B * blend;
-            finalProbs.C = finalProbs.C * (1 - blend) + patternProbs.C * blend;
+            patternBlends.push({ probs: patternProbs, weight: Math.min(0.40, patternConf * 0.45) * _advFactor(this._advAcc('similar')) });
+        }
+        try { var rLoss = predictFromSimilarLossPattern(this.history);
+            if (rLoss && rLoss.confidence >= 0.4) patternBlends.push({ probs: rLoss.probs, weight: Math.min(0.26, rLoss.confidence * 0.3) * _advFactor(this._advAcc('loss')) }); } catch(e) {}
+        try { var rMarkov = predictFromMarkov(this.history);
+            if (rMarkov) patternBlends.push({ probs: rMarkov.probs, weight: Math.min(0.22, rMarkov.confidence * 0.3) * _advFactor(this._advAcc('markov')) }); } catch(e) {}
+        try { var rBayes = predictFromBayesian(this.history);
+            if (rBayes) patternBlends.push({ probs: rBayes.probs, weight: Math.min(0.22, rBayes.confidence * 0.3) * _advFactor(this._advAcc('bayes')) }); } catch(e) {}
+        try { var rTrend = predictFromMultiTrend(this.history);
+            if (rTrend) patternBlends.push({ probs: rTrend.probs, weight: Math.min(0.24, rTrend.confidence * 0.3) * _advFactor(this._advAcc('trend')) }); } catch(e) {}
+        try { var rRebound = predictFromRebound(this.history);
+            if (rRebound) patternBlends.push({ probs: rRebound.probs, weight: Math.min(0.18, rRebound.confidence * 0.28) * _advFactor(this._advAcc('rebound')) }); } catch(e) {}
+        if (patternBlends.length > 0) {
+            var totalW = 0;
+            for (var bi = 0; bi < patternBlends.length; bi++) totalW += patternBlends[bi].weight;
+            if (totalW > 0) {
+                var blendedProbs = {A:0, B:0, C:0};
+                for (var bi2 = 0; bi2 < patternBlends.length; bi2++) {
+                    var pb = patternBlends[bi2];
+                    blendedProbs.A += pb.probs.A * (pb.weight / totalW);
+                    blendedProbs.B += pb.probs.B * (pb.weight / totalW);
+                    blendedProbs.C += pb.probs.C * (pb.weight / totalW);
+                }
+                var totalBlend = Math.min(0.5, totalW);
+                finalProbs.A = finalProbs.A * (1 - totalBlend) + blendedProbs.A * totalBlend;
+                finalProbs.B = finalProbs.B * (1 - totalBlend) + blendedProbs.B * totalBlend;
+                finalProbs.C = finalProbs.C * (1 - totalBlend) + blendedProbs.C * totalBlend;
+            }
         }
         finalProbs = normalizeProbs(finalProbs);
         // v16: multi-dimensional fusion refinement
@@ -4283,6 +4585,47 @@ if(curBrier > 0.3){
         if (wasCorrect) cache[patternName].hits++;
     }
     // ===== 数据操作 =====
+    // v30.20：给6个高级模型对这局的预测打分（用录入前的history）
+    _scoreAdvancedModels(actualWinner) {
+        if (!actualWinner || !this.advancedModelPerf) return;
+        var self = this;
+        function pick(probs) {
+            if (!probs) return null;
+            var lead = 'A';
+            if (probs.B > probs[lead]) lead = 'B';
+            if (probs.C > probs[lead]) lead = 'C';
+            return lead;
+        }
+        function record(key, result) {
+            if (!result || !result.probs) return;
+            var pred = pick(result.probs);
+            if (!pred) return;
+            self.advancedModelPerf[key].push(pred === actualWinner);
+            if (self.advancedModelPerf[key].length > 200) self.advancedModelPerf[key].shift();
+        }
+        try {
+            // 相似盘
+            if (this.history.length >= 12 && !this._fastRebuild) {
+                var simR = predictFromSimilarPattern(this.history.slice(-8), this.history);
+                record('similar', simR);
+            }
+        } catch(e) {}
+        try { record('loss', predictFromSimilarLossPattern(this.history)); } catch(e) {}
+        try { record('markov', predictFromMarkov(this.history)); } catch(e) {}
+        try { record('bayes', predictFromBayesian(this.history)); } catch(e) {}
+        try { record('trend', predictFromMultiTrend(this.history)); } catch(e) {}
+        try { record('rebound', predictFromRebound(this.history)); } catch(e) {}
+    }
+    // v30.20：取某高级模型最近N局准确率（不足返回0.5中性）
+    _advAcc(key, recentN) {
+        if (!this.advancedModelPerf || !this.advancedModelPerf[key]) return 0.5;
+        var arr = this.advancedModelPerf[key];
+        if (arr.length < 3) return 0.5;
+        var use = arr.slice(-(recentN || 20));
+        var correct = 0;
+        for (var i = 0; i < use.length; i++) if (use[i]) correct++;
+        return correct / use.length;
+    }
     addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC) {
         var rec = {a: a, b: b, c: c};
         rec.timeSlot = timeSlot || getTimeSlot();
@@ -4318,6 +4661,8 @@ if(curBrier > 0.3){
                     } : null
                 });
                 this.accuracy.push(winner === prevPrediction.predictedGuild);
+                // v30.20：给6个高级模型打分（自主学习）
+                try { this._scoreAdvancedModels(winner); } catch(e) { console.warn('[高级模型评分]失败:', e.message); }
                 if (this.accuracy.length > 100000) this.accuracy.shift();
                 // v25.8: 收益预测学习记录
                 var actualProfit = rec.profitWinner;
@@ -4600,6 +4945,7 @@ if(curBrier > 0.3){
                 profitAccuracy: (this.profitAccuracy || []),
                 modelWeights: this.modelWeights,
                 modelPerf: this.modelPerf,
+                advancedModelPerf: this.advancedModelPerf,
                 windowPerf: this.windowPerf,
                 learnIterations: this.learnIterations,
                 reflectionLog: this.reflectionLog.slice(-200), // v30.3：保留最近200条，防止操作日志丢失
@@ -4693,6 +5039,10 @@ if(curBrier > 0.3){
             if (mwSum > 0) Object.keys(this.modelWeights).forEach(function(k){ self.modelWeights[k] /= mwSum; });
         }
         if (p.modelPerf) this.modelPerf = p.modelPerf;
+        if (p.advancedModelPerf) this.advancedModelPerf = p.advancedModelPerf;
+        // 兼容：确保6个字段都存在
+        if (!this.advancedModelPerf) this.advancedModelPerf = {similar:[],loss:[],markov:[],bayes:[],trend:[],rebound:[]};
+        ['similar','loss','markov','bayes','trend','rebound'].forEach(function(k){ if(!this.advancedModelPerf[k]) this.advancedModelPerf[k]=[]; }, this);
         if (p.windowPerf) {
             this.windowPerf = p.windowPerf;
             if (!this.windowPerf.win7) this.windowPerf.win7 = [];
@@ -4923,7 +5273,7 @@ var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
 // v27.4：云同步性能与可靠性优化
-var CLOUD_TIMEOUT_MS = 180000; // v30.11：60s->180s，大数据量上传不易超时
+var CLOUD_TIMEOUT_MS = 180000; // v30.20：60s->180s，大数据量上传不易超时
 var CLOUD_SAVE_THROTTLE_MS = 8000;
 var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
@@ -5173,9 +5523,9 @@ var _ologPage = 0;
 var _ologPageSize = 20;
 var _ologHasMore = true;
 var _ologLoading = false;
-// v30.10：分页加载，每页10条，避免一次拉太多数据超时
+// v30.20：分页加载，每页10条，避免一次拉太多数据超时
 var _ologPage = 0;
-var _ologPageSize = 2; // v30.12：改成每页2条，避免服务器500
+var _ologPageSize = 2; // v30.20：改成每页2条，避免服务器500
 var _ologHasMore = true;
 var _ologLoading = false;
 function fetchOlogFromCloud(cb, append) {
@@ -5702,20 +6052,22 @@ async function cloudSave(manual) {
                 }
             } catch(_e) { console.warn('上传前检测失败:', _e); }
         }
-        // v26.4：同步纪元+管理员标记检查——云端epoch更大或有管理员更新时，先强制拉取覆盖本地，再上传
-        try {
-            var epochRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
-            var cloudEpoch = (epochRes.data && epochRes.data.data && epochRes.data.data._syncEpoch) ? epochRes.data.data._syncEpoch : 0;
-            var cloudAdmin = (epochRes.data && epochRes.data.data && epochRes.data.data._adminOverride) ? epochRes.data.data._adminOverride : null;
-            var localAdmin = P._adminOverride || null;
-            var adminNewer = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
-            // 非管理员上传时，如果云端有管理员更新，必须先拉取覆盖
-            if ((cloudEpoch > (P._syncEpoch || 0)) || (!_isAdmin && adminNewer)) {
-                var reason = cloudEpoch > (P._syncEpoch || 0) ? '云端数据已重置（纪元' + cloudEpoch + '）' : '云端有管理员更新';
-                updateCloudStatus('syncing', '检测到' + reason + '，先拉取覆盖本地...');
-                await cloudLoad(true);
-            }
-        } catch(e) { /* 检查失败，继续上传 */ }
+        // v30.20：只有手动上传才检查epoch并拉取，自动上传直接传，不覆盖本地
+        // 修复bug：录入后自动上传时，发现云端更新就拉取覆盖，把刚录的局冲掉了
+        if (manual) {
+            try {
+                var epochRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
+                var cloudEpoch = (epochRes.data && epochRes.data.data && epochRes.data.data._syncEpoch) ? epochRes.data.data._syncEpoch : 0;
+                var cloudAdmin = (epochRes.data && epochRes.data.data && epochRes.data.data._adminOverride) ? epochRes.data.data._adminOverride : null;
+                var localAdmin = P._adminOverride || null;
+                var adminNewer = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
+                if ((cloudEpoch > (P._syncEpoch || 0)) || (!_isAdmin && adminNewer)) {
+                    var reason = cloudEpoch > (P._syncEpoch || 0) ? '云端数据已重置（纪元' + cloudEpoch + '）' : '云端有管理员更新';
+                    updateCloudStatus('syncing', '检测到' + reason + '，先拉取覆盖本地...');
+                    await cloudLoad(true);
+                }
+            } catch(e) { /* 检查失败，继续上传 */ }
+        }
         // v27.3修复：禁用自动合并，改为简单可靠的同步逻辑
         // 之前的自动合并去重逻辑不可靠（timeSlot格式差异+ABC组合不唯一），导致多设备同步时数据重复
         // 现在：本地有修改就直接上传覆盖云端，不再自动合并
@@ -6066,7 +6418,7 @@ function renderSnapshotList() {
     addSrc(_snapshots); addSrc(_cloudSnaps);
     merged.sort(function(a, b){ return new Date(b.time) - new Date(a.time); });
     
-    // v30.11：按设备筛选
+    // v30.20：按设备筛选
     var filterSel = document.getElementById('ologFilterSel');
     var filterDev = filterSel ? filterSel.value : '';
     
@@ -6136,7 +6488,7 @@ function renderSnapshotList() {
             '</td>' +
             '</tr>';
     }
-    // v30.11：分页加载更多按钮
+    // v30.20：分页加载更多按钮
     if (_ologHasMore && !filterDev) {
         html += '<tr><td colspan="5" style="padding:10px;text-align:center;">' +
             '<button onclick="loadMoreOlog()" style="background:#f0f0f0;color:#1a73e8;border:1px solid #1a73e8;padding:6px 20px;border-radius:4px;cursor:pointer;font-size:13px;">加载更多 ↓</button>' +
@@ -7432,6 +7784,31 @@ function updateStats() {
         }
         if (cnt>0) document.getElementById('brierScore').textContent=(bs/(cnt*2)).toFixed(3);
     } else document.getElementById('brierScore').textContent='--';
+    // v30.20：统计预测最低准确率
+    try {
+        var lowCorrect = 0, lowTotal = 0;
+        for (var li = 0; li < P.predHistory.length; li++) {
+            var ph = P.predHistory[li];
+            if (!ph) continue;
+            var probs = ph.probs || ph.probabilities;
+            if (!probs) continue;
+            var actualRec = P.history[li + 1];
+            if (!actualRec) continue;
+            var predLow = 'A';
+            if (probs.B < probs[predLow]) predLow = 'B';
+            if (probs.C < probs[predLow]) predLow = 'C';
+            var actualLow = getLossSide(actualRec);
+            if (!actualLow) continue;
+            lowTotal++;
+            if (predLow === actualLow) lowCorrect++;
+        }
+        var lowEl = document.getElementById('lowestAccuracy');
+        if (lowEl && lowTotal > 0) {
+            lowEl.textContent = (lowCorrect / lowTotal * 100).toFixed(1) + '%';
+        } else {
+            if (lowEl) lowEl.textContent = '0%';
+        }
+    } catch(e) { console.warn('[预测最低统计]失败:', e.message); }
     var r=P.predict();
     document.getElementById('dataSource').textContent=r?r.source:'—';
     // v25.9: 最长未中统计（预测商会 + 预测收益）
