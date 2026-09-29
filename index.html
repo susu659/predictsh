@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -359,6 +360,19 @@ body{padding:8px !important}
 .import-progress-bar{height:8px;background:#e9ecef;border-radius:4px;overflow:hidden;}
 .import-progress-fill{height:100%;background:linear-gradient(90deg,#0f0c29,#302b63);border-radius:4px;transition:width .2s;width:0%;}
 .import-progress-text{font-size:12px;color:#6c757d;margin-top:6px;text-align:center;}
+/* ========== v30: 尾局锚点校验 ========== */
+.import-mode-option.disabled{opacity:.5;cursor:not-allowed !important;background:#f8f9fa;box-shadow:none;}
+.import-mode-option.disabled:hover{border-color:#e9ecef !important;background:#f8f9fa !important;transform:none;}
+.import-mode-option .mode-desc{white-space:normal;}
+.import-anchor-detail{margin:4px 0 14px;padding:11px 14px;border-radius:10px;font-size:12.5px;line-height:1.7;display:none;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.import-anchor-detail.show{display:block;}
+.import-anchor-detail.ok{background:#e8f5e9;border:1px solid #a5d6a7;color:#1b5e20;}
+.import-anchor-detail.bad{background:#fdecea;border:1px solid #f5c6cb;color:#721c24;}
+.anchor-rows{display:grid;grid-template-columns:1fr auto;gap:2px 14px;margin-top:4px;}
+.anchor-seq{font-family:Consolas,Monaco,monospace;font-size:12px;}
+.anchor-new-list{margin-top:6px;}
+body.dark-mode .import-anchor-detail.ok{background:#14361f;color:#a5d6a7;}
+body.dark-mode .import-anchor-detail.bad{background:#3a1d1d;color:#ef9a9a;}
 /* ========== 云同步状态栏 ========== */
 .cloud-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(90deg,#e8f5e9,#e3f2fd);border:2px solid #a5d6a7;border-radius:12px;padding:12px 18px;margin-bottom:16px;}
 .cloud-bar.cloud-off{background:#fafafa;border-color:#ccc;}
@@ -8753,76 +8767,42 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
             showRecordResult(false, '导入失败', '未能解析到有效数据\n请确认复制的是表格内容，需包含A/B/C数值列');
             return;
         }
-        var isReplace = !confirm('成功解析 ' + recs.length + ' 条记录。\n\n点「确定」= 追加导入（保留现有 ' + (P.history?P.history.length:0) + ' 条数据，推荐）\n点「取消」= 覆盖导入（清空现有数据后导入，危险！）');
-        // 注意：confirm确定=true=追加，取消=false=覆盖；为了安全，默认追加
-        // isReplace=true表示覆盖模式
-
-        // 显示进度条
-        st.className = 'import-status';
-        st.innerHTML = '📋 已解析 ' + recs.length + ' 条记录，正在' + (isReplace ? '覆盖' : '追加') + '导入...' +
-            '<div class="import-progress-wrap show" style="margin-top:10px;">' +
-            '<div class="import-progress-bar"><div class="import-progress-fill" id="clipboardProgressFill" style="width:0%;"></div></div>' +
-            '<div class="import-progress-text" id="clipboardProgressText">准备中...</div>' +
-            '</div>';
-
-        // 异步分批导入（每批100条，避免UI卡顿）
-        var batchSize = 100;
-        var totalBatches = Math.ceil(recs.length / batchSize);
-        var currentBatch = 0;
-        var errorCount = 0;
-        _importErrors = [];
-
-        // 覆盖模式：先快照，再清空
-        if (isReplace) {
-            try { createSnapshot('覆盖导入前自动备份（' + (P.history?P.history.length:0) + '条）'); } catch(e) {}
-        }
-
-        var cumP = new Predictor();
-        cumP.modelWeights = Object.assign({}, P.modelWeights);
-        cumP._fastRebuild = true; // 批量导入跳过O(n²)相似盘匹配
-        var existingLen = isReplace ? 0 : P.history.length;
-
-        // 如果是追加模式，先把现有数据加入cumP
-        if (!isReplace) {
-            for (var ei = 0; ei < P.history.length; ei++) {
-                var er = P.history[ei];
-                cumP.addRecord(er.a, er.b, er.c, er.timeSlot, er.profitWinner, er.profitA, er.profitB, er.profitC);
-            }
-        }
-
-        function processNextBatch() {
-            var startIdx = currentBatch * batchSize;
-            var endIdx = Math.min(startIdx + batchSize, recs.length);
-            for (var ri = startIdx; ri < endIdx; ri++) {
-                var r = recs[ri];
-                var errs = validateRecord(r);
-                if (errs.length > 0) {
-                    _importErrors.push({ row: ri+1, a:r.a, b:r.b, c:r.c, errors: errs });
-                    errorCount++;
-                    continue;
+        // v30：剪贴板表格统一走导入模态框（自动获得尾局锚点校验、增量/追加/覆盖三模式）
+        var cbTimeInferred = recs.some(function(r){ return !r.timeSlot; });
+        if (P.history.length > 0) {
+            st.style.display = 'none';
+            openImportModal(recs, 'clipboard', {timeInferred: cbTimeInferred});
+        } else {
+            // 无历史：全量快速导入
+            P.clearAll();
+            var cumP = new Predictor();
+            cumP.modelWeights = Object.assign({}, P.modelWeights);
+            cumP._fastRebuild = true;
+            var cbBatch = 100, cbTotal = recs.length, cbDone = 0;
+            function cbNext() {
+                var cbEnd = Math.min(cbDone + cbBatch, cbTotal);
+                for (var ri = cbDone; ri < cbEnd; ri++) {
+                    var r = recs[ri];
+                    cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC);
                 }
-                cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC);
+                cbDone = cbEnd;
+                if (cbDone < cbTotal) { setTimeout(cbNext, 0); }
+                else {
+                    P.history = cumP.history.slice();
+                    P.predHistory = cumP.predHistory.slice();
+                    P.accuracy = cumP.accuracy.slice();
+                    P.modelWeights = Object.assign({}, cumP.modelWeights);
+                    P.learnIterations = cumP.learnIterations;
+                    P.maxStreakEver = calcMaxStreak(P.history);
+                    if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
+                    renderAll(); debouncedSave();
+                    st.className = 'import-status import-success';
+                    st.textContent = '✅ 剪贴板导入' + recs.length + '条';
+                    setTimeout(function(){ st.style.display = 'none'; }, 4500);
+                }
             }
-            currentBatch++;
-            var pct = Math.round((currentBatch / totalBatches) * 100);
-            var fill = document.getElementById('clipboardProgressFill');
-            var txt = document.getElementById('clipboardProgressText');
-            if (fill) fill.style.width = pct + '%';
-            if (txt) txt.textContent = '正在处理第 ' + currentBatch + '/' + totalBatches + ' 批（' + endIdx + '/' + recs.length + ' 条）...';
-
-            if (currentBatch < totalBatches) {
-                setTimeout(processNextBatch, 0); // 让出UI线程
-            } else {
-                // 导入完成，调用finishImport（触发防护逻辑）
-                var actualAdded = cumP.history.length - existingLen;
-                finishImport(cumP, isReplace ? 'replace' : 'append', recs.length, actualAdded, 0);
-                // 更新importStatus
-                st.className = 'import-status import-success';
-                st.innerHTML = '✅ 成功导入 ' + actualAdded + ' 条记录（' + (isReplace ? '覆盖' : '追加') + '模式）' + (errorCount > 0 ? '，跳过 ' + errorCount + ' 条无效数据' : '');
-                setTimeout(function(){ st.style.display = 'none'; }, 5000);
-            }
+            cbNext();
         }
-        processNextBatch();
     } catch(e) {
         st.className = 'import-status import-error';
         st.textContent = '❌ 读取失败：' + e.message + '（请确保页面是HTTPS，且允许剪贴板权限）';
@@ -8935,7 +8915,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(parts[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}recs.push(rec);}}
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
-                if(P.history.length>0){openImportModal(recs,'csv');}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=100,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,0);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
+                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=100,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,0);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
         };
         readerCSV.readAsText(file);this.value='';
@@ -8970,7 +8950,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
             if(recs.length===0)throw new Error('无有效数据');
             // v22: 导入模式选择（有数据弹出模态框，无数据直接分批导入）
             if (P.history.length > 0) {
-                openImportModal(recs, 'excel');
+                openImportModal(recs, 'excel', {timeInferred: !hasTimeCol && !hasSeparateCols});
             } else {
                 P.clearAll();
                 var cumP=new Predictor();
@@ -9039,43 +9019,148 @@ function deduplicateRecords(newRecs, existingRecs) {
     }
     return {unique: unique, duplicates: duplicates, dupCount: duplicates.length};
 }
-// 打开导入模式选择模态框
-function openImportModal(recs, source) {
+// ========== v30: 尾局锚点序列对齐（增量导入安全校验）==========
+// 需求：增量导入必须用系统历史"最后十局以上"的ABC连续序列与Excel匹配，匹配上才做增量
+var IMPORT_ANCHOR_LEN = 10;  // 锚点局数：取系统最后10局（历史不足10局则取全部）
+var IMPORT_MIN_ANCHOR = 3;   // 系统历史少于3局时无法安全锚定，引导走覆盖/追加
+var _pendingAlign = null;    // 最近一次对齐结果（openImportModal 时计算）
+var _pendingTimeInferred = false; // 本次导入是否无时间列（时间由系统推算）
+function _abcSame(r1, r2) {
+    return !!r1 && !!r2 && r1.a === r2.a && r1.b === r2.b && r1.c === r2.c;
+}
+function _abcStr(r) {
+    return r ? ('A=' + r.a + ' B=' + r.b + ' C=' + r.c) : '无';
+}
+// 判断 recs 从 start 起是否与 tail 序列逐局ABC一致
+function _seqMatchAt(recs, start, tail) {
+    for (var k = 0; k < tail.length; k++) {
+        if (!_abcSame(recs[start + k], tail[k])) return false;
+    }
+    return true;
+}
+// 诊断：Excel末尾与系统末尾，从最后一局往前连续一致的局数
+function _tailEndDiag(newRecs, history) {
+    var n = Math.min(newRecs.length, history.length, IMPORT_ANCHOR_LEN);
+    var m = 0;
+    for (var i = 1; i <= n; i++) {
+        if (_abcSame(newRecs[newRecs.length - i], history[history.length - i])) m++;
+        else break;
+    }
+    return m;
+}
+// 尾局对齐：在 newRecs 中查找 history 末尾 tailLen 局的连续ABC片段
+// 多个命中时取最后一个（Excel通常含"历史段+新局"），命中点之后才是真正的新增局
+function alignByTail(newRecs, history) {
+    var histLen = history ? history.length : 0;
+    if (histLen === 0) return {matched: false, canIncrement: false, reason: 'empty', tailLen: 0};
+    var tailLen = Math.min(IMPORT_ANCHOR_LEN, histLen);
+    if (histLen < IMPORT_MIN_ANCHOR) {
+        return {matched: false, canIncrement: false, reason: 'too-few', tailLen: tailLen};
+    }
+    var tail = history.slice(histLen - tailLen);
+    var found = -1;
+    for (var s = newRecs.length - tailLen; s >= 0; s--) {
+        if (_seqMatchAt(newRecs, s, tail)) { found = s; break; }
+    }
+    if (found < 0) {
+        return {matched: false, canIncrement: false, reason: 'no-anchor', tailLen: tailLen,
+                endMatch: _tailEndDiag(newRecs, history)};
+    }
+    var anchorEnd = found + tailLen;
+    return {matched: true, canIncrement: true, reason: 'ok', tailLen: tailLen,
+            anchorIndex: found, anchorEnd: anchorEnd, overlapCount: anchorEnd,
+            newRecs: newRecs.slice(anchorEnd)};
+}
+// 基于系统最后一局时间，顺延生成第 roundsAfter 局（1起）的时间段
+// 每局间隔 = 局时长(gameIntervalMinutes) + 局间休息(gameBreakSeconds)
+function getTimeSlotAfterLast(roundsAfter) {
+    var baseStart = new Date();
+    if (P.history.length > 0) {
+        var p = parseTimeSlot(P.history[P.history.length - 1].timeSlot);
+        if (p) baseStart = p;
+    }
+    var perGameMs = (gameIntervalMinutes * 60 + gameBreakSeconds) * 1000;
+    return getTimeSlot(new Date(baseStart.getTime() + roundsAfter * perGameMs), false);
+}
+// 打开导入模式选择模态框（v30：打开时即做尾局锚点校验）
+function openImportModal(recs, source, opts) {
     _pendingImportRecs = recs;
     _pendingImportSource = source || 'excel';
-    _pendingImportMode = 'incremental'; // 默认增量导入
-    
-    // 更新模态框信息
+    _pendingImportMode = 'incremental';
+    _pendingTimeInferred = !!(opts && opts.timeInferred);
+
     var existCount = P.history.length;
-    var dedupResult = deduplicateRecords(recs, P.history);
-    var newCount = dedupResult.unique.length;
-    var dupCount = dedupResult.dupCount;
-    
-    document.getElementById('importNewCount').textContent = recs.length;
-    document.getElementById('importExistCount').textContent = existCount;
-    
-    var subText = '检测到 <strong>' + recs.length + '</strong> 条数据，当前已有 <strong>' + existCount + '</strong> 条记录。';
-    if (dupCount > 0) {
-        subText += '<br><span style="color:#e67e22;">其中 ' + dupCount + ' 条与现有数据重复（增量模式将自动跳过），实际新增 ' + newCount + ' 条。</span>';
+    var align = alignByTail(recs, P.history);
+    _pendingAlign = align;
+
+    // 注意：两个计数 strong 位于 modal-sub 内部，设置 innerHTML 时必须保留其 id，
+    // 否则首次导入后元素被替换、再次导入时 getElementById 返回 null
+    document.getElementById('importModalSub').innerHTML =
+        '检测到 <strong id="importNewCount">' + recs.length + '</strong> 条数据，当前已有 <strong id="importExistCount">' + existCount + '</strong> 条记录。';
+
+    var incOpt = document.querySelector('.import-mode-option[data-mode="incremental"]');
+    var incDesc = incOpt.querySelector('.mode-desc');
+    var detail = document.getElementById('importAnchorDetail');
+    incOpt.classList.remove('disabled');
+    detail.classList.remove('show', 'ok', 'bad');
+    detail.innerHTML = '';
+
+    if (align.matched) {
+        var nNew = align.newRecs.length;
+        var rowsDesc = 'Excel第' + (align.anchorIndex + 1) + '–' + align.anchorEnd + '行';
+        if (nNew > 0) {
+            incDesc.innerHTML = '✅ 已匹配系统最后<strong>' + align.tailLen + '</strong>局（' + rowsDesc + '）与Excel完全一致；其后 <strong style="color:#e67e22;">' + nNew + '</strong> 局为新增，将只导入这 ' + nNew + ' 局。相同比分不会再被误判为重复。';
+        } else {
+            incDesc.innerHTML = '✅ 已匹配系统最后' + align.tailLen + '局（' + rowsDesc + '），但Excel没有比系统更新的局，增量导入无新增。';
+        }
+        var histTail = P.history.slice(P.history.length - align.tailLen);
+        var html = '<div style="font-weight:700;margin-bottom:4px;">🔗 尾局锚点：系统最后' + align.tailLen + '局 = ' + rowsDesc + '（ABC全部一致）</div><div class="anchor-rows">';
+        for (var ti = 0; ti < histTail.length; ti++) {
+            var rr = histTail[ti];
+            html += '<div class="anchor-seq">' + (ti + 1) + '. ' + rr.a + ', ' + rr.b + ', ' + rr.c + '</div>';
+            html += '<div class="anchor-seq" style="color:#2e7d32;">第' + (align.anchorIndex + ti + 1) + '行 ✓</div>';
+        }
+        html += '</div>';
+        if (nNew > 0) {
+            html += '<div class="anchor-new-list" style="font-weight:700;color:#e67e22;">➡️ 将新增 ' + nNew + ' 局：</div>';
+            for (var ni = 0; ni < Math.min(nNew, 20); ni++) {
+                var nr = align.newRecs[ni];
+                html += '<div class="anchor-seq">· ' + nr.a + ', ' + nr.b + ', ' + nr.c + '</div>';
+            }
+            if (nNew > 20) html += '<div>…还有 ' + (nNew - 20) + ' 局</div>';
+        }
+        detail.innerHTML = html;
+        detail.classList.add('show', 'ok');
+        selectImportMode('incremental');
+    } else {
+        var msg = '';
+        if (align.reason === 'too-few') {
+            msg = '❌ 系统当前只有 ' + existCount + ' 局（不足' + IMPORT_MIN_ANCHOR + '局），无法用尾局锚定。请改用「覆盖导入」首次建库，或「追加导入」。';
+        } else {
+            msg = '❌ 未在Excel中找到与系统最后 <strong>' + align.tailLen + '</strong> 局ABC完全一致的连续记录，<strong>已禁止增量导入</strong>。<br>常见原因：①选错文件/换了号；②Excel缺少最近几局；③行顺序被打乱。';
+            if (align.endMatch > 0) {
+                msg += '<br>诊断：Excel末尾与系统末尾有 ' + align.endMatch + ' 局一致（需连续' + align.tailLen + '局才放行）。';
+            } else {
+                msg += '<br>诊断：Excel末局（' + _abcStr(recs[recs.length - 1]) + '）与系统末局（' + _abcStr(P.history[P.history.length - 1]) + '）不一致。';
+            }
+            msg += '<br>请核对后重新导入；若确认用该文件重建，请选「覆盖导入」。';
+        }
+        incDesc.innerHTML = msg;
+        incOpt.classList.add('disabled');
+        detail.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">⛔ 增量校验未通过，数据不会被改动</div>' + msg;
+        detail.classList.add('show', 'bad');
+        selectImportMode('append');
     }
-    document.getElementById('importModalSub').innerHTML = subText;
-    
-    // 重置选中状态
-    document.querySelectorAll('.import-mode-option').forEach(function(el) {
-        el.classList.remove('selected');
-    });
-    document.querySelector('.import-mode-option[data-mode="incremental"]').classList.add('selected');
-    
-    // 重置进度条
+
     document.getElementById('importProgressWrap').classList.remove('show');
     document.getElementById('importProgressFill').style.width = '0%';
     document.getElementById('importProgressText').textContent = '正在导入...';
     document.getElementById('importModalConfirm').disabled = false;
-    
     document.getElementById('importModalOverlay').classList.add('open');
 }
-// 选择导入模式
+// 选择导入模式（v30：锚点校验未通过时，增量选项不可选）
 function selectImportMode(mode) {
+    if (mode === 'incremental' && _pendingAlign && !_pendingAlign.matched) return;
     _pendingImportMode = mode;
     document.querySelectorAll('.import-mode-option').forEach(function(el) {
         el.classList.remove('selected');
@@ -9108,36 +9193,78 @@ function confirmImport() {
         P.clearAll();
     }
     
-    // 增量模式：去重
+    // ===== v30 增量模式：尾局锚点对齐 + 真增量追加（不再全量重建）=====
     var importRecs = recs;
     var skipCount = 0;
     if (mode === 'incremental') {
-        var dedup = deduplicateRecords(recs, P.history);
-        importRecs = dedup.unique;
-        skipCount = dedup.dupCount;
+        var align = alignByTail(recs, P.history);
+        if (!align.matched) {
+            // 兜底拦截（正常情况下模态框已禁用增量，这里做双保险）
+            progressFill.style.width = '0%';
+            progressText.textContent = '❌ 增量校验未通过：未匹配系统最后' + align.tailLen + '局，已中止（数据未改动）';
+            setTimeout(function() {
+                closeImportModal();
+                var st0 = document.getElementById('importStatus');
+                st0.style.display = 'block';
+                st0.className = 'import-status import-error';
+                st0.textContent = '❌ 已取消增量：Excel未匹配系统最后' + align.tailLen + '局，请核对文件后重试';
+                setTimeout(function(){ st0.style.display = 'none'; }, 6000);
+            }, 1000);
+            return;
+        }
+        var addRecs = align.newRecs.slice();
+        // 无时间列：新增局时间基于系统末局顺延（不使用解析时按导入时刻推算的时间）
+        if (_pendingTimeInferred) {
+            for (var ai = 0; ai < addRecs.length; ai++) {
+                addRecs[ai] = Object.assign({}, addRecs[ai], {timeSlot: getTimeSlotAfterLast(ai + 1)});
+            }
+        }
+        if (addRecs.length === 0) {
+            progressFill.style.width = '100%';
+            progressText.textContent = '✅ 锚点匹配通过，但Excel没有比系统更新的局，无需导入';
+            setTimeout(function() {
+                closeImportModal();
+                var st1 = document.getElementById('importStatus');
+                st1.style.display = 'block';
+                st1.className = 'import-status import-success';
+                st1.textContent = '✅ 增量校验通过：' + recs.length + ' 条数据系统均已有，无新增局';
+                setTimeout(function(){ st1.style.display = 'none'; }, 5000);
+            }, 900);
+            return;
+        }
+        // 增量前自动快照（误导入可回滚）
+        try { createSnapshot('增量导入前自动备份（' + (P.history ? P.history.length : 0) + '条，锚点' + align.tailLen + '局）'); } catch(e) {}
+        // 真增量：直接在现有 P 上分批追加，逐局触发预测/学习/相似盘匹配
+        var incBatch = 100, incTotal = addRecs.length, incDone = 0, incInvalid = 0;
+        function incNext() {
+            var incEnd = Math.min(incDone + incBatch, incTotal);
+            for (var ri = incDone; ri < incEnd; ri++) {
+                var r = addRecs[ri];
+                var errs = validateRecord(r);
+                if (errs.length > 0) {
+                    _importErrors.push({row: align.anchorEnd + ri + 1, a: r.a, b: r.b, c: r.c, errors: errs});
+                    incInvalid++;
+                    continue;
+                }
+                P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC);
+            }
+            incDone = incEnd;
+            var pct = Math.round(incDone / incTotal * 100);
+            progressFill.style.width = pct + '%';
+            progressText.textContent = '增量导入中 ' + incDone + '/' + incTotal + ' 局（跳过无效 ' + incInvalid + '）';
+            if (incDone < incTotal) { setTimeout(incNext, 0); }
+            else { finishIncremental(incTotal - incInvalid, recs.length, incInvalid); }
+        }
+        setTimeout(incNext, 10);
+        return;
     }
-    
-    // 追加/增量模式：合并历史
+
+    // 追加/覆盖模式：合并历史（沿用全量重建流程）
     var hist;
     if (mode === 'replace') {
         hist = importRecs;
     } else {
         hist = P.history.slice().concat(importRecs);
-    }
-    
-    if (importRecs.length === 0 && mode === 'incremental') {
-        // 增量模式下没有新数据
-        progressFill.style.width = '100%';
-        progressText.textContent = '✅ 所有数据均已存在，无需导入（跳过 ' + skipCount + ' 条重复）';
-        setTimeout(function() {
-            closeImportModal();
-            var st = document.getElementById('importStatus');
-            st.style.display = 'block';
-            st.className = 'import-status import-success';
-            st.textContent = '✅ 增量导入：所有 ' + recs.length + ' 条数据均已存在，无需新增';
-            setTimeout(function(){st.style.display='none';},4500);
-        }, 1200);
-        return;
     }
     
     // v22: 分批异步导入，避免UI卡顿
@@ -9177,6 +9304,90 @@ function confirmImport() {
     
     setTimeout(processNextBatch, 10);
 }
+// v30: 导入后自动回测/参数优化/云同步（finishImport 与 finishIncremental 共用）
+function postImportAutoTune(mode) {
+    setTimeout(function() {
+        try {
+            if (P.history && P.history.length >= 50) {
+                // 立即跑一次回测（不等20局间隔）
+                _lastBacktestCount = P.history.length;
+                var m = P.runBacktest();
+                if (m) {
+                    _lastBacktest = m;
+                    var el = document.getElementById('autoBrierBadge');
+                    if (el) {
+                        el.innerHTML = '📊 回测准确率 <strong>'+(m.acc1*100).toFixed(1)+'%</strong> | Brier <strong>'+m.avgBrier.toFixed(3)+'</strong> | 收益 <strong>'+(m.profitCount>0?(m.profitAcc*100).toFixed(0)+'%':'—')+'</strong>';
+                    }
+                    console.log('[导入后回测] 准确率', (m.acc1*100).toFixed(1)+'%');
+                }
+            }
+            if (P.history && P.history.length >= 200 && !window._optRunning) {
+                _lastOptimizeCount = P.history.length;
+                window._optRunning = true;
+                console.log('[导入后优化] 开始自动参数优化...');
+                P.autoOptimize(function(result) {
+                    if (result.done && result.bestCombo) {
+                        window._optRunning = false;
+                        var oldScore = _lastBacktest ? _lastBacktest.acc1 : 0;
+                        if (result.bestScore > oldScore + 0.01) {
+                            var p = result.bestCombo;
+                            try {
+                                document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
+                                document.getElementById('cfgColdBonusCap').value = p.coldBonusCap||0.025;
+                                document.getElementById('cfgWin6W').value = p.win6W||0.32;
+                                document.getElementById('cfgWin7W').value = p.win7W||0.20;
+                                document.getElementById('cfgWin8W').value = p.win8W||0.28;
+                                document.getElementById('cfgWin10W').value = p.win10W||0.12;
+                                document.getElementById('cfgGlobalW').value = p.globalW||0.08;
+                                document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
+                                reloadConfig();
+                                console.log('[导入后优化] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
+                                renderAll();
+                            } catch(e) { console.warn('[导入后优化] apply failed:', e.message); }
+                        } else {
+                            console.log('[导入后优化] 当前参数已较优，无需调整');
+                        }
+                        window._optimalParams = result.bestCombo;
+                    }
+                });
+            }
+        } catch(e) { console.warn('[导入后自动优化]', e.message); }
+    }, 500);
+    // 防护：覆盖模式不自动同步云端；增量/追加正常同步
+    if (supabaseClient && cloudOnline && mode !== 'replace') {
+        cloudSave();
+    } else if (mode === 'replace' && supabaseClient && cloudOnline) {
+        setAutoSync(false);
+        updateCloudStatus('online', '⚠️ 覆盖导入已完成（本地' + P.history.length + '条），确认无误后请点「上传云端」同步');
+    }
+}
+// v30: 增量导入完成（直接在现有P上追加后的收尾，数据主体未重建）
+function finishIncremental(actualAdded, totalParsed, invalidCount) {
+    if (P.predHistory.length > 0) {
+        P.lastPrediction = P.predHistory[P.predHistory.length - 1].guild;
+    }
+    renderAll();
+    P.saveLocal();
+    postImportAutoTune('incremental');
+    var progressFill = document.getElementById('importProgressFill');
+    var progressText = document.getElementById('importProgressText');
+    progressFill.style.width = '100%';
+    var detail = '（新增 ' + actualAdded + ' 局' + (invalidCount > 0 ? '，跳过无效 ' + invalidCount + ' 局' : '') + '，锚点匹配通过，原有记录未改动）';
+    progressText.textContent = '✅ 增量导入完成！' + detail;
+    setTimeout(function() {
+        closeImportModal();
+        var st = document.getElementById('importStatus');
+        st.style.display = 'block';
+        st.className = 'import-status import-success';
+        st.textContent = '✅ 增量导入完成：' + detail + '，当前共 ' + P.history.length + ' 条记录';
+        setTimeout(function(){ st.style.display = 'none'; }, 5000);
+        var msg = '增量导入完成！\n' + detail + '\n当前共 ' + P.history.length + ' 条记录';
+        if (_importErrors && _importErrors.length > 0) {
+            msg += '\n\n⚠️ 有 ' + _importErrors.length + ' 局校验失败已跳过';
+        }
+        showRecordResult(true, '导入成功', msg);
+    }, 800);
+}
 // 导入完成后的处理
 function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     P.history = cumP.history.slice();
@@ -9196,64 +9407,8 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     renderAll();
     // v26.4：导入是大操作，立即保存本地
     P.saveLocal();
-    // v29优化：批量导入后自动触发一次回测+参数优化（后台异步），让模型基于新数据重新学习
-    // 因为_fastRebuild跳过了逐局learnFromResult，这里用autoOptimize做整体优化补上
-    setTimeout(function() {
-        try {
-            if (P.history && P.history.length >= 50) {
-                // 立即跑一次回测（不等20局间隔）
-                _lastBacktestCount = P.history.length; // 重置计数，立即触发
-                var m = P.runBacktest();
-                if (m) {
-                    _lastBacktest = m;
-                    var el = document.getElementById('autoBrierBadge');
-                    if (el) {
-                        el.innerHTML = '📊 回测准确率 <strong>'+(m.acc1*100).toFixed(1)+'%</strong> | Brier <strong>'+m.avgBrier.toFixed(3)+'</strong> | 收益 <strong>'+(m.profitCount>0?(m.profitAcc*100).toFixed(0)+'%':'—')+'</strong>';
-                    }
-                    console.log('[导入后回测] 准确率', (m.acc1*100).toFixed(1)+'%');
-                }
-            }
-            if (P.history && P.history.length >= 200 && !window._optRunning) {
-                // 数据量足够时，后台自动优化参数
-                _lastOptimizeCount = P.history.length; // 重置计数，立即触发
-                window._optRunning = true; // 防止与autoOptimizeTick重复触发
-                console.log('[导入后优化] 开始自动参数优化...');
-                P.autoOptimize(function(result) {
-                    if (result.done && result.bestCombo) {
-                        window._optRunning = false;
-                        var oldScore = _lastBacktest ? _lastBacktest.acc1 : 0;
-                        if (result.bestScore > oldScore + 0.01) { // 导入后阈值放宽到1%
-                            var p = result.bestCombo;
-                            try {
-                                document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
-                                document.getElementById('cfgColdBonusCap').value = p.coldBonusCap||0.025;
-                                document.getElementById('cfgWin6W').value = p.win6W||0.32;
-                                document.getElementById('cfgWin7W').value = p.win7W||0.20;
-                                document.getElementById('cfgWin8W').value = p.win8W||0.28;
-                                document.getElementById('cfgWin10W').value = p.win10W||0.12;
-                                document.getElementById('cfgGlobalW').value = p.globalW||0.08;
-                                document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
-                                reloadConfig();
-                                console.log('[导入后优化] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
-                                // 优化后重新渲染
-                                renderAll();
-                            } catch(e) { console.warn('[导入后优化] apply failed:', e.message); }
-                        } else {
-                            console.log('[导入后优化] 当前参数已较优，无需调整');
-                        }
-                        window._optimalParams = result.bestCombo;
-                    }
-                });
-            }
-        } catch(e) { console.warn('[导入后自动优化]', e.message); }
-    }, 500);
-    // 防护：覆盖模式不自动同步云端，避免误操作立刻污染云端；由用户确认后手动上传
-    if (supabaseClient && cloudOnline && mode !== 'replace') {
-        cloudSave();
-    } else if (mode === 'replace' && supabaseClient && cloudOnline) {
-        setAutoSync(false); // v27.3：覆盖导入后禁用自动同步，避免意外同步
-        updateCloudStatus('online', '⚠️ 覆盖导入已完成（本地' + P.history.length + '条），确认无误后请点「上传云端」同步');
-    }
+    // v30：导入后自动回测/参数优化/云同步（增量与覆盖共用 postImportAutoTune）
+    postImportAutoTune(mode);
     
     var progressFill = document.getElementById('importProgressFill');
     var progressText = document.getElementById('importProgressText');
@@ -9997,6 +10152,7 @@ setTimeout(function(){
 <div class="import-modal">
 <h3 id="importModalTitle">选择导入方式</h3>
 <p class="modal-sub" id="importModalSub">检测到 <strong id="importNewCount">0</strong> 条新数据，当前已有 <strong id="importExistCount">0</strong> 条记录。请选择导入方式：</p>
+<div class="import-anchor-detail" id="importAnchorDetail"></div>
 <div class="import-mode-option selected" data-mode="incremental" onclick="selectImportMode('incremental')">
 <div class="mode-radio"></div>
 <div class="mode-info">
