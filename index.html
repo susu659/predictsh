@@ -11,7 +11,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v31.1 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v31.3 · 智能预测云端协同</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -125,6 +125,8 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
 .pred-card.rank-1{border-color:#ffc107;transform:scale(1.02);box-shadow:0 8px 26px rgba(255,193,7,.3);background:#fffdf5}
 .pred-card.rank-2{border-color:#adb5bd;background:#fafbfc}
 .pred-card.rank-3{border-color:#dee2e6;opacity:.88;background:#f8f9fa}
+.prob-bar{height:8px;border-radius:4px;background:#e9ecef;margin-top:10px;overflow:hidden}
+.prob-bar-fill{height:100%;border-radius:4px;transition:width .4s ease}
 .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .guild-name{font-size:clamp(18px,2.3vw,22px);font-weight:600}
 .win-prob{font-size:clamp(28px,4.5vw,38px);font-weight:700;color:#302b63}
@@ -341,6 +343,7 @@ h1{font-size:20px !important}
 .input-row{flex-direction:column !important;gap:8px !important}
 .input-row input,.input-row select{width:100% !important}
 .sim-detail-panel{overflow-x:auto !important;-webkit-overflow-scrolling:touch}
+#compareResult + * [style*="grid-template-columns"], .import-modal [style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr !Important;}
 }
 /* ========== v22: 导入模式选择模态框 ========== */
 .import-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
@@ -579,8 +582,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v31.1</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v31.1</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v31.3</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v31.3</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -712,6 +715,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="btn-excel" id="btnImportClipboard" style="background:#00b894;">📋 剪贴板导入(表格)</button>
 <button class="btn-excel" id="btnExportData" style="background:#0984e3;">📤 导出数据</button>
 <button class="btn-excel" id="dailySnapshotBtn" style="background:#ff5722;">📷 当日快照</button>
+<button class="btn-excel" onclick="openCompareModal()" style="background:#9c27b0;">📊 两日对比</button>
 <button class="btn-simulate" id="btnSimulate" style="display:none;">🎲 模拟10局</button>
 <button class="btn-backtest" id="btnRunBacktest">📈 运行回测</button>
 <button class="btn-learn" id="btnQuickLearn">🧠 快速学习</button>
@@ -723,11 +727,12 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 <div class="prediction-section">
 <h2 class="section-title">下一局预测 <button onclick="copyPrediction()" style="font-size:12px;padding:4px 12px;border-radius:8px;border:1px solid #302b63;background:#fff;color:#302b63;cursor:pointer;margin-left:8px;font-weight:600;">📋 复制预测</button></h2>
+<div id="lastResultFeedback" style="margin-bottom:10px;padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;display:none;"></div>
 <div style="font-weight:600;font-size:14px;color:#302b63;margin-bottom:8px;">🏆 ABC商会获胜预测</div>
 <div class="prediction-cards">
-<div class="pred-card" id="cardA"><div class="card-header"><span class="guild-name">商会A</span><span class="win-prob" id="winProbA">—</span></div><div class="prob-detail" id="detailA">概率 —</div><div class="streak-info" id="streakA"></div></div>
-<div class="pred-card" id="cardB"><div class="card-header"><span class="guild-name">商会B</span><span class="win-prob" id="winProbB">—</span></div><div class="prob-detail" id="detailB">概率 —</div><div class="streak-info" id="streakB"></div></div>
-<div class="pred-card" id="cardC"><div class="card-header"><span class="guild-name">商会C</span><span class="win-prob" id="winProbC">—</span></div><div class="prob-detail" id="detailC">概率 —</div><div class="streak-info" id="streakC"></div></div>
+<div class="pred-card" id="cardA"><div class="card-header"><span class="guild-name">商会A</span><span class="win-prob" id="winProbA">—</span></div><div class="prob-detail" id="detailA">概率 —</div><div class="streak-info" id="streakA"></div><div class="prob-bar" id="probBarA"></div></div>
+<div class="pred-card" id="cardB"><div class="card-header"><span class="guild-name">商会B</span><span class="win-prob" id="winProbB">—</span></div><div class="prob-detail" id="detailB">概率 —</div><div class="streak-info" id="streakB"></div><div class="prob-bar" id="probBarB"></div></div>
+<div class="pred-card" id="cardC"><div class="card-header"><span class="guild-name">商会C</span><span class="win-prob" id="winProbC">—</span></div><div class="prob-detail" id="detailC">概率 —</div><div class="streak-info" id="streakC"></div><div class="prob-bar" id="probBarC"></div></div>
 </div>
 <div id="betAdviceBar" style="margin:14px 0 4px;padding:14px 18px;border-radius:12px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:12px;background:#f1f3f5;color:#495057;">
   <span id="betAdviceLabel" style="font-size:17px;">⏳ 分析中...</span>
@@ -940,7 +945,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v31.1';
+  var APP_VERSION = 'v31.3';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -4291,6 +4296,96 @@ class Predictor {
             finalProbs = normalizeProbs(finalProbs);
         }
     }
+    // v31.1: 三个轻量统计因子——直接从历史数据算条件概率微调
+    this._statsFactors = [];
+    if (!this._fastRebuild && this.history.length >= 20) {
+        try {
+            // 因子1: 时段效应——统计当前时段历史开号分布
+            var nowSlot = getTimeSlot();
+            var slotCounts = {A:0, B:0, C:0};
+            var slotTotal = 0;
+            for (var si = 0; si < this.history.length; si++) {
+                var h = this.history[si];
+                if ((h.timeSlot||'') === nowSlot) {
+                    var w = getWinner(h);
+                    if (w) { slotCounts[w]++; slotTotal++; }
+                }
+            }
+            if (slotTotal >= 15) {
+                var slotBias = {A: slotCounts.A/slotTotal, B: slotCounts.B/slotTotal, C: slotCounts.C/slotTotal};
+                finalProbs.A = finalProbs.A*0.85 + slotBias.A*0.15;
+                finalProbs.B = finalProbs.B*0.85 + slotBias.B*0.15;
+                finalProbs.C = finalProbs.C*0.85 + slotBias.C*0.15;
+                var slotTop = slotBias.A>=slotBias.B && slotBias.A>=slotBias.C ? 'A' : slotBias.B>=slotBias.C ? 'B' : 'C';
+                this._statsFactors.push('🕐 <strong>'+nowSlot+'时段</strong>历史'+slotTotal+'局：A'+(slotCounts.A)+'次 B'+(slotCounts.B)+'次 C'+(slotCounts.C)+'次 → '+slotTop+'开得多，微调+15%');
+            }
+        } catch(e) {}
+        try {
+            // 因子2: 血本→赢家联动——历史上谁是0分方时谁更容易赢
+            var lossWinMap = {A:{A:0,B:0,C:0}, B:{A:0,B:0,C:0}, C:{A:0,B:0,C:0}};
+            for (var li = 0; li < this.history.length; li++) {
+                var hr = this.history[li];
+                var scores = {A:hr.a, B:hr.b, C:hr.c};
+                var loser = null, minS = 99;
+                for (var gk in scores) { if (scores[gk] < minS) { minS = scores[gk]; loser = gk; } }
+                var winner = getWinner(hr);
+                if (loser && winner && loser !== winner) lossWinMap[loser][winner]++;
+            }
+            var recent = this.history.slice(-10);
+            var lossFreq = {A:0, B:0, C:0};
+            for (var ri = 0; ri < recent.length; ri++) {
+                var rr = recent[ri];
+                var rs = {A:rr.a, B:rr.b, C:rr.c};
+                var rloser = null, rmin = 99;
+                for (var rk in rs) { if (rs[rk] < rmin) { rmin = rs[rk]; rloser = rk; } }
+                if (rloser) lossFreq[rloser]++;
+            }
+            var likelyLoser = lossFreq.A>=lossFreq.B && lossFreq.A>=lossFreq.C ? 'A' : lossFreq.B>=lossFreq.C ? 'B' : 'C';
+            var lw = lossWinMap[likelyLoser];
+            var lwTotal = lw.A + lw.B + lw.C;
+            if (lwTotal >= 10) {
+                var lwBias = {A: lw.A/lwTotal, B: lw.B/lwTotal, C: lw.C/lwTotal};
+                finalProbs.A = finalProbs.A*0.88 + lwBias.A*0.12;
+                finalProbs.B = finalProbs.B*0.88 + lwBias.B*0.12;
+                finalProbs.C = finalProbs.C*0.88 + lwBias.C*0.12;
+                var lwTop = lwBias.A>=lwBias.B && lwBias.A>=lwBias.C ? 'A' : lwBias.B>=lwBias.C ? 'B' : 'C';
+                this._statsFactors.push('🩸 近10局血本方多为<strong>'+likelyLoser+'</strong>，历史统计：'+likelyLoser+'是血本时，'+lwTop+'赢'+(lw[lwTop])+'/'+lwTotal+'局 → 微调+12%');
+            }
+        } catch(e) {}
+        try {
+            // 因子3: 连续同向后反转——连续N局同方向后下一局统计
+            var n = this.history.length;
+            var lastWinner = getWinner(this.history[n-1]);
+            var streakLen = 1;
+            for (var bi = n-2; bi >= 0; bi--) {
+                if (getWinner(this.history[bi]) === lastWinner) streakLen++;
+                else break;
+            }
+            if (streakLen >= 2) {
+                var afterCounts = {A:0, B:0, C:0};
+                var afterTotal = 0;
+                for (var ai = 0; ai < n-1; ai++) {
+                    var matchLen = 0;
+                    for (var mj = 0; mj < streakLen && ai+mj < n-1; mj++) {
+                        if (getWinner(this.history[ai+mj]) === lastWinner) matchLen++;
+                    }
+                    if (matchLen === streakLen && ai+streakLen < n) {
+                        var nextW = getWinner(this.history[ai+streakLen]);
+                        if (nextW) { afterCounts[nextW]++; afterTotal++; }
+                    }
+                }
+                if (afterTotal >= 8) {
+                    var afterBias = {A: afterCounts.A/afterTotal, B: afterCounts.B/afterTotal, C: afterCounts.C/afterTotal};
+                    finalProbs.A = finalProbs.A*0.85 + afterBias.A*0.15;
+                    finalProbs.B = finalProbs.B*0.85 + afterBias.B*0.15;
+                    finalProbs.C = finalProbs.C*0.85 + afterBias.C*0.15;
+                    var afterTop = afterBias.A>=afterBias.B && afterBias.A>=afterBias.C ? 'A' : afterBias.B>=afterBias.C ? 'B' : 'C';
+                    this._statsFactors.push('🔄 已连开<strong>'+lastWinner+'</strong>'+streakLen+'局，历史'+afterTotal+'次同走势后：A'+afterCounts.A+'次 B'+afterCounts.B+'次 C'+afterCounts.C+'次 → '+afterTop+'最易反转，微调+15%');
+                }
+            }
+        } catch(e) {}
+        finalProbs = normalizeProbs(finalProbs);
+    }
     // v30.22：多模型规律叠加——6大高级模型，权重各自跟随近期准确率（自主学习，优胜劣汰）
     // v31.0: fastRebuild模式下跳过所有高级模型（马尔可夫/贝叶斯/血本/收益盘ABC），重建速度提升5-10倍
     if (this._fastRebuild) {
@@ -4973,6 +5068,7 @@ if(curBrier > 0.3){
     addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC) {
         var rec = {a: a, b: b, c: c};
         rec.timeSlot = timeSlot || getTimeSlot();
+        rec.date = new Date().toISOString().slice(0,10); // v31.2: 记录日期用于两日对比
         // v25.5: 收益字段（大/中/小），旧数据兼容默认为空
         rec.profitWinner = profitWinner || '';
         rec.profitA = profitA || '';
@@ -6646,6 +6742,141 @@ function openDailySnapshot() {
 function closeDailySnapshot() {
     document.getElementById('dailySnapshotOverlay').classList.remove('open');
 }
+// v31.3: 对比面板缩放（字体大小）
+var _compareZoom = 14;
+function compareZoom(delta) {
+    _compareZoom = Math.max(10, Math.min(24, _compareZoom + delta));
+    var body = document.getElementById('compareModalBody');
+    body.style.fontSize = _compareZoom + 'px';
+    // 强制覆盖所有子元素
+    var cells = body.querySelectorAll('td,th,.score-badge,.winner-cell,.profit-tag,span');
+    cells.forEach(function(el){ el.style.fontSize = _compareZoom + 'px'; });
+    document.getElementById('compareZoomLevel').textContent = _compareZoom + 'px';
+}
+// v31.2: 两日走势对比
+function _getRecDate(rec) {
+    if (rec.date) return rec.date;
+    var ts = splitTimeSlot(rec.timeSlot);
+    if (ts.date) {
+        var m = ts.date.match(/(\d{1,2})月(\d{1,2})日/);
+        if (m) {
+            var year = new Date().getFullYear();
+            return year + '-' + String(m[1]).padStart(2,'0') + '-' + String(m[2]).padStart(2,'0');
+        }
+    }
+    return '';
+}
+function _getRecTime(rec) {
+    var ts = splitTimeSlot(rec.timeSlot);
+    return ts.time ? ts.time.split('-')[0] : '';
+}
+function openCompareModal() {
+    var overlay = document.getElementById('compareModalOverlay');
+    overlay.classList.add('open');
+    var today = new Date();
+    var todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+    document.getElementById('compareDateA').value = todayStr;
+    var dates = {};
+    P.history.forEach(function(h) { var d = _getRecDate(h); if (d) dates[d] = true; });
+    var sortedDates = Object.keys(dates).sort().reverse();
+    if (sortedDates.length >= 2) {
+        var prevDate = sortedDates.find(function(d){ return d < todayStr; });
+        document.getElementById('compareDateB').value = prevDate || sortedDates[0];
+    }
+    document.getElementById('compareResult').innerHTML = '';
+    loadCompareTables();
+}
+function loadCompareTables() {
+    var da = document.getElementById('compareDateA').value;
+    var db = document.getElementById('compareDateB').value;
+    [['A',da],['B',db]].forEach(function(pair) {
+        var side = pair[0], dateStr = pair[1];
+        var body = document.getElementById('compareBody'+side);
+        var sum = document.getElementById('compareSum'+side);
+        body.innerHTML = '';
+        if (!dateStr) { sum.textContent = '—'; return; }
+        var rows = [];
+        P.history.forEach(function(h, idx) {
+            if (_getRecDate(h) === dateStr) rows.push({idx:idx+1, rec:h, time:_getRecTime(h)});
+        });
+        var cA=0,cB=0,cC=0,cBig=0,cMid=0,cSmall=0;
+        rows.forEach(function(r) {
+            var w = getWinner(r.rec);
+            if (w==='A')cA++; else if(w==='B')cB++; else if(w==='C')cC++;
+            var pf = r.rec.profitWinner;
+            if(pf==='大')cBig++; else if(pf==='中')cMid++; else if(pf==='小')cSmall++;
+        });
+        sum.innerHTML = dateStr + ' · 共'+rows.length+'局 · <span style="color:#e74c3c;">A'+cA+'</span> <span style="color:#3498db;">B'+cB+'</span> <span style="color:#2ecc71;">C'+cC+'</span> · 大'+cBig+' 中'+cMid+' 小'+cSmall;
+        rows.forEach(function(r) {
+            var w = getWinner(r.rec);
+            var pf = r.rec.profitWinner||'';
+            var tr = document.createElement('tr');
+            tr.style.borderTop = '1px solid #f0f0f0';
+            var wCls = 'winner-cell winner-' + (w ? w.toLowerCase() : '');
+            tr.innerHTML = '<td style="padding:4px;text-align:center;color:#999;">'+r.idx+'</td>'+
+                '<td style="padding:4px;text-align:center;color:#999;font-size:10px;">'+r.time+'</td>'+
+                '<td style="padding:4px;text-align:center;">'+scoreSpan(r.rec.a)+'</td>'+
+                '<td style="padding:4px;text-align:center;">'+scoreSpan(r.rec.b)+'</td>'+
+                '<td style="padding:4px;text-align:center;">'+scoreSpan(r.rec.c)+'</td>'+
+                '<td class="'+wCls+'" style="font-weight:700;font-size:13px;">'+(w||'平局')+'</td>'+
+                '<td style="padding:4px;text-align:center;">'+profitTag(pf)+'</td>';
+            body.appendChild(tr);
+        });
+    });
+}
+function runCompare() {
+    var da = document.getElementById('compareDateA').value;
+    var db = document.getElementById('compareDateB').value;
+    var result = document.getElementById('compareResult');
+    if (!da || !db) { result.innerHTML = '<span style="color:#dc3545;">请选两个日期</span>'; return; }
+    var seqA = [], seqB = [];
+    P.history.forEach(function(h) {
+        var w = getWinner(h); if (!w) return;
+        var d = _getRecDate(h);
+        if (d === da) seqA.push(w);
+        if (d === db) seqB.push(w);
+    });
+    if (seqA.length < 3) { result.innerHTML = '<span style="color:#dc3545;">'+da+' 只有'+seqA.length+'局，数据太少</span>'; return; }
+    if (seqB.length < 3) { result.innerHTML = '<span style="color:#dc3545;">'+db+' 只有'+seqB.length+'局，数据太少</span>'; return; }
+    function stats(seq) { var c={A:0,B:0,C:0}; seq.forEach(function(w){c[w]++;}); return c; }
+    var sa = stats(seqA), sb = stats(seqB);
+    var html = '';
+    html += '<div style="font-family:monospace;font-size:15px;letter-spacing:1px;margin-bottom:8px;">';
+    html += '<div>📅 '+da+'：'+seqA.join(' → ')+'</div>';
+    html += '<div>📅 '+db+'：'+seqB.join(' → ')+'</div>';
+    html += '</div>';
+    // 滑动匹配
+    var shortSeq = seqA.length <= seqB.length ? seqA : seqB;
+    var longSeq = seqA.length <= seqB.length ? seqB : seqA;
+    var bestMatch = {score:0, start:0, len:0};
+    for (var start = 0; start <= longSeq.length - shortSeq.length; start++) {
+        var match = 0;
+        for (var i = 0; i < shortSeq.length; i++) { if (longSeq[start+i] === shortSeq[i]) match++; }
+        var score = match / shortSeq.length;
+        if (score > bestMatch.score) bestMatch = {score:score, start:start, len:shortSeq.length};
+    }
+    var tailLen = Math.min(6, seqA.length, seqB.length);
+    var tailMatch = 0;
+    for (var ti = 0; ti < tailLen; ti++) { if (seqA[seqA.length-1-ti] === seqB[seqB.length-1-ti]) tailMatch++; }
+    var tailScore = tailLen > 0 ? tailMatch/tailLen : 0;
+    var overall = (bestMatch.score + tailScore) / 2;
+    html += '<div style="border-radius:10px;padding:12px;';
+    if (overall >= 0.7) html += 'background:#d4edda;color:#155724;';
+    else if (overall >= 0.5) html += 'background:#fff3cd;color:#856404;';
+    else html += 'background:#f8d7da;color:#721c24;';
+    html += '">';
+    html += '<div style="font-weight:700;margin-bottom:4px;">🔍 综合相似度：'+(overall*100).toFixed(0)+'%</div>';
+    if (overall >= 0.7) html += '<div style="font-size:13px;">✅ 两日走势高度相似！'+da+'的走势在'+db+'重演。</div>';
+    else if (overall >= 0.5) html += '<div style="font-size:13px;">⚠️ 两日走势有一定相似性。</div>';
+    else html += '<div style="font-size:13px;">❌ 两日走势差异较大。</div>';
+    html += '<div style="font-size:12px;margin-top:6px;opacity:0.8;">全局匹配：'+(bestMatch.score*100).toFixed(0)+'% | 尾段近'+tailLen+'局：'+(tailScore*100).toFixed(0)+'%</div>';
+    var diffA = Math.abs(sa.A/seqA.length - sb.A/seqB.length);
+    var diffB = Math.abs(sa.B/seqA.length - sb.B/seqB.length);
+    var diffC = Math.abs(sa.C/seqA.length - sb.C/seqB.length);
+    html += '<div style="font-size:12px;margin-top:4px;opacity:0.8;">开号分布差异：A差'+(diffA*100).toFixed(0)+'% B差'+(diffB*100).toFixed(0)+'% C差'+(diffC*100).toFixed(0)+'%</div>';
+    html += '</div>';
+    result.innerHTML = html;
+}
 function renderDailySnapshot() {
     var dateInput = document.getElementById('dsDateInput');
     var tbody = document.getElementById('dsTableBody');
@@ -7667,6 +7898,25 @@ function renderCards() {
         return;
     }
     var probs=result.probabilities, rank=result.rank, sorted=result.sorted, ts=result.tailStreak;
+    // v31.2: 上局对错反馈
+    try {
+        var fb = document.getElementById('lastResultFeedback');
+        if (P.predHistory && P.predHistory.length > 0 && P.accuracy && P.accuracy.length > 0) {
+            var lastPred = P.predHistory[P.predHistory.length-1];
+            var lastCorrect = P.accuracy[P.accuracy.length-1];
+            var actualWinner = getWinner(P.history[P.history.length-1]);
+            if (lastPred && actualWinner) {
+                fb.style.display = 'block';
+                if (lastCorrect) {
+                    fb.style.background = '#d4edda'; fb.style.color = '#155724';
+                    fb.innerHTML = '✅ 上局预测<strong>'+lastPred.guild+'</strong> → 实际开<strong>'+actualWinner+'</strong>，命中！';
+                } else {
+                    fb.style.background = '#f8d7da'; fb.style.color = '#721c24';
+                    fb.innerHTML = '❌ 上局预测<strong>'+lastPred.guild+'</strong> → 实际开<strong>'+actualWinner+'</strong>，未中';
+                }
+            }
+        } else { fb.style.display = 'none'; }
+    } catch(e) {}
     for (var si=0; si<sorted.length; si++) {
         var g=sorted[si][0], r=si+1, prob=sorted[si][1];
         var card=document.getElementById('card'+g);
@@ -7913,6 +8163,11 @@ function renderCards() {
             var rangeStr = '第'+(m.startIdx)+'~'+(m.startIdx+m.matchLen-1)+'局';
             patHtml += '<br>&nbsp;&nbsp;• '+rangeStr+' <span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;background:#e8f5e9;color:#2e7d32;">'+m.matchLen+'局</span> 相似度'+(m.similarity*100).toFixed(0)+'% → 下一局获胜收益=<strong>'+m.nextProfit+'</strong>';
         });
+    }
+    // v31.2: 三个统计因子推理过程
+    if (P._statsFactors && P._statsFactors.length > 0) {
+        patHtml += '<br>📊 <strong>统计微调：</strong>';
+        P._statsFactors.forEach(function(f) { patHtml += '<br>&nbsp;&nbsp;• ' + f; });
     }
     patternEl.innerHTML=patHtml;
     var acc=P.accuracy.length>0?(P.accuracy.filter(function(x){return x;}).length/P.accuracy.length*100).toFixed(1)+'%':'暂无';
@@ -10802,6 +11057,64 @@ setTimeout(function(){
 </div>
 </div>
 </div>
+<!-- v31.2: 两日走势对比模态框 -->
+<div class="import-modal-overlay" id="compareModalOverlay">
+<div class="import-modal" id="compareModalBox" style="max-width:80vw;width:80vw;padding:20px 24px;">
+<h3>📊 两日走势对比 <span onclick="document.getElementById('compareModalOverlay').classList.remove('open')" style="float:right;cursor:pointer;color:#999;font-size:20px;font-weight:normal;">✕</span>
+<span style="float:right;margin-right:16px;font-size:13px;font-weight:400;">
+<button onclick="compareZoom(-1)" style="padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;font-size:14px;">−</button>
+<span id="compareZoomLevel" style="margin:0 6px;">14px</span>
+<button onclick="compareZoom(1)" style="padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;font-size:14px;">＋</button>
+</span></h3>
+<p class="modal-sub">选两个日期，左右各显示当天完整记录，点"一键分析"对比走势是否相似。</p>
+<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+<div style="flex:1;min-width:120px;">
+<label style="font-size:12px;color:#666;">基准日</label>
+<input type="date" id="compareDateA" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;margin-top:4px;">
+</div>
+<div style="flex:1;min-width:120px;">
+<label style="font-size:12px;color:#666;">对比日</label>
+<input type="date" id="compareDateB" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:8px;margin-top:4px;">
+</div>
+<button onclick="loadCompareTables()" style="padding:10px 16px;border:none;border-radius:8px;background:#607d8b;color:#fff;font-weight:600;cursor:pointer;">📋 加载表格</button>
+<button onclick="runCompare()" style="padding:10px 16px;border:none;border-radius:8px;background:#9c27b0;color:#fff;font-weight:600;cursor:pointer;">🔍 一键分析</button>
+</div>
+<div id="compareModalBody" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+<div>
+<div id="compareSumA" style="font-size:13px;font-weight:700;margin-bottom:6px;color:#302b63;">—</div>
+<div style="max-height:65vh;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
+<table style="width:100%;border-collapse:collapse;">
+<thead style="position:sticky;top:0;background:#f8f9fa;">
+<tr><th style="padding:6px 4px;">局号</th><th style="padding:6px 4px;">时间</th><th style="padding:6px 4px;">A</th><th style="padding:6px 4px;">B</th><th style="padding:6px 4px;">C</th><th style="padding:6px 4px;">胜</th><th style="padding:6px 4px;">收益</th></tr>
+</thead>
+<tbody id="compareBodyA"></tbody>
+</table>
+</div>
+</div>
+<div>
+<div id="compareSumB" style="font-size:13px;font-weight:700;margin-bottom:6px;color:#302b63;">—</div>
+<div style="max-height:65vh;overflow-y:auto;border:1px solid #eee;border-radius:8px;">
+<table style="width:100%;border-collapse:collapse;">
+<thead style="position:sticky;top:0;background:#f8f9fa;">
+<tr><th style="padding:6px 4px;">局号</th><th style="padding:6px 4px;">时间</th><th style="padding:6px 4px;">A</th><th style="padding:6px 4px;">B</th><th style="padding:6px 4px;">C</th><th style="padding:6px 4px;">胜</th><th style="padding:6px 4px;">收益</th></tr>
+</thead>
+<tbody id="compareBodyB"></tbody>
+</table>
+</div>
+</div>
+</div>
+<div id="compareResult" style="font-size:14px;line-height:1.8;"></div>
+<div class="import-modal-actions">
+<button onclick="document.getElementById('compareModalOverlay').classList.remove('open')" style="flex:1;padding:10px;border-radius:10px;border:none;background:#f1f3f5;cursor:pointer;">关闭</button>
+</div>
+</div>
+</div>
+<style>
+#compareModalBody{font-size:14px;transition:font-size .15s;}
+#compareModalBody td,#compareModalBody th{font-size:inherit !important;padding:8px 6px !important;}
+#compareModalBody .score-badge{font-size:inherit !important;min-width:32px !important;height:32px !important;line-height:32px !important;}
+#compareModalBody .winner-cell{font-size:inherit !important;}
+</style>
 <!-- 编辑记录模态框 -->
 <div class="import-modal-overlay" id="editRecordModal">
 <div class="import-modal" style="max-width:420px;">
