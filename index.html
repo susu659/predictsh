@@ -5,12 +5,13 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v30.22 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v31.1 · 智能预测云端协同</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -330,11 +331,21 @@ button{width:100%}
 .history-table-container{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .container{overflow:visible !important}
 body{padding:8px !important}
+.prediction-cards{grid-template-columns:1fr !important;gap:12px !important}
+.pred-card{padding:16px !important}
+.win-prob{font-size:28px !important}
+.summary-box{padding:14px !important}
+h1{font-size:20px !important}
+.subtitle{font-size:12px !important}
+#profitCards{grid-template-columns:1fr !important}
+.input-row{flex-direction:column !important;gap:8px !important}
+.input-row input,.input-row select{width:100% !important}
+.sim-detail-panel{overflow-x:auto !important;-webkit-overflow-scrolling:touch}
 }
 /* ========== v22: 导入模式选择模态框 ========== */
 .import-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
 .import-modal-overlay.open{display:flex;}
-.import-modal{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:520px;width:92%;padding:28px 30px;animation:modalIn .25s ease-out;}
+.import-modal{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:520px;width:92%;padding:28px 30px;animation:modalIn .25s ease-out;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
 .import-modal h3{font-size:20px;color:#302b63;margin-bottom:6px;}
 .import-modal .modal-sub{font-size:13px;color:#6c757d;margin-bottom:20px;line-height:1.6;}
@@ -568,8 +579,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v30.22</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v30.22</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v31.1</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v31.1</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -711,7 +722,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div id="importStatus" class="import-status"></div>
 </div>
 <div class="prediction-section">
-<h2 class="section-title">下一局预测</h2>
+<h2 class="section-title">下一局预测 <button onclick="copyPrediction()" style="font-size:12px;padding:4px 12px;border-radius:8px;border:1px solid #302b63;background:#fff;color:#302b63;cursor:pointer;margin-left:8px;font-weight:600;">📋 复制预测</button></h2>
 <div style="font-weight:600;font-size:14px;color:#302b63;margin-bottom:8px;">🏆 ABC商会获胜预测</div>
 <div class="prediction-cards">
 <div class="pred-card" id="cardA"><div class="card-header"><span class="guild-name">商会A</span><span class="win-prob" id="winProbA">—</span></div><div class="prob-detail" id="detailA">概率 —</div><div class="streak-info" id="streakA"></div></div>
@@ -929,7 +940,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v30.22';
+  var APP_VERSION = 'v31.1';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2477,6 +2488,7 @@ function findSimilarProfitSegments(history, opts) {
                     matchLen: winLen,
                     nextProfit: nextProfit,
                     nextRecIdx: recIdx,
+                    nextWinner: getWinner(history[recIdx]),  // v32: 同时记录下局赢家，供ABC综合投票
                     matchedWindow: histWindow.slice()
                 });
             }
@@ -2511,22 +2523,33 @@ function predictFromSimilarProfitPattern(history) {
         allResults[ri2].sortKey = _matchSortKey(allResults[ri2].similarity, ml, allResults[ri2].isExactMatch);
     }
     allResults.sort(function(a, b) { return b.sortKey - a.sortKey; });
-    // 智能去重：基于重叠范围去重，重叠超过较短匹配长度的50%视为重复，保留排序靠前的
+    // 智能去重：重叠>50%视为同一段走势——完全匹配优先，无完全匹配则保留最长的
     var uniqueResults = [];
     for (var i = 0; i < allResults.length; i++) {
         var r = allResults[i];
         var rStart = r.seqStart;
-        var rEnd = r.seqStart + (r.matchLen || r.scanWindowLen || 5);
+        var rLen = r.matchLen || r.scanWindowLen || 5;
+        var rEnd = r.seqStart + rLen;
+        var rExact = (r.isExactMatch === true);
         var isDuplicate = false;
         for (var j = 0; j < uniqueResults.length; j++) {
             var u = uniqueResults[j];
             var uStart = u.seqStart;
-            var uEnd = u.seqStart + (u.matchLen || u.scanWindowLen || 5);
+            var uLen = u.matchLen || u.scanWindowLen || 5;
+            var uEnd = u.seqStart + uLen;
+            var uExact = (u.isExactMatch === true);
             var overlapStart = Math.max(rStart, uStart);
             var overlapEnd = Math.min(rEnd, uEnd);
             var overlapLen = Math.max(0, overlapEnd - overlapStart);
-            var shorterLen = Math.min(rEnd - rStart, uEnd - uStart);
+            var shorterLen = Math.min(rLen, uLen);
             if (shorterLen > 0 && overlapLen / shorterLen > 0.5) {
+                if (rExact && !uExact) {
+                    uniqueResults[j] = r;
+                } else if (!rExact && uExact) {
+                    // 保留已有的完全匹配
+                } else if (rLen > uLen) {
+                    uniqueResults[j] = r;
+                }
                 isDuplicate = true;
                 break;
             }
@@ -2593,6 +2616,26 @@ function predictFromSimilarProfitPattern(history) {
     // 细节描述
     var detail = '🔍 匹配到 ' + useResults.length + ' 个相似收益盘 | 最高相似度' + (topSim*100).toFixed(0) + '% | 平均' + (avgSim*100).toFixed(0) + '%\n';
     detail += '📊 相似度平方加权投票: 大' + (probs.大*100).toFixed(0) + '% 中' + (probs.中*100).toFixed(0) + '% 小' + (probs.小*100).toFixed(0) + '% | 倾向: ' + predicted + '(' + (probs[predicted]*100).toFixed(1) + '%)';
+
+    // v32: 同时计算ABC投票——收益序列相似时，下局赢家分布
+    var abcCount = {A: 0, B: 0, C: 0};
+    var abcWeightSum = 0;
+    for (var ai2 = 0; ai2 < useResults.length; ai2++) {
+        var ar = useResults[ai2];
+        if (!ar.nextWinner) continue;
+        var aw = ar.similarity * ar.similarity;
+        abcCount[ar.nextWinner] += aw;
+        abcWeightSum += aw;
+    }
+    var probsABC = null;
+    if (abcWeightSum > 0) {
+        probsABC = {
+            A: abcCount.A / abcWeightSum,
+            B: abcCount.B / abcWeightSum,
+            C: abcCount.C / abcWeightSum
+        };
+    }
+
     var matches = useResults.map(function(r) {
         return {
             startIdx: r.startIdx,
@@ -2614,87 +2657,117 @@ function predictFromSimilarProfitPattern(history) {
         avgSimilarity: avgSim,
         profitCount: profitCount,
         weightedCount: weightedCount,
+        probsABC: probsABC,  // v32: 收益序列相似时的ABC投票
         matches: matches
     };
 }
-// v30.22：相似血本盘预测——找历史上血本方序列相似的盘，投票预测下局赢家
+// v30.22：相似血本盘预测——找历史上血本方序列相似的盘
+// v32: 同时输出两个方向：probs=预测谁赢，lossProbs=预测谁是血本（0分方）
 function predictFromSimilarLossPattern(history) {
     if (history.length < 10) return null;
-    // 取最近5局的血本方序列
-    var currentLossSeq = [];
-    for (var i = history.length - 5; i < history.length; i++) {
-        if (i < 0) break;
-        var lossSide = getLossSide(history[i]);
-        if (lossSide) currentLossSeq.push(lossSide);
+    var lossSeq = history.map(getLossSide);
+    var L = lossSeq.length;
+    var windowLengths = [3, 4, 5, 6, 8, 10];
+    var allResults = [];
+
+    for (var wi = 0; wi < windowLengths.length; wi++) {
+        var wLen = windowLengths[wi];
+        if (L < wLen + 1) continue;
+        var target = lossSeq.slice(L - wLen);
+        var hasNull = false;
+        for (var ti = 0; ti < target.length; ti++) if (!target[ti]) { hasNull = true; break; }
+        if (hasNull) continue;
+        for (var j = wLen; j < L; j++) {
+            var ok = true;
+            for (var k = 0; k < wLen; k++) {
+                if (lossSeq[j - wLen + k] !== target[k]) { ok = false; break; }
+            }
+            if (!ok) continue;
+            if (j >= L) continue;
+            var nextWinner = getWinner(history[j]);
+            var nextLoss = lossSeq[j];
+            if (!nextWinner) continue;
+            allResults.push({
+                startIdx: j - wLen,
+                matchLen: wLen,
+                similarity: 1.0,
+                isExactMatch: true,
+                nextWinner: nextWinner,
+                nextLoss: nextLoss
+            });
+        }
     }
-    if (currentLossSeq.length < 3) return null;
-    
-    // 在历史里找相似的血本方序列
-    var matches = [];
-    for (var j = 5; j < history.length - 1; j++) {
-        var matchLen = 0;
-        var similarity = 0;
-        // 从j往前匹配
-        for (var k = 0; k < currentLossSeq.length; k++) {
-            var histIdx = j - k;
-            if (histIdx < 0) break;
-            var histLoss = getLossSide(history[histIdx]);
-            if (!histLoss) break;
-            var currentLoss = currentLossSeq[currentLossSeq.length - 1 - k];
-            if (histLoss === currentLoss) {
-                matchLen++;
-            } else {
+
+    if (allResults.length < 2) return null;
+
+    var uniqueResults = [];
+    for (var i = 0; i < allResults.length; i++) {
+        var r = allResults[i];
+        var rLen = r.matchLen;
+        var isDup = false;
+        for (var j = 0; j < uniqueResults.length; j++) {
+            var u = uniqueResults[j];
+            var uLen = u.matchLen;
+            var overlapStart = Math.max(r.startIdx, u.startIdx);
+            var overlapEnd = Math.min(r.startIdx + rLen, u.startIdx + uLen);
+            var overlapLen = Math.max(0, overlapEnd - overlapStart);
+            var shorterLen = Math.min(rLen, uLen);
+            if (shorterLen > 0 && overlapLen / shorterLen > 0.5) {
+                if (rLen > uLen) uniqueResults[j] = r;
+                isDup = true;
                 break;
             }
         }
-        if (matchLen >= 3) {
-            similarity = matchLen / currentLossSeq.length;
-            var nextWinner = getWinner(history[j + 1]);
-            if (nextWinner) {
-                matches.push({
-                    similarity: similarity,
-                    matchLen: matchLen,
-                    nextWinner: nextWinner
-                });
-            }
+        if (!isDup) uniqueResults.push(r);
+    }
+
+    uniqueResults.sort(function(a, b) { return b.matchLen - a.matchLen; });
+    var useResults = uniqueResults.slice(0, 20);
+
+    // 投票1：预测下局谁赢
+    var winCount = {A: 0, B: 0, C: 0};
+    var winW = 0;
+    // 投票2：预测下局谁是血本（0分方）
+    var lossCount = {A: 0, B: 0, C: 0};
+    var lossW = 0;
+    for (var mi = 0; mi < useResults.length; mi++) {
+        var m = useResults[mi];
+        var w = m.matchLen * m.matchLen;
+        winCount[m.nextWinner] += w;
+        winW += w;
+        if (m.nextLoss) {
+            lossCount[m.nextLoss] += w;
+            lossW += w;
         }
     }
-    
-    if (matches.length < 2) return null;
-    
-    // 按相似度排序
-    matches.sort(function(a, b) { return b.similarity - a.similarity; });
-    var useMatches = matches.slice(0, 20);
-    
-    // 加权投票
-    var weightedCount = {A:0, B:0, C:0};
-    var weightSum = 0;
-    for (var mi = 0; mi < useMatches.length; mi++) {
-        var m = useMatches[mi];
-        var w = m.similarity * m.similarity; // 相似度平方加权
-        weightedCount[m.nextWinner] += w;
-        weightSum += w;
-    }
-    
-    if (weightSum === 0) return null;
-    
+
+    if (winW === 0) return null;
+
     var probs = {
-        A: weightedCount.A / weightSum,
-        B: weightedCount.B / weightSum,
-        C: weightedCount.C / weightSum
+        A: winCount.A / winW,
+        B: winCount.B / winW,
+        C: winCount.C / winW
     };
-    
-    // 置信度
-    var topSim = useMatches[0].similarity;
+    var lossProbs = null;
+    if (lossW > 0) {
+        lossProbs = {
+            A: lossCount.A / lossW,
+            B: lossCount.B / lossW,
+            C: lossCount.C / lossW
+        };
+    }
+
+    var topLen = useResults[0].matchLen;
     var topRatio = Math.max(probs.A, probs.B, probs.C);
-    var confidence = Math.min(0.8, topSim * 0.5 + topRatio * 0.3);
-    
+    var confidence = Math.min(0.8, (topLen / 10) * 0.4 + topRatio * 0.4 + (useResults.length / 20) * 0.2);
+
     return {
         name: '相似血本盘',
         confidence: confidence,
         probs: probs,
-        matchCount: useMatches.length,
-        detail: '匹配到' + useMatches.length + '个相似血本盘'
+        lossProbs: lossProbs,  // v32: 预测下局谁是血本
+        matchCount: useResults.length,
+        detail: '匹配到' + useResults.length + '个相似血本盘（最长' + topLen + '局）'
     };
 }
 // v30.22：马尔可夫链模型——状态转移概率
@@ -3296,23 +3369,35 @@ function predictFromSimilarPattern(window, history) {
     allResults.sort(function(a, b) { return b.sortKey - a.sortKey; });
     
     // v20: 智能去重 — 基于重叠范围去重，而非简单的startIdx
-    // 两个匹配如果重叠超过较短匹配长度的50%，视为重复，保留相似度更高的
+    // v32: 重叠>50%视为同一段走势——优先保留完全匹配(isExact)，无完全匹配则保留最长的
     var uniqueResults = [];
     for (var i = 0; i < allResults.length; i++) {
         var r = allResults[i];
         var rStart = r.startIdx;
-        var rEnd = r.startIdx + (r.matchLen || r.scanWindowLen || 6);
+        var rLen = r.matchLen || r.scanWindowLen || 6;
+        var rEnd = r.startIdx + rLen;
+        var rExact = (r.isExactMatch === true);
         var isDuplicate = false;
         for (var j = 0; j < uniqueResults.length; j++) {
             var u = uniqueResults[j];
             var uStart = u.startIdx;
-            var uEnd = u.startIdx + (u.matchLen || u.scanWindowLen || 6);
+            var uLen = u.matchLen || u.scanWindowLen || 6;
+            var uEnd = u.startIdx + uLen;
+            var uExact = (u.isExactMatch === true);
             var overlapStart = Math.max(rStart, uStart);
             var overlapEnd = Math.min(rEnd, uEnd);
             var overlapLen = Math.max(0, overlapEnd - overlapStart);
-            var shorterLen = Math.min(rEnd - rStart, uEnd - uStart);
-            // v23: 重叠超过较短匹配的50%视为重复，保留排序靠前的（相似度更高的）
+            var shorterLen = Math.min(rLen, uLen);
             if (shorterLen > 0 && overlapLen / shorterLen > 0.5) {
+                // 完全匹配优先：新匹配是完全匹配就替换模糊的；已保留是完全匹配就跳过新的
+                if (rExact && !uExact) {
+                    uniqueResults[j] = r;
+                } else if (!rExact && uExact) {
+                    // 保留已有的完全匹配，跳过模糊的新匹配
+                } else if (rLen > uLen) {
+                    // 同为完全匹配或同为模糊，保留更长的
+                    uniqueResults[j] = r;
+                }
                 isDuplicate = true;
                 break;
             }
@@ -3366,8 +3451,13 @@ function predictFromSimilarPattern(window, history) {
         // v31-3: 样本量加权——该模式历史出现<5次时按sqrt衰减，单样本不被高权重放大
         var mc = r.matchCount || 1;
         var sampleFactor = Math.min(1, Math.sqrt(mc / 5));
+        // v31.0: 时间衰减——越近的历史匹配权重越高
+        var recencyW = r.recencyFactor || (0.7 + 0.3 * (r.startIdx / Math.max(1, history.length)));
+        // v31.0: 近期匹配降权——和当前窗口距离<5局的匹配参考价值低（走势太近，不算"历史规律"）
+        var gap = history.length - 1 - (r.startIdx + (r.matchLen || r.scanWindowLen || 5));
+        var recentPenalty = gap < 5 ? (0.3 + gap * 0.14) : 1.0; // gap=0→0.3, gap=4→0.86, gap>=5→1.0
 
-        var voteW = baseW * bonus * lenBonus * exactBonus * sampleFactor;
+        var voteW = baseW * bonus * lenBonus * exactBonus * sampleFactor * recencyW * recentPenalty;
         weightedCount[r.nextWinner] += voteW;
         weightSum += voteW;
         weightBreakdown.push({
@@ -4202,13 +4292,88 @@ class Predictor {
         }
     }
     // v30.22：多模型规律叠加——6大高级模型，权重各自跟随近期准确率（自主学习，优胜劣汰）
+    // v31.0: fastRebuild模式下跳过所有高级模型（马尔可夫/贝叶斯/血本/收益盘ABC），重建速度提升5-10倍
+    if (this._fastRebuild) {
+        // 快速重建：只保留窗口融合结果，跳过高级模型
+    } else {
+        // v32: 三相似盘智能合并分析——分析信号一致性，互相加强或矛盾，输出分析日志
         var patternBlends = [];
         var _advFactor = function(acc) { return Math.max(0.15, 0.35 + Math.max(0, acc - 0.33) * 4.0); };
-        if (patternProbs && patternConf >= CONFIG.patternThreshold - 0.1) {
-            patternBlends.push({ probs: patternProbs, weight: Math.min(0.40, patternConf * 0.45) * _advFactor(this._advAcc('similar')) });
+        var _topPick = function(p) { if (!p) return null; return p.A >= p.B && p.A >= p.C ? 'A' : p.B >= p.C ? 'B' : 'C'; };
+
+        // 收集三个相似盘结果
+        var simTop = patternProbs ? _topPick(patternProbs) : null;
+        var rLoss = null, lossTop = null, lossSide = null;
+        try { rLoss = predictFromSimilarLossPattern(this.history);
+            if (rLoss && rLoss.confidence >= 0.4) {
+                lossTop = _topPick(rLoss.probs);
+                lossSide = rLoss.lossProbs ? _topPick(rLoss.lossProbs) : null;
+            }
+        } catch(e) {}
+        var simProfABC = null, profitTop = null;
+        try {
+            simProfABC = this._lastSimProfit ? this._lastSimProfit.probsABC : null;
+            if (!simProfABC) {
+                var rProf = predictFromSimilarProfitPattern(this.history);
+                if (rProf) { this._lastSimProfit = rProf; simProfABC = rProf.probsABC; }
+            }
+            profitTop = simProfABC ? _topPick(simProfABC) : null;
+        } catch(e) {}
+
+        // v32: 智能信号一致性分析
+        var analysisLog = [];
+        var simBoost = 1.0, lossBoost = 1.0, profitBoost = 1.0;
+        if (simTop) analysisLog.push('相似盘 → 预测' + simTop + '赢');
+        if (lossTop) analysisLog.push('血本盘 → 预测' + lossTop + '赢');
+        if (lossSide) analysisLog.push('血本盘 → 预测' + lossSide + '是血本(0分方)');
+        if (profitTop) analysisLog.push('收益盘 → 预测' + profitTop + '赢');
+
+        // 一致性判断：血本盘说谁是血本=谁输，与相似盘赢家对比
+        if (simTop && lossSide) {
+            if (simTop !== lossSide) {
+                analysisLog.push('✅ 信号一致：血本盘预测' + lossSide + '输，相似盘预测' + simTop + '赢，互相加强');
+                simBoost = 1.25; lossBoost = 1.25;
+            } else {
+                analysisLog.push('⚠️ 信号矛盾：血本盘预测' + lossSide + '是血本(输)，但相似盘也预测' + simTop + '赢，方向冲突');
+                simBoost = 0.7; lossBoost = 0.7;
+            }
         }
-        try { var rLoss = predictFromSimilarLossPattern(this.history);
-            if (rLoss && rLoss.confidence >= 0.4) patternBlends.push({ probs: rLoss.probs, weight: Math.min(0.26, rLoss.confidence * 0.3) * _advFactor(this._advAcc('loss')) }); } catch(e) {}
+        // 收益盘与其他信号一致性
+        if (profitTop && profitTop === simTop) {
+            analysisLog.push('✅ 收益盘与相似盘同向(' + profitTop + ')，加强');
+            profitBoost = 1.3;
+        } else if (profitTop && simTop && profitTop !== simTop) {
+            analysisLog.push('⚠️ 收益盘预测' + profitTop + '赢，与相似盘(' + simTop + ')方向不同');
+            profitBoost = 0.8;
+        }
+        // v31.0: 保存三盘分析结果供主卡片显示
+        this._threeWayAnalysis = {
+            simTop: simTop,
+            lossTop: lossTop,
+            lossSide: lossSide,
+            lossProbs: rLoss ? rLoss.lossProbs : null,
+            profitTop: profitTop,
+            simBoost: simBoost,
+            lossBoost: lossBoost,
+            profitBoost: profitBoost
+        };
+        // v31.0: 附加命中率提示
+        var _simAcc = this._advAcc('similar');
+        var _lossAcc = this._advAcc('loss');
+        analysisLog.push('---');
+        analysisLog.push('📊 相似盘近期命中率' + (_simAcc*100).toFixed(0) + '% | 血本盘' + (_lossAcc*100).toFixed(0) + '%' + (_simAcc < 0.4 ? '（信号偏弱，谨慎参考）' : ''));
+
+        if (patternProbs && patternConf >= CONFIG.patternThreshold - 0.1) {
+            patternBlends.push({ probs: patternProbs, weight: Math.min(0.40, patternConf * 0.45) * _advFactor(this._advAcc('similar')) * simBoost });
+        }
+        if (rLoss && rLoss.confidence >= 0.4) {
+            patternBlends.push({ probs: rLoss.probs, weight: Math.min(0.26, rLoss.confidence * 0.3) * _advFactor(this._advAcc('loss')) * lossBoost });
+        }
+        if (simProfABC) {
+            patternBlends.push({ probs: simProfABC, weight: Math.min(0.22, (this._lastSimProfit.confidence||0.5) * 0.25) * _advFactor(this._advAcc('profit')) * profitBoost });
+        }
+        // 保存分析日志供UI展示
+        this._similarAnalysisLog = analysisLog.join('\n');
         try { var rMarkov = predictFromMarkov(this.history);
             if (rMarkov) patternBlends.push({ probs: rMarkov.probs, weight: Math.min(0.22, rMarkov.confidence * 0.3) * _advFactor(this._advAcc('markov')) }); } catch(e) {}
         try { var rBayes = predictFromBayesian(this.history);
@@ -4234,6 +4399,7 @@ class Predictor {
                 finalProbs.C = finalProbs.C * (1 - totalBlend) + blendedProbs.C * totalBlend;
             }
         }
+        } // end if (!this._fastRebuild) — v31.0: 跳过高级模型
         finalProbs = normalizeProbs(finalProbs);
         // v16: multi-dimensional fusion refinement
         finalProbs = applyFusionRefinement(finalProbs, this.history);
@@ -4736,6 +4902,11 @@ if(curBrier > 0.3){
             }
         } catch(e) {}
         try { record('loss', predictFromSimilarLossPattern(this.history)); } catch(e) {}
+        try {
+            // v32: 收益盘ABC命中率
+            var rProfScore = predictFromSimilarProfitPattern(this.history);
+            if (rProfScore && rProfScore.probsABC) record('profit', {probs: rProfScore.probsABC});
+        } catch(e) {}
         try { record('markov', predictFromMarkov(this.history)); } catch(e) {}
         try { record('bayes', predictFromBayesian(this.history)); } catch(e) {}
         try { record('trend', predictFromMultiTrend(this.history)); } catch(e) {}
@@ -5218,7 +5389,7 @@ if(curBrier > 0.3){
         if (p.advancedModelPerf) this.advancedModelPerf = p.advancedModelPerf;
         // 兼容：确保6个字段都存在
         if (!this.advancedModelPerf) this.advancedModelPerf = {similar:[],loss:[],markov:[],bayes:[],trend:[],rebound:[]};
-        ['similar','loss','markov','bayes','trend','rebound'].forEach(function(k){ if(!this.advancedModelPerf[k]) this.advancedModelPerf[k]=[]; }, this);
+        ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!this.advancedModelPerf[k]) this.advancedModelPerf[k]=[]; }, this);
         if (p.windowPerf) {
             this.windowPerf = p.windowPerf;
             if (!this.windowPerf.win7) this.windowPerf.win7 = [];
@@ -5361,7 +5532,7 @@ if(curBrier > 0.3){
             rebuildP.modelWeights = Object.assign({}, this._rebuildModelWeights);
         }
         var idx = 0;
-        var batchSize = 50;
+        var batchSize = 200;
         var self = this;
         function processBatch() {
             var end = Math.min(idx + batchSize, hist.length);
@@ -7397,6 +7568,36 @@ function autoOptimizeTick() {
         }
     });
 }
+// v31.0: 一键复制预测结果
+function copyPrediction() {
+    try {
+        var p = P._threeWayAnalysis || {};
+        var topGuild = document.querySelector('.pred-card.rank-1 .guild-name');
+        var topProb = document.querySelector('.pred-card.rank-1 .win-prob');
+        if (!topGuild) { alert('暂无预测数据'); return; }
+        var text = '【预测】' + topGuild.textContent + ' ' + (topProb ? topProb.textContent : '');
+        if (p.lossSide) text += '，预测' + p.lossSide + '是血本';
+        var agreeCount = 1;
+        if (p.lossTop === p.simTop) agreeCount++;
+        if (p.profitTop === p.simTop) agreeCount++;
+        if (agreeCount >= 3) text += '，三盘一致→' + p.simTop;
+        else if (agreeCount === 2) text += '，两盘一致→' + p.simTop;
+        // 收益预测
+        var profitTop = document.querySelector('#profitCards .rank-1 .guild-name');
+        if (profitTop) text += '，收益预测' + profitTop.textContent;
+        // 复制
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function() {
+                alert('已复制：' + text);
+            });
+        } else {
+            var ta = document.createElement('textarea');
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            document.execCommand('copy'); document.body.removeChild(ta);
+            alert('已复制：' + text);
+        }
+    } catch(e) { alert('复制失败：' + e.message); }
+}
 function renderAll() {
     // v29性能优化：分三层渲染——关键路径同步，重操作延迟，图表再延迟
     var syncFns = [
@@ -7474,6 +7675,29 @@ function renderCards() {
         document.getElementById('detail'+g).textContent='概率'+(prob*100).toFixed(1)+'% · '+rankLabel(r);
         var se=document.getElementById('streak'+g); se.innerHTML='';
         var rb=document.createElement('span'); rb.className='rank-badge rank-badge-'+r; rb.textContent=rankLabel(r); se.appendChild(rb);
+        // v31.0: 血本预测标签——预测该方是0分方
+        if (P._threeWayAnalysis && P._threeWayAnalysis.lossSide === g) {
+            var lb=document.createElement('span');
+            lb.className='streak-badge';
+            lb.style.background='#fce4ec'; lb.style.color='#ad1457'; lb.style.fontWeight='700';
+            lb.textContent='🩸 预测血本';
+            se.appendChild(lb);
+        }
+        // v31.0: 三盘一致性标签——在最可能赢的卡片上显示
+        if (P._threeWayAnalysis && P._threeWayAnalysis.simTop === g && si === 0) {
+            var agreeCount = 1;
+            if (P._threeWayAnalysis.lossTop === g) agreeCount++;
+            if (P._threeWayAnalysis.profitTop === g) agreeCount++;
+            if (agreeCount >= 3) {
+                var t3=document.createElement('span');
+                t3.className='streak-badge'; t3.style.background='#e8f5e9'; t3.style.color='#2e7d32'; t3.style.fontWeight='700';
+                t3.textContent='✅三盘一致'; se.appendChild(t3);
+            } else if (agreeCount === 2) {
+                var t2=document.createElement('span');
+                t2.className='streak-badge'; t2.style.background='#e3f2fd'; t2.style.color='#1565c0'; t2.style.fontWeight='700';
+                t2.textContent='🔵两盘一致'; se.appendChild(t2);
+            }
+        }
         if (ts.guild===g && ts.count>0) {
             var sb=document.createElement('span');
             sb.className=ts.count>=3?'streak-badge streak-hot':'streak-badge streak-cold';
@@ -7556,6 +7780,44 @@ function renderCards() {
         }
     }
     sumEl.innerHTML='预测<strong>'+result.predictedGuild+'</strong>商会（概率'+(probs[result.predictedGuild]*100).toFixed(1)+'% → '+rankLabel(1)+'）<br>'+
+        // v31.0: 三盘一致性标签
+        (function(){
+            var a = P._threeWayAnalysis;
+            if (!a) return '';
+            var tags = [];
+            // 一致性判断
+            var agreeCount = 0;
+            if (a.simTop) agreeCount++;
+            if (a.lossTop && a.lossTop === a.simTop) agreeCount++;
+            if (a.profitTop && a.profitTop === a.simTop) agreeCount++;
+            var tagBg, tagColor, tagText;
+            if (agreeCount >= 3 && a.simTop) {
+                tagBg = '#e8f5e9'; tagColor = '#2e7d32'; tagText = '✅ 三盘一致→' + a.simTop;
+            } else if (agreeCount >= 2 && a.simTop) {
+                tagBg = '#e3f2fd'; tagColor = '#1565c0'; tagText = '🔵 两盘一致→' + a.simTop;
+            } else {
+                tagBg = '#fff3e0'; tagColor = '#e65100'; tagText = '⚠️ 信号矛盾';
+            }
+            tags.push('<span style="display:inline-block;padding:2px 10px;border-radius:12px;background:'+tagBg+';color:'+tagColor+';font-weight:700;font-size:12px;margin-right:6px;">'+tagText+'</span>');
+            // 血本预测
+            if (a.lossSide) {
+                var c = {A:'#e74c3c',B:'#3498db',C:'#2ecc71'};
+                tags.push('<span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#fce4ec;color:#ad1457;font-weight:700;font-size:12px;">🩸 预测'+a.lossSide+'是血本(0分)</span>');
+            }
+            return '<div style="margin-top:6px;">' + tags.join('') + '</div>';
+        })() +
+        // v31.0: 弱信号观望提示
+        (function(){
+            var a = P._threeWayAnalysis;
+            if (!a) return '';
+            var simAcc = P._advAcc('similar');
+            var lossAcc = P._advAcc('loss');
+            var weak = (simAcc < 0.40 && lossAcc < 0.40) || (a.simBoost < 1 && a.lossBoost < 1);
+            if (weak) {
+                return '<div style="margin-top:8px;padding:8px 12px;background:#ffebee;border-left:4px solid #c62828;border-radius:4px;font-size:13px;color:#b71c1c;font-weight:600;">⚠️ 本轮信号弱且方向矛盾，建议观望，不要重注</div>';
+            }
+            return '';
+        })() +
         '<div style="margin-top:6px;font-size:13px;">📊 完整排名：'+
         rankLabel(1)+' '+sorted[0][0]+':'+(sorted[0][1]*100).toFixed(1)+'% &nbsp;'+
         rankLabel(2)+' '+sorted[1][0]+':'+(sorted[1][1]*100).toFixed(1)+'% &nbsp;'+
@@ -7843,6 +8105,16 @@ function renderCards() {
                         '<span class="match-history-winner" style="flex:0 0 auto;font-weight:700;color:'+mColor+';min-width:22px;text-align:center;">'+mNextW+'</span></div>');
                 }
             }
+            lines.push('</div>');
+        }
+        // v32: 三相似盘智能合并分析日志
+        if (P._similarAnalysisLog) {
+            lines.push('<div style="margin-top:8px;padding:8px 10px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:12px;line-height:1.8;">');
+            lines.push('<strong>🧠 三相似盘合并分析：</strong><br>');
+            P._similarAnalysisLog.split('\n').forEach(function(line) {
+                var color = line.indexOf('✅') >= 0 ? '#2e7d32' : line.indexOf('⚠️') >= 0 ? '#e65100' : '#333';
+                lines.push('<span style="color:'+color+';">'+line+'</span><br>');
+            });
             lines.push('</div>');
         }
         // v19: 多模型融合计算详情
