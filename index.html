@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -647,6 +639,9 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn" id="snapshotBtn" style="display:none;background:#607d8b;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 操作日志</button>
 <button class="cloud-btn" id="darkModeBtn" style="background:#455a64;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🌙 深色模式</button>
 <button class="cloud-btn" id="encryptBtn" style="background:#5d4037;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔒 数据加密</button><button class="cloud-btn" id="testModeBtn" style="background:#e91e63;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🧪 测试模式</button>
+<button class="cloud-btn" id="ghPublishBtn" style="display:none;background:#24292e;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🚀 发布到GitHub</button>
+<button class="cloud-btn" id="ghHistoryBtn" style="display:none;background:#e65100;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 版本回滚</button>
+<button class="cloud-btn" id="ghCheckBtn" style="background:#6f42c1;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔍 检查更新</button>
 </div>
 <div class="tab-bar">
 <button class="tab-btn active" data-tab="main">📊 预测主界面</button>
@@ -1016,14 +1011,23 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     if (!sbUrl || !sbKey) return Promise.reject(new Error('请先配置云同步（Supabase）'));
     var h = {'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json'};
     if (opt && opt.headers) for (var k in opt.headers) h[k] = opt.headers[k];
+    // v31.4：加AbortController超时，避免弱网下设备授权请求永久挂起
+    var _ctrl = new AbortController();
+    var _to = setTimeout(function(){ _ctrl.abort(); }, 20000);
     return fetch(sbUrl + '/rest/v1/' + path, {
       method: (opt && opt.method) || 'GET',
       headers: h,
-      body: opt && opt.body ? JSON.stringify(opt.body) : undefined
+      body: opt && opt.body ? JSON.stringify(opt.body) : undefined,
+      signal: _ctrl.signal
     }).then(function(r) {
+      clearTimeout(_to);
       if (!r.ok) return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ' ' + t); });
       if (r.status === 204) return null;
       return r.text().then(function(t) { return t ? JSON.parse(t) : null; });
+    }).catch(function(e) {
+      clearTimeout(_to);
+      if (e.name === 'AbortError') throw new Error('请求超时（20秒），请检查网络');
+      throw e;
     });
   }
 
@@ -5716,13 +5720,17 @@ var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
 // v27.4：云同步性能与可靠性优化
-var CLOUD_TIMEOUT_MS = 180000; // v30.22：60s->180s，大数据量上传不易超时
+var CLOUD_TIMEOUT_MS = 90000; // v31.4：上传超时180s->90s，手机弱网快速失败快速重试
+var CLOUD_PULL_TIMEOUT_MS = 25000; // v31.4：拉取用短超时，手机弱网快速失败快速重试
 var CLOUD_SAVE_THROTTLE_MS = 8000;
 var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
 var _cloudThrottleTimer = null;
 var _cloudSaveRetryCount = 0;
-var CLOUD_MAX_RETRY = 8; // v30.22：5->8次重试，全量数据上传更稳
+var CLOUD_MAX_RETRY = 8; // 上传最大重试次数
+var CLOUD_PULL_MAX_RETRY = 3; // v31.4：拉取最大自动重试次数
+var _cloudPullRetryCount = 0; // v31.4：拉取重试计数
+var _networkRetryTimer = null; // v31.4：网络恢复后自动重试拉取的定时器
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
 var TEST_MODE_KEY = 'mm_test_mode_v1';
 var _testMode = false;
@@ -6194,6 +6202,8 @@ function toggleAdminMode() {
         var btn = document.getElementById('adminModeBtn');
         if (btn) { btn.textContent = '👑 管理员模式'; btn.style.background = '#795548'; }
         var sb1 = document.getElementById('snapshotBtn'); if (sb1) sb1.style.display = 'none';
+        var gpb1 = document.getElementById('ghPublishBtn'); if (gpb1) gpb1.style.display = 'none';
+        var ghb1 = document.getElementById('ghHistoryBtn'); if (ghb1) ghb1.style.display = 'none';
         showRecordResult(true, '成功', '已退出管理员模式');
         return;
     }
@@ -6205,6 +6215,8 @@ function toggleAdminMode() {
     var btn2 = document.getElementById('adminModeBtn');
     if (btn2) { btn2.textContent = '👑 管理员模式✅'; btn2.style.background = '#4caf50'; }
     var sb2 = document.getElementById('snapshotBtn'); if (sb2) sb2.style.display = '';
+    var gpb2 = document.getElementById('ghPublishBtn'); if (gpb2) gpb2.style.display = '';
+    var ghb2 = document.getElementById('ghHistoryBtn'); if (ghb2) ghb2.style.display = '';
     showRecordResult(true, '成功', '已进入管理员模式！\n您上传或恢复的数据将强制覆盖其他所有设备。');
 }
 function initCloud() {
@@ -6225,6 +6237,8 @@ function initCloud() {
             var amb = document.getElementById('adminModeBtn');
             if (amb) { amb.textContent = '👑 管理员模式✅'; amb.style.background = '#4caf50'; }
             var sb3 = document.getElementById('snapshotBtn'); if (sb3) sb3.style.display = '';
+            var gpb3 = document.getElementById('ghPublishBtn'); if (gpb3) gpb3.style.display = '';
+            var ghb3 = document.getElementById('ghHistoryBtn'); if (ghb3) ghb3.style.display = '';
         }
     } catch(e) {}
     // 绑定管理员模式按钮
@@ -6239,10 +6253,13 @@ function initCloud() {
     loadSnapshots();
     try {
         if (window.supabase && window.supabase.createClient) {
-            // v27.4：增加请求超时，避免Supabase免费版慢响应导致页面卡死
+            // v31.4：智能超时——GET拉取用短超时快速失败，POST/PUT上传用长超时
 var _cloudFetchWithTimeout = function(url, opts) {
+    var method = (opts && opts.method) || 'GET';
+    // 读请求（GET）用短超时快速失败快速重试；写请求（POST/PUT/PATCH/DELETE）用长超时
+    var timeoutMs = (method === 'GET' || method === 'get') ? CLOUD_PULL_TIMEOUT_MS : CLOUD_TIMEOUT_MS;
     var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, CLOUD_TIMEOUT_MS);
+    var timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
     return fetch(url, Object.assign({}, opts, { signal: controller.signal })).finally(function() { clearTimeout(timeoutId); });
 };
 supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
@@ -6300,12 +6317,36 @@ async function cloudLoad(silent) {
             var msg = error.message || '';
             if (msg.indexOf('does not exist') >= 0 || error.code === '42P01') {
                 updateCloudStatus('online', '⚠️ 数据表不存在，本地数据可正常使用，点「上传云端」初始化');
+                _cloudPullRetryCount = 0;
             } else {
-                // v26.4：拉取失败不影响上传能力，保持在线状态
-                updateCloudStatus('online', '⚠️ 拉取失败: ' + msg + '（本地数据可正常使用）');
+                // v31.4：拉取失败自动重试（网络错误/超时类）
+                var _isNetErr = (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0 ||
+                                msg.indexOf('aborted') >= 0 || msg.indexOf('timeout') >= 0 ||
+                                msg.indexOf('Load failed') >= 0 || msg.indexOf('network') >= 0);
+                if (_isNetErr && _cloudPullRetryCount < CLOUD_PULL_MAX_RETRY) {
+                    _cloudPullRetryCount++;
+                    var _delay = 1500 * _cloudPullRetryCount;
+                    updateCloudStatus('syncing', '📶 网络不稳定，' + (_delay/1000) + '秒后自动重试（第' + _cloudPullRetryCount + '/' + CLOUD_PULL_MAX_RETRY + '次）...');
+                    console.log('[云端拉取] 网络错误，' + _delay + 'ms后重试:', msg);
+                    await new Promise(function(r){ setTimeout(r, _delay); });
+                    var _ok = await cloudLoad(silent);
+                    return _ok;
+                }
+                _cloudPullRetryCount = 0;
+                // v31.4：错误分类提示
+                var _hint = '';
+                if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('Load failed') >= 0) {
+                    _hint = '（手机网络访问海外服务器不稳定，建议切换WiFi或开关飞行模式重试）';
+                } else if (msg.indexOf('aborted') >= 0 || msg.indexOf('timeout') >= 0) {
+                    _hint = '（请求超时，网络较慢，请稍后重试）';
+                }
+                updateCloudStatus('online', '⚠️ 拉取失败: ' + msg + ' ' + _hint);
+                console.error('[云端拉取] 失败:', msg);
             }
             return false;
         }
+        // 成功拉到数据，重置重试计数
+        _cloudPullRetryCount = 0;
         if (data && data.data && data.data.history) {
             // v26.4：同步权威纪元检查——云端epoch更大时强制覆盖
             var cloudEpoch = data.data._syncEpoch || 0;
@@ -6370,11 +6411,51 @@ async function cloudLoad(silent) {
             return true;
         }
     } catch(e) {
-        // v26.4：拉取异常不影响上传能力，保持在线状态
-        updateCloudStatus('online', '⚠️ 拉取异常: ' + e.message + '（本地数据可正常使用）');
+        // v31.4：异常分类 + 自动重试
+        var _emsg = e.message || String(e);
+        var _isNetErr2 = (_emsg.indexOf('Failed to fetch') >= 0 || _emsg.indexOf('NetworkError') >= 0 ||
+                          _emsg.indexOf('aborted') >= 0 || _emsg.indexOf('timeout') >= 0 ||
+                          _emsg.indexOf('Load failed') >= 0 || _emsg.indexOf('network') >= 0);
+        if (_isNetErr2 && _cloudPullRetryCount < CLOUD_PULL_MAX_RETRY) {
+            _cloudPullRetryCount++;
+            var _delay2 = 1500 * _cloudPullRetryCount;
+            updateCloudStatus('syncing', '📶 网络异常，' + (_delay2/1000) + '秒后自动重试（第' + _cloudPullRetryCount + '/' + CLOUD_PULL_MAX_RETRY + '次）...');
+            console.log('[云端拉取] 异常，' + _delay2 + 'ms后重试:', _emsg);
+            await new Promise(function(r){ setTimeout(r, _delay2); });
+            var _ok2 = await cloudLoad(silent);
+            return _ok2;
+        }
+        _cloudPullRetryCount = 0;
+        var _hint2 = '';
+        if (_emsg.indexOf('Failed to fetch') >= 0 || _emsg.indexOf('Load failed') >= 0) {
+            _hint2 = '（手机网络访问海外服务器不稳定，建议切换WiFi或开关飞行模式重试）';
+        } else if (_emsg.indexOf('aborted') >= 0) {
+            _hint2 = '（请求超时，网络较慢，请稍后重试）';
+        }
+        updateCloudStatus('online', '⚠️ 拉取异常: ' + _emsg + ' ' + _hint2);
+        console.error('[云端拉取] 异常:', e);
         return false;
     }
 }
+
+// v31.4：网络状态监听——手机从弱网/飞行模式恢复后自动重连云端
+window.addEventListener('online', function() {
+    console.log('[网络] 检测到网络恢复，5秒后自动拉取云端数据...');
+    updateCloudStatus('syncing', '📶 网络已恢复，正在重新连接云端...');
+    if (_networkRetryTimer) clearTimeout(_networkRetryTimer);
+    _networkRetryTimer = setTimeout(function() {
+        _networkRetryTimer = null;
+        if (supabaseClient && !_testMode) {
+            cloudLoad(true);
+            // 网络恢复后补传待发日志
+            try { flushPendingOlog(); } catch(e) {}
+        }
+    }, 5000);
+});
+window.addEventListener('offline', function() {
+    console.log('[网络] 检测到网络断开');
+    updateCloudStatus('online', '📵 网络已断开，数据将暂存本地，恢复后自动同步');
+});
 
 // v27.5：定期自动备份——每小时一次，只保留最近24个备份
 var _lastAutoBackupDate = '';
@@ -6459,29 +6540,34 @@ async function autoSyncCompare() {
     return;
 }
 
-async function cloudSave(manual) {
+async function cloudSave(manual, skipPrecheck) {
     if (!supabaseClient) { updateCloudStatus('online', '⚠️ 云同步未初始化'); return false; }
     if (!cloudOnline) { updateCloudStatus('online', '⚠️ 云同步离线，尝试重连...'); cloudOnline = true; }
-    if (_cloudSaving) return false;
+    if (_cloudSaving && !skipPrecheck) return false;
     // v27.4：测试模式——非手动上传时直接拦截，数据只存本地
     if (_testMode && !manual) {
         console.log('[测试模式] 自动上传已拦截，数据仅保存在本地');
         return false;
     }
     // v27.4：自动上传节流——非手动上传时，8秒内只上传一次，避免频繁操作导致卡顿和失败
-    if (!manual && Date.now() - _lastCloudSaveTime < CLOUD_SAVE_THROTTLE_MS) {
+    if (!manual && !skipPrecheck && Date.now() - _lastCloudSaveTime < CLOUD_SAVE_THROTTLE_MS) {
         _pendingCloudSave = true;
         return false;
     }
     _cloudSaving = true;
     _lastCloudSaveTime = Date.now(); // v27.4：记录上传时间，用于节流
     try {
-        // 防护：手动上传时检测数据量大幅减少，二次确认 + 自动备份云端旧版本
-        if (manual) {
+        // v31.4：手动上传预检——合并原来两次重复的select为一次，减少1个海外往返
+        // skipPrecheck=true 时（自动重试）跳过预检，直接上传，加速重试
+        if (manual && !skipPrecheck) {
             try {
+                updateCloudStatus('syncing', '🔍 正在检查云端数据...');
                 var _preChk = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
-                var _cloudLen = (_preChk.data && _preChk.data.data && _preChk.data.data.history) ? _preChk.data.data.history.length : 0;
+                var _cloudData = (_preChk.data && _preChk.data.data) ? _preChk.data.data : null;
+                var _cloudLen = (_cloudData && _cloudData.history) ? _cloudData.history.length : 0;
                 var _localLen = P.history ? P.history.length : 0;
+
+                // 检查1：数据量异常减少警告 + 备份
                 if (_cloudLen > 0 && _localLen < _cloudLen * 0.7) {
                     var _reducePct = 100 - Math.round(_localLen / _cloudLen * 100);
                     if (!confirm('⚠️ 数据量异常减少警告！\n\n云端当前：' + _cloudLen + ' 条\n本地待上传：' + _localLen + ' 条\n减少了 ' + _reducePct + '%\n\n确定要用较少数据覆盖云端吗？\n\n建议：点「取消」检查本地数据是否正确，\n确认无误后再上传。系统会自动备份云端旧版本。')) {
@@ -6491,22 +6577,17 @@ async function cloudSave(manual) {
                     }
                     // 确认覆盖前，自动备份云端旧版本
                     var _backupId = 'backup_autosave_' + new Date().toISOString().slice(0,19).replace(/[-:T]/g,'');
+                    updateCloudStatus('syncing', '🛡️ 正在备份云端旧数据（' + _cloudLen + '条）...');
                     await supabaseClient.from(CLOUD_TABLE).upsert(
-                        { id: _backupId, data: _preChk.data.data, updated_at: new Date().toISOString() },
+                        { id: _backupId, data: _cloudData, updated_at: new Date().toISOString() },
                         { onConflict: 'id' }
                     );
                     console.log('自动备份云端旧版本:', _backupId, '(' + _cloudLen + '条)');
-                    updateCloudStatus('syncing', '🛡️ 已自动备份云端旧版本（' + _cloudLen + '条）→ 正在上传新数据...');
                 }
-            } catch(_e) { console.warn('上传前检测失败:', _e); }
-        }
-        // v30.22：只有手动上传才检查epoch并拉取，自动上传直接传，不覆盖本地
-        // 修复bug：录入后自动上传时，发现云端更新就拉取覆盖，把刚录的局冲掉了
-        if (manual) {
-            try {
-                var epochRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
-                var cloudEpoch = (epochRes.data && epochRes.data.data && epochRes.data.data._syncEpoch) ? epochRes.data.data._syncEpoch : 0;
-                var cloudAdmin = (epochRes.data && epochRes.data.data && epochRes.data.data._adminOverride) ? epochRes.data.data._adminOverride : null;
+
+                // 检查2：epoch/管理员更新——复用同一次查询结果，不再二次请求
+                var cloudEpoch = _cloudData ? (_cloudData._syncEpoch || 0) : 0;
+                var cloudAdmin = _cloudData ? (_cloudData._adminOverride || null) : null;
                 var localAdmin = P._adminOverride || null;
                 var adminNewer = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
                 if ((cloudEpoch > (P._syncEpoch || 0)) || (!_isAdmin && adminNewer)) {
@@ -6514,15 +6595,11 @@ async function cloudSave(manual) {
                     updateCloudStatus('syncing', '检测到' + reason + '，先拉取覆盖本地...');
                     await cloudLoad(true);
                 }
-            } catch(e) { /* 检查失败，继续上传 */ }
+            } catch(_e) { console.warn('上传前检查失败，继续上传:', _e.message); }
         }
-        // v27.3修复：禁用自动合并，改为简单可靠的同步逻辑
-        // 之前的自动合并去重逻辑不可靠（timeSlot格式差异+ABC组合不唯一），导致多设备同步时数据重复
-        // 现在：本地有修改就直接上传覆盖云端，不再自动合并
-        // 云端更新的判断由_syncEpoch在cloudLoad时处理
-        // v27.4：精简云端上传——predHistory超2000条截断，去掉patternHitCache（可重建）
+
+        // 组装上传数据
         var _cloudPredHist = P.predHistory || [];
-        // v30.22：predHistory全量上传，不截断（用户要求完整）
         var saveData = {
             history: P.history,
             predHistory: _cloudPredHist,
@@ -6532,54 +6609,58 @@ async function cloudSave(manual) {
             modelPerf: P.modelPerf,
             windowPerf: P.windowPerf,
             learnIterations: P.learnIterations,
-            reflectionLog: (P.reflectionLog || []).slice(-200), // v30.22：云端也保留200条
+            reflectionLog: (P.reflectionLog || []).slice(-200),
             bestBrier: P._bestBrier || null,
-            _syncEpoch: P._syncEpoch || 0, // v26.4：同步权威纪元
-            _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null) // v26.4：管理员权威标记
+            _syncEpoch: P._syncEpoch || 0,
+            _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
         };
+        // v31.4：显示数据大小，让用户知道在传多少
+        var _dataSize = 0;
+        try { _dataSize = new Blob([JSON.stringify(saveData)]).size; } catch(e) {}
+        var _sizeKB = _dataSize > 0 ? Math.round(_dataSize/1024) : 0;
+        updateCloudStatus('syncing', '☁️ 正在上传云端' + (_sizeKB > 0 ? '（约' + _sizeKB + 'KB）' : '') + '...');
+
         var now = new Date().toISOString();
         var res = await supabaseClient.from(CLOUD_TABLE).upsert(
             { id: CLOUD_ROW_ID, data: saveData, updated_at: now },
             { onConflict: 'id' }
         );
         if (res.error) {
-            // v26.4：上传失败不置为离线，保持可重试
-            // v27.4：上传失败自动重试（超时/5xx/网络错误）
             var _errMsg = res.error.message || JSON.stringify(res.error);
             if (_cloudSaveRetryCount < CLOUD_MAX_RETRY && !(_errMsg.indexOf('401') >= 0 || _errMsg.indexOf('403') >= 0 || _errMsg.indexOf('Invalid') >= 0 || _errMsg.indexOf('JWT') >= 0)) {
                 _cloudSaveRetryCount++;
-                updateCloudStatus('syncing', '上传失败，正在重试（第' + _cloudSaveRetryCount + '次）...');
+                updateCloudStatus('syncing', '上传失败，' + (1.5*_cloudSaveRetryCount) + '秒后重试（第' + _cloudSaveRetryCount + '次）...');
                 _cloudSaving = false;
                 await new Promise(function(r){ setTimeout(r, 1500 * _cloudSaveRetryCount); });
-                var _retryOk = await cloudSave(manual);
+                // v31.4：重试跳过预检，直接上传，加速
+                var _retryOk = await cloudSave(manual, true);
                 if (_retryOk) { _cloudSaveRetryCount = 0; return true; }
                 _cloudSaveRetryCount = 0; return false;
             }
             _cloudSaveRetryCount = 0;
             updateCloudStatus('online', '⚠️ 上传失败: ' + _errMsg + '（可点「上传云端」重试）');
-            if (manual) alert('⚠️ 上传失败：' + _errMsg + '\n\n已自动重试5次仍失败。\n可能原因：网络不稳定 / 服务器繁忙。\n\n请检查网络后再点「上传云端」。');
+            if (manual) alert('⚠️ 上传失败：' + _errMsg + '\n\n已自动重试仍失败。\n可能原因：手机网络不稳定 / 数据较大。\n\n建议：切换WiFi后重试，或关闭VPN/代理。');
             return false;
         }
         cloudLastSync = new Date();
-        setAutoSync(true); // v27.3：手动上传成功后启用自动同步
-        updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端');
+        setAutoSync(true);
+        updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端' + (_sizeKB > 0 ? '（' + _sizeKB + 'KB）' : ''));
         return true;
     } catch(e) {
-        // v27.4：识别超时错误，自动重试
-        var _isTimeout = true; // v30.22：所有异常都重试，除了明确的认证错误
-        if (e.message && (e.message.indexOf('401') >= 0 || e.message.indexOf('403') >= 0 || e.message.indexOf('Invalid API key') >= 0)) _isTimeout = false;
-        if (_isTimeout && _cloudSaveRetryCount < CLOUD_MAX_RETRY) {
+        var _isAuthErr = e.message && (e.message.indexOf('401') >= 0 || e.message.indexOf('403') >= 0 || e.message.indexOf('Invalid API key') >= 0);
+        if (!_isAuthErr && _cloudSaveRetryCount < CLOUD_MAX_RETRY) {
             _cloudSaveRetryCount++;
-            updateCloudStatus('syncing', '网络超时，正在重试（第' + _cloudSaveRetryCount + '次）...');
+            updateCloudStatus('syncing', '网络异常，' + (2*_cloudSaveRetryCount) + '秒后重试（第' + _cloudSaveRetryCount + '次）...');
             _cloudSaving = false;
             await new Promise(function(r){ setTimeout(r, 2000 * _cloudSaveRetryCount); });
-            var _retryOk2 = await cloudSave(manual);
+            // v31.4：重试跳过预检
+            var _retryOk2 = await cloudSave(manual, true);
             if (_retryOk2) { _cloudSaveRetryCount = 0; return true; }
             _cloudSaveRetryCount = 0; return false;
         }
         _cloudSaveRetryCount = 0;
         updateCloudStatus('online', '⚠️ 上传异常: ' + e.message + '（可点「上传云端」重试）');
-        if (manual) alert('⚠️ 上传异常：' + e.message + '\n\n已自动重试5次仍失败。\n请检查网络后再点「上传云端」。');
+        if (manual) alert('⚠️ 上传异常：' + e.message + '\n\n建议：切换WiFi后重试。本地数据已保存，不会丢失。');
         return false;
     } finally {
         _cloudSaving = false;
@@ -6606,10 +6687,17 @@ function bindCloudEvents() {
             if (ok) {
                 showRecordResult(true, '拉取成功', '已从云端拉取最新数据\n当前共 ' + P.history.length + ' 条记录');
             } else {
-                showRecordResult(false, '拉取失败', '从云端拉取数据失败，请检查网络后重试');
+                var _lastInfo = (document.getElementById('cloudInfoText')) ? document.getElementById('cloudInfoText').textContent : '';
+                var _detail = '从云端拉取失败。\n\n排查建议：\n'
+                    + '1. 手机网络访问海外服务器不稳定——切换WiFi或开关飞行模式后重试\n'
+                    + '2. 如果电脑端也连不上，可能是Supabase免费项目已暂停（7天无活动自动休眠）\n'
+                    + '3. 确认手机没有开VPN/代理/广告拦截，关闭后重试\n'
+                    + '4. 本地数据不受影响，可正常使用，网络恢复后点「拉取最新」即可同步\n\n'
+                    + '当前状态：' + _lastInfo;
+                showRecordResult(false, '拉取失败', _detail);
             }
         } catch(e) {
-            showRecordResult(false, '拉取失败', '拉取过程出错：' + e.message);
+            showRecordResult(false, '拉取失败', '拉取过程出错：' + e.message + '\n\n本地数据不受影响，网络恢复后重试即可。');
         }
         btn.disabled = false;
         btn.textContent = originalText;
@@ -6623,12 +6711,13 @@ function bindCloudEvents() {
         try {
             var ok = await cloudSave(true);
             if (ok) {
-                showRecordResult(true, '上传成功', '已将本地数据上传到云端\n共 ' + P.history.length + ' 条记录');
+                showRecordResult(true, '上传成功', '已将本地数据上传到云端\n共 ' + P.history.length + ' 条记录\n其他设备点「拉取最新」即可同步');
             } else {
-                showRecordResult(false, '上传失败', '上传到云端失败，请检查网络后重试');
+                var _updInfo = (document.getElementById('cloudInfoText')) ? document.getElementById('cloudInfoText').textContent : '';
+                showRecordResult(false, '上传失败', '上传到云端失败。\n\n排查建议：\n1. 手机网络慢——切换WiFi后重试\n2. 关闭VPN/代理/广告拦截后重试\n3. 开关飞行模式重新联网\n4. 本地数据已保存，不会丢失\n\n当前状态：' + _updInfo);
             }
         } catch(e) {
-            showRecordResult(false, '上传失败', '上传过程出错：' + e.message);
+            showRecordResult(false, '上传失败', '上传过程出错：' + e.message + '\n\n本地数据已保存，切换网络后重试即可。');
         }
         btn.disabled = false;
         btn.textContent = originalText;
@@ -6655,6 +6744,187 @@ function bindCloudEvents() {
         }
         setTestMode(next);
         showRecordResult(true, '测试模式', next ? '已开启测试模式\n数据仅保存在本地\n手动点「上传云端」才同步' : '已关闭测试模式\n恢复正常自动同步');
+    });
+
+    // ========== GitHub 一键发布 / 检查更新 ==========
+    var GH_CFG_KEY = 'mm_github_cfg_v1';
+    var ghCfg = { owner: 'susu659', repo: 'predictsh', branch: 'main', path: 'index.html', token: '' };
+    try { var _ghs = localStorage.getItem(GH_CFG_KEY); if (_ghs) Object.assign(ghCfg, JSON.parse(_ghs)); } catch(e) {}
+    function ghSaveCfg() { try { localStorage.setItem(GH_CFG_KEY, JSON.stringify(ghCfg)); } catch(e) {} }
+
+    async function ghApi(path, method, bodyObj) {
+        var h = {
+            'Authorization': 'Bearer ' + ghCfg.token,
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'predict-system-publish'
+        };
+        if (bodyObj) h['Content-Type'] = 'application/json';
+        var r = await fetch('https://api.github.com' + path, {
+            method: method || 'GET', headers: h,
+            body: bodyObj ? JSON.stringify(bodyObj) : undefined
+        });
+        return r;
+    }
+
+    function ghEnsureConfig() {
+        // 第一次用：让用户填 token（其他项已填默认值，可改）
+        if (!ghCfg.token) {
+            var t = prompt('【首次配置】请输入 GitHub Personal Access Token（ghp_ 开头）\n\n获取：GitHub → 右上头像 → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token，勾选 repo 权限。\n\n其他配置：owner=' + ghCfg.owner + '  repo=' + ghCfg.repo + '  branch=' + ghCfg.branch + '  path=' + ghCfg.path + '\n（如需修改，取消后在 localStorage 改 mm_github_cfg_v1）\n\n请粘贴 token：', '');
+            if (!t || !t.trim()) return false;
+            ghCfg.token = t.trim();
+            ghSaveCfg();
+        }
+        return true;
+    }
+
+    var ghPubBtn = document.getElementById('ghPublishBtn');
+    if (ghPubBtn) ghPubBtn.addEventListener('click', function() {
+        if (!_isAdmin) {
+            showRecordResult(false, '需要管理员权限', '发布到 GitHub 是高危操作，请先点「👑 管理员模式」输入密码后再发布。');
+            return;
+        }
+        if (!ghEnsureConfig()) return;
+        // 弹文件选择框：让用户选当前要发布的 HTML 文件
+        var inp = document.createElement('input');
+        inp.type = 'file';
+        inp.accept = '.html,.htm';
+        inp.onchange = async function() {
+            var f = inp.files[0];
+            if (!f) return;
+            var btn = ghPubBtn;
+            btn.disabled = true; var orig = btn.textContent; btn.textContent = '上传中…';
+            try {
+                var text = await f.text();
+                // base64 编码（兼容中文）
+                var b64 = btoa(unescape(encodeURIComponent(text)));
+                // 1) 取远程当前文件 sha（不存在则新建）
+                var getRes = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path + '?ref=' + ghCfg.branch);
+                var sha = null;
+                if (getRes.status === 200) {
+                    var cur = await getRes.json();
+                    sha = cur.sha;
+                } else if (getRes.status !== 404) {
+                    var ge = await getRes.json();
+                    throw new Error('读取远程文件失败：' + (ge.message || getRes.status));
+                }
+                // 2) PUT 覆盖
+                var body = {
+                    message: 'update: ' + f.name + ' @ ' + new Date().toLocaleString('zh-CN'),
+                    content: b64,
+                    branch: ghCfg.branch
+                };
+                if (sha) body.sha = sha;
+                var putRes = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path, 'PUT', body);
+                if (putRes.ok) {
+                    showRecordResult(true, '发布成功',
+                        '已推送到 GitHub！\n\n文件：' + f.name + '（' + (f.size/1024).toFixed(0) + ' KB）\n' +
+                        'Pages: https://' + ghCfg.owner + '.github.io/' + ghCfg.repo + '/\n\n其他设备刷新即可看到新版（Pages 有1~2分钟缓存）。');
+                } else {
+                    var pe = await putRes.json();
+                    var hint = '';
+                    if (putRes.status === 401) hint = '\n→ token 无效或过期，请到 localStorage 删 mm_github_cfg_v1 后重新点发布';
+                    else if (putRes.status === 403 && pe.message && pe.message.indexOf('rate') >= 0) hint = '\n→ GitHub API 限流，等一会儿再试';
+                    else if (putRes.status === 404) hint = '\n→ 检查 owner/repo/branch/path 是否正确，以及 token 是否有 repo 权限';
+                    throw new Error((pe.message || ('HTTP ' + putRes.status)) + hint);
+                }
+            } catch(e) {
+                showRecordResult(false, '发布失败', e.message || e);
+            }
+            btn.disabled = false; btn.textContent = orig;
+        };
+        inp.click();
+    });
+
+    var ghChkBtn = document.getElementById('ghCheckBtn');
+    if (ghChkBtn) ghChkBtn.addEventListener('click', async function() {
+        try {
+            this.disabled = true; var orig = this.textContent; this.textContent = '检查中…';
+            var r = await fetch('https://' + ghCfg.owner + '.github.io/' + ghCfg.repo + '/?t=' + Date.now());
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            var html = await r.text();
+            var m = html.match(/v\d+\.\d+(?:\.\d+)*/);
+            var remoteVer = m ? m[0] : '未知';
+            var lm = document.title.match(/v[\d\.]+/);
+            var localVer = lm ? lm[0] : '未知';
+            if (remoteVer !== localVer) {
+                if (confirm('发现新版本！\n\n本地版本：' + localVer + '\n云端版本：' + remoteVer + '\n\n点「确定」打开云端最新版页面。')) {
+                    window.open('https://' + ghCfg.owner + '.github.io/' + ghCfg.repo + '/', '_blank');
+                }
+            } else {
+                showRecordResult(true, '已是最新', '当前就是最新版（' + localVer + '）');
+            }
+        } catch(e) {
+            showRecordResult(false, '检查失败', (e.message||e) + '\n\n（GitHub Pages 偶尔抽风，稍后再试）');
+        }
+        this.disabled = false; this.textContent = orig;
+    });
+
+    // ========== 版本历史 / 一键回滚 ==========
+    var ghHistBtn = document.getElementById('ghHistoryBtn');
+    if (ghHistBtn) ghHistBtn.addEventListener('click', async function() {
+        if (!_isAdmin) {
+            showRecordResult(false, '需要管理员权限', '版本回滚是高危操作，请先进入管理员模式。');
+            return;
+        }
+        if (!ghEnsureConfig()) return;
+        var btn = this; btn.disabled = true; var orig = btn.textContent; btn.textContent = '读取历史…';
+        try {
+            // 1. 拉最近 15 次提交
+            var r = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/commits?path=' + ghCfg.path + '&per_page=15');
+            if (!r.ok) {
+                var je = await r.json();
+                throw new Error(je.message || ('HTTP ' + r.status));
+            }
+            var commits = await r.json();
+            if (!commits.length) { showRecordResult(true, '无历史', '仓库里还没有提交记录。'); btn.disabled=false; btn.textContent=orig; return; }
+
+            // 2. 列出历史
+            var lines = commits.map(function(c, i) {
+                var d = new Date(c.commit.author.date).toLocaleString('zh-CN');
+                var msg = (c.commit.message || '').split('\n')[0].substring(0, 40);
+                return (i+1) + '. ' + d + '\n     ' + msg + '  [' + c.sha.substring(0,7) + ']';
+            }).join('\n');
+            var choice = prompt('最近 ' + commits.length + ' 次发布（1=最新）：\n\n' + lines + '\n\n' +
+                '────────────\n输入要回滚到的序号（如 2=上一版），点取消关闭：');
+            if (choice === null) { btn.disabled=false; btn.textContent=orig; return; }
+            var idx = parseInt(choice.trim(), 10) - 1;
+            if (isNaN(idx) || idx < 0 || idx >= commits.length) {
+                alert('序号无效'); btn.disabled=false; btn.textContent=orig; return;
+            }
+            var target = commits[idx];
+            if (!confirm('确定回滚到这个版本？\n\n时间：' + new Date(target.commit.author.date).toLocaleString('zh-CN') +
+                '\n说明：' + target.commit.message.split('\n')[0] +
+                '\n短码：' + target.sha.substring(0,7) +
+                '\n\n⚠️ 这会用该版本覆盖当前线上文件。')) return;
+
+            // 3. 拉目标版本的内容（content 字段已是 base64）
+            btn.textContent = '拉取旧版本…';
+            var cr = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path + '?ref=' + target.sha);
+            if (!cr.ok) throw new Error('拉取历史版本失败：' + cr.status);
+            var old = await cr.json();
+
+            // 4. 拉当前文件 sha（PUT 覆盖必须带）
+            btn.textContent = '准备回滚…';
+            var cur = await (await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path)).json();
+
+            // 5. PUT 回滚
+            var pr = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path, 'PUT', {
+                message: 'rollback to ' + target.sha.substring(0,7) + ' @ ' + new Date().toLocaleString('zh-CN'),
+                content: old.content,
+                branch: ghCfg.branch,
+                sha: cur.sha
+            });
+            if (pr.ok) {
+                showRecordResult(true, '回滚成功',
+                    '已回滚到版本 ' + target.sha.substring(0,7) + '\n\n等 1~2 分钟 Pages 刷新后生效。\n如果回滚错了，再点「📜 版本回滚」选最新的序号回来即可。');
+            } else {
+                var pe = await pr.json();
+                throw new Error(pe.message || ('HTTP ' + pr.status));
+            }
+        } catch(e) {
+            showRecordResult(false, '回滚失败', e.message || e);
+        }
+        btn.disabled = false; btn.textContent = orig;
     });
 }
 // ========== 备份/恢复功能（需管理员密码） ==========
@@ -11456,12 +11726,6 @@ if (encryptToggleBtn) encryptToggleBtn.onclick = toggleEncryption;
 </script>
 </body>
 </html>
-
-
-
-
-
-
 
 
 
