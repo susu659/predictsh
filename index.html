@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v32.1 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v32.5 · 智能预测云端协同</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -588,8 +588,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v32.1</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v32.1</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v32.5</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v32.5</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -956,7 +956,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v32.1';
+  var APP_VERSION = 'v32.5';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2584,8 +2584,9 @@ function predictFromSimilarProfitPattern(history) {
         }
     }
     allResults = uniqueResults;
-    // 取Top 20高相似度匹配参与投票（与相似盘一致）
-    var useResults = allResults.slice(0, 20);
+    // v32.5: 收益盘只收≥90%匹配——低于90%不显示、不计算
+    var useResults = allResults.filter(function(r){ return r.similarity >= 0.90; });
+    if (useResults.length === 0) return null; // 没有90%以上匹配就不预测收益盘
     // 简单计数（用于UI显示票数）
     var profitCount = {大:0, 中:0, 小:0};
     for (var ci = 0; ci < useResults.length; ci++) {
@@ -3439,8 +3440,11 @@ function predictFromSimilarPattern(window, history) {
     }
     allResults = uniqueResults;
     
-    // 取Top 20高相似度匹配参与投票（v25.4: 从30降到20，5连起匹配质量更高，减少计算）
-    var useResults = allResults.slice(0, 20);
+    // v32.5: 投票只收≥65%高质量匹配——低相似度(60-65%)匹配只显示不投票，避免噪音稀释高置信信号
+    var votePool = allResults.filter(function(r){ return r.similarity >= 0.65; });
+    if (votePool.length === 0) votePool = allResults.slice(0, 5); // 实在没有高匹配就用Top5兜底
+    // 取Top 20高相似度匹配参与投票
+    var useResults = votePool.slice(0, 20);
     
     // ===== 简单计数（用于UI显示票数）=====
     var winCount = {A: 0, B: 0, C: 0, X: 0};
@@ -4629,6 +4633,9 @@ class Predictor {
                 }
             }
         }
+        // v32.5: 信号分裂检测——最高票和第二票概率差<10%，说明三方分歧大
+        var sortedProbs = rankInfo.sorted.slice().sort(function(a,b){return b[1]-a[1];});
+        var signalSplit = (sortedProbs.length >= 2 && sortedProbs[0][1] - sortedProbs[1][1] < 0.10);
         return {
             predictedGuild: rankInfo.predictedGuild,
             probabilities: finalProbs,
@@ -4648,7 +4655,8 @@ class Predictor {
             // v25.6: 收益预测（相似收益盘 + 收益规律综合）
             profitPrediction: this._predictProfit(),
             // v29.0: 各子模型首选
-            modelPicks: modelPicks
+            modelPicks: modelPicks,
+            signalSplit: signalSplit  // v32.5: 信号分裂标记
         };
     }
     // ===== 多轮学习（含回滚保护）=====
@@ -8955,7 +8963,12 @@ function updateStats() {
         // 连续错误提醒
         if (P.consecutiveErrors >= 3) diag.push('🚨 连续'+P.consecutiveErrors+'局错误，建议下局观望或小注');
         else if (P.consecutiveErrors === 2) diag.push('⚡ 连续2局错误，谨慎下注');
-        // v32.1: 上局自动复盘
+        // v32.5: 信号分裂检测
+        try {
+            var _curPred = window._predCache && window._predCache.result;
+            if (_curPred && _curPred.signalSplit) diag.push('🔀 三方信号接近，分歧大，建议谨慎');
+        } catch(e) {}
+        // v32.5: 上局自动复盘
         if (P.accuracy.length > 0 && P.predHistory.length > 0) {
             var li = P.predHistory.length - 1;
             var lp = P.predHistory[li];
