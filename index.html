@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v31.4 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v31.5 · 智能预测云端协同</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -574,8 +574,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v31.4</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v31.4</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v31.5</span></h1>
+<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v31.5</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -940,7 +940,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v31.4';
+  var APP_VERSION = 'v31.5';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1011,7 +1011,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     if (!sbUrl || !sbKey) return Promise.reject(new Error('请先配置云同步（Supabase）'));
     var h = {'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json'};
     if (opt && opt.headers) for (var k in opt.headers) h[k] = opt.headers[k];
-    // v31.4：加AbortController超时，避免弱网下设备授权请求永久挂起
+    // v31.5：加AbortController超时，避免弱网下设备授权请求永久挂起
     var _ctrl = new AbortController();
     var _to = setTimeout(function(){ _ctrl.abort(); }, 20000);
     return fetch(sbUrl + '/rest/v1/' + path, {
@@ -3199,7 +3199,7 @@ function _minSimForLen(wLen) {
 // v28.5: 匹配排序键——高质量匹配(相似度>=0.90)按长度优先（覆盖当前窗口更长的更有代表性）；
 // 弱匹配(<0.90)仍按相似度排序，避免带错配的长片段混上来。12局为上限。
 function _matchSortKey(s, ml, isExact) {
-    // v31.4：直接用isExact（获胜方序列是否完全对上）判断完全匹配
+    // v31.3：直接用isExact（获胜方序列是否完全对上）判断完全匹配
     // isExact=true → 完全匹配组；isExact=false → 不完全匹配组
     var perfect = (isExact === true) ? 1 : 0;
     // 两级排序——完全匹配组全部排在不完全匹配组前面
@@ -3251,7 +3251,7 @@ function scanSimilarDepth() {
 function findSimilarSegments(window, history, opts) {
     opts = opts || {};
     var minSim = opts.minSim || 0.42;  // v25.4: 5连起匹配质量更高，保持0.42阈值
-    var maxResults = opts.maxResults || 18;  // v25.4: 从20降到18，5连起候选更精准，减少计算
+    var maxResults = opts.maxResults || 50;  // v31.5: 从18放宽到50，5-12局有匹配的都显示
     var fuzzyMode = opts.fuzzy !== false;
     var winSeq = _toWinnerSeq(window);
     var winLen = winSeq.length;
@@ -3297,7 +3297,13 @@ function findSimilarSegments(window, history, opts) {
     var histWinSeq = _toWinnerSeq(histSlice);
     var wsSim = _winnerSeqSimilarity(winSeq, histWinSeq);
     var combinedSim = fpSim * 0.3 + wsSim * 0.5 + scoreDistSim * 0.2;
-        if (combinedSim >= minSim) {
+        // v31.5: 严格匹配——只收获胜方序列差异<=1局，且差异位不在第一局；差异>1局一律不收纳/不计算/不显示
+        var _mismatchIdx = [];
+        for (var _mi = 0; _mi < winLen; _mi++) {
+            if (winSeq[_mi] !== histWinSeq[_mi]) _mismatchIdx.push(_mi);
+        }
+        var _looseMatch = (_mismatchIdx.length <= 1) && (_mismatchIdx.length === 0 || _mismatchIdx[0] !== 0);
+        if (_looseMatch) {
             var nextIdx = start + winLen;
             if (nextIdx < history.length) {
                 var nextRec = history[nextIdx];
@@ -3359,7 +3365,7 @@ function predictFromSimilarPattern(window, history) {
         var wLen = windowLengths[wi];
         if (history.length < wLen + 1) continue;
         var curWindow = history.slice(-wLen);
-        var results = findSimilarSegments(curWindow, history, {minSim: _minSimForLen(wLen), maxResults: 18}); // v28.3: 按窗口长度自适应阈值
+        var results = findSimilarSegments(curWindow, history, {minSim: _minSimForLen(wLen), maxResults: 50}); // v31.5: 从18放宽到50，有匹配的都显示
         for (var ri = 0; ri < results.length; ri++) {
             results[ri].scanWindowLen = wLen;
         }
@@ -3607,7 +3613,7 @@ function predictFromSimilarPattern(window, history) {
             matchedSlice: r.matchedSlice || null,
             matchLen: r.matchLen || r.scanWindowLen || 6,
             wsSim: r.wsSim,  // v23: 传递获胜方序列相似度，用于UI识别100%匹配
-            isExactMatch: r.isExactMatch || (r.wsSim !== undefined && r.wsSim >= 0.999)  // v31.4: 传递完全匹配标志
+            isExactMatch: r.isExactMatch || (r.wsSim !== undefined && r.wsSim >= 0.999)  // v31.5: 传递完全匹配标志
         };
     });
     
@@ -5720,17 +5726,17 @@ var _autoPullTimer = null;
 var _autoSyncTimer = null;
 var _lastLocalChange = 0;
 // v27.4：云同步性能与可靠性优化
-var CLOUD_TIMEOUT_MS = 90000; // v31.4：上传超时180s->90s，手机弱网快速失败快速重试
-var CLOUD_PULL_TIMEOUT_MS = 25000; // v31.4：拉取用短超时，手机弱网快速失败快速重试
+var CLOUD_TIMEOUT_MS = 90000; // v31.5：上传超时180s->90s，手机弱网快速失败快速重试
+var CLOUD_PULL_TIMEOUT_MS = 25000; // v31.5：拉取用短超时，手机弱网快速失败快速重试
 var CLOUD_SAVE_THROTTLE_MS = 8000;
 var _lastCloudSaveTime = 0;
 var _pendingCloudSave = false;
 var _cloudThrottleTimer = null;
 var _cloudSaveRetryCount = 0;
 var CLOUD_MAX_RETRY = 8; // 上传最大重试次数
-var CLOUD_PULL_MAX_RETRY = 3; // v31.4：拉取最大自动重试次数
-var _cloudPullRetryCount = 0; // v31.4：拉取重试计数
-var _networkRetryTimer = null; // v31.4：网络恢复后自动重试拉取的定时器
+var CLOUD_PULL_MAX_RETRY = 3; // v31.5：拉取最大自动重试次数
+var _cloudPullRetryCount = 0; // v31.5：拉取重试计数
+var _networkRetryTimer = null; // v31.5：网络恢复后自动重试拉取的定时器
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
 var TEST_MODE_KEY = 'mm_test_mode_v1';
 var _testMode = false;
@@ -6258,7 +6264,7 @@ function initCloud() {
     loadSnapshots();
     try {
         if (window.supabase && window.supabase.createClient) {
-            // v31.4：智能超时——GET拉取用短超时快速失败，POST/PUT上传用长超时
+            // v31.5：智能超时——GET拉取用短超时快速失败，POST/PUT上传用长超时
 var _cloudFetchWithTimeout = function(url, opts) {
     var method = (opts && opts.method) || 'GET';
     // 读请求（GET）用短超时快速失败快速重试；写请求（POST/PUT/PATCH/DELETE）用长超时
@@ -6324,7 +6330,7 @@ async function cloudLoad(silent) {
                 updateCloudStatus('online', '⚠️ 数据表不存在，本地数据可正常使用，点「上传云端」初始化');
                 _cloudPullRetryCount = 0;
             } else {
-                // v31.4：拉取失败自动重试（网络错误/超时类）
+                // v31.5：拉取失败自动重试（网络错误/超时类）
                 var _isNetErr = (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0 ||
                                 msg.indexOf('aborted') >= 0 || msg.indexOf('timeout') >= 0 ||
                                 msg.indexOf('Load failed') >= 0 || msg.indexOf('network') >= 0);
@@ -6338,7 +6344,7 @@ async function cloudLoad(silent) {
                     return _ok;
                 }
                 _cloudPullRetryCount = 0;
-                // v31.4：错误分类提示
+                // v31.5：错误分类提示
                 var _hint = '';
                 if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('Load failed') >= 0) {
                     _hint = '（手机网络访问海外服务器不稳定，建议切换WiFi或开关飞行模式重试）';
@@ -6416,7 +6422,7 @@ async function cloudLoad(silent) {
             return true;
         }
     } catch(e) {
-        // v31.4：异常分类 + 自动重试
+        // v31.5：异常分类 + 自动重试
         var _emsg = e.message || String(e);
         var _isNetErr2 = (_emsg.indexOf('Failed to fetch') >= 0 || _emsg.indexOf('NetworkError') >= 0 ||
                           _emsg.indexOf('aborted') >= 0 || _emsg.indexOf('timeout') >= 0 ||
@@ -6443,7 +6449,7 @@ async function cloudLoad(silent) {
     }
 }
 
-// v31.4：网络状态监听——手机从弱网/飞行模式恢复后自动重连云端
+// v31.5：网络状态监听——手机从弱网/飞行模式恢复后自动重连云端
 window.addEventListener('online', function() {
     console.log('[网络] 检测到网络恢复，5秒后自动拉取云端数据...');
     updateCloudStatus('syncing', '📶 网络已恢复，正在重新连接云端...');
@@ -6562,7 +6568,7 @@ async function cloudSave(manual, skipPrecheck) {
     _cloudSaving = true;
     _lastCloudSaveTime = Date.now(); // v27.4：记录上传时间，用于节流
     try {
-        // v31.4：手动上传预检——合并原来两次重复的select为一次，减少1个海外往返
+        // v31.5：手动上传预检——合并原来两次重复的select为一次，减少1个海外往返
         // skipPrecheck=true 时（自动重试）跳过预检，直接上传，加速重试
         if (manual && !skipPrecheck) {
             try {
@@ -6619,7 +6625,7 @@ async function cloudSave(manual, skipPrecheck) {
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
         };
-        // v31.4：显示数据大小，让用户知道在传多少
+        // v31.5：显示数据大小，让用户知道在传多少
         var _dataSize = 0;
         try { _dataSize = new Blob([JSON.stringify(saveData)]).size; } catch(e) {}
         var _sizeKB = _dataSize > 0 ? Math.round(_dataSize/1024) : 0;
@@ -6637,7 +6643,7 @@ async function cloudSave(manual, skipPrecheck) {
                 updateCloudStatus('syncing', '上传失败，' + (1.5*_cloudSaveRetryCount) + '秒后重试（第' + _cloudSaveRetryCount + '次）...');
                 _cloudSaving = false;
                 await new Promise(function(r){ setTimeout(r, 1500 * _cloudSaveRetryCount); });
-                // v31.4：重试跳过预检，直接上传，加速
+                // v31.5：重试跳过预检，直接上传，加速
                 var _retryOk = await cloudSave(manual, true);
                 if (_retryOk) { _cloudSaveRetryCount = 0; return true; }
                 _cloudSaveRetryCount = 0; return false;
@@ -6668,7 +6674,7 @@ async function cloudSave(manual, skipPrecheck) {
             updateCloudStatus('syncing', '网络异常，' + (2*_cloudSaveRetryCount) + '秒后重试（第' + _cloudSaveRetryCount + '次）...');
             _cloudSaving = false;
             await new Promise(function(r){ setTimeout(r, 2000 * _cloudSaveRetryCount); });
-            // v31.4：重试跳过预检
+            // v31.5：重试跳过预检
             var _retryOk2 = await cloudSave(manual, true);
             if (_retryOk2) { _cloudSaveRetryCount = 0; return true; }
             _cloudSaveRetryCount = 0; return false;
@@ -6811,13 +6817,12 @@ function bindCloudEvents() {
             try {
                 var text = await f.text();
 
-                // ===== 自动版本号：提取当前版本，默认小版本+1 =====
+                // ===== 自动版本号：v31.3 -> v31.5（小版本+1，补丁号清零） =====
                 var vm = text.match(/v(\d+)\.(\d+)(?:\.(\d+))?/);
                 var oldVer = vm ? vm[0] : 'v1.0';
-                var verParts = oldVer.replace(/^v/, '').split('.');
-                while (verParts.length < 3) verParts.push('0');
-                verParts[2] = String(parseInt(verParts[2], 10) + 1); // 小版本+1
-                var newVer = 'v' + verParts.join('.');
+                var vMaj = vm ? parseInt(vm[1], 10) : 1;
+                var vMin = vm ? parseInt(vm[2], 10) : 0;
+                var newVer = 'v' + vMaj + '.' + (vMin + 1);
                 var inputVer = prompt('新版本号（当前 ' + oldVer + '，默认小版本+1）：', newVer);
                 if (inputVer === null) { btn.disabled = false; btn.textContent = orig; return; }
                 inputVer = inputVer.trim() || newVer;
@@ -7053,7 +7058,7 @@ function openDailySnapshot() {
 function closeDailySnapshot() {
     document.getElementById('dailySnapshotOverlay').classList.remove('open');
 }
-// v31.4: 对比面板缩放（字体大小）
+// v31.3: 对比面板缩放（字体大小）
 var _compareZoom = 14;
 function compareZoom(delta) {
     _compareZoom = Math.max(10, Math.min(24, _compareZoom + delta));
@@ -7949,7 +7954,7 @@ function renderLossSimPanel() {
     if (!P.history || P.history.length < 8) { panel.style.display = 'none'; return; }
     var seq = P.history.map(getLossSide);
     var L = seq.length;
-    var windows = [3,4,5,6,8,10];
+    var windows = [4,5,6,8,10]; // v31.5: 去掉3局，>3局才匹配/显示
     var votes = {A:0, B:0, C:0};
     var matchRows = [];
     windows.forEach(function(w){
@@ -8611,7 +8616,7 @@ function renderCards() {
             _g2.best.mergedCount = _g2.count;
             _g2.best.mergedExact = _g2.anyExact;
             _g2.best.mergedRanges = _g2.ranges;
-            // v31.4：合并后同步isExactMatch，确保排序正确
+            // v31.5：合并后同步isExactMatch，确保排序正确
             if (_g2.anyExact) _g2.best.isExactMatch = true;
             matches.push(_g2.best);
         }
