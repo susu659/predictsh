@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v32.5 · 智能预测云端协同</title>
+<title>商会三竞预测系统 v33.0 · 三盘独立规律预测</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -588,8 +588,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v32.5</span></h1>
-<p class="subtitle">九模型融合预测引擎 · 毫秒级云端同步 · 金融级数据防护 <span style="color:#ffd700;font-weight:700;">v32.5</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v33.0</span></h1>
+<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v33.0</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -956,7 +956,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v32.5';
+  var APP_VERSION = 'v33.0';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2584,7 +2584,7 @@ function predictFromSimilarProfitPattern(history) {
         }
     }
     allResults = uniqueResults;
-    // v32.5: 收益盘只收≥90%匹配——低于90%不显示、不计算
+    // v32.0: 收益盘只收≥90%匹配——低于90%不显示、不计算
     var useResults = allResults.filter(function(r){ return r.similarity >= 0.90; });
     if (useResults.length === 0) return null; // 没有90%以上匹配就不预测收益盘
     // 简单计数（用于UI显示票数）
@@ -2661,6 +2661,58 @@ function predictFromSimilarProfitPattern(history) {
             C: abcCount.C / abcWeightSum
         };
     }
+
+    // v32.0: 收益盘独立规律统计——不靠相似片段，直接统计"上局收益→下局谁赢"的转移规律
+    try {
+        var _trans = {大:{A:0,B:0,C:0}, 中:{A:0,B:0,C:0}, 小:{A:0,B:0,C:0}};
+        for (var _ti = 1; _ti < history.length; _ti++) {
+            var _prevProfit = history[_ti-1].profitWinner;
+            var _curWinner = getWinner(history[_ti]);
+            if (_prevProfit && _curWinner && _trans[_prevProfit]) {
+                _trans[_prevProfit][_curWinner]++;
+            }
+        }
+        var _lastProfit = history[history.length-1].profitWinner;
+        if (_lastProfit && _trans[_lastProfit]) {
+            var _t = _trans[_lastProfit];
+            var _tsum = _t.A + _t.B + _t.C;
+            if (_tsum >= 5) {
+                var _ruleABC = {A:_t.A/_tsum, B:_t.B/_tsum, C:_t.C/_tsum};
+                // 规律预测权重0.4，相似片段投票权重0.6
+                if (probsABC) {
+                    probsABC = {
+                        A: probsABC.A*0.6 + _ruleABC.A*0.4,
+                        B: probsABC.B*0.6 + _ruleABC.B*0.4,
+                        C: probsABC.C*0.6 + _ruleABC.C*0.4
+                    };
+                } else {
+                    probsABC = _ruleABC;
+                }
+            }
+        }
+        // v32.0: 连续收益规律——连续2局同大小后下局谁赢？
+        var _prevP = history.length >= 2 ? history[history.length-2].profitWinner : null;
+        if (_lastProfit && _prevP === _lastProfit) {
+            var _pbowl = {A:0,B:0,C:0};
+            for (var _pi = 2; _pi < history.length; _pi++) {
+                if (history[_pi-1].profitWinner === _lastProfit && history[_pi-2].profitWinner === _lastProfit) {
+                    var _pw = getWinner(history[_pi]);
+                    if (_pw) _pbowl[_pw]++;
+                }
+            }
+            var _psum = _pbowl.A + _pbowl.B + _pbowl.C;
+            if (_psum >= 3) {
+                var _prule = {A:_pbowl.A/_psum, B:_pbowl.B/_psum, C:_pbowl.C/_psum};
+                if (probsABC) {
+                    probsABC = {
+                        A: probsABC.A*0.75 + _prule.A*0.25,
+                        B: probsABC.B*0.75 + _prule.B*0.25,
+                        C: probsABC.C*0.75 + _prule.C*0.25
+                    };
+                }
+            }
+        }
+    } catch(e) { console.warn('[收益规律]失败:', e.message); }
 
     var matches = useResults.map(function(r) {
         return {
@@ -2782,6 +2834,53 @@ function predictFromSimilarLossPattern(history) {
             C: lossCount.C / lossW
         };
     }
+
+    // v32.0: 血本盘独立规律统计——"上局谁是血本→下局谁赢"的反弹规律
+    try {
+        var _ltrans = {A:{A:0,B:0,C:0}, B:{A:0,B:0,C:0}, C:{A:0,B:0,C:0}};
+        for (var _li = 1; _li < history.length; _li++) {
+            var _prevLoss = getLossSide(history[_li-1]);
+            var _curWin = getWinner(history[_li]);
+            if (_prevLoss && _curWin && _ltrans[_prevLoss]) {
+                _ltrans[_prevLoss][_curWin]++;
+            }
+        }
+        var _lastLoss = getLossSide(history[history.length-1]);
+        if (_lastLoss && _ltrans[_lastLoss]) {
+            var _lt = _ltrans[_lastLoss];
+            var _lsum = _lt.A + _lt.B + _lt.C;
+            if (_lsum >= 5) {
+                var _lrule = {A:_lt.A/_lsum, B:_lt.B/_lsum, C:_lt.C/_lsum};
+                // 规律预测权重0.4，相似片段投票0.6
+                probs = {
+                    A: probs.A*0.6 + _lrule.A*0.4,
+                    B: probs.B*0.6 + _lrule.B*0.4,
+                    C: probs.C*0.6 + _lrule.C*0.4
+                };
+            }
+        }
+        // v32.0: 连续血本反弹规律——同一队连续2次血本后，下局谁赢？
+        var _prevLoss2 = history.length >= 2 ? getLossSide(history[history.length-2]) : null;
+        if (_lastLoss && _prevLoss2 === _lastLoss) {
+            var _bounce = {A:0,B:0,C:0};
+            for (var _bi = 2; _bi < history.length; _bi++) {
+                if (getLossSide(history[_bi-1]) === _lastLoss && getLossSide(history[_bi-2]) === _lastLoss) {
+                    var _bw = getWinner(history[_bi]);
+                    if (_bw) _bounce[_bw]++;
+                }
+            }
+            var _bsum = _bounce.A + _bounce.B + _bounce.C;
+            if (_bsum >= 3) {
+                var _brule = {A:_bounce.A/_bsum, B:_bounce.B/_bsum, C:_bounce.C/_bsum};
+                // 连续血本是强信号，权重0.3
+                probs = {
+                    A: probs.A*0.7 + _brule.A*0.3,
+                    B: probs.B*0.7 + _brule.B*0.3,
+                    C: probs.C*0.7 + _brule.C*0.3
+                };
+            }
+        }
+    } catch(e) { console.warn('[血本规律]失败:', e.message); }
 
     var topLen = useResults[0].matchLen;
     var topRatio = Math.max(probs.A, probs.B, probs.C);
@@ -3440,7 +3539,7 @@ function predictFromSimilarPattern(window, history) {
     }
     allResults = uniqueResults;
     
-    // v32.5: 投票只收≥65%高质量匹配——低相似度(60-65%)匹配只显示不投票，避免噪音稀释高置信信号
+    // v32.0: 投票只收≥65%高质量匹配——低相似度(60-65%)匹配只显示不投票，避免噪音稀释高置信信号
     var votePool = allResults.filter(function(r){ return r.similarity >= 0.65; });
     if (votePool.length === 0) votePool = allResults.slice(0, 5); // 实在没有高匹配就用Top5兜底
     // 取Top 20高相似度匹配参与投票
@@ -4471,6 +4570,19 @@ class Predictor {
             analysisLog.push('⚠️ 收益盘预测' + profitTop + '赢，与相似盘(' + simTop + ')方向不同');
             profitBoost = 0.8;
         }
+        // v32.0: 三盘全同向=最强信号，大幅加强
+        if (simTop && lossTop && profitTop && simTop === lossTop && lossTop === profitTop) {
+            simBoost = Math.max(simBoost, 1.6);
+            lossBoost = Math.max(lossBoost, 1.6);
+            profitBoost = Math.max(profitBoost, 1.6);
+            analysisLog.push('🔥 三盘全同向(' + simTop + ')！最强信号，大幅加强');
+        } else if (simTop && lossTop && profitTop) {
+            // 三盘都有但不全同向
+            var agree = [simTop, lossTop, profitTop].filter(function(x,i,a){return a.indexOf(x)===i;}).length;
+            if (agree === 2) {
+                analysisLog.push('⚡ 三盘两同向一盘分歧，中等加强');
+            }
+        }
         // v31.0: 保存三盘分析结果供主卡片显示
         this._threeWayAnalysis = {
             simTop: simTop,
@@ -4633,7 +4745,7 @@ class Predictor {
                 }
             }
         }
-        // v32.5: 信号分裂检测——最高票和第二票概率差<10%，说明三方分歧大
+        // v32.0: 信号分裂检测——最高票和第二票概率差<10%，说明三方分歧大
         var sortedProbs = rankInfo.sorted.slice().sort(function(a,b){return b[1]-a[1];});
         var signalSplit = (sortedProbs.length >= 2 && sortedProbs[0][1] - sortedProbs[1][1] < 0.10);
         return {
@@ -4656,7 +4768,7 @@ class Predictor {
             profitPrediction: this._predictProfit(),
             // v29.0: 各子模型首选
             modelPicks: modelPicks,
-            signalSplit: signalSplit  // v32.5: 信号分裂标记
+            signalSplit: signalSplit  // v32.0: 信号分裂标记
         };
     }
     // ===== 多轮学习（含回滚保护）=====
@@ -8963,12 +9075,12 @@ function updateStats() {
         // 连续错误提醒
         if (P.consecutiveErrors >= 3) diag.push('🚨 连续'+P.consecutiveErrors+'局错误，建议下局观望或小注');
         else if (P.consecutiveErrors === 2) diag.push('⚡ 连续2局错误，谨慎下注');
-        // v32.5: 信号分裂检测
+        // v32.0: 信号分裂检测
         try {
             var _curPred = window._predCache && window._predCache.result;
             if (_curPred && _curPred.signalSplit) diag.push('🔀 三方信号接近，分歧大，建议谨慎');
         } catch(e) {}
-        // v32.5: 上局自动复盘
+        // v32.0: 上局自动复盘
         if (P.accuracy.length > 0 && P.predHistory.length > 0) {
             var li = P.predHistory.length - 1;
             var lp = P.predHistory[li];
