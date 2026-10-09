@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v33.0 · 三盘独立规律预测</title>
+<title>商会三竞预测系统 v33.1 · 三盘独立规律预测</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -496,6 +497,10 @@ body.dark-mode .access-box p{color:#aaa;}
 .ds-profit-大{background:#e74c3c;}
 .ds-profit-中{background:#f39c12;}
 .ds-profit-小{background:#27ae60;}
+.ds-invest-badge{display:inline-block;padding:3px 10px;border-radius:6px;color:#fff;font-weight:700;font-size:13px;min-width:28px;text-align:center;}
+.ds-invest-大{background:#e91e63;}
+.ds-invest-中{background:#9c27b0;}
+.ds-invest-小{background:#00bcd4;}
 .ds-zoom-btn{background:rgba(255,255,255,.15);color:#fff;border:none;width:28px;height:28px;border-radius:6px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;font-weight:700;}
 .ds-zoom-btn:hover{background:rgba(255,255,255,.3);}
 .ds-zoom-level{color:#fff;font-size:12px;font-weight:600;min-width:42px;text-align:center;}.ds-empty{padding:40px;text-align:center;color:#999;font-size:14px;}
@@ -588,8 +593,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v33.0</span></h1>
-<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v33.0</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v33.1</span></h1>
+<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v33.1</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -714,6 +719,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <label class="guild-label">🏆 获胜商会收益</label>
 <select id="inputProfitWinner"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
 </div>
+<div class="guild-input" style="max-width:300px;">
+<label class="guild-label">💎 获胜商会投资</label>
+<select id="inputInvestWinner"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
+</div>
 </div>
 </div>
 <div class="btn-group">
@@ -731,7 +740,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <input type="file" id="excelInput" accept=".xlsx,.xls,.csv">
 <span id="learningIndicator">🧠 学习中...</span>
 </div>
-<div class="excel-tip">💡 Excel格式：列名含A/商会A、B/商会B、C/商会C（值0/0.5/1/2/3）；可选"日期"列（如"8月25日"）+"时间"列（如"15:00-16:00"或"15:00-15:30"），或合并的"时间段"列；<strong>收益列支持：获胜的商会收益、A收益、B收益、C收益（值大/中/小）</strong>；无时间列时自动按导入时间往前推算（按当前局间隔：半小时/一小时）；导入时可选择增量/追加/覆盖三种模式</div>
+<div class="excel-tip">💡 Excel格式：列名含A/商会A、B/商会B、C/商会C（值0/0.5/1/2/3）；可选"日期"列（如"8月25日"）+"时间"列（如"15:00-16:00"或"15:00-15:30"），或合并的"时间段"列；<strong>收益列支持：获胜的商会收益、A收益、B收益、C收益（值大/中/小）；投资列支持：获胜投资（值大/中/小）</strong>；无时间列时自动按导入时间往前推算（按当前局间隔：半小时/一小时）；导入时可选择增量/追加/覆盖三种模式</div>
 <div id="importStatus" class="import-status"></div>
 </div>
 <div class="prediction-section">
@@ -746,6 +755,13 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div id="betAdviceBar" style="margin:14px 0 4px;padding:14px 18px;border-radius:12px;font-size:15px;font-weight:700;display:flex;align-items:center;gap:12px;background:#f1f3f5;color:#495057;">
   <span id="betAdviceLabel" style="font-size:17px;">⏳ 分析中...</span>
   <span id="betAdviceReason" style="font-weight:500;font-size:13px;color:#6c757d;"></span>
+</div>
+<!-- v33.1: 获胜投资预测卡片（在收益预测上方） -->
+<div style="font-weight:600;font-size:14px;color:#9c27b0;margin:18px 0 8px;">💎 获胜商会投资预测（下一把开大/中/小）</div>
+<div class="prediction-cards" id="investCards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+<div class="pred-card" id="investCard大" style="border-left:4px solid #e91e63;"><div class="card-header"><span class="guild-name" style="color:#e91e63;">大投资</span><span class="win-prob" id="investProb大" style="color:#e91e63;">—</span></div><div class="prob-detail" id="investDetail大">概率 —</div><div class="streak-info" id="investStreak大"></div></div>
+<div class="pred-card" id="investCard中" style="border-left:4px solid #9c27b0;"><div class="card-header"><span class="guild-name" style="color:#9c27b0;">中投资</span><span class="win-prob" id="investProb中" style="color:#9c27b0;">—</span></div><div class="prob-detail" id="investDetail中">概率 —</div><div class="streak-info" id="investStreak中"></div></div>
+<div class="pred-card" id="investCard小" style="border-left:4px solid #00bcd4;"><div class="card-header"><span class="guild-name" style="color:#00bcd4;">小投资</span><span class="win-prob" id="investProb小" style="color:#00bcd4;">—</span></div><div class="prob-detail" id="investDetail小">概率 —</div><div class="streak-info" id="investStreak小"></div></div>
 </div>
 <!-- v25.7: 获胜收益预测卡片 -->
 <div style="font-weight:600;font-size:14px;color:#e67e22;margin:18px 0 8px;">💰 获胜商会收益预测（下一把开大/中/小）</div>
@@ -764,6 +780,11 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="sim-detail-panel" id="simProfitDetailPanel" style="display:none;margin-top:12px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-left:4px solid #f59e0b;">
     <strong>💰 相似收益盘推理详情</strong>
     <div id="simProfitDetailBody" style="margin-top:6px;"></div>
+</div>
+<!-- v33.1: 相似投资盘详情面板 -->
+<div class="sim-detail-panel" id="simInvestDetailPanel" style="display:none;margin-top:12px;background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-left:4px solid #e91e63;">
+    <strong style="color:#880e4f;">💎 相似获胜商会投资盘推理详情</strong>
+    <div id="simInvestDetailBody" style="margin-top:6px;"></div>
 </div>
 <!-- v29.10: 血本相似盘（0分方预测）——样式对齐相似盘 -->
 <div class="sim-detail-panel" id="lossSimPanel" style="display:none;margin-top:12px;background:#fce4ec;border-left:4px solid #e91e63;">
@@ -813,7 +834,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 <div class="history-table-container" id="historyContainer">
 <table class="history-table">
-<thead><tr><th style="width:60px;">局号</th><th style="width:90px;">日期</th><th style="width:100px;">时间</th><th style="width:80px;">A</th><th style="width:80px;">B</th><th style="width:80px;">C</th><th style="width:100px;">获胜方</th><th style="width:90px;">获胜收益</th><th style="width:90px;">预测收益</th><th style="width:110px;">预测方</th><th style="min-width:180px;">排名快照</th><th style="width:110px;">实际排名</th><th style="width:100px;">预测概率</th><th style="width:80px;">对错</th><th style="width:120px;">规律来源</th><th style="width:90px;">操作</th></tr></thead>
+<thead><tr><th style="width:60px;">局号</th><th style="width:90px;">日期</th><th style="width:100px;">时间</th><th style="width:80px;">A</th><th style="width:80px;">B</th><th style="width:80px;">C</th><th style="width:100px;">获胜方</th><th style="width:90px;">获胜收益</th><th style="width:90px;">获胜投资</th><th style="width:90px;">预测收益</th><th style="width:90px;">预测投资</th><th style="width:110px;">预测方</th><th style="min-width:180px;">排名快照</th><th style="width:110px;">实际排名</th><th style="width:100px;">预测概率</th><th style="width:80px;">对错</th><th style="width:120px;">规律来源</th><th style="width:90px;">操作</th></tr></thead>
 <tbody id="historyBody"></tbody>
 </table>
 </div>
@@ -956,7 +977,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v33.0';
+  var APP_VERSION = 'v33.1';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -4197,6 +4218,74 @@ class Predictor {
             profitPattern: profitPat
         };
     }
+    // ===== v33.1: 获胜投资预测（相似投资盘 + 投资规律综合）=====
+    _predictInvest() {
+        var n = this.history.length;
+        if (n < 5) return null;
+        var investCount = 0;
+        for (var i = 0; i < n; i++) {
+            var iw = this.history[i].investWinner;
+            if (iw === '大' || iw === '中' || iw === '小') investCount++;
+        }
+        if (investCount < 4) return null;
+        // 提取投资序列
+        var invSeq = [];
+        for (var j = 0; j < n; j++) {
+            var v = this.history[j].investWinner;
+            if (v === '大' || v === '中' || v === '小') invSeq.push(v);
+        }
+        if (invSeq.length < 4) return null;
+        // 1. 频率统计（基础概率）
+        var freq = {大:0, 中:0, 小:0};
+        for (var k = 0; k < invSeq.length; k++) freq[invSeq[k]]++;
+        var totalN = invSeq.length;
+        var baseProbs = {大: freq.大/totalN, 中: freq.中/totalN, 小: freq.小/totalN};
+        // 2. 连胜/反转判断
+        var lastInv = invSeq[invSeq.length - 1];
+        var invStreak = 1;
+        for (var s = invSeq.length - 2; s >= 0; s--) {
+            if (invSeq[s] === lastInv) invStreak++; else break;
+        }
+        // 3. 交替模式（近4局 ABAB）
+        var altBoost = null;
+        if (invSeq.length >= 4) {
+            var l4 = invSeq.slice(-4);
+            if (l4[0] === l4[2] && l4[1] === l4[3] && l4[0] !== l4[1]) altBoost = l4[0];
+        }
+        // 综合
+        var finalProbs = {大: baseProbs.大 * 0.5, 中: baseProbs.中 * 0.5, 小: baseProbs.小 * 0.5};
+        var detailParts = ['频率分布'];
+        // 连胜>=2时，反转倾向（均值回归）
+        if (invStreak >= 2) {
+            var others = ['大','中','小'].filter(function(x){return x!==lastInv;});
+            finalProbs[lastInv] *= 0.5;
+            others.forEach(function(o){ finalProbs[o] += 0.15; });
+            detailParts.push(lastInv + '投资连' + invStreak + '局→反转');
+        }
+        // 交替模式
+        if (altBoost) {
+            finalProbs[altBoost] += 0.25;
+            detailParts.push('交替→' + altBoost);
+        }
+        // 归一化
+        var t = finalProbs.大 + finalProbs.中 + finalProbs.小;
+        if (t > 0) { finalProbs.大/=t; finalProbs.中/=t; finalProbs.小/=t; }
+        else { finalProbs = {大:1/3,中:1/3,小:1/3}; }
+        var predicted = '中', maxVal = 0;
+        ['大','中','小'].forEach(function(p){ if(finalProbs[p]>maxVal){maxVal=finalProbs[p];predicted=p;} });
+        var confidence = Math.min(0.8, maxVal * 0.6 + 0.2);
+        // 存储相似投资盘信息
+        this._lastInvestResult = {
+            probs: finalProbs, predicted: predicted, confidence: confidence,
+            detail: detailParts.join(' + '),
+            streak: invStreak, lastValue: lastInv, freq: freq
+        };
+        return {
+            probs: finalProbs, predicted: predicted, confidence: confidence,
+            detail: detailParts.join(' + '),
+            simInvest: this._lastInvestResult
+        };
+    }
     // v31-③④: 相似盘权重动态因子 = 数据量自适应 × 漂移期降权
     _simWeightFactor() {
         var n = this.history ? this.history.length : 0;
@@ -4766,6 +4855,8 @@ class Predictor {
             windowAccuracy: {win6: acc6, win7: acc7, win8: acc8, win10: acc10, global: accG},
             // v25.6: 收益预测（相似收益盘 + 收益规律综合）
             profitPrediction: this._predictProfit(),
+            // v33.1: 投资预测（相似投资盘 + 投资规律综合）
+            investPrediction: this._predictInvest(),
             // v29.0: 各子模型首选
             modelPicks: modelPicks,
             signalSplit: signalSplit  // v32.0: 信号分裂标记
@@ -5242,7 +5333,7 @@ if(curBrier > 0.3){
         if (edge>=0.05) return {action:'caution', label:'⚠️ 可小注/观望', reason:'优势不大，校准命中'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
         return {action:'skip', label:'⏭️ 建议跳过本局', reason:'无概率优势，校准命中仅'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
     }
-    addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC) {
+    addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC, investWinner) {
         var rec = {a: a, b: b, c: c};
         rec.timeSlot = timeSlot || getTimeSlot();
         rec.date = new Date().toISOString().slice(0,10); // v31.2: 记录日期用于两日对比
@@ -5251,6 +5342,8 @@ if(curBrier > 0.3){
         rec.profitA = profitA || '';
         rec.profitB = profitB || '';
         rec.profitC = profitC || '';
+        // v33.1: 投资字段（大/中/小），旧数据兼容默认为空
+        rec.investWinner = investWinner || '';
         var winner = getWinner(rec);
         // v29.8: 预测计算即使抛异常也不能阻止本局入库
         var prevPrediction = null;
@@ -5277,6 +5370,11 @@ if(curBrier > 0.3){
                         predicted: prevPrediction.profitPrediction.predicted,
                         probs: prevPrediction.profitPrediction.probs,
                         confidence: prevPrediction.profitPrediction.confidence
+                    } : null,
+                    investPrediction: prevPrediction.investPrediction ? {
+                        predicted: prevPrediction.investPrediction.predicted,
+                        probs: prevPrediction.investPrediction.probs,
+                        confidence: prevPrediction.investPrediction.confidence
                     } : null
                 });
                 this.accuracy.push(winner === prevPrediction.predictedGuild);
@@ -5298,6 +5396,15 @@ if(curBrier > 0.3){
                     this.profitBrierHistory = this.profitBrierHistory || [];
                     this.profitBrierHistory.push(profitBrier);
                     if (this.profitBrierHistory.length > 100000) this.profitBrierHistory.shift();
+                }
+                // v33.1: 投资预测学习记录
+                var actualInvest = rec.investWinner;
+                var prevInvestPred = prevPrediction.investPrediction;
+                if (prevInvestPred && prevInvestPred.probs && actualInvest) {
+                    var investCorrect = (prevInvestPred.predicted === actualInvest);
+                    this.investAccuracy = this.investAccuracy || [];
+                    this.investAccuracy.push(investCorrect);
+                    if (this.investAccuracy.length > 100000) this.investAccuracy.shift();
                 }
                 // v26.2：快速重建模式跳过学习和反思日志（重建只需要predHistory用于显示）
                 if (!this._fastRebuild) {
@@ -5901,7 +6008,7 @@ var _pendingCloudSave = false;
 var _cloudThrottleTimer = null;
 var _cloudSaveRetryCount = 0;
 var CLOUD_MAX_RETRY = 8; // 上传最大重试次数
-var CLOUD_PULL_MAX_RETRY = 3; // v31.4：拉取最大自动重试次数
+var CLOUD_PULL_MAX_RETRY = 5; // v31.4：拉取最大自动重试次数
 var _cloudPullRetryCount = 0; // v31.4：拉取重试计数
 var _networkRetryTimer = null; // v31.4：网络恢复后自动重试拉取的定时器
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
@@ -6283,7 +6390,7 @@ function createSnapshot(reason) {
             })(),
             data: JSON.stringify({
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
-                profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights,
+                profitAccuracy: P.profitAccuracy, investAccuracy: P.investAccuracy, modelWeights: P.modelWeights,
                 learnIterations: P.learnIterations, _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride,
                 modelPerf: P.modelPerf, windowPerf: P.windowPerf, windowWeights: P.windowWeights,
@@ -6311,6 +6418,7 @@ function restoreSnapshotObject(s) {
         P.predHistory = d.predHistory ? d.predHistory.slice() : [];
         P.accuracy = d.accuracy ? d.accuracy.slice() : [];
         P.profitAccuracy = d.profitAccuracy ? d.profitAccuracy.slice() : [];
+        P.investAccuracy = d.investAccuracy ? d.investAccuracy.slice() : [];
         if (d.modelWeights) P.modelWeights = Object.assign({}, d.modelWeights);
         if (d.modelPerf) P.modelPerf = Object.assign({}, d.modelPerf);
         if (d.windowPerf) P.windowPerf = Object.assign({}, d.windowPerf);
@@ -7386,18 +7494,22 @@ function renderDailySnapshot() {
     // 统计
     var cntA = 0, cntB = 0, cntC = 0;
     var cntBig = 0, cntMid = 0, cntSmall = 0;
+    var iBig = 0, iMid = 0, iSmall = 0;
     for (var r = 0; r < rows.length; r++) {
         var w = getWinner(rows[r].rec);
         if (w === 'A') cntA++; else if (w === 'B') cntB++; else if (w === 'C') cntC++;
         var pf = rows[r].rec.profitWinner;
         if (pf === '大') cntBig++; else if (pf === '中') cntMid++; else if (pf === '小') cntSmall++;
+        var iv = rows[r].rec.investWinner;
+        if (iv === '大') iBig++; else if (iv === '中') iMid++; else if (iv === '小') iSmall++;
     }
 
     summary.innerHTML = targetDateStr + ' · 共' + rows.length + '局 · ' +
         '<span style="color:#e74c3c;font-weight:700;">A' + cntA + '</span> ' +
         '<span style="color:#3498db;font-weight:700;">B' + cntB + '</span> ' +
         '<span style="color:#2ecc71;font-weight:700;">C' + cntC + '</span> · ' +
-        '大' + cntBig + ' 中' + cntMid + ' 小' + cntSmall;
+        '💰大' + cntBig + ' 中' + cntMid + ' 小' + cntSmall +
+        (iBig + iMid + iSmall > 0 ? ' · <span style="color:#9c27b0;font-weight:700;">💎大' + iBig + ' 中' + iMid + ' 小' + iSmall + '</span>' : '');
 
     if (rows.length === 0) {
         emptyTip.style.display = 'block';
@@ -7418,6 +7530,11 @@ function renderDailySnapshot() {
         var pfBadge = pf
             ? '<span class="ds-profit-badge ds-profit-' + pf + '">' + pf + '</span>'
             : '<span style="color:#ccc;font-size:12px;">—</span>';
+        // 投资徽章
+        var iv = rec.investWinner || '';
+        var ivBadge = iv
+            ? '<span class="ds-invest-badge ds-invest-' + iv + '">' + iv + '</span>'
+            : '<span style="color:#ccc;font-size:12px;">—</span>';
         html += '<tr>' +
             '<td class="ds-num" style="color:#6c757d;">' + row.idx + '</td>' +
             '<td style="color:#495057;font-size:12px;">' + row.time + '</td>' +
@@ -7426,6 +7543,7 @@ function renderDailySnapshot() {
             '<td>' + scoreSpanCompact(rec.c) + '</td>' +
             '<td>' + winBadge + '</td>' +
             '<td>' + pfBadge + '</td>' +
+            '<td>' + ivBadge + '</td>' +
             '</tr>';
     }
     // v30.22：分页加载更多按钮
@@ -8282,33 +8400,41 @@ function autoOptimizeTick() {
         }
     });
 }
-// v31.0: 一键复制预测结果
+// v31.0: 一键复制预测结果（v33.1: 四盘统一格式）
 function copyPrediction() {
     try {
         var p = P._threeWayAnalysis || {};
         var topGuild = document.querySelector('.pred-card.rank-1 .guild-name');
         var topProb = document.querySelector('.pred-card.rank-1 .win-prob');
         if (!topGuild) { alert('暂无预测数据'); return; }
-        var text = '【预测】' + topGuild.textContent + ' ' + (topProb ? topProb.textContent : '');
-        if (p.lossSide) text += '，预测' + p.lossSide + '是血本';
+        // 盘1：获胜方预测
+        var text = '【下一局预测】\n';
+        text += '🏆 获胜方：' + topGuild.textContent + ' ' + (topProb ? topProb.textContent : '');
+        if (p.lossSide) text += '\n🩸 血本方：' + p.lossSide + '（0分）';
+        // 一致性
         var agreeCount = 1;
         if (p.lossTop === p.simTop) agreeCount++;
         if (p.profitTop === p.simTop) agreeCount++;
-        if (agreeCount >= 3) text += '，三盘一致→' + p.simTop;
-        else if (agreeCount === 2) text += '，两盘一致→' + p.simTop;
-        // 收益预测
+        if (agreeCount >= 3) text += '\n✅ 三盘一致→' + p.simTop;
+        else if (agreeCount === 2) text += '\n🔵 两盘一致→' + p.simTop;
+        // 盘2：收益预测
         var profitTop = document.querySelector('#profitCards .rank-1 .guild-name');
-        if (profitTop) text += '，收益预测' + profitTop.textContent;
+        var profitProb = document.querySelector('#profitCards .rank-1 .win-prob');
+        if (profitTop) text += '\n💰 收益：' + profitTop.textContent.replace('收益','') + (profitProb ? ' ' + profitProb.textContent : '');
+        // 盘3：投资预测
+        var investTop = document.querySelector('#investCards .rank-1 .guild-name');
+        var investProb = document.querySelector('#investCards .rank-1 .win-prob');
+        if (investTop) text += '\n💎 投资：' + investTop.textContent.replace('投资','') + (investProb ? ' ' + investProb.textContent : '');
         // 复制
         if (navigator.clipboard) {
             navigator.clipboard.writeText(text).then(function() {
-                alert('已复制：' + text);
+                alert('已复制：\n\n' + text);
             });
         } else {
             var ta = document.createElement('textarea');
             ta.value = text; document.body.appendChild(ta); ta.select();
             document.execCommand('copy'); document.body.removeChild(ta);
-            alert('已复制：' + text);
+            alert('已复制：\n\n' + text);
         }
     } catch(e) { alert('复制失败：' + e.message); }
 }
@@ -8488,6 +8614,56 @@ function renderCards() {
             document.getElementById('profitCard'+p).classList.remove('rank-1');
         });
     }
+    // v33.1: 获胜投资预测卡片渲染
+    var investPred = result.investPrediction;
+    if (investPred && investPred.probs) {
+        ['大','中','小'].forEach(function(p) {
+            var ip = investPred.probs[p];
+            var isBest = (investPred.predicted === p);
+            document.getElementById('investProb'+p).textContent = (ip*100).toFixed(1) + '%';
+            document.getElementById('investDetail'+p).textContent = '概率' + (ip*100).toFixed(1) + '%' + (isBest ? ' · 最可能' : '');
+            var ise = document.getElementById('investStreak'+p);
+            ise.innerHTML = '';
+            if (isBest) {
+                var ibadge = document.createElement('span');
+                ibadge.className = 'streak-badge streak-hot';
+                ibadge.style.background = p==='大'?'#fce4ec':p==='中'?'#f3e5f5':'#e0f7fa';
+                ibadge.style.color = p==='大'?'#880e4f':p==='中'?'#4a148c':'#006064';
+                ibadge.textContent = '预测' + p;
+                ise.appendChild(ibadge);
+            }
+            var icard = document.getElementById('investCard'+p);
+            if (icard) { if (isBest) icard.classList.add('rank-1'); else icard.classList.remove('rank-1'); }
+        });
+        // 渲染相似投资盘面板
+        var sip = document.getElementById('simInvestDetailPanel');
+        var sib = document.getElementById('simInvestDetailBody');
+        if (sip && sib) {
+            var lr = P._lastInvestResult;
+            if (lr) {
+                var fh = '📊 频率统计：大' + (lr.freq.大||0) + '局 / 中' + (lr.freq.中||0) + '局 / 小' + (lr.freq.小||0) + '局';
+                fh += '<br>🔄 最近投资：' + lr.lastValue + '（连续' + lr.streak + '局）';
+                fh += '<br>🎯 预测：<strong style="color:#9c27b0;">' + investPred.predicted + '</strong>（' + (investPred.probs[investPred.predicted]*100).toFixed(0) + '%）';
+                fh += '<br>📈 推理：' + investPred.detail;
+                sib.innerHTML = fh;
+                sip.style.display = 'block';
+            }
+        }
+    } else {
+        ['大','中','小'].forEach(function(p) {
+            var el1 = document.getElementById('investProb'+p); if (el1) el1.textContent = '—';
+            var el2 = document.getElementById('investDetail'+p); if (el2) el2.textContent = '投资数据不足';
+            var el3 = document.getElementById('investStreak'+p); if (el3) el3.innerHTML = '';
+            var el4 = document.getElementById('investCard'+p); if (el4) el4.classList.remove('rank-1');
+        });
+        // v33.1: 无投资数据时也显示面板框架，提示用户录入投资数据
+        var sip3 = document.getElementById('simInvestDetailPanel');
+        var sib3 = document.getElementById('simInvestDetailBody');
+        if (sip3 && sib3) {
+            sib3.innerHTML = '<span style="color:#9c27b0;font-size:12px;">💡 暂无投资数据——在录入时选择「获胜商会投资（大/中/小）」后，这里将显示相似投资盘推理（频率统计、连投反转、交替规律）。</span>';
+            sip3.style.display = 'block';
+        }
+    }
     var diff=sorted[0][1]-sorted[1][1];
     var conf=Math.round(diff*100);
     var topProb = sorted[0][1];
@@ -8559,7 +8735,10 @@ function renderCards() {
         (profitPred && profitPred.probs ?
             '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;font-size:13px;">💰 获胜收益预测：<strong>'+profitPred.predicted+'</strong>('+(profitPred.probs[profitPred.predicted]*100).toFixed(0)+'%) | 大'+(profitPred.probs.大*100).toFixed(0)+'% 中'+(profitPred.probs.中*100).toFixed(0)+'% 小'+(profitPred.probs.小*100).toFixed(0)+'%'+
             '<br><span style="color:#666;font-size:12px;">综合置信度 '+(profitPred.confidence*100).toFixed(0)+'% | '+profitPred.detail+'</span></div>'
-            : '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;font-size:13px;color:#999;">💰 获胜收益预测：收益数据不足，需录入更多带收益的数据</div>');
+            : '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #dee2e6;font-size:13px;color:#999;">💰 获胜收益预测：收益数据不足，需录入更多带收益的数据</div>') +
+        ((result.investPrediction && result.investPrediction.probs) ?
+            '<div style="margin-top:6px;font-size:13px;color:#9c27b0;">💎 获胜投资预测：<strong>'+result.investPrediction.predicted+'</strong>('+(result.investPrediction.probs[result.investPrediction.predicted]*100).toFixed(0)+'%) | 大'+(result.investPrediction.probs.大*100).toFixed(0)+'% 中'+(result.investPrediction.probs.中*100).toFixed(0)+'% 小'+(result.investPrediction.probs.小*100).toFixed(0)+'</div>'
+            : '');
     // v14: 核心规律展示 —— 写清楚推理过程
     if (result.patternName === '相似盘模式' && result.simInfo) {
         var si = result.simInfo;
@@ -9135,7 +9314,7 @@ function renderHistory() {
     for (var pi=startIdx; pi<endIdx; pi++) {
         var idx = filtered[pi].origIdx;
         var rec=filtered[pi].rec, winner=getWinner(rec);
-        var predDisp='—',snapDisp='—',actualRankDisp='—',probDisp='—',corrDisp='—',sourceDisp='—',predProfitDisp='—';
+        var predDisp='—',snapDisp='—',actualRankDisp='—',probDisp='—',corrDisp='—',sourceDisp='—',predProfitDisp='—',predInvestDisp='—';
         var _phIdx = idx - _phOffset;
         if (idx>0 && _phIdx>=0 && _phIdx<P.predHistory.length) {
             var ph=P.predHistory[_phIdx];
@@ -9144,6 +9323,12 @@ function renderHistory() {
                 var actualP = rec.profitWinner;
                 var pCorr = (actualP && predP === actualP);
                 predProfitDisp = profitTag(predP) + (pCorr ? ' <span style="color:#27ae60;font-size:11px;">✓</span>' : (actualP ? ' <span style="color:#e74c3c;font-size:11px;">✗</span>' : ''));
+            }
+            if (ph.investPrediction && ph.investPrediction.predicted) {
+                var predI = ph.investPrediction.predicted;
+                var actualI = rec.investWinner;
+                var iCorr = (actualI && predI === actualI);
+                predInvestDisp = '<span style="color:#9c27b0;font-weight:600;">' + predI + '</span>' + (iCorr ? ' <span style="color:#27ae60;font-size:11px;">✓</span>' : (actualI ? ' <span style="color:#e74c3c;font-size:11px;">✗</span>' : ''));
             }
             if (ph.isTie) {
                 predDisp='<span style="color:#999;">🤝 平局(预测'+ph.guild+')</span>';
@@ -9190,7 +9375,9 @@ function renderHistory() {
             '<td>'+scoreSpan(rec.c)+'</td>'+
             '<td class="winner-cell winner-'+(winner?winner.toLowerCase():'')+'">'+(winner||'平局')+'</td>'+
             '<td>'+profitTag(rec.profitWinner)+'</td>'+
+            '<td style="color:#9c27b0;font-weight:600;">'+(rec.investWinner||'—')+'</td>'+
             '<td>'+predProfitDisp+'</td>'+
+            '<td>'+predInvestDisp+'</td>'+
             '<td>'+predDisp+'</td>'+
             '<td>'+snapDisp+'</td>'+
             '<td>'+actualRankDisp+'</td>'+
@@ -9790,7 +9977,7 @@ function doCustomExport() {
         var colNames = {
             index: '局号', date: '日期', time: '时间',
             a: 'A', b: 'B', c: 'C',
-            winner: '获胜方', profit: '获胜收益',
+            winner: '获胜方', profit: '获胜收益', invest: '获胜投资',
             predGuild: '预测方', predProb: '预测概率',
             correct: '对错', source: '规律来源'
         };
@@ -9822,7 +10009,7 @@ function doCustomExport() {
             var rowData = {
                 index: i + 1, date: date, time: time,
                 a: r.a !== undefined ? r.a : '', b: r.b !== undefined ? r.b : '', c: r.c !== undefined ? r.c : '',
-                winner: winner, profit: r.profitWinner || '',
+                winner: winner, profit: r.profitWinner || '', invest: r.investWinner || '',
                 predGuild: predGuild, predProb: predProb,
                 correct: correct, source: source
             };
@@ -9847,7 +10034,7 @@ function doCustomExport() {
                 var colNames = {
                     index: '局号', date: '日期', time: '时间',
                     a: 'A', b: 'B', c: 'C',
-                    winner: '获胜方', profit: '获胜收益',
+                    winner: '获胜方', profit: '获胜收益', invest: '获胜投资',
                     predGuild: '预测方', predProb: '预测概率',
                     correct: '对错', source: '规律来源'
                 };
@@ -9875,7 +10062,7 @@ function doCustomExport() {
                     var rowData = {
                         index: ei + 1, date: date, time: time,
                         a: r.a !== undefined ? r.a : '', b: r.b !== undefined ? r.b : '', c: r.c !== undefined ? r.c : '',
-                        winner: winner, profit: r.profitWinner || '',
+                        winner: winner, profit: r.profitWinner || '', invest: r.investWinner || '',
                         predGuild: predGuild, predProb: predProb,
                         correct: correct, source: source
                     };
@@ -10111,15 +10298,15 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 var text=ev.target.result;var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
                 if(lines.length<2)throw new Error('CSV至少需表头+1行数据');
                 var header=lines[0].split(',').map(function(s){return s.trim().toLowerCase();});
-                var colMap={};var rules={'A':['a','商会a','商會a','guilda'],'B':['b','商会b','商會b','guildb'],'C':['c','商会c','商會c','guildc'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['a收益','商会a收益','商會a收益','profita','profit_a'],'PB':['b收益','商会b收益','商會b收益','profitb','profit_b'],'PC':['c收益','商会c收益','商會c收益','profitc','profit_c']};
+                var colMap={};var rules={'A':['a','商会a','商會a','guilda'],'B':['b','商会b','商會b','guildb'],'C':['c','商会c','商會c','guildc'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['a收益','商会a收益','商會a收益','profita','profit_a'],'PB':['b收益','商会b收益','商會b收益','profitb','profit_b'],'PC':['c收益','商会c收益','商會c收益','profitc','profit_c'],'IW':['获胜投资','获胜商会投资','投资','winnerinvest','invest_winner']};
                 for(var hi=0;hi<header.length;hi++){var s=header[hi];Object.keys(rules).forEach(function(g){rules[g].forEach(function(n){if(n===s)colMap[g]=hi;});});}
                 if(!colMap.A)colMap.A=0;if(!colMap.B)colMap.B=1;if(!colMap.C)colMap.C=2;
                 var hasTimeCol=(colMap.TIME!==undefined),hasDateCol=(colMap.DATE!==undefined),hasSeparateCols=hasTimeCol&&hasDateCol,hasProfitCols=(colMap.PW!==undefined)||(colMap.PA!==undefined);
                 var recs=[];
-                for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(parts[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}recs.push(rec);}}
+                for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(parts[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}rec.investWinner=colMap.IW!==undefined?String(parts[colMap.IW]||'').trim():'';recs.push(rec);}}
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
-                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=100,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,0);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
+                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=100,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,0);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
         };
         readerCSV.readAsText(file);this.value='';
@@ -10132,7 +10319,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
             var ws=wb.Sheets[wb.SheetNames[0]];
             var json=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
             var header=json[0]||[]; var colMap={};
-            var rules={'A':['a','A','商会A','商會A','guilda','guild_a'],'B':['b','B','商会B','商會B','guildb','guild_b'],'C':['c','C','商会C','商會C','guildc','guild_c'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['A收益','商会A收益','商會A收益','profita','profit_a'],'PB':['B收益','商会B收益','商會B收益','profitb','profit_b'],'PC':['C收益','商会C收益','商會C收益','profitc','profit_c']};
+            var rules={'A':['a','A','商会A','商會A','guilda','guild_a'],'B':['b','B','商会B','商會B','guildb','guild_b'],'C':['c','C','商会C','商會C','guildc','guild_c'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['A收益','商会A收益','商會A收益','profita','profit_a'],'PB':['B收益','商会B收益','商會B收益','profitb','profit_b'],'PC':['C收益','商会C收益','商會C收益','profitc','profit_c'],'IW':['获胜投资','获胜商会投资','投资','winnerinvest','invest_winner']};
             for (var hi=0;hi<header.length;hi++){var s=String(header[hi]).trim().toLowerCase();Object.keys(rules).forEach(function(g){rules[g].forEach(function(n){if(n.toLowerCase()===s)colMap[g]=hi;});});}
             if(!colMap.A)colMap.A=0;if(!colMap.B)colMap.B=1;if(!colMap.C)colMap.C=2;
             var hasTimeCol = (colMap.TIME !== undefined);
@@ -10141,7 +10328,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
             var hasProfitCols = (colMap.PW !== undefined) || (colMap.PA !== undefined);
             var start=header.some(function(c){return c!==null;})?1:0;
             var recs=[];
-            for (var i=start;i<json.length;i++){var row=json[i];if(!row||row.every(function(c){return c===null;}))continue;var a=parseCell(row[colMap.A]),b=parseCell(row[colMap.B]),c=parseCell(row[colMap.C]);if([a,b,c].every(function(v){return VALID_VALUES.indexOf(v)>=0;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(row[colMap.DATE]);var tStr=row[colMap.TIME]?String(row[colMap.TIME]).trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&row[colMap.TIME]){rec.timeSlot=String(row[colMap.TIME]).trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(row[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(row[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(row[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(row[colMap.PC]||'').trim():'';}recs.push(rec);}}
+            for (var i=start;i<json.length;i++){var row=json[i];if(!row||row.every(function(c){return c===null;}))continue;var a=parseCell(row[colMap.A]),b=parseCell(row[colMap.B]),c=parseCell(row[colMap.C]);if([a,b,c].every(function(v){return VALID_VALUES.indexOf(v)>=0;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(row[colMap.DATE]);var tStr=row[colMap.TIME]?String(row[colMap.TIME]).trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&row[colMap.TIME]){rec.timeSlot=String(row[colMap.TIME]).trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?String(row[colMap.PW]||'').trim():'';rec.profitA=colMap.PA!==undefined?String(row[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(row[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(row[colMap.PC]||'').trim():'';}rec.investWinner=colMap.IW!==undefined?String(row[colMap.IW]||'').trim():'';recs.push(rec);}}
             if(recs.length===0)throw new Error('无有效数据');
             // v24: 无时间列时，以导入时间为准自动往前推算（按当前局间隔：半小时/一小时）
             if(!hasTimeCol && !hasSeparateCols){
@@ -10163,7 +10350,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 var xlsBatch=100,xlsTotal=recs.length,xlsDone=0;
                 function xlsNext(){
                     var end=Math.min(xlsDone+xlsBatch,xlsTotal);
-                    for(var ri=xlsDone;ri<end;ri++){cumP.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC);}
+                    for(var ri=xlsDone;ri<end;ri++){cumP.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}
                     xlsDone=end;
                     if(xlsDone<xlsTotal){setTimeout(xlsNext,0);}
                     else{
@@ -10863,8 +11050,10 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     }
     // v26.4：录入二次确认
     var pWConfirm = document.getElementById('inputProfitWinner').value;
+    var iWConfirm = document.getElementById('inputInvestWinner').value;
     var profitText = pWConfirm ? ('获胜商会收益：' + pWConfirm) : '获胜商会收益：未选';
-    if(!confirm('确认录入本局数据？\n\nA：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' + profitText + '\n\n点「确定」录入，点「取消」返回修改。')) return;
+    var investText = iWConfirm ? ('\n获胜商会投资：' + iWConfirm) : '';
+    if(!confirm('确认录入本局数据？\n\nA：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' + profitText + investText + '\n\n点「确定」录入，点「取消」返回修改。')) return;
     // v30.22：防重复点击——录入过程中禁用按钮，防止 setTimeout 期间重复拍快照
     var _btn = document.getElementById('btnAddRecord');
     if (_btn && _btn.disabled) return;
@@ -10875,8 +11064,9 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try {
         // v26.0: 直接录入获胜收益（大/中/小）
         var pW = document.getElementById('inputProfitWinner').value;
+        var iW = document.getElementById('inputInvestWinner').value;
         var _lenBefore = P.history.length, _addErr = null;
-        try { P.addRecord(a,b,c,null,pW,'','',''); } catch(e) { _addErr = e; console.error('[录入]addRecord失败:', e.message); }
+        try { P.addRecord(a,b,c,null,pW,'','','',iW); } catch(e) { _addErr = e; console.error('[录入]addRecord失败:', e.message); }
         // v30.22：验证记录真的入库，否则报失败而非假成功
         if (_addErr || P.history.length !== _lenBefore + 1) {
             showLearningIndicator(false);
@@ -10886,6 +11076,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         }
         // 录入后重置收益选择
         document.getElementById('inputProfitWinner').value='';
+        document.getElementById('inputInvestWinner').value='';
         // 录入新记录后自动跳到最后一页（最新记录）
         var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
         if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 300)); _hc.setAttribute('data-page', _tp); }
@@ -10895,7 +11086,8 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try { showLearnTip(); } catch(e) {}
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
-        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt);
+        var investTxt = iW ? ('，获胜投资：' + iW) : '';
+        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt);
     } catch(e) {
         console.error('[录入] 出错:', e);
         showRecordResult(false, '录入出错', '出错了: ' + e.message + '\n\n请再点一次录入按钮重试。');
@@ -10908,7 +11100,8 @@ document.getElementById('btnUndo').addEventListener('click',function(){
     if(!P.history || P.history.length === 0){ showRecordResult(false, '撤销失败', '没有可撤销的记录'); return; }
     var last = P.history[P.history.length - 1];
     var profitTxt = last.profitWinner ? ('，获胜收益：' + last.profitWinner) : '';
-    if(!confirm('确认撤销上一局？\n\n上一局：A' + last.a + ' B' + last.b + ' C' + last.c + profitTxt + '\n\n撤销后可在操作日志回滚。')) return;
+    var investTxt2 = last.investWinner ? ('，获胜投资：' + last.investWinner) : '';
+    if(!confirm('确认撤销上一局？\n\n上一局：A' + last.a + ' B' + last.b + ' C' + last.c + profitTxt + investTxt2 + '\n\n撤销后可在操作日志回滚。')) return;
     createSnapshot('撤销上一局');
     P.undoLast();renderAll();debouncedSave();
     showRecordResult(true, '撤销成功', '已撤销第' + (P.history.length + 1) + '局：A' + last.a + ' B' + last.b + ' C' + last.c);
@@ -11601,7 +11794,7 @@ setTimeout(function(){
 <div class="ds-summary" id="dsSummary">—</div>
 <div class="ds-table-wrap">
 <table class="ds-table">
-<thead><tr><th style="width:50px;">局号</th><th style="width:90px;">时间</th><th>A收分</th><th>B收分</th><th>C收分</th><th style="width:60px;">获胜方</th><th style="width:55px;">收益</th></tr></thead>
+<thead><tr><th style="width:50px;">局号</th><th style="width:90px;">时间</th><th>A收分</th><th>B收分</th><th>C收分</th><th style="width:60px;">获胜方</th><th style="width:55px;">收益</th><th style="width:55px;">投资</th></tr></thead>
 <tbody id="dsTableBody"></tbody>
 </table>
 <div class="ds-empty" id="dsEmpty" style="display:none;">当天暂无记录</div>
@@ -11884,6 +12077,9 @@ if (clearFilterBtn) clearFilterBtn.onclick = function() {
 </label>
 <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
 <input type="checkbox" class="export-col" value="profit" checked> 获胜收益
+</label>
+<label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
+<input type="checkbox" class="export-col" value="invest" checked> 获胜投资
 </label>
 <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;">
 <input type="checkbox" class="export-col" value="predGuild"> 预测方
