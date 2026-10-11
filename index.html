@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v33.2 · 三盘独立规律预测</title>
+<title>商会三竞预测系统 v34.1 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -495,6 +495,13 @@ body.dark-mode .access-box p{color:#aaa;}
 .ds-winner-B{background:#3498db;}
 .ds-winner-C{background:#2ecc71;}
 .ds-profit-badge{display:inline-block;padding:3px 10px;border-radius:6px;color:#fff;font-weight:700;font-size:13px;min-width:28px;text-align:center;}
+.ds-profit-大{background:#e67e22;}
+.ds-profit-中{background:#f39c12;}
+.ds-profit-小{background:#27ae60;}
+.ds-invest-badge{display:inline-block;padding:3px 10px;border-radius:6px;color:#fff;font-weight:700;font-size:13px;min-width:28px;text-align:center;}
+.ds-invest-大{background:#e91e63;}
+.ds-invest-中{background:#9c27b0;}
+.ds-invest-小{background:#00bcd4;}
 .ds-profit-大{background:#e74c3c;}
 .ds-profit-中{background:#f39c12;}
 .ds-profit-小{background:#27ae60;}
@@ -594,8 +601,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v33.2</span></h1>
-<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v33.2</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v34.3</span></h1>
+<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v34.3</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -758,7 +765,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   <span id="betAdviceLabel" style="font-size:17px;">⏳ 分析中...</span>
   <span id="betAdviceReason" style="font-weight:500;font-size:13px;color:#6c757d;"></span>
 </div>
-<!-- v33.2: 获胜投资预测卡片（在收益预测上方） -->
+<!-- v33.1: 获胜投资预测卡片（在收益预测上方） -->
 <div style="font-weight:600;font-size:14px;color:#9c27b0;margin:18px 0 8px;">💎 获胜商会投资预测（下一把开大/中/小）</div>
 <div class="prediction-cards" id="investCards" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
 <div class="pred-card" id="investCard大" style="border-left:4px solid #e91e63;"><div class="card-header"><span class="guild-name" style="color:#e91e63;">大投资</span><span class="win-prob" id="investProb大" style="color:#e91e63;">—</span></div><div class="prob-detail" id="investDetail大">概率 —</div><div class="streak-info" id="investStreak大"></div></div>
@@ -783,7 +790,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
     <strong>💰 相似收益盘推理详情</strong>
     <div id="simProfitDetailBody" style="margin-top:6px;"></div>
 </div>
-<!-- v33.2: 相似投资盘详情面板 -->
+<!-- v33.1: 相似投资盘详情面板 -->
 <div class="sim-detail-panel" id="simInvestDetailPanel" style="display:none;margin-top:12px;background:linear-gradient(135deg,#fce4ec,#f8bbd0);border-left:4px solid #e91e63;">
     <strong style="color:#880e4f;">💎 相似获胜商会投资盘推理详情</strong>
     <div id="simInvestDetailBody" style="margin-top:6px;"></div>
@@ -979,7 +986,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v33.2';
+  var APP_VERSION = 'v34.3';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1052,7 +1059,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     if (opt && opt.headers) for (var k in opt.headers) h[k] = opt.headers[k];
     // v31.4：加AbortController超时，避免弱网下设备授权请求永久挂起
     var _ctrl = new AbortController();
-    var _to = setTimeout(function(){ _ctrl.abort(); }, 20000);
+    var _to = setTimeout(function(){ _ctrl.abort(); }, 20000); // 恢复全局20秒超时，保证正常云同步不被掐断
     return fetch(sbUrl + '/rest/v1/' + path, {
       method: (opt && opt.method) || 'GET',
       headers: h,
@@ -1068,19 +1075,6 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       if (e.name === 'AbortError') throw new Error('请求超时（20秒），请检查网络');
       throw e;
     });
-  }
-
-  // 自动清洗获胜收益/投资值：去空格、全角转半角、常见别名映射
-  function cleanWinValue(v) {
-      if (!v) return '';
-      var s = String(v).trim();
-      // 全角字符转半角
-      s = s.replace(/[\uff01-\uff5e]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xfee0); });
-      s = s.trim();
-      if (s.indexOf('大') >= 0) return '大';
-      if (s.indexOf('中') >= 0 || s.indexOf('平') >= 0) return '中';
-      if (s.indexOf('小') >= 0) return '小';
-      return s;
   }
 
   function regDevice() {
@@ -1808,6 +1802,22 @@ function profitTag(val) {
     else if (val === '中') { bg = '#fff3cd'; fg = '#856404'; }
     else if (val === '小') { bg = '#d4edda'; fg = '#155724'; }
     return '<span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:600;background:'+bg+';color:'+fg+';">'+val+'</span>';
+}
+// 全局工具函数：自动清洗获胜收益/投资值
+function cleanWinValue(v) {
+    if (!v) return '';
+    var s = String(v).trim();
+    // 全角字符转半角
+    s = s.replace(/[\uff01-\uff5e]/g, function(ch) { return String.fromCharCode(ch.charCodeAt(0) - 0xfee0); });
+    s = s.trim();
+    // 兼容数字编码：1=大 2=中 3=小
+    if (s === '1') return '大';
+    if (s === '2') return '中';
+    if (s === '3') return '小';
+    if (s.indexOf('大') >= 0) return '大';
+    if (s.indexOf('中') >= 0 || s.indexOf('平') >= 0) return '中';
+    if (s.indexOf('小') >= 0) return '小';
+    return s;
 }
 function calcWinRates(records) {
     var n = records.length || 1;
@@ -4233,7 +4243,7 @@ class Predictor {
             profitPattern: profitPat
         };
     }
-    // ===== v33.2: 获胜投资预测（相似投资盘 + 投资规律综合）=====
+    // ===== v33.1: 获胜投资预测（相似投资盘 + 投资规律综合）=====
     _predictInvest() {
         var n = this.history.length;
         if (n < 5) return null;
@@ -4870,7 +4880,7 @@ class Predictor {
             windowAccuracy: {win6: acc6, win7: acc7, win8: acc8, win10: acc10, global: accG},
             // v25.6: 收益预测（相似收益盘 + 收益规律综合）
             profitPrediction: this._predictProfit(),
-            // v33.2: 投资预测（相似投资盘 + 投资规律综合）
+            // v33.1: 投资预测（相似投资盘 + 投资规律综合）
             investPrediction: this._predictInvest(),
             // v29.0: 各子模型首选
             modelPicks: modelPicks,
@@ -5357,7 +5367,7 @@ if(curBrier > 0.3){
         rec.profitA = profitA || '';
         rec.profitB = profitB || '';
         rec.profitC = profitC || '';
-        // v33.2: 投资字段（大/中/小），旧数据兼容默认为空
+        // v33.1: 投资字段（大/中/小），旧数据兼容默认为空
         rec.investWinner = investWinner || '';
         var winner = getWinner(rec);
         // v29.8: 预测计算即使抛异常也不能阻止本局入库
@@ -5412,7 +5422,7 @@ if(curBrier > 0.3){
                     this.profitBrierHistory.push(profitBrier);
                     if (this.profitBrierHistory.length > 100000) this.profitBrierHistory.shift();
                 }
-                // v33.2: 投资预测学习记录
+                // v33.1: 投资预测学习记录
                 var actualInvest = rec.investWinner;
                 var prevInvestPred = prevPrediction.investPrediction;
                 if (prevInvestPred && prevInvestPred.probs && actualInvest) {
@@ -5927,17 +5937,17 @@ if(curBrier > 0.3){
             rebuildP.modelWeights = Object.assign({}, this._rebuildModelWeights);
         }
         var idx = 0;
-        var batchSize = 200;
+        var batchSize = 30;
         var self = this;
         function processBatch() {
             var end = Math.min(idx + batchSize, hist.length);
             for (; idx < end; idx++) {
                 var h = hist[idx];
-                rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC);
+                rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner);
             }
             if (onProgress) onProgress(idx, hist.length);
             if (idx < hist.length) {
-                setTimeout(processBatch, 0);
+                setTimeout(processBatch, 10);
             } else {
                 self.history = rebuildP.history.slice();
                 self.predHistory = rebuildP.predHistory.slice();
@@ -7310,6 +7320,7 @@ function refreshOlog() {
 }
 // ========== 在线用户心跳与列表 ==========
 var _heartbeatTimer = null;
+var _onlineTableAvailable = true; // 检测online表是否可用，不可用就停止上报，减少无意义报错
 function startOnlineHeartbeat() {
     if (_heartbeatTimer) clearInterval(_heartbeatTimer);
     sendHeartbeat(); // 立即发一次
@@ -7317,15 +7328,17 @@ function startOnlineHeartbeat() {
 }
 function sendHeartbeat() {
     try {
-        api('online_devices', {
+        // 直接复用已有的access_control表，不需要新建表，权限已经配好，不会卡
+        api('access_control', {
             method: 'POST',
             headers: {'Prefer': 'resolution=merge-duplicates'},
             body: {
                 id: deviceId,
                 device_name: devName(),
+                status: 'online',
                 last_seen: new Date().toISOString()
             }
-        }).catch(function(e){ /* 静默失败，表不存在或网络问题不影响主功能 */ });
+        }).catch(function(e){ /* 静默失败 */ });
     } catch(e) {}
 }
 function openOnlineModal() {
@@ -7338,8 +7351,16 @@ function closeOnlineModal() {
 function refreshOnlineList() {
     var msg = document.getElementById('onlineStatusMsg');
     var tbody = document.getElementById('onlineListBody');
-    msg.textContent = '加载中...';
-    api('online_devices?select=*&order=last_seen.desc')
+    msg.style.color = '#2e7d32';
+    msg.textContent = '正在拉取在线设备...';
+    // 先立刻渲染本机，不让用户看到空的加载中
+    var myName = devName() || deviceId.slice(0,8);
+    tbody.innerHTML = '<tr style="border-top:1px solid #f0f0f0;">' +
+        '<td style="padding:8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;margin-right:6px;"></span><span style="color:#2e7d32;font-weight:600;">在线</span></td>' +
+        '<td style="padding:8px;">' + myName + ' <span style="color:#1a73e8;font-size:11px;">（本机）</span></td>' +
+        '<td style="padding:8px;color:#666;">刚刚</td>' +
+        '</tr>';
+    api('access_control?select=id,device_name,status,last_seen&order=last_seen.desc')
         .then(function(rows) {
             var now = Date.now();
             var onlineCount = 0;
@@ -7372,8 +7393,9 @@ function refreshOnlineList() {
             msg.textContent = '共 ' + onlineCount + ' 个在线设备 / 总记录 ' + (rows?rows.length:0) + ' 条';
         })
         .catch(function(e) {
-            msg.textContent = '加载失败：' + e.message;
-            tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载失败，请确认云端已创建 online_devices 表</td></tr>';
+            msg.style.color = '#e65100';
+            msg.textContent = '网络较慢，仅显示本机在线（5秒超时）';
+            // 保留刚才已经渲染的本机条目，不替换成错误提示
         });
 }
 function openSnapshotModal() {
@@ -8491,7 +8513,7 @@ function autoOptimizeTick() {
         }
     });
 }
-// v31.0: 一键复制预测结果（v33.2: 四盘统一格式）
+// v31.0: 一键复制预测结果（v33.1: 四盘统一格式）
 function copyPrediction() {
     try {
         var p = P._threeWayAnalysis || {};
@@ -8705,7 +8727,7 @@ function renderCards() {
             document.getElementById('profitCard'+p).classList.remove('rank-1');
         });
     }
-    // v33.2: 获胜投资预测卡片渲染
+    // v33.1: 获胜投资预测卡片渲染
     var investPred = result.investPrediction;
     if (investPred && investPred.probs) {
         ['大','中','小'].forEach(function(p) {
@@ -8747,7 +8769,7 @@ function renderCards() {
             var el3 = document.getElementById('investStreak'+p); if (el3) el3.innerHTML = '';
             var el4 = document.getElementById('investCard'+p); if (el4) el4.classList.remove('rank-1');
         });
-        // v33.2: 无投资数据时也显示面板框架，提示用户录入投资数据
+        // v33.1: 无投资数据时也显示面板框架，提示用户录入投资数据
         var sip3 = document.getElementById('simInvestDetailPanel');
         var sib3 = document.getElementById('simInvestDetailBody');
         if (sip3 && sib3) {
@@ -9466,7 +9488,7 @@ function renderHistory() {
             '<td>'+scoreSpan(rec.c)+'</td>'+
             '<td class="winner-cell winner-'+(winner?winner.toLowerCase():'')+'">'+(winner||'平局')+'</td>'+
             '<td>'+profitTag(rec.profitWinner)+'</td>'+
-            '<td style="color:#9c27b0;font-weight:600;">'+(rec.investWinner||'—')+'</td>'+
+            '<td>'+(rec.investWinner ? '<span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:600;background:'+(rec.investWinner==='大'?'#fce4ec':rec.investWinner==='中'?'#f3e5f5':'#e0f7fa')+';color:'+(rec.investWinner==='大'?'#880e4f':rec.investWinner==='中'?'#4a148c':'#006064')+';">'+rec.investWinner+'</span>' : '<span style="color:#ccc;font-size:12px;">—</span>')+'</td>'+
             '<td>'+predProfitDisp+'</td>'+
             '<td>'+predInvestDisp+'</td>'+
             '<td>'+predDisp+'</td>'+
@@ -10104,6 +10126,8 @@ function doCustomExport() {
                 predGuild: predGuild, predProb: predProb,
                 correct: correct, source: source
             };
+            // 兜底：强制确保投资字段正确读取，避免导出空值
+            if (!rowData.invest && r.investWinner) rowData.invest = r.investWinner;
 
             var row = selectedCols.map(function(c) { return rowData[c] !== undefined ? rowData[c] : ''; }).join(',');
             csv += row + '\n';
@@ -10157,6 +10181,8 @@ function doCustomExport() {
                         predGuild: predGuild, predProb: predProb,
                         correct: correct, source: source
                     };
+                    // 兜底：强制确保投资字段正确读取
+                    if (!rowData.invest && r.investWinner) rowData.invest = r.investWinner;
                     var row = {};
                     for (var ci = 0; ci < selectedCols.length; ci++) {
                         var colKey = selectedCols[ci];
@@ -10794,7 +10820,7 @@ function confirmImport() {
                     incInvalid++;
                     continue;
                 }
-                P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC);
+                P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner);
             }
             incDone = incEnd;
             var pct = Math.round(incDone / incTotal * 100);
@@ -11430,7 +11456,8 @@ try {
 } catch(e) {}
 // 云同步初始化
 bindCloudEvents();
-initCloud();
+// 延迟1.5秒初始化，让页面先渲染完成、按钮可点击，避免打开即卡
+setTimeout(function() { try { initCloud(); } catch(e) { console.error('initCloud failed:', e); } }, 1500);
 // 当日快照按钮绑定（本地功能，不依赖云端配置）
 var _dsBtn = document.getElementById('dailySnapshotBtn');
 if (_dsBtn && !_dsBtn._bound) { _dsBtn._bound = true; _dsBtn.onclick = openDailySnapshot; }
