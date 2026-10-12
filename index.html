@@ -1,12 +1,9 @@
-
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v34.2 · 管理员在线版</title>
+<title>商会三竞预测系统 v34.9 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -1478,6 +1475,13 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
+
+  // v34.3：把闭包内的云API/设备信息暴露给全局在线列表弹窗使用
+  // （之前 refreshOnlineList 直接调用 api/devName 会抛 ReferenceError，导致"在线"弹窗永远卡在"正在拉取"）
+  window._cloudApi = api;
+  window._cloudDevName = devName;
+  window._cloudDeviceId = function(){ return deviceId; };
+  window._cloudGetConfig = function(){ return { url: sbUrl, key: sbKey }; };
 })();
 
 // ============================================================
@@ -1678,11 +1682,17 @@ function applyFusionRefinement(finalProbs, history) {
 }
 // ========== 工具函数 ==========
 function getWinner(rec) {
+    // v34.3性能优化：winner 结果缓存——a/b/c 不变时直接复用，避免每次渲染全表都重算
+    var _key = rec.a + '_' + rec.b + '_' + rec.c;
+    if (rec._wcKey === _key && rec._wc) return rec._wc;
     var vals = [rec.a, rec.b, rec.c];
     var maxVal = Math.max.apply(null, vals);
     // v30.22：游戏无平局，永远返回一个赢家；并列按 A→B→C，绝不返回null
-    for (var i = 0; i < 3; i++) { if (vals[i] === maxVal) return GUILDS[i]; }
-    return 'A';
+    var w = 'A';
+    for (var i = 0; i < 3; i++) { if (vals[i] === maxVal) { w = GUILDS[i]; break; } }
+    rec._wcKey = _key;
+    rec._wc = w;
+    return w;
 }
 // v29.8: 血本方——ABC中得0分的那一方（有效局只有一个0分）
 function getLossSide(rec) {
@@ -1958,14 +1968,31 @@ function getTimeSlotHoursAgo(roundsAgo, baseDate) {
     return getTimeSlot(d, false); // 批量推算不对齐，保留30秒间隔累积
 }
 // v21: 拆分时间段为日期和时间两部分（v25.1起支持带秒格式，兼容旧格式）
+// v34.3性能优化：splitTimeSlot 正则结果缓存——历史表全量筛选时省掉每条跑正则
+var _tsCache = new Map();
+var _tsCacheOrder = [];
 function splitTimeSlot(timeSlot) {
     if (!timeSlot || typeof timeSlot !== 'string') return {date: '', time: ''};
+    var cached = _tsCache.get(timeSlot);
+    if (cached) return cached;
     var m = timeSlot.match(/(\d{1,2}月\d{1,2}日)\s*(\d{1,2}:\d{2}(?::\d{2})?-\d{1,2}:\d{2}(?::\d{2})?)/);
-    if (m) return {date: m[1], time: m[2]};
-    // 兼容只有日期或只有时间的情况
-    var dm = timeSlot.match(/(\d{1,2}月\d{1,2}日)/);
-    var tm = timeSlot.match(/(\d{1,2}:\d{2}(?::\d{2})?-\d{1,2}:\d{2}(?::\d{2})?)/);
-    return {date: dm ? dm[1] : '', time: tm ? tm[1] : ''};
+    var result;
+    if (m) {
+        result = {date: m[1], time: m[2]};
+    } else {
+        // 兼容只有日期或只有时间的情况
+        var dm = timeSlot.match(/(\d{1,2}月\d{1,2}日)/);
+        var tm = timeSlot.match(/(\d{1,2}:\d{2}(?::\d{2})?-\d{1,2}:\d{2}(?::\d{2})?)/);
+        result = {date: dm ? dm[1] : '', time: tm ? tm[1] : ''};
+    }
+    // LRU：超过 800 条就淘汰最旧的
+    _tsCache.set(timeSlot, result);
+    _tsCacheOrder.push(timeSlot);
+    if (_tsCacheOrder.length > 800) {
+        var oldest = _tsCacheOrder.shift();
+        _tsCache.delete(oldest);
+    }
+    return result;
 }
 // v21: 从日期和时间组合时间段
 function combineTimeSlot(dateStr, timeStr) {
@@ -5840,6 +5867,10 @@ if(curBrier > 0.3){
             if (this.predHistory.length > 0) {
                 this.lastPrediction = this.predHistory[this.predHistory.length-1].guild;
             }
+            // v34.6：数据完整恢复时，清除之前从localStorage加载时设置的重建标记
+            // 避免云端完整数据覆盖后，重建弹窗还在跑
+            this._rebuildPending = false;
+            this._rebuildHist = null;
         } else {
             this.history = p.history.slice();
             this.predHistory = Array.isArray(p.predHistory) ? p.predHistory.slice() : [];
@@ -5942,6 +5973,7 @@ if(curBrier > 0.3){
                     if (this.predHistory.length > 0) {
                         this.lastPrediction = this.predHistory[this.predHistory.length-1].guild;
                     }
+                    this._rebuildPending = false; // v34.6：本地数据完整，不需要重建
                 } else {
                     // v26.1修复：predHistory被截断时，先恢复history，标记待异步重建（避免同步O(n²)卡死UI）
                     this.history = p.history.slice();
@@ -6329,7 +6361,19 @@ function pushOlogToCloud(snap, retry) {
             data: snap,
             updated_at: new Date().toISOString()
         }, {onConflict: "id"}).then(function(){
-            pruneOldOlogRows(100);
+            // v34.5：保留数从100提到500，避免历史日志被自动清空
+            pruneOldOlogRows(500);
+            // v34.9：每次上传日志顺便更新心跳，不依赖定时器
+            try {
+                var _api2 = window._cloudApi;
+                var _devId2 = window._cloudDeviceId ? window._cloudDeviceId() : '';
+                if (_api2 && _devId2) {
+                    _api2('access_control?id=eq.' + encodeURIComponent(_devId2), {
+                        method: 'PATCH',
+                        body: { last_seen: new Date().toISOString() }
+                    }).catch(function(){});
+                }
+            } catch(e) {}
         }, function(e){
             console.warn("olog push fail (try " + (retry+1) + "):", e && e.message);
             if (retry < 2) {
@@ -6357,7 +6401,8 @@ function flushPendingOlog() {
 // 保留最近 maxKeep 条云端快照，删掉更老的独立行
 function pruneOldOlogRows(maxKeep) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'olog_%').order('id', {ascending: false}).limit(200).then(function(res){
+    // v34.5：limit 从200提到 maxKeep+200，确保能查到要保留的边界
+    supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'olog_%').order('id', {ascending: false}).limit(maxKeep + 200).then(function(res){
         var rows = (res && res.data) ? res.data : [];
         if (rows.length <= maxKeep) return;
         var oldRows = rows.slice(maxKeep);
@@ -6366,44 +6411,57 @@ function pruneOldOlogRows(maxKeep) {
     }).catch(function(){});
 }
 // v30.22：分页加载 + 列表瘦身（只取基本字段，不加载完整大data）
+// v34.9：直接用原生fetch，避免闭包_api对URL的编码问题；用encodeURIComponent编码select
 var _ologPage = 0;
 var _ologPageSize = 20;
 var _ologHasMore = true;
 var _ologLoading = false;
-// v30.22：分页加载，每页10条，避免一次拉太多数据超时
-var _ologPage = 0;
-var _ologPageSize = 2; // v30.22：改成每页2条，避免服务器500
-var _ologHasMore = true;
-var _ologLoading = false;
 function fetchOlogFromCloud(cb, append) {
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) { _cloudSnaps = []; cb && cb(); return; }
     if (_ologLoading) { cb && cb(); return; }
     _ologLoading = true;
     if (!append) { _ologPage = 0; _cloudSnaps = []; }
     var offset = _ologPage * _ologPageSize;
-    // 查 id,data，每页10条，数据量约12MB，不会超时
-    supabaseClient.from(CLOUD_TABLE).select('id,data').like('id', 'olog_%').order('id', {ascending: false}).range(offset, offset + _ologPageSize - 1).then(function(res){
-        if (res && res.data) {
+    // 硬编码supabase配置（anon key公开），直接用原生fetch
+    // 注意：select里的逗号不能URL编码，否则PostgREST把整个串当一个字段
+    var sbUrl = 'https://mcwtejcjyrxlcksnvpjg.supabase.co';
+    var sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd3RlamNqeXJ4bGNrc252cGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjE2OTYsImV4cCI6MjEwNDE5NzY5Nn0.E0YGlEt_ZQXZVGBjo2gP4hFX52KK6GDPTN_9Y2W4AJA';
+    var url = sbUrl + '/rest/v1/prediction_data?select=id,data->>time,data->>reason,data->>device,data->>count&id=like.olog_%25&order=id.desc&limit=' + _ologPageSize + '&offset=' + offset;
+    fetch(url, {
+        headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey }
+    }).then(function(r) {
+        if (!r.ok) return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ' ' + t); });
+        return r.json();
+    }).then(function(rows) {
+        if (rows && rows.length) {
             var newItems = [];
-            res.data.forEach(function(r){
-                if (r && r.data && r.data.time) {
-                    newItems.push(r.data);
+            rows.forEach(function(r) {
+                // PostgREST对 data->>time 返回的字段名就是 time（->>后面的部分）
+                if (r && r.time) {
+                    newItems.push({
+                        time: r.time,
+                        reason: r.reason || '',
+                        device: r.device || '',
+                        count: parseInt(r.count) || 0,
+                        id: r.id,
+                        _lightweight: true
+                    });
                 }
             });
-            // 去重
             var existingKeys = {};
             _cloudSnaps.forEach(function(s){ existingKeys[s.time + '|' + s.reason + '|' + (s.device||'')] = 1; });
             newItems.forEach(function(s){
                 var k = s.time + '|' + s.reason + '|' + (s.device||'');
                 if (!existingKeys[k]) { _cloudSnaps.push(s); existingKeys[k] = 1; }
             });
-            _ologHasMore = (res.data.length >= _ologPageSize);
+            _ologHasMore = (rows.length >= _ologPageSize);
             _ologPage++;
+        } else {
+            _ologHasMore = false;
         }
-    }).catch(function(e){
+    }).catch(function(e) {
         console.warn('[olog] 分页查询失败:', e && e.message);
         _ologHasMore = false;
-    }).then(function(){
+    }).then(function() {
         _ologLoading = false;
         cb && cb();
     });
@@ -6795,6 +6853,9 @@ async function cloudLoad(silent) {
                 console.log('[本地存储] localStorage空间不足，完整数据已存IndexedDB，刷新后自动补全');
             }
             if (dataChanged || silent === false) {
+                // v34.9：云端数据加载后跳到最后一页（最新记录）
+                var _rhc = document.getElementById('historyContainer');
+                if (_rhc) _rhc.removeAttribute('data-page');
                 renderAll();
             } else {
                 // 数据没变化，只更新云状态，不重渲染
@@ -7407,29 +7468,51 @@ function refreshOlog() {
 // ========== 在线用户心跳与列表 ==========
 var _heartbeatTimer = null;
 var _onlineTableAvailable = true; // 检测online表是否可用，不可用就停止上报，减少无意义报错
+var _heartbeatFailCount = 0;     // v34.3：连续失败计数，用于退避
+var _HEARTBEAT_NORMAL_MS = 30000;
+var _HEARTBEAT_BACKOFF_MS = 120000;
 function startOnlineHeartbeat() {
     if (_heartbeatTimer) clearInterval(_heartbeatTimer);
     sendHeartbeat(); // 立即发一次
-    _heartbeatTimer = setInterval(sendHeartbeat, 30000); // 每30秒上报
+    _heartbeatTimer = setInterval(sendHeartbeat, _HEARTBEAT_NORMAL_MS);
+}
+function _rescheduleHeartbeat() {
+    if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+    var interval = (_heartbeatFailCount >= 3) ? _HEARTBEAT_BACKOFF_MS : _HEARTBEAT_NORMAL_MS;
+    _heartbeatTimer = setInterval(sendHeartbeat, interval);
 }
 function sendHeartbeat() {
     try {
-        // 直接复用已有的access_control表，不需要新建表，权限已经配好，不会卡
-        api('access_control', {
-            method: 'POST',
-            headers: {'Prefer': 'resolution=merge-duplicates'},
-            body: {
-                id: deviceId,
-                device_name: devName(),
-                status: 'online',
-                last_seen: new Date().toISOString()
-            }
-        }).catch(function(e){ /* 静默失败 */ });
+        var _api = window._cloudApi;
+        var _devId = window._cloudDeviceId ? window._cloudDeviceId() : '';
+        if (!_api || !_devId) return;
+        // v34.5：用 PATCH 只更新 last_seen，不碰 status 授权字段（避免覆盖 authorized/pending）
+        // 首次上报时如果设备还没注册，PATCH 找不到行就 404，这是正常的
+        _api('access_control?id=eq.' + encodeURIComponent(_devId), {
+            method: 'PATCH',
+            body: { last_seen: new Date().toISOString() }
+        }).then(function(){
+            if (_heartbeatFailCount > 0) { _heartbeatFailCount = 0; _rescheduleHeartbeat(); }
+        }).catch(function(e){
+            _heartbeatFailCount++;
+            if (_heartbeatFailCount === 3 || _heartbeatFailCount === 6) _rescheduleHeartbeat();
+        });
     } catch(e) {}
 }
 function openOnlineModal() {
     document.getElementById('onlineModalOverlay').classList.add('open');
-    refreshOnlineList();
+    // v34.4：先从云端拉一次设备别名（操作日志里设的备注），再渲染列表
+    if (typeof fetchDeviceAliasesFromCloud === 'function') {
+        try {
+            fetchDeviceAliasesFromCloud(function(){
+                refreshOnlineList();
+            });
+            // 立即先渲染一次（用本地缓存的别名），云端返回后自动重渲
+            refreshOnlineList();
+        } catch(e) { refreshOnlineList(); }
+    } else {
+        refreshOnlineList();
+    }
 }
 function closeOnlineModal() {
     document.getElementById('onlineModalOverlay').classList.remove('open');
@@ -7437,52 +7520,112 @@ function closeOnlineModal() {
 function refreshOnlineList() {
     var msg = document.getElementById('onlineStatusMsg');
     var tbody = document.getElementById('onlineListBody');
+    if (!msg || !tbody) return;
     msg.style.color = '#2e7d32';
-    msg.textContent = '正在拉取在线设备...';
-    // 先立刻渲染本机，不让用户看到空的加载中
-    var myName = devName() || deviceId.slice(0,8);
-    tbody.innerHTML = '<tr style="border-top:1px solid #f0f0f0;">' +
+    msg.textContent = '正在拉取已授权设备...';
+    // v34.3：安全获取本机名/设备ID
+    var myName = '本机设备';
+    var myId = '';
+    try {
+        if (window._cloudDevName) myName = window._cloudDevName() || myName;
+        if (window._cloudDeviceId) myId = window._cloudDeviceId() || '';
+    } catch(e) {}
+    // v34.6：本机也应用备注（别名key是"本机·xxxxxx"格式，从devId提取短码匹配）
+    var myAlias = (_deviceAliases && _deviceAliases[myId]) || '';
+    if (!myAlias && myId) {
+        var mp = myId.split('_');
+        if (mp.length >= 3) {
+            var suf = mp[mp.length - 1];
+            myAlias = (_deviceAliases && (_deviceAliases['本机·' + suf.slice(-6)] || _deviceAliases['本机·' + suf])) || '';
+        }
+    }
+    var myDisplayName = myAlias ? (myAlias + ' <span style="color:#888;font-size:11px;">(' + myName + ')</span>') : myName;
+    // 先立刻渲染本机
+    tbody.innerHTML = '<tr style="border-top:1px solid #f0f0f0;background:#f1f8e9;">' +
         '<td style="padding:8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;margin-right:6px;"></span><span style="color:#2e7d32;font-weight:600;">在线</span></td>' +
-        '<td style="padding:8px;">' + myName + ' <span style="color:#1a73e8;font-size:11px;">（本机）</span></td>' +
-        '<td style="padding:8px;color:#666;">刚刚</td>' +
+        '<td style="padding:8px;">' + myDisplayName + ' <span style="color:#1a73e8;font-size:11px;">（当前设备）</span></td>' +
+        '<td style="padding:8px;color:#2e7d32;">刚刚</td>' +
         '</tr>';
-    api('access_control?select=id,device_name,status,last_seen&order=last_seen.desc')
-        .then(function(rows) {
-            var now = Date.now();
-            var onlineCount = 0;
-            var html = '';
-            (rows||[]).forEach(function(r) {
-                var last = new Date(r.last_seen).getTime();
+    // v34.3：access_control 表实际列：id/device_name/status/created_at/authorized_at（没有 last_seen）
+    var _api = window._cloudApi;
+    if (!_api) {
+        msg.style.color = '#e65100';
+        msg.textContent = '⚠️ 云模块未初始化，仅显示本机';
+        return;
+    }
+    var _timeout = new Promise(function(_, reject){
+        setTimeout(function(){ reject(new Error('TIMEOUT_8S')); }, 8000);
+    });
+    var _req = null;
+    try {
+        _req = _api('access_control?select=id,device_name,status,last_seen,created_at,authorized_at&order=last_seen.desc.nullslast&limit=50');
+    } catch(e) {
+        msg.style.color = '#e65100';
+        msg.textContent = '⚠️ 请求发起失败：' + (e && e.message ? e.message : '未知');
+        return;
+    }
+    Promise.race([_req, _timeout]).then(function(rows){
+        var now = Date.now();
+        var onlineCount = 0, authedCount = 0, pendingCount = 0, rejectedCount = 0;
+        var html = '';
+        (rows||[]).forEach(function(r) {
+            if (r.id === myId) return; // 本机已在顶部显示
+            var status = r.status || 'pending';
+            // v34.5：用 last_seen 判断真实在线状态
+            var last = r.last_seen ? new Date(r.last_seen).getTime() : 0;
+            var isOnline = (now - last) < 120000; // 2分钟内活跃=在线
+            if (isOnline) onlineCount++;
+            var timeStr = '从未';
+            if (last && !isNaN(last)) {
                 var diffSec = Math.floor((now - last)/1000);
-                var isOnline = diffSec < 120; // 2分钟内算在线
-                if (isOnline) onlineCount++;
-                var timeStr = '';
                 if (diffSec < 60) timeStr = diffSec + '秒前';
                 else if (diffSec < 3600) timeStr = Math.floor(diffSec/60) + '分钟前';
-                else timeStr = Math.floor(diffSec/3600) + '小时前';
-                var statusBadge = isOnline
-                    ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;margin-right:6px;"></span><span style="color:#2e7d32;font-weight:600;">在线</span>'
-                    : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#9e9e9e;margin-right:6px;"></span><span style="color:#999;">离线</span>';
-                var alias = (_deviceAliases || {})[r.id];
-                var name = alias || r.device_name || r.id.slice(0,8);
-                html += '<tr style="border-top:1px solid #f0f0f0;">' +
-                    '<td style="padding:8px;">' + statusBadge + '</td>' +
-                    '<td style="padding:8px;">' + name + (r.id === deviceId ? ' <span style="color:#1a73e8;font-size:11px;">（本机）</span>' : '') + '</td>' +
-                    '<td style="padding:8px;color:#666;">' + timeStr + '</td>' +
-                    '</tr>';
-            });
-            if (!rows || rows.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#999;">暂无设备数据</td></tr>';
-            } else {
-                tbody.innerHTML = html;
+                else if (diffSec < 86400) timeStr = Math.floor(diffSec/3600) + '小时前';
+                else timeStr = Math.floor(diffSec/86400) + '天前';
             }
-            msg.textContent = '共 ' + onlineCount + ' 个在线设备 / 总记录 ' + (rows?rows.length:0) + ' 条';
-        })
-        .catch(function(e) {
-            msg.style.color = '#e65100';
-            msg.textContent = '网络较慢，仅显示本机在线（5秒超时）';
-            // 保留刚才已经渲染的本机条目，不替换成错误提示
+            // 在线状态 badge
+            var onlineBadge = isOnline
+                ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;margin-right:6px;"></span><span style="color:#2e7d32;font-weight:600;">在线</span>'
+                : '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#9e9e9e;margin-right:6px;"></span><span style="color:#999;">离线</span>';
+            // 授权状态小字
+            var authBadge = '';
+            if (status === 'authorized') { authBadge = '<span style="color:#2e7d32;font-size:11px;margin-left:6px;">已授权</span>'; authedCount++; }
+            else if (status === 'pending') { authBadge = '<span style="color:#e65100;font-size:11px;margin-left:6px;">待授权</span>'; pendingCount++; }
+            else if (status === 'rejected') { authBadge = '<span style="color:#999;font-size:11px;margin-left:6px;">已拒绝</span>'; rejectedCount++; }
+            // v34.6：别名 key 是"本机·xxxxxx"格式，access_control.id 是"dev_xxxxx_8exxxxxx"格式
+            // 需要从 id 提取设备短码来匹配别名
+            var alias = (_deviceAliases || {})[r.id];
+            if (!alias && r.id) {
+                // 尝试从 id 提取后缀匹配别名 key（如 "dev_mtqpk7v7_8epz8v0w" → "本机·pz8v0w"）
+                var idParts = r.id.split('_');
+                if (idParts.length >= 3) {
+                    var idSuffix = idParts[idParts.length - 1]; // 8epz8v0w
+                    // 别名 key 是 "本机·" + idSuffix 后6位
+                    var shortCode = idSuffix.slice(-6); // pz8v0w
+                    var aliasKey = '本机·' + shortCode;
+                    alias = (_deviceAliases || {})[aliasKey];
+                    // 再尝试直接匹配整个 idSuffix
+                    if (!alias) alias = (_deviceAliases || {})['本机·' + idSuffix];
+                }
+            }
+            var rawName = r.device_name || (r.id ? r.id.slice(0,8) : '未知');
+            var name = alias
+                ? escHtml(alias) + ' <span style="color:#888;font-size:11px;">(' + escHtml(rawName) + ')</span>' + authBadge
+                : escHtml(rawName) + authBadge;
+            html += '<tr style="border-top:1px solid #f0f0f0;">' +
+                '<td style="padding:8px;">' + onlineBadge + '</td>' +
+                '<td style="padding:8px;">' + name + '</td>' +
+                '<td style="padding:8px;color:#666;">' + timeStr + '</td>' +
+                '</tr>';
         });
+        var myRow = tbody.innerHTML;
+        tbody.innerHTML = myRow + html;
+        msg.textContent = '🟢 ' + onlineCount + ' 台在线 / ' + authedCount + ' 台已授权 / ' + pendingCount + ' 待授权 / ' + (rows?rows.length:0) + ' 条记录';
+    }).catch(function(e) {
+        msg.style.color = '#e65100';
+        var _hint = (e && e.message === 'TIMEOUT_8S') ? '8秒超时（网络较慢，点「刷新」重试）' : ('拉取失败：' + (e && e.message ? e.message : '未知'));
+        msg.textContent = '⚠️ ' + _hint + '，已仅显示本机';
+    });
 }
 function openSnapshotModal() {
     loadSnapshots();
@@ -8535,13 +8678,15 @@ function renderLossSimPanel() {
     panel.style.display = 'block';
 }
 // v30.22: 自动回测——每20局后台跑一次，结果缓存在 _lastBacktest
+// v34.3性能优化：用 requestIdleCallback 调度，避开用户刚录入/滚动的繁忙期
 var _lastBacktest = null;
 var _lastBacktestCount = 0;
+var _idleCtl = (window.requestIdleCallback || function(cb, opts){ return setTimeout(cb, (opts && opts.timeout) || 200); });
 function autoBacktestTick() {
     if (!P.history || P.history.length < 50) return;
     if (P.history.length - _lastBacktestCount < 15) return; // 每15局跑一次
     _lastBacktestCount = P.history.length;
-    setTimeout(function(){
+    _idleCtl(function(){
         try {
             var m = P.runBacktest();
             if (m) {
@@ -8553,51 +8698,59 @@ function autoBacktestTick() {
                 }
             }
         } catch(e) { console.warn('[autoBacktest]', e.message); }
-    }, 100);
+    }, {timeout: 2000});
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
+// v34.3：同样延迟到空闲，并在用户正在操作时主动跳过
 var _lastOptimizeCount = 0;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 200) return;
     if (P.history.length - _lastOptimizeCount < 50) return;
     if (window._optRunning) return;
     _lastOptimizeCount = P.history.length;
-    window._optRunning = true;
-    var oldAcc = 0;
-    if (_lastBacktest) oldAcc = _lastBacktest.acc1;
-    P.autoOptimize(function(result){
-        if (result.done) {
-            window._optRunning = false;
-            if (!result.bestCombo) return;
-            var newAcc = result.bestScore; // bestScore 综合分
-            var oldScore = oldAcc;
-            // 自动应用：如果新参数比当前好超过2%
-            if (result.bestScore > oldScore + 0.01) {
-                var p = result.bestCombo;
-                try {
-                    document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
-                    document.getElementById('cfgColdBonusCap').value = p.coldBonusCap||0.025;
-                    document.getElementById('cfgWin6W').value = p.win6W||0.32;
-                    document.getElementById('cfgWin7W').value = p.win7W||0.20;
-                    document.getElementById('cfgWin8W').value = p.win8W||0.28;
-                    document.getElementById('cfgWin10W').value = p.win10W||0.12;
-                    document.getElementById('cfgGlobalW').value = p.globalW||0.08;
-                    document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
-                    reloadConfig();
-                    console.log('[autoOptimize] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
-                    // v30.22: 优化成功后在主界面显示绿色提示
-                    var badge = document.getElementById('autoBrierBadge');
-                    if (badge) {
-                        var oldHtml = badge.innerHTML;
-                        badge.innerHTML = '<span style="color:#27ae60;font-weight:700;">⚡ 已自动优化参数（提升'+((result.bestScore-oldScore)*100).toFixed(1)+'%）</span>';
-                        setTimeout(function(){ badge.innerHTML = oldHtml; }, 5000);
-                    }
-                    showLearnTip && showLearnTip();
-                } catch(e) { console.warn('[autoOptimize] apply failed:', e.message); }
-            }
-            window._optimalParams = result.bestCombo;
+    _idleCtl(function(){
+        // 用户正在输入/弹窗打开时不跑重计算
+        if (document.querySelector('.modal-overlay.open, .config-panel.open, input:focus, select:focus, textarea:focus')) {
+            _lastOptimizeCount = P.history.length - 5; // 推迟5局后再试
+            return;
         }
-    });
+        window._optRunning = true;
+        var oldAcc = 0;
+        if (_lastBacktest) oldAcc = _lastBacktest.acc1;
+        P.autoOptimize(function(result){
+            if (result.done) {
+                window._optRunning = false;
+                if (!result.bestCombo) return;
+                var newAcc = result.bestScore; // bestScore 综合分
+                var oldScore = oldAcc;
+                // 自动应用：如果新参数比当前好超过2%
+                if (result.bestScore > oldScore + 0.01) {
+                    var p = result.bestCombo;
+                    try {
+                        document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
+                        document.getElementById('cfgColdBonusCap').value = p.coldBonusCap||0.025;
+                        document.getElementById('cfgWin6W').value = p.win6W||0.32;
+                        document.getElementById('cfgWin7W').value = p.win7W||0.20;
+                        document.getElementById('cfgWin8W').value = p.win8W||0.28;
+                        document.getElementById('cfgWin10W').value = p.win10W||0.12;
+                        document.getElementById('cfgGlobalW').value = p.globalW||0.08;
+                        document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
+                        reloadConfig();
+                        console.log('[autoOptimize] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
+                        // v30.22: 优化成功后在主界面显示绿色提示
+                        var badge = document.getElementById('autoBrierBadge');
+                        if (badge) {
+                            var oldHtml = badge.innerHTML;
+                            badge.innerHTML = '<span style="color:#27ae60;font-weight:700;">⚡ 已自动优化参数（提升'+((result.bestScore-oldScore)*100).toFixed(1)+'%）</span>';
+                            setTimeout(function(){ badge.innerHTML = oldHtml; }, 5000);
+                        }
+                        showLearnTip && showLearnTip();
+                    } catch(e) { console.warn('[autoOptimize] apply failed:', e.message); }
+                }
+                window._optimalParams = result.bestCombo;
+            }
+        });
+    }, {timeout: 5000});
 }
 // v31.0: 一键复制预测结果（v33.1: 四盘统一格式）
 function copyPrediction() {
@@ -9452,9 +9605,11 @@ function updateStats() {
         if (cnt>0) document.getElementById('brierScore').textContent=(bs/(cnt*2)).toFixed(3);
     } else document.getElementById('brierScore').textContent='--';
     // v30.22：统计预测最低准确率
+    // v34.3性能优化：只遍历最近300条，避免predHistory几千条时每次渲染都全量O(n)
     try {
         var lowCorrect = 0, lowTotal = 0;
-        for (var li = 0; li < P.predHistory.length; li++) {
+        var _lowStart = Math.max(0, P.predHistory.length - 300);
+        for (var li = _lowStart; li < P.predHistory.length; li++) {
             var ph = P.predHistory[li];
             if (!ph) continue;
             var probs = ph.probs || ph.probabilities;
@@ -9681,8 +9836,18 @@ function renderHistory() {
             html+='<button onclick="gotoHistoryPage('+pi+')" style="padding:6px 12px;border:1px solid '+(pi===curPage?'#302b63':'#dee2e6')+';background:'+(pi===curPage?'#302b63':'#fff')+';color:'+(pi===curPage?'#fff':'#333')+';border-radius:6px;cursor:pointer;font-weight:'+(pi===curPage?'700':'400')+';">'+pi+'</button>';
         }
         html+='<button onclick="gotoHistoryPage('+(curPage+1)+')" '+(curPage>=totalPages?'disabled style="opacity:0.4;"':'')+' style="padding:6px 14px;border:1px solid #dee2e6;background:#fff;border-radius:6px;cursor:pointer;">下一页 ▶</button>';
+        // v34.3性能优化：页数过多时下拉框只渲染当前附近20页，避免几千条option拖慢DOM
         html+='<select id="pageJump" onchange="gotoHistoryPage(parseInt(this.value))" style="padding:5px 8px;border:1px solid #dee2e6;border-radius:6px;">';
-        for(var si=1;si<=totalPages;si++){html+='<option value="'+si+'" '+(si===curPage?'selected':'')+'>第'+si+'页</option>';}
+        if (totalPages <= 200) {
+            for(var si=1;si<=totalPages;si++){html+='<option value="'+si+'" '+(si===curPage?'selected':'')+'>第'+si+'页</option>';}
+        } else {
+            var _ps = Math.max(1, curPage-10), _pe = Math.min(totalPages, curPage+10);
+            if (_ps > 1) html+='<option value="1">第1页</option>';
+            if (_ps > 2) html+='<option disabled>…</option>';
+            for(var si2=_ps;si2<=_pe;si2++){html+='<option value="'+si2+'" '+(si2===curPage?'selected':'')+'>第'+si2+'页</option>';}
+            if (_pe < totalPages-1) html+='<option disabled>…</option>';
+            if (_pe < totalPages) html+='<option value="'+totalPages+'">第'+totalPages+'页</option>';
+        }
         html+='</select>';
         pg.innerHTML=html;
     }
@@ -11367,7 +11532,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         document.getElementById('inputInvestWinner').value='';
         // 录入新记录后自动跳到最后一页（最新记录）
         var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
-        if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 300)); _hc.setAttribute('data-page', _tp); }
+        if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 100)); _hc.setAttribute('data-page', _tp); }
         try { renderAll(); } catch(e) { console.error('[录入]renderAll失败:', e.message); }
         try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
@@ -11580,6 +11745,8 @@ requestAnimationFrame(function() {
     try { renderInsightPanel(); } catch(e) { console.error('[init] renderInsightPanel:', e); }
 });
 // v26.1：如果predHistory被截断，异步分批重建，不阻塞UI
+// v34.6：延迟3秒启动，等云端数据加载完成；如果云端数据完整会清除_rebuildPending，就不重建
+setTimeout(function() {
 if (P._rebuildPending) {
     var rebuildTip = document.createElement('div');
     rebuildTip.id = 'rebuildTip';
@@ -11603,6 +11770,7 @@ if (P._rebuildPending) {
         }
     );
 }
+}, 3000);
 // v26.5：深色模式
 var DARK_MODE_KEY = 'mm_dark_mode_v1';
 function toggleDarkMode() {
@@ -12070,8 +12238,8 @@ setTimeout(function(){
 <!-- ========== 在线用户弹窗 ========== -->
 <div class="import-modal-overlay" id="onlineModalOverlay">
 <div class="import-modal" style="max-width:560px;">
-<h3>👥 当前在线用户</h3>
-<p class="modal-sub">显示所有最近2分钟内活跃的设备，每30秒自动上报心跳。</p>
+<h3>👥 在线设备</h3>
+<p class="modal-sub">绿点=2分钟内活跃；每30秒自动上报心跳。</p>
 <div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
 <p id="onlineStatusMsg" style="font-size:13px;margin:0;min-height:18px;flex:1;color:#2e7d32;">加载中...</p>
 <button onclick="refreshOnlineList()" style="background:#009688;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;">🔄 刷新</button>
@@ -12514,6 +12682,3 @@ if (encryptToggleBtn) encryptToggleBtn.onclick = toggleEncryption;
 </script>
 </body>
 </html>
-
-
-
