@@ -6372,7 +6372,16 @@ function pushOlogToCloud(snap, retry) {
                     _api2('access_control?id=eq.' + encodeURIComponent(_devId2), {
                         method: 'PATCH',
                         body: { last_seen: new Date().toISOString() }
-                    }).catch(function(){});
+                    }).catch(function(e){
+                        console.warn('[日志心跳] PATCH 失败:', e && e.message);
+                        // v35.1: 404时自动补注册
+                        if (e && e.message && e.message.indexOf('404') >= 0) {
+                            _api2('access_control', {
+                                method: 'POST',
+                                body: { id: _devId2, device_name: (window._cloudDevName ? window._cloudDevName() : '未知'), status: 'authorized', created_at: new Date().toISOString(), authorized_at: new Date().toISOString(), last_seen: new Date().toISOString() }
+                            }).catch(function(){});
+                        }
+                    });
                 }
             } catch(e) {}
         }, function(e){
@@ -7496,9 +7505,24 @@ function sendHeartbeat() {
             if (_heartbeatFailCount > 0) { _heartbeatFailCount = 0; _rescheduleHeartbeat(); }
         }).catch(function(e){
             _heartbeatFailCount++;
+            console.warn('[心跳] PATCH last_seen 失败:', e && e.message);
+            // v35.1: 如果404（设备未注册），自动补注册为authorized，避免新设备永远离线
+            if (e && e.message && e.message.indexOf('404') >= 0) {
+                console.log('[心跳] 设备未注册，自动补注册:', _devId);
+                _api('access_control', {
+                    method: 'POST',
+                    body: { id: _devId, device_name: (window._cloudDevName ? window._cloudDevName() : '未知'), status: 'authorized', created_at: new Date().toISOString(), authorized_at: new Date().toISOString(), last_seen: new Date().toISOString() }
+                }).then(function(){
+                    console.log('[心跳] 自动注册成功');
+                    _heartbeatFailCount = 0;
+                    _rescheduleHeartbeat();
+                }).catch(function(e2){
+                    console.warn('[心跳] 自动注册失败:', e2 && e2.message);
+                });
+            }
             if (_heartbeatFailCount === 3 || _heartbeatFailCount === 6) _rescheduleHeartbeat();
         });
-    } catch(e) {}
+    } catch(e) { console.warn('[心跳] 异常:', e); }
 }
 function openOnlineModal() {
     document.getElementById('onlineModalOverlay').classList.add('open');
