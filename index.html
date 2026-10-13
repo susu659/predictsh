@@ -1,11 +1,12 @@
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v35.2 · 管理员在线版</title>
+<title>商会三竞预测系统 v35.6 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -601,8 +602,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v35.2</span></h1>
-<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v35.2</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v35.6</span></h1>
+<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v35.6</span>　<span style="color:#4caf50;font-weight:600;">☁️ 同步去重加固·管理员权威覆盖</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -986,7 +987,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v35.2';
+  var APP_VERSION = 'v35.6';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -6161,6 +6162,97 @@ function _loadSyncCounts() {
         }
     } catch(e) {}
 }
+// v35.5修复：按 (date+timeSlot) 作为记录唯一键，避免增量合并时重复写入
+// 同一次录入的 history/predHistory/accuracy/profitAccuracy 是按下标一起slice的，
+// 合并时按下标同步过滤，保持四者对齐。
+// v35.6修复：key 为空（旧数据缺 date/timeSlot）时返回 null，调用方不参与去重，避免误删。
+function _recKey(rec) {
+    if (!rec) return null;
+    var d = rec.date || '';
+    var t = rec.timeSlot || '';
+    if (!d && !t) return null; // 旧数据无时间字段，不参与去重
+    return d + '|' + t;
+}
+// 把 incrHist 里本地已存在的记录剔除，返回真正需要追加的索引列表
+function _filterNewIndexes(existingHist, incrHist) {
+    var seen = {};
+    (existingHist || []).forEach(function(r) { var k = _recKey(r); if (k) seen[k] = 1; });
+    var freshIdx = [];
+    (incrHist || []).forEach(function(r, i) {
+        var k = _recKey(r);
+        if (k && seen[k]) return; // 本地已有，跳过
+        if (k) seen[k] = 1;
+        freshIdx.push(i);
+    });
+    return freshIdx;
+}
+// 从数组里按索引列表取出子集（predHistory/accuracy/profitAccuracy 用）
+function _pickByIndexes(arr, idxList) {
+    if (!Array.isArray(arr)) return [];
+    return idxList.map(function(i){ return arr[i]; }).filter(function(x){ return x !== undefined; });
+}
+// v35.5：一次性清理本地 history 里已经存在的重复记录（按 date+timeSlot 去重，保留首次出现）
+// 用法：浏览器控制台执行 dedupeLocalHistory() ，然后点「上传云端」覆盖。
+window.dedupeLocalHistory = function() {
+    if (!P || !Array.isArray(P.history)) { console.warn('history 不可用'); return; }
+    var seen = {};
+    var keepIdx = [];
+    var removed = 0;
+    P.history.forEach(function(r, i){
+        var k = _recKey(r);
+        if (k && seen[k]) { removed++; return; }
+        if (k) seen[k] = 1;
+        keepIdx.push(i);
+    });
+    if (removed === 0) {
+        console.log('[去重] 没有发现重复记录');
+        alert('没有发现重复记录，数据已是干净的。');
+        return;
+    }
+    P.history = keepIdx.map(function(i){ return P.history[i]; });
+    if (Array.isArray(P.predHistory)) P.predHistory = P.predHistory.slice(0, P.history.length + 1);
+    if (Array.isArray(P.accuracy)) P.accuracy = P.accuracy.slice(0, P.history.length);
+    if (Array.isArray(P.profitAccuracy)) P.profitAccuracy = P.profitAccuracy.slice(0, P.history.length);
+    P.maxStreakEver = calcMaxStreak(P.history);
+    _lastFullSyncCount = 0;
+    _lastIncrSyncCount = 0;
+    _saveSyncCounts();
+    renderAll();
+    debouncedSave();
+    console.log('[去重] 已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条');
+    alert('已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条。\n\n请点「上传云端」按钮，把干净数据覆盖到云端。');
+};
+// v35.6：对一整份数据集（history/predHistory/accuracy/profitAccuracy）做全量去重
+// 兜底防护：无论云端 main/incr 怎么拼，落到本地前最后再过一遍，杜绝任何重复。
+function _dedupeDataset(data) {
+    if (!data || !Array.isArray(data.history)) return data;
+    var seen = {};
+    var keepIdx = [];
+    data.history.forEach(function(r, i){
+        var k = _recKey(r);
+        if (k && seen[k]) return;
+        if (k) seen[k] = 1;
+        keepIdx.push(i);
+    });
+    if (keepIdx.length === data.history.length) return data; // 没有重复
+    var removed = data.history.length - keepIdx.length;
+    data.history = keepIdx.map(function(i){ return data.history[i]; });
+    if (Array.isArray(data.predHistory)) {
+        // predHistory[i] 对应 history[i+1]；按 history 保留下来的下标重新映射
+        var newPred = [];
+        keepIdx.forEach(function(hi, newI){
+            var pi = hi + 1; // 第 hi 条 history 对应的 predHistory 下标
+            if (data.predHistory[pi]) newPred[newI] = data.predHistory[pi];
+        });
+        // 保留第一条 predHistory（对应 history[0]，是开局前预测）
+        if (data.predHistory[0]) newPred.unshift(data.predHistory[0]);
+        data.predHistory = newPred.filter(Boolean);
+    }
+    if (Array.isArray(data.accuracy)) data.accuracy = data.accuracy.filter(function(_, i){ return keepIdx.indexOf(i) >= 0; });
+    if (Array.isArray(data.profitAccuracy)) data.profitAccuracy = data.profitAccuracy.filter(function(_, i){ return keepIdx.indexOf(i) >= 0; });
+    console.log('[兜底去重] 合并后数据集删除 ' + removed + ' 条重复，剩余 ' + data.history.length + ' 条');
+    return data;
+}
 var supabaseClient = null;
 var cloudOnline = false;
 var cloudLastSync = null;
@@ -6862,9 +6954,19 @@ async function cloudLoad(silent) {
             var localAdmin = P._adminOverride || null;
             var adminForce = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
             if (adminForce) forceOverride = true;
+            // v35.5修复：先拉 incr，拿到云端真实总长度，再做"本地更多就保留本地"的保护判断
+            var _incrPullRes = null, _incrPullData = null;
+            try {
+                _incrPullRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
+                _incrPullData = (_incrPullRes && _incrPullRes.data && _incrPullRes.data.data) ? _incrPullRes.data.data : null;
+            } catch(e) { console.warn('[云端拉取] incr 预拉取失败:', e.message); _incrPullData = null; }
+            var _incrHistLen = (_incrPullData && Array.isArray(_incrPullData.history)) ? _incrPullData.history.length : 0;
+
             // 保护机制——本地历史比云端多时，不用云端老数据覆盖本地（强制覆盖除外）
+            // v35.5修复：cloudHistLen 必须包含 incr 行的增量条数，否则多设备各自录入时
+            // 会误判"本地更多"而跳过合并，导致其他设备的新增记录拉不下来。
             var localHistLen = P.history ? P.history.length : 0;
-            var cloudHistLen = data.data.history ? data.data.history.length : 0;
+            var cloudHistLen = (data.data.history ? data.data.history.length : 0) + _incrHistLen;
             if (!forceOverride && localHistLen > cloudHistLen) {
                 cloudLastSync = new Date();
                 updateCloudStatus('online', '本地有新数据（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地，点「上传云端」同步');
@@ -6885,20 +6987,31 @@ async function cloudLoad(silent) {
                     dataChanged = false;
                 }
             }
-            // v35.4：拉取云端incr增量数据，合并到main数据里
-            try {
-                var _incrPullRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
-                var _incrPullData = (_incrPullRes.data && _incrPullRes.data.data) ? _incrPullRes.data.data : null;
-                if (_incrPullData && _incrPullData.history && _incrPullData.history.length > 0) {
-                    // 合并incr到main数据
-                    data.data.history = (data.data.history || []).concat(_incrPullData.history);
-                    if (_incrPullData.predHistory) data.data.predHistory = (data.data.predHistory || []).concat(_incrPullData.predHistory);
-                    if (_incrPullData.accuracy) data.data.accuracy = (data.data.accuracy || []).concat(_incrPullData.accuracy);
-                    if (_incrPullData.profitAccuracy) data.data.profitAccuracy = (data.data.profitAccuracy || []).concat(_incrPullData.profitAccuracy);
-                    console.log('[云端拉取] 已合并incr增量 ' + _incrPullData.history.length + ' 条，总计 ' + data.data.history.length + ' 条');
-                }
-            } catch(e) { console.warn('[云端拉取] 合并incr失败:', e.message); }
+            // v35.5修复：合并 incr 时按 (date+timeSlot) 去重，避免 main 已包含 incr 数据时重复追加
+            if (_incrHistLen > 0) {
+                try {
+                    var _baseHist = data.data.history || [];
+                    var _newIdx = _filterNewIndexes(_baseHist, _incrPullData.history);
+                    if (_newIdx.length > 0) {
+                        data.data.history = _baseHist.concat(_pickByIndexes(_incrPullData.history, _newIdx));
+                        if (_incrPullData.predHistory) data.data.predHistory = (data.data.predHistory || []).concat(_pickByIndexes(_incrPullData.predHistory, _newIdx));
+                        if (_incrPullData.accuracy) data.data.accuracy = (data.data.accuracy || []).concat(_pickByIndexes(_incrPullData.accuracy, _newIdx));
+                        if (_incrPullData.profitAccuracy) data.data.profitAccuracy = (data.data.profitAccuracy || []).concat(_pickByIndexes(_incrPullData.profitAccuracy, _newIdx));
+                        console.log('[云端拉取] incr ' + _incrHistLen + ' 条中真正新增 ' + _newIdx.length + ' 条，合并后总计 ' + data.data.history.length + ' 条');
+                    } else {
+                        console.log('[云端拉取] incr ' + _incrHistLen + ' 条均已在 main 中，无需合并');
+                    }
+                } catch(e) { console.warn('[云端拉取] 合并incr失败:', e.message); }
+                // v35.5关键修复：合并完成后清空云端 incr 行——这些增量已经并入本地/即将写入 main，
+                // 保留 incr 会导致下次 cloudLoad 再次 concat、incr 无限累积、记录重复。
+                try {
+                    await supabaseClient.from(CLOUD_TABLE).delete().eq('id', INCR_ROW_ID);
+                    console.log('[云端拉取] 已清空云端 incr 行');
+                } catch(e) { console.warn('[云端拉取] 清空incr失败（不影响本次合并）:', e.message); }
+            }
             // v27.4：先用云端完整数据直接恢复内存（绕过localStorage配额限制，确保数据完整）
+            // v35.6：restoreFromData 前最后兜底去重，杜绝任何路径产生的重复
+            try { _dedupeDataset(data.data); } catch(e) { console.warn('[兜底去重] 失败:', e.message); }
             P.restoreFromData(data.data);
             // v35.4：更新同步计数（拉取后所有记录都是云端来的，不需要再上传）
             _lastFullSyncCount = data.data.history ? data.data.history.length : 0;
@@ -7143,11 +7256,34 @@ async function cloudSave(manual, skipPrecheck) {
                 var _incrRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
                 var _incrData = (_incrRes.data && _incrRes.data.data) ? _incrRes.data.data : { history: [], predHistory: [], accuracy: [], profitAccuracy: [] };
                 
-                // 追加本地新增的记录
-                _incrData.history = (_incrData.history || []).concat(_newHist);
-                _incrData.predHistory = (_incrData.predHistory || []).concat(_newPred);
-                _incrData.accuracy = (_incrData.accuracy || []).concat(_newAcc);
-                _incrData.profitAccuracy = (_incrData.profitAccuracy || []).concat(_newPA);
+                // v35.5修复：追加本地新增到云端incr时，先按 (date+timeSlot) 去重，
+                // 防止多设备并发/时序交叉导致同一批记录被重复写入 incr 行。
+                var _existingIncrKeys = {};
+                (_incrData.history || []).forEach(function(r){ var k = _recKey(r); if (k) _existingIncrKeys[k] = 1; });
+                var _freshIdx = [];
+                _newHist.forEach(function(r, i){
+                    var k = _recKey(r);
+                    if (k && _existingIncrKeys[k]) return; // 云端incr已存在，跳过
+                    if (k) _existingIncrKeys[k] = 1;
+                    _freshIdx.push(i);
+                });
+                if (_freshIdx.length === 0) {
+                    // 本地新增的记录云端incr都已有，不需要再写
+                    _lastIncrSyncCount = _localLen;
+                    _saveSyncCounts();
+                    _cloudSaving = false;
+                    console.log('[增量上传] 本地新增' + _newHist.length + '条在云端incr均已存在，跳过写入');
+                    updateCloudStatus('online', '☁️ 增量已同步，无需重复上传');
+                    return true;
+                }
+                var _reallyNewHist = _freshIdx.map(function(i){ return _newHist[i]; });
+                var _reallyNewPred = _pickByIndexes(_newPred, _freshIdx);
+                var _reallyNewAcc = _pickByIndexes(_newAcc, _freshIdx);
+                var _reallyNewPA = _pickByIndexes(_newPA, _freshIdx);
+                _incrData.history = (_incrData.history || []).concat(_reallyNewHist);
+                _incrData.predHistory = (_incrData.predHistory || []).concat(_reallyNewPred);
+                _incrData.accuracy = (_incrData.accuracy || []).concat(_reallyNewAcc);
+                _incrData.profitAccuracy = (_incrData.profitAccuracy || []).concat(_reallyNewPA);
                 _incrData._syncEpoch = P._syncEpoch || 0;
                 _incrData._adminOverride = _isAdmin ? { at: Date.now() } : (P._adminOverride || null);
                 
@@ -7174,6 +7310,26 @@ async function cloudSave(manual, skipPrecheck) {
         }
 
         // 组装上传数据
+        // v35.6：上传前兜底去重——把 P 的当前数据打包成临时对象过一遍去重，
+        // 即使本地已被污染也不会把重复数据写进云端 main 行。
+        var _uploadSnapshot = {
+            history: (P.history || []).slice(),
+            predHistory: (P.predHistory || []).slice(),
+            accuracy: (P.accuracy || []).slice(),
+            profitAccuracy: (P.profitAccuracy || []).slice()
+        };
+        try {
+            var _beforeLen = _uploadSnapshot.history.length;
+            _dedupeDataset(_uploadSnapshot);
+            if (_uploadSnapshot.history.length !== _beforeLen) {
+                console.warn('[上传前兜底] 本地有重复，已自动剔除 ' + (_beforeLen - _uploadSnapshot.history.length) + ' 条再上传');
+                // 同步把去重后的结果写回 P，避免本地继续显示重复
+                P.history = _uploadSnapshot.history;
+                P.predHistory = _uploadSnapshot.predHistory;
+                P.accuracy = _uploadSnapshot.accuracy;
+                P.profitAccuracy = _uploadSnapshot.profitAccuracy;
+            }
+        } catch(e) { console.warn('[上传前兜底去重] 失败:', e.message); }
         var _cloudPredHist = P.predHistory || [];
         var saveData = {
             history: P.history,
@@ -7219,26 +7375,55 @@ async function cloudSave(manual, skipPrecheck) {
         }
         cloudLastSync = new Date();
         setAutoSync(true);
-        // v35.4：手动全量上传成功后——合并云端incr、清空incr、更新同步计数
+        // v35.6：管理员权威上传——纯覆盖模式
+        // 管理员点「上传云端」时，本地数据就是唯一真相：
+        //   1) 不合并任何云端 incr（其他用户的未同步增量全部丢弃）
+        //   2) 直接清空云端 incr 行
+        //   3) _adminOverride.at 已在 saveData 里写入，其他设备拉取时会强制覆盖本地
+        // 普通用户手动上传才走"合并云端 incr 里别人新增的记录"的逻辑。
+        if (_isAdmin && manual) {
+            try {
+                await supabaseClient.from(CLOUD_TABLE).delete().eq('id', INCR_ROW_ID);
+                console.log('[管理员权威上传] 已清空云端 incr 行，丢弃所有非管理员增量');
+                _lastFullSyncCount = P.history.length;
+                _lastIncrSyncCount = P.history.length;
+                _saveSyncCounts();
+                renderAll();
+                debouncedSave();
+                updateCloudStatus('online', '👑 管理员权威覆盖完成：本地 ' + P.history.length + ' 条已强制覆盖云端，其他设备将自动同步');
+            } catch(e) { console.warn('[管理员权威上传] 清空incr失败:', e.message); }
+            return true;
+        }
+        // v35.5：普通用户手动全量上传后——合并云端incr里别人新增的记录、清空incr、更新同步计数
+        // v35.5关键修复：之前无脑 P.history.concat(incr.history) 导致重复——
+        // 自动增量上传时本地 P.history 已经包含了这些 incr 记录（本地录入的），
+        // 再 concat 一遍就会把同一批记录追加两次（即截图里 2584=2586、2585=2587 的根因）。
+        // 现在改为按 (date+timeSlot) 过滤，只把本地确实没有的 incr 记录（来自其他设备）合并进来。
         try {
             // 拉取云端incr，合并到本地history
             var _incrMRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
-            var _incrMData = (_incrMRes.data && _incrMRes.data.data) ? _incrMRes.data.data : null;
+            var _incrMData = (_incrMRes && _incrMRes.data && _incrMRes.data.data) ? _incrMRes.data.data : null;
+            var _freshCount = 0;
             if (_incrMData && _incrMData.history && _incrMData.history.length > 0) {
-                // 把incr的记录追加到本地，再重新上传一次main（确保完整）
-                P.history = P.history.concat(_incrMData.history);
-                if (_incrMData.predHistory) P.predHistory = (P.predHistory || []).concat(_incrMData.predHistory);
-                if (_incrMData.accuracy) P.accuracy = (P.accuracy || []).concat(_incrMData.accuracy);
-                if (_incrMData.profitAccuracy) P.profitAccuracy = (P.profitAccuracy || []).concat(_incrMData.profitAccuracy);
-                // 重新组装并上传合并后的完整数据
-                saveData.history = P.history;
-                saveData.predHistory = P.predHistory || [];
-                saveData.accuracy = P.accuracy || [];
-                saveData.profitAccuracy = P.profitAccuracy || [];
-                await supabaseClient.from(CLOUD_TABLE).upsert({
-                    id: CLOUD_ROW_ID, data: saveData, updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-                console.log('[全量上传] 已合并云端incr ' + _incrMData.history.length + ' 条记录');
+                var _newIdx2 = _filterNewIndexes(P.history || [], _incrMData.history);
+                _freshCount = _newIdx2.length;
+                if (_freshCount > 0) {
+                    P.history = (P.history || []).concat(_pickByIndexes(_incrMData.history, _newIdx2));
+                    if (_incrMData.predHistory) P.predHistory = (P.predHistory || []).concat(_pickByIndexes(_incrMData.predHistory, _newIdx2));
+                    if (_incrMData.accuracy) P.accuracy = (P.accuracy || []).concat(_pickByIndexes(_incrMData.accuracy, _newIdx2));
+                    if (_incrMData.profitAccuracy) P.profitAccuracy = (P.profitAccuracy || []).concat(_pickByIndexes(_incrMData.profitAccuracy, _newIdx2));
+                    // 重新组装并上传合并后的完整数据
+                    saveData.history = P.history;
+                    saveData.predHistory = P.predHistory || [];
+                    saveData.accuracy = P.accuracy || [];
+                    saveData.profitAccuracy = P.profitAccuracy || [];
+                    await supabaseClient.from(CLOUD_TABLE).upsert({
+                        id: CLOUD_ROW_ID, data: saveData, updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+                    console.log('[全量上传] 合并云端incr：' + _incrMData.history.length + ' 条中真正新增 ' + _freshCount + ' 条');
+                } else {
+                    console.log('[全量上传] 云端incr ' + _incrMData.history.length + ' 条本地已全部存在，跳过去重，避免重复追加');
+                }
             }
             // 清空云端incr
             await supabaseClient.from(CLOUD_TABLE).delete().eq('id', INCR_ROW_ID);
