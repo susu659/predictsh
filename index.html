@@ -1,10 +1,11 @@
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v35.1 · 管理员在线版</title>
+<title>商会三竞预测系统 v35.2 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -600,8 +601,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v35.1</span></h1>
-<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v35.1</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v35.2</span></h1>
+<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v35.2</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -985,7 +986,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v35.1';
+  var APP_VERSION = 'v35.2';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -6135,6 +6136,31 @@ function idbLoad(key) {
 var CLOUD_CONFIG_KEY = 'mm_cloud_config_v1';
 var CLOUD_TABLE = 'prediction_data';
 var CLOUD_ROW_ID = 'main';
+// v35.4：增量上传——自上次全量同步以来的新增记录存到单独一行
+var INCR_ROW_ID = 'incr';
+var _lastFullSyncCount = 0; // 上次全量同步时的记录数（用于全量合并）
+var _lastIncrSyncCount = 0; // 上次增量上传后本地的记录数（用于计算下次增量）
+var SYNC_COUNT_KEY = 'mm_sync_counts_v1';
+// 持久化同步计数到localStorage，避免刷新页面后重复上传
+function _saveSyncCounts() {
+    try {
+        localStorage.setItem(SYNC_COUNT_KEY, JSON.stringify({
+            full: _lastFullSyncCount,
+            incr: _lastIncrSyncCount
+        }));
+    } catch(e) {}
+}
+// 从localStorage恢复同步计数
+function _loadSyncCounts() {
+    try {
+        var raw = localStorage.getItem(SYNC_COUNT_KEY);
+        if (raw) {
+            var d = JSON.parse(raw);
+            _lastFullSyncCount = d.full || 0;
+            _lastIncrSyncCount = d.incr || 0;
+        }
+    } catch(e) {}
+}
 var supabaseClient = null;
 var cloudOnline = false;
 var cloudLastSync = null;
@@ -6192,6 +6218,11 @@ function checkAdminPwd(input) {
 }
 var ADMIN_MODE_PWD = ADMIN_PWD_B64; // 兼容旧引用（已不再直接比对明文）
 var _isAdmin = false;
+// v35.2：普通用户录入间隔限制（毫秒），管理员不受限
+var _RECORD_INTERVAL_MS = 10000; // 10秒
+var _lastRecordTime = 0; // 上次录入成功的时间戳
+// v35.3：撤销导入——记录最近一次导入前的快照索引
+var _lastImportSnapshotIdx = -1;
 // v26.5：本地快照回滚（操作日志）
 var SNAPSHOT_KEY = 'mm_snapshots_v1';
 var _snapshots = [];
@@ -6374,7 +6405,7 @@ function pushOlogToCloud(snap, retry) {
                         body: { last_seen: new Date().toISOString() }
                     }).catch(function(e){
                         console.warn('[日志心跳] PATCH 失败:', e && e.message);
-                        // v35.1: 404时自动补注册
+                        // v35.2: 404时自动补注册
                         if (e && e.message && e.message.indexOf('404') >= 0) {
                             _api2('access_control', {
                                 method: 'POST',
@@ -6687,6 +6718,7 @@ function toggleAdminMode() {
     showRecordResult(true, '成功', '已进入管理员模式！\n您上传或恢复的数据将强制覆盖其他所有设备。');
 }
 function initCloud() {
+    _loadSyncCounts(); // v35.4：从localStorage恢复同步计数
     var cfg = getCloudConfig();
     var configPanel = document.getElementById('cloudConfigPanel');
     var bar = document.getElementById('cloudBar');
@@ -6853,8 +6885,25 @@ async function cloudLoad(silent) {
                     dataChanged = false;
                 }
             }
+            // v35.4：拉取云端incr增量数据，合并到main数据里
+            try {
+                var _incrPullRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
+                var _incrPullData = (_incrPullRes.data && _incrPullRes.data.data) ? _incrPullRes.data.data : null;
+                if (_incrPullData && _incrPullData.history && _incrPullData.history.length > 0) {
+                    // 合并incr到main数据
+                    data.data.history = (data.data.history || []).concat(_incrPullData.history);
+                    if (_incrPullData.predHistory) data.data.predHistory = (data.data.predHistory || []).concat(_incrPullData.predHistory);
+                    if (_incrPullData.accuracy) data.data.accuracy = (data.data.accuracy || []).concat(_incrPullData.accuracy);
+                    if (_incrPullData.profitAccuracy) data.data.profitAccuracy = (data.data.profitAccuracy || []).concat(_incrPullData.profitAccuracy);
+                    console.log('[云端拉取] 已合并incr增量 ' + _incrPullData.history.length + ' 条，总计 ' + data.data.history.length + ' 条');
+                }
+            } catch(e) { console.warn('[云端拉取] 合并incr失败:', e.message); }
             // v27.4：先用云端完整数据直接恢复内存（绕过localStorage配额限制，确保数据完整）
             P.restoreFromData(data.data);
+            // v35.4：更新同步计数（拉取后所有记录都是云端来的，不需要再上传）
+            _lastFullSyncCount = data.data.history ? data.data.history.length : 0;
+            _lastIncrSyncCount = _lastFullSyncCount;
+            _saveSyncCounts();
             // 完整数据异步存IndexedDB（大容量，不截断）
             idbSave(STORE_KEY, data.data);
             // 精简数据存localStorage（用于页面快速启动，存不下会自动降级）
@@ -7074,6 +7123,56 @@ async function cloudSave(manual, skipPrecheck) {
             } catch(_e) { console.warn('上传前检查失败，继续上传:', _e.message); }
         }
 
+        // v35.4：自动上传走增量模式——只传新增的几条记录，不传完整历史
+        if (!manual) {
+            try {
+                var _localLen = P.history ? P.history.length : 0;
+                if (_localLen <= _lastIncrSyncCount) {
+                    // 没有新记录，不需要上传
+                    _cloudSaving = false;
+                    return true;
+                }
+                // 计算新增的记录
+                var _newHist = P.history.slice(_lastIncrSyncCount);
+                var _newPred = (P.predHistory || []).slice(_lastIncrSyncCount);
+                var _newAcc = (P.accuracy || []).slice(_lastIncrSyncCount);
+                var _newPA = (P.profitAccuracy || []).slice(_lastIncrSyncCount);
+                
+                // 拉取云端现有的增量数据
+                updateCloudStatus('syncing', '☁️ 增量上传（' + _newHist.length + '条）...');
+                var _incrRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
+                var _incrData = (_incrRes.data && _incrRes.data.data) ? _incrRes.data.data : { history: [], predHistory: [], accuracy: [], profitAccuracy: [] };
+                
+                // 追加本地新增的记录
+                _incrData.history = (_incrData.history || []).concat(_newHist);
+                _incrData.predHistory = (_incrData.predHistory || []).concat(_newPred);
+                _incrData.accuracy = (_incrData.accuracy || []).concat(_newAcc);
+                _incrData.profitAccuracy = (_incrData.profitAccuracy || []).concat(_newPA);
+                _incrData._syncEpoch = P._syncEpoch || 0;
+                _incrData._adminOverride = _isAdmin ? { at: Date.now() } : (P._adminOverride || null);
+                
+                // 写回云端
+                var _incrRes2 = await supabaseClient.from(CLOUD_TABLE).upsert({
+                    id: INCR_ROW_ID,
+                    data: _incrData,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+                
+                if (_incrRes2.error) throw new Error(_incrRes2.error.message);
+                
+                // 更新本地记录：增量上传成功
+                _lastIncrSyncCount = _localLen;
+                _saveSyncCounts();
+                _cloudSaving = false;
+                console.log('[增量上传] 成功，新增', _newHist.length, '条，云端incr共', _incrData.history.length, '条');
+                updateCloudStatus('online', '☁️ 已增量上传 ' + _newHist.length + ' 条');
+                return true;
+            } catch(e) {
+                console.warn('[增量上传失败] 降级为全量上传:', e.message);
+                // 增量上传失败，继续走全量上传逻辑
+            }
+        }
+
         // 组装上传数据
         var _cloudPredHist = P.predHistory || [];
         var saveData = {
@@ -7120,7 +7219,37 @@ async function cloudSave(manual, skipPrecheck) {
         }
         cloudLastSync = new Date();
         setAutoSync(true);
-        updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端' + (_sizeKB > 0 ? '（' + _sizeKB + 'KB）' : ''));
+        // v35.4：手动全量上传成功后——合并云端incr、清空incr、更新同步计数
+        try {
+            // 拉取云端incr，合并到本地history
+            var _incrMRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
+            var _incrMData = (_incrMRes.data && _incrMRes.data.data) ? _incrMRes.data.data : null;
+            if (_incrMData && _incrMData.history && _incrMData.history.length > 0) {
+                // 把incr的记录追加到本地，再重新上传一次main（确保完整）
+                P.history = P.history.concat(_incrMData.history);
+                if (_incrMData.predHistory) P.predHistory = (P.predHistory || []).concat(_incrMData.predHistory);
+                if (_incrMData.accuracy) P.accuracy = (P.accuracy || []).concat(_incrMData.accuracy);
+                if (_incrMData.profitAccuracy) P.profitAccuracy = (P.profitAccuracy || []).concat(_incrMData.profitAccuracy);
+                // 重新组装并上传合并后的完整数据
+                saveData.history = P.history;
+                saveData.predHistory = P.predHistory || [];
+                saveData.accuracy = P.accuracy || [];
+                saveData.profitAccuracy = P.profitAccuracy || [];
+                await supabaseClient.from(CLOUD_TABLE).upsert({
+                    id: CLOUD_ROW_ID, data: saveData, updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+                console.log('[全量上传] 已合并云端incr ' + _incrMData.history.length + ' 条记录');
+            }
+            // 清空云端incr
+            await supabaseClient.from(CLOUD_TABLE).delete().eq('id', INCR_ROW_ID);
+            // 更新本地同步计数
+            _lastFullSyncCount = P.history.length;
+            _lastIncrSyncCount = P.history.length;
+            _saveSyncCounts();
+            renderAll();
+            debouncedSave();
+        } catch(e) { console.warn('[全量上传] 合并incr失败:', e.message); }
+        updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端（全量' + (_sizeKB > 0 ? ' ' + _sizeKB + 'KB' : '') + '）');
         // v31.5：异步自动清理旧自动备份，保留最近5个（不阻塞主流程）
         try {
             supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'backup_autosave_%')
@@ -7506,7 +7635,7 @@ function sendHeartbeat() {
         }).catch(function(e){
             _heartbeatFailCount++;
             console.warn('[心跳] PATCH last_seen 失败:', e && e.message);
-            // v35.1: 如果404（设备未注册），自动补注册为authorized，避免新设备永远离线
+            // v35.2: 如果404（设备未注册），自动补注册为authorized，避免新设备永远离线
             if (e && e.message && e.message.indexOf('404') >= 0) {
                 console.log('[心跳] 设备未注册，自动补注册:', _devId);
                 _api('access_control', {
@@ -10777,6 +10906,7 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
             openImportModal(recs, 'clipboard', {timeInferred: cbTimeInferred});
         } else {
             // 无历史：全量快速导入
+            try{createSnapshot('剪贴板首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}
             P.clearAll();
             var cumP = new Predictor();
             cumP.modelWeights = Object.assign({}, P.modelWeights);
@@ -10800,8 +10930,8 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
                     if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
                     renderAll(); debouncedSave();
                     st.className = 'import-status import-success';
-                    st.textContent = '✅ 剪贴板导入' + recs.length + '条';
-                    setTimeout(function(){ st.style.display = 'none'; }, 4500);
+                    st.innerHTML = '✅ 剪贴板导入' + recs.length + '条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';
+                    setTimeout(function(){ st.style.display = 'none'; }, 30000);
                 }
             }
             cbNext();
@@ -10920,7 +11050,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?cleanWinValue(parts[colMap.PW]):'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}rec.investWinner=colMap.IW!==undefined?cleanWinValue(parts[colMap.IW]):'';recs.push(rec);}}
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
-                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.textContent='✅ CSV导入'+recs.length+'条';setTimeout(function(){st.style.display='none';},4500);}}csvNext();}
+                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
         };
         readerCSV.readAsText(file);this.value='';
@@ -10957,6 +11087,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
             if (P.history.length > 0) {
                 openImportModal(recs, 'excel', {timeInferred: !hasTimeCol && !hasSeparateCols});
             } else {
+                try{createSnapshot('Excel首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}
                 P.clearAll();
                 var cumP=new Predictor();
                 cumP.modelWeights=Object.assign({},P.modelWeights);
@@ -10976,8 +11107,9 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                         P.maxStreakEver=calcMaxStreak(P.history);
                         if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;
                         renderAll();debouncedSave();
-                        st.className='import-status import-success';st.textContent='✅ 导入'+recs.length+'条';
-                        setTimeout(function(){st.style.display='none';},4500);
+                        st.className='import-status import-success';
+                        st.innerHTML='✅ Excel导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';
+                        setTimeout(function(){st.style.display='none';},15000);
                     }
                 }
                 xlsNext();
@@ -11256,7 +11388,7 @@ function confirmImport() {
     
     // 覆盖模式：直接清空
     if (mode === 'replace') {
-        try{ createSnapshot('覆盖导入前自动备份（'+(P.history?P.history.length:0)+'条）'); }catch(e){}
+        try{ createSnapshot('覆盖导入前自动备份（'+(P.history?P.history.length:0)+'条）'); _lastImportSnapshotIdx = _snapshots.length - 1; }catch(e){}
         P.clearAll();
     }
     
@@ -11300,7 +11432,7 @@ function confirmImport() {
             return;
         }
         // 增量前自动快照（误导入可回滚）
-        try { createSnapshot('增量导入前自动备份（' + (P.history ? P.history.length : 0) + '条，锚点' + align.tailLen + '局）'); } catch(e) {}
+        try { createSnapshot('增量导入前自动备份（' + (P.history ? P.history.length : 0) + '条，锚点' + align.tailLen + '局）'); _lastImportSnapshotIdx = _snapshots.length - 1; } catch(e) {}
         // 真增量：直接在现有 P 上分批追加，逐局触发预测/学习/相似盘匹配
         // v31: 记录导入前 accuracy 长度，用于复盘本次新局的预测命中率
         var accLenBefore = P.accuracy ? P.accuracy.length : 0;
@@ -11336,6 +11468,10 @@ function confirmImport() {
     }
 
     // 追加/覆盖模式：合并历史（沿用全量重建流程）
+    // v35.3：追加模式也加导入前快照（覆盖模式前面已加过，不重复）
+    if (mode === 'append') {
+        try { createSnapshot('追加导入前自动备份（' + (P.history ? P.history.length : 0) + '条）'); _lastImportSnapshotIdx = _snapshots.length - 1; } catch(e) {}
+    }
     var hist;
     if (mode === 'replace') {
         hist = importRecs;
@@ -11431,14 +11567,35 @@ function postImportAutoTune(mode) {
             }
         } catch(e) { console.warn('[导入后自动优化]', e.message); }
     }, 5000);
-    // 防护：覆盖模式不自动同步云端；增量/追加正常同步
-    if (supabaseClient && cloudOnline && mode !== 'replace') {
-        cloudSave();
-    } else if (mode === 'replace' && supabaseClient && cloudOnline) {
-        setAutoSync(false);
-        updateCloudStatus('online', '⚠️ 覆盖导入已完成（本地' + P.history.length + '条），确认无误后请点「上传云端」同步');
+    // v35.3：导入后不再自动询问上传，由用户手动点「上传云端」按钮
+}
+// v35.3：撤销最近一次导入，恢复到导入前状态
+function undoLastImport() {
+    if (_lastImportSnapshotIdx < 0 || !_snapshots[_lastImportSnapshotIdx]) {
+        showRecordResult(false, '撤销失败', '没有可撤销的导入记录\n请刷新页面后重试，或在操作日志中手动恢复');
+        return;
+    }
+    var snap = _snapshots[_lastImportSnapshotIdx];
+    var beforeCount = snap.count || 0;
+    var nowCount = P.history ? P.history.length : 0;
+    if (!confirm('确认撤销本次导入？\n\n导入前记录：' + beforeCount + ' 条\n当前记录：' + nowCount + ' 条\n\n撤销后将恢复到导入前的 ' + beforeCount + ' 条状态。\n点「确定」= 撤销并恢复，点「取消」= 取消操作')) {
+        return;
+    }
+    try {
+        var ok = restoreSnapshotObject(snap);
+        if (ok) {
+            _lastImportSnapshotIdx = -1; // 撤销后清空标记，避免重复撤销
+            showRecordResult(true, '撤销成功', '已恢复到导入前状态\n当前共 ' + P.history.length + ' 条记录\n\n⚠️ 注意：本地已恢复，云端数据未改动\n确认无误后请手动点「上传云端」同步');
+            try { renderAll(); } catch(e) {}
+        } else {
+            showRecordResult(false, '撤销失败', '恢复快照失败，请在操作日志中手动恢复');
+        }
+    } catch(e) {
+        showRecordResult(false, '撤销出错', '恢复过程出错：' + e.message);
     }
 }
+// 暴露到全局
+window.undoLastImport = undoLastImport;
 // v31-6: 预测质量漂移监控——滚动窗口准确率对比，只告警不自动改权重
 function updateDriftBadge() {
     var el = document.getElementById('driftBadge');
@@ -11493,12 +11650,13 @@ function finishIncremental(actualAdded, totalParsed, invalidCount, review) {
         var st = document.getElementById('importStatus');
         st.style.display = 'block';
         st.className = 'import-status import-success';
-        st.textContent = '✅ 增量导入完成：' + detail + '，当前共 ' + P.history.length + ' 条记录';
-        setTimeout(function(){ st.style.display = 'none'; }, 5000);
+        st.innerHTML = '✅ 增量导入完成：' + detail + '，当前共 ' + P.history.length + ' 条记录　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';
+        setTimeout(function(){ st.style.display = 'none'; }, 30000);
         var msg = '增量导入完成！\n' + detail + '\n当前共 ' + P.history.length + ' 条记录' + reviewStr;
         if (_importErrors && _importErrors.length > 0) {
             msg += '\n\n⚠️ 有 ' + _importErrors.length + ' 局校验失败已跳过';
         }
+        msg += '\n\n↩️ 撤销导入：请点页面底部绿色状态条里的红色链接「撤销本次导入」（30秒内有效）';
         showRecordResult(true, '导入成功', msg);
     }, 800);
 }
@@ -11554,8 +11712,8 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
         var st = document.getElementById('importStatus');
         st.style.display = 'block';
         st.className = 'import-status import-success';
-        st.textContent = '✅ ' + modeName + '导入完成：' + detail + '，当前共 ' + P.history.length + ' 条记录';
-        setTimeout(function(){st.style.display='none';},5000);
+        st.innerHTML = '✅ ' + modeName + '导入完成：' + detail + '，当前共 ' + P.history.length + ' 条记录　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';
+        setTimeout(function(){st.style.display='none';},15000);
         // v26.5：导入成功弹窗（覆盖模式显示防护提醒）
         if (mode === 'replace') {
             var protectMsg = '本地数据已更新为 ' + P.history.length + ' 条\n\n' +
@@ -11563,6 +11721,7 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
                 '   云端仍是覆盖前的数据，不会被污染\n\n' +
                 '🛡️ 第二层防护：本地快照已保存\n' +
                 '   点「📜 操作日志」可随时回滚\n\n' +
+                '↩️ 撤销导入：请点页面底部绿色状态条里的红色链接「撤销本次导入」（30秒内有效）\n\n' +
                 '确认数据无误后，请手动点「☁️ 上传云端」同步';
             if (_importErrors && _importErrors.length > 0) {
                 protectMsg += '\n\n⚠️ 有 ' + _importErrors.length + ' 行数据校验失败已跳过';
@@ -11573,6 +11732,7 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
             if (_importErrors && _importErrors.length > 0) {
                 successMsg += '\n\n⚠️ 有 ' + _importErrors.length + ' 行数据校验失败已跳过';
             }
+            successMsg += '\n\n↩️ 撤销导入：请点页面底部绿色状态条里的红色链接「撤销本次导入」（30秒内有效）';
             showRecordResult(true, '导入成功', successMsg);
         }
     }, 1000);
@@ -11596,7 +11756,7 @@ var _importErrors = []; // v26.5：导入错误行记录
 function importRecords(recs,replace,st){
     if(recs.length===0)throw new Error('无有效数据');
     _importErrors = [];
-    if(replace){ try{ createSnapshot('覆盖导入前自动备份（'+(P.history?P.history.length:0)+'条）'); }catch(e){} P.clearAll(); }
+    if(replace){ try{ createSnapshot('覆盖导入前自动备份（'+(P.history?P.history.length:0)+'条）'); _lastImportSnapshotIdx = _snapshots.length - 1; }catch(e){} P.clearAll(); }
     var hist=replace?recs:P.history.slice().concat(recs);
     P.clearAll();
     var cumIR=new Predictor();
@@ -11639,6 +11799,16 @@ document.getElementById("inputA").addEventListener("input", _autoSetProfitOnScor
 document.getElementById("inputB").addEventListener("input", _autoSetProfitOnScore3);
 document.getElementById("inputC").addEventListener("input", _autoSetProfitOnScore3);
 document.getElementById('btnAddRecord').addEventListener('click',function(){
+    // v35.2：普通用户录入间隔限制（10秒），管理员不受限
+    if (!_isAdmin && _lastRecordTime > 0) {
+        var _elapsed = Date.now() - _lastRecordTime;
+        var _remain = _RECORD_INTERVAL_MS - _elapsed;
+        if (_remain > 0) {
+            var _remainSec = Math.ceil(_remain / 1000);
+            showRecordResult(false, '录入过于频繁', '普通用户两次录入需间隔10秒\n请等待 ' + _remainSec + ' 秒后再试\n\n（管理员模式不受此限制）');
+            return;
+        }
+    }
     var a=parseFloat(document.getElementById('inputA').value);
     var b=parseFloat(document.getElementById('inputB').value);
     var c=parseFloat(document.getElementById('inputC').value);
@@ -11703,7 +11873,18 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
         var investTxt = iW ? ('，获胜投资：' + iW) : '';
-        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt);
+        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt + '\n\n⏱️ 5秒后自动上传云端...');
+        // v35.2：记录录入时间（用于间隔限制）
+        _lastRecordTime = Date.now();
+        // v35.2：录入成功后5秒自动上传云端
+        setTimeout(function() {
+            try {
+                if (supabaseClient && cloudOnline) {
+                    cloudSave();
+                    console.log('[录入] 5秒后自动上传云端');
+                }
+            } catch(e) { console.warn('[录入]自动上传失败:', e.message); }
+        }, 5000);
     } catch(e) {
         console.error('[录入] 出错:', e);
         showRecordResult(false, '录入出错', '出错了: ' + e.message + '\n\n请再点一次录入按钮重试。');
@@ -11721,6 +11902,36 @@ document.getElementById('btnUndo').addEventListener('click',function(){
     createSnapshot('撤销上一局');
     P.undoLast();renderAll();debouncedSave();
     showRecordResult(true, '撤销成功', '已撤销第' + (P.history.length + 1) + '局：A' + last.a + ' B' + last.b + ' C' + last.c);
+    // v35.4：撤销后自动覆盖式同步云端incr——确保云端和本地一致
+    try {
+        if (supabaseClient && cloudOnline && !_testMode) {
+            setTimeout(async function() {
+                try {
+                    var _overwriteHist = P.history.slice(_lastFullSyncCount);
+                    var _overwritePred = (P.predHistory || []).slice(_lastFullSyncCount);
+                    var _overwriteAcc = (P.accuracy || []).slice(_lastFullSyncCount);
+                    var _overwritePA = (P.profitAccuracy || []).slice(_lastFullSyncCount);
+                    var _overwriteData = {
+                        history: _overwriteHist,
+                        predHistory: _overwritePred,
+                        accuracy: _overwriteAcc,
+                        profitAccuracy: _overwritePA,
+                        _syncEpoch: P._syncEpoch || 0,
+                        _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
+                    };
+                    await supabaseClient.from(CLOUD_TABLE).upsert({
+                        id: INCR_ROW_ID,
+                        data: _overwriteData,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+                    _lastIncrSyncCount = P.history.length;
+                    _saveSyncCounts();
+                    console.log('[撤销后] 已覆盖同步云端incr，共', _overwriteHist.length, '条');
+                    updateCloudStatus('online', '☁️ 撤销已同步云端');
+                } catch(e) { console.warn('[撤销后同步失败]', e.message); }
+            }, 500);
+        }
+    } catch(e) {}
 });
 document.getElementById('btnClear').addEventListener('click',function(){
     if(!P.history || P.history.length === 0){ showRecordResult(false, '清空失败', '当前没有数据可清空'); return; }
