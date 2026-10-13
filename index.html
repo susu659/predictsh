@@ -6,7 +6,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v35.6 · 管理员在线版</title>
+<title>商会三竞预测系统 v35.8 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -602,8 +602,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v35.6</span></h1>
-<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v35.6</span>　<span style="color:#4caf50;font-weight:600;">☁️ 同步去重加固·管理员权威覆盖</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v35.8</span></h1>
+<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v35.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 纯全量同步·无增量无重复</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -818,7 +818,9 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="stat-card"><div class="stat-title">预测准确率</div><div class="stat-value" id="overallAccuracy">--</div></div>
 <div class="stat-card"><div class="stat-title">近8局准确率</div><div class="stat-value" id="recent8Acc">--</div></div>
 <div class="stat-card"><div class="stat-title">当前连胜</div><div class="stat-value" id="curStreak">0</div></div>
-<div class="stat-card"><div class="stat-title">最大连胜</div><div class="stat-value" id="maxStreak">0</div></div>
+<div class="stat-card" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);"><div class="stat-title" style="color:#880e4f;">当前不胜</div><div class="stat-value" id="curLoseStreak" style="color:#880e4f;font-size:clamp(18px,2.8vw,28px);">—</div></div>
+<div class="stat-card"><div class="stat-title">最大连胜</div><div class="stat-value" id="maxStreak" style="font-size:clamp(18px,2.8vw,28px);">—</div><div style="font-size:12px;font-weight:700;margin-top:4px;"><span style="color:#e53935;">A:<span id="maxWinA">0</span></span>　<span style="color:#1e88e5;">B:<span id="maxWinB">0</span></span>　<span style="color:#43a047;">C:<span id="maxWinC">0</span></span></div></div>
+<div class="stat-card" style="background:linear-gradient(135deg,#ffebee,#ffcdd2);"><div class="stat-title" style="color:#b71c1c;">😤 最长不胜</div><div class="stat-value" id="maxLossStreak" style="color:#b71c1c;font-size:clamp(18px,2.8vw,28px);">—</div><div style="font-size:12px;font-weight:700;margin-top:4px;"><span style="color:#e53935;">A:<span id="maxLoseA">0</span></span>　<span style="color:#1e88e5;">B:<span id="maxLoseB">0</span></span>　<span style="color:#43a047;">C:<span id="maxLoseC">0</span></span></div></div>
 <div class="stat-card"><div class="stat-title">Brier分数</div><div class="stat-value" id="brierScore">--</div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);"><div class="stat-title" style="color:#1565c0;">🎯 预测最低准确率</div><div class="stat-value" id="lowestAccuracy" style="color:#1565c0;">--</div><div style="font-size:11px;color:#666;margin-top:4px;">猜谁垫底准不准</div></div>
 <div class="stat-card"><div class="stat-title">数据来源</div><div class="stat-value" id="dataSource" style="font-size:clamp(12px,1.8vw,16px);">—</div></div>
@@ -987,7 +989,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v35.6';
+  var APP_VERSION = 'v35.8';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1854,6 +1856,61 @@ function getTailStreak(records) {
         else break;
     }
     return {guild: g, count: cnt};
+}
+// v35.6: 按商会分别统计连胜/不胜
+// 返回 {A:{max,cur}, B:{max,cur}, C:{max,cur}}
+// 连胜：该商会连续赢（getWinner=该商会）的局数
+// 不胜：该商会连续没赢（getWinner≠该商会）的局数
+function calcStreaksByGuild(history) {
+    var result = {
+        A: { winMax: 0, winCur: 0, loseMax: 0, loseCur: 0 },
+        B: { winMax: 0, winCur: 0, loseMax: 0, loseCur: 0 },
+        C: { winMax: 0, winCur: 0, loseMax: 0, loseCur: 0 }
+    };
+    for (var i = 0; i < history.length; i++) {
+        var w = getWinner(history[i]);
+        ['A','B','C'].forEach(function(g) {
+            if (w === g) {
+                result[g].winCur++;
+                if (result[g].winCur > result[g].winMax) result[g].winMax = result[g].winCur;
+                result[g].loseCur = 0;
+            } else {
+                result[g].loseCur++;
+                if (result[g].loseCur > result[g].loseMax) result[g].loseMax = result[g].loseCur;
+                result[g].winCur = 0;
+            }
+        });
+    }
+    return result;
+}
+// v35.6: 判断一局是否"不胜"——最高得分只有0.5或1（没有2/3分赢局）
+// 业务规则：a/b/c 出现 0,0.5,1 这种组合时，这局算"不胜"（没有真正赢的局）
+function isNoWin(rec) {
+    if (!rec) return false;
+    var maxV = Math.max(rec.a || 0, rec.b || 0, rec.c || 0);
+    return maxV <= 1; // 最高不超过1分（0/0.5/1）= 不胜
+}
+// v35.6: 计算最长连续"不胜"局数
+function calcMaxNoWinStreak(history) {
+    var maxS = 0, cur = 0;
+    for (var i = 0; i < history.length; i++) {
+        if (isNoWin(history[i])) {
+            cur++;
+            if (cur > maxS) maxS = cur;
+        } else {
+            cur = 0;
+        }
+    }
+    return maxS;
+}
+// v35.6: 当前连续"不胜"局数
+function calcCurNoWinStreak(history) {
+    var cur = 0;
+    for (var i = history.length - 1; i >= 0; i--) {
+        if (isNoWin(history[i])) cur++;
+        else break;
+    }
+    return cur;
 }
 function calcMaxStreak(history) {
     var maxS = 0, cur = 0, curG = null;
@@ -6891,11 +6948,46 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                 updateCloudStatus('syncing', '正在从云端拉取数据...');
                 cloudLoad(true);
             }
-            // v27.3修复：禁用自动拉取和自动对比定时器，避免多设备竞态条件导致数据重复
-            // 之前每30秒自动拉取+每10分钟自动对比，多设备同时在线时会导致数据混乱
-            // 现在：只在用户主动操作（录入/导入/修改/点拉取最新）时同步
+            // v35.8：纯全量轮询——每20秒检查main长度，比本地长就拉完整数据合并
             if (_autoPullTimer) { clearInterval(_autoPullTimer); _autoPullTimer = null; }
             if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
+            if (!_testMode) {
+                _autoPullTimer = setInterval(async function() {
+                    if (Date.now() - _lastLocalChange < 30000) return;
+                    if (!supabaseClient || !cloudOnline || _testMode) return;
+                    if (_cloudSaving) return;
+                    try {
+                        // 只拉main的history长度，轻量
+                        var r = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
+                        if (!r || !r.data || !r.data.data || !r.data.data.history) return;
+                        var cloudHist = r.data.data.history;
+                        var localLen = P.history ? P.history.length : 0;
+                        // 云端比本地长，有其他端的新记录
+                        if (cloudHist.length <= localLen) return;
+                        // 检查本地有没有云端没有的key（本地可能有未上传的新记录）
+                        var fresh = _filterNewIndexes(P.history || [], cloudHist);
+                        if (fresh.length === 0) return; // 云端没有本地没有的（本地更长但key重复）
+                        // 合并云端多出的记录
+                        var newHist = _pickByIndexes(cloudHist, fresh);
+                        var newPred = cloudHist && r.data.data.predHistory ? _pickByIndexes(r.data.data.predHistory, fresh.map(function(i){return i+1;})) : [];
+                        var newAcc = r.data.data.accuracy ? _pickByIndexes(r.data.data.accuracy, fresh) : [];
+                        var newPA = r.data.data.profitAccuracy ? _pickByIndexes(r.data.data.profitAccuracy, fresh) : [];
+                        P.history = (P.history || []).concat(newHist);
+                        P.predHistory = (P.predHistory || []).concat(newPred);
+                        P.accuracy = (P.accuracy || []).concat(newAcc);
+                        P.profitAccuracy = (P.profitAccuracy || []).concat(newPA);
+                        P.maxStreakEver = calcMaxStreak(P.history);
+                        _lastIncrSyncCount = P.history.length;
+                        _lastFullSyncCount = P.history.length;
+                        _saveSyncCounts();
+                        try { P.saveLocal(); } catch(e) {}
+                        renderAll();
+                        cloudLastSync = new Date();
+                        updateCloudStatus('online', '📥 同步其他端 ' + fresh.length + ' 条（共' + P.history.length + '局）');
+                        console.log('[轮询] 合并其他端新记录 ' + fresh.length + ' 条');
+                    } catch(e) { /* 网络错静默 */ }
+                }, 20000);
+            }
         } else {
             updateCloudStatus('error', 'Supabase SDK 未加载，请检查网络后刷新');
         }
@@ -6954,19 +7046,9 @@ async function cloudLoad(silent) {
             var localAdmin = P._adminOverride || null;
             var adminForce = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
             if (adminForce) forceOverride = true;
-            // v35.5修复：先拉 incr，拿到云端真实总长度，再做"本地更多就保留本地"的保护判断
-            var _incrPullRes = null, _incrPullData = null;
-            try {
-                _incrPullRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
-                _incrPullData = (_incrPullRes && _incrPullRes.data && _incrPullRes.data.data) ? _incrPullRes.data.data : null;
-            } catch(e) { console.warn('[云端拉取] incr 预拉取失败:', e.message); _incrPullData = null; }
-            var _incrHistLen = (_incrPullData && Array.isArray(_incrPullData.history)) ? _incrPullData.history.length : 0;
-
-            // 保护机制——本地历史比云端多时，不用云端老数据覆盖本地（强制覆盖除外）
-            // v35.5修复：cloudHistLen 必须包含 incr 行的增量条数，否则多设备各自录入时
-            // 会误判"本地更多"而跳过合并，导致其他设备的新增记录拉不下来。
+            // v35.8：纯全量同步——只有main一行，没有incr
             var localHistLen = P.history ? P.history.length : 0;
-            var cloudHistLen = (data.data.history ? data.data.history.length : 0) + _incrHistLen;
+            var cloudHistLen = data.data.history ? data.data.history.length : 0;
             if (!forceOverride && localHistLen > cloudHistLen) {
                 cloudLastSync = new Date();
                 updateCloudStatus('online', '本地有新数据（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地，点「上传云端」同步');
@@ -6974,7 +7056,7 @@ async function cloudLoad(silent) {
             }
             if (forceOverride) {
                 P._syncEpoch = cloudEpoch;
-                if (adminForce) P._adminOverride = cloudAdmin; // 同步管理员标记
+                if (adminForce) P._adminOverride = cloudAdmin;
             }
             // v26.5：性能优化——检测数据是否真的变化，没变化则跳过renderAll
             var cloudHist = data.data.history || [];
@@ -6987,33 +7069,35 @@ async function cloudLoad(silent) {
                     dataChanged = false;
                 }
             }
-            // v35.5修复：合并 incr 时按 (date+timeSlot) 去重，避免 main 已包含 incr 数据时重复追加
-            if (_incrHistLen > 0) {
-                try {
-                    var _baseHist = data.data.history || [];
-                    var _newIdx = _filterNewIndexes(_baseHist, _incrPullData.history);
-                    if (_newIdx.length > 0) {
-                        data.data.history = _baseHist.concat(_pickByIndexes(_incrPullData.history, _newIdx));
-                        if (_incrPullData.predHistory) data.data.predHistory = (data.data.predHistory || []).concat(_pickByIndexes(_incrPullData.predHistory, _newIdx));
-                        if (_incrPullData.accuracy) data.data.accuracy = (data.data.accuracy || []).concat(_pickByIndexes(_incrPullData.accuracy, _newIdx));
-                        if (_incrPullData.profitAccuracy) data.data.profitAccuracy = (data.data.profitAccuracy || []).concat(_pickByIndexes(_incrPullData.profitAccuracy, _newIdx));
-                        console.log('[云端拉取] incr ' + _incrHistLen + ' 条中真正新增 ' + _newIdx.length + ' 条，合并后总计 ' + data.data.history.length + ' 条');
-                    } else {
-                        console.log('[云端拉取] incr ' + _incrHistLen + ' 条均已在 main 中，无需合并');
+            // v35.6关键防护：本地有未上传的新记录时（刚录入还没上传），
+            // 把这些记录附加到云端数据后面，避免被云端旧数据冲掉。
+            try {
+                var _localUnsaved = (P.history || []).slice(_lastIncrSyncCount);
+                if (_localUnsaved.length > 0) {
+                    var _freshLocalIdx = _filterNewIndexes(data.data.history || [], _localUnsaved);
+                    if (_freshLocalIdx.length > 0) {
+                        var _freshLocalHist = _pickByIndexes(_localUnsaved, _freshLocalIdx);
+                        data.data.history = (data.data.history || []).concat(_freshLocalHist);
+                        if (P.predHistory) {
+                            var _localUnsavedPred = (P.predHistory || []).slice(_lastIncrSyncCount + 1);
+                            var _freshLocalPred = _pickByIndexes(_localUnsavedPred, _freshLocalIdx);
+                            data.data.predHistory = (data.data.predHistory || []).concat(_freshLocalPred);
+                        }
+                        if (P.accuracy) {
+                            var _localUnsavedAcc = (P.accuracy || []).slice(_lastIncrSyncCount);
+                            data.data.accuracy = (data.data.accuracy || []).concat(_pickByIndexes(_localUnsavedAcc, _freshLocalIdx));
+                        }
+                        if (P.profitAccuracy) {
+                            var _localUnsavedPA = (P.profitAccuracy || []).slice(_lastIncrSyncCount);
+                            data.data.profitAccuracy = (data.data.profitAccuracy || []).concat(_pickByIndexes(_localUnsavedPA, _freshLocalIdx));
+                        }
+                        console.log('[云端拉取] 已保护本地未上传的 ' + _freshLocalIdx.length + ' 条新记录');
                     }
-                } catch(e) { console.warn('[云端拉取] 合并incr失败:', e.message); }
-                // v35.5关键修复：合并完成后清空云端 incr 行——这些增量已经并入本地/即将写入 main，
-                // 保留 incr 会导致下次 cloudLoad 再次 concat、incr 无限累积、记录重复。
-                try {
-                    await supabaseClient.from(CLOUD_TABLE).delete().eq('id', INCR_ROW_ID);
-                    console.log('[云端拉取] 已清空云端 incr 行');
-                } catch(e) { console.warn('[云端拉取] 清空incr失败（不影响本次合并）:', e.message); }
-            }
-            // v27.4：先用云端完整数据直接恢复内存（绕过localStorage配额限制，确保数据完整）
-            // v35.6：restoreFromData 前最后兜底去重，杜绝任何路径产生的重复
+                }
+            } catch(e) { console.warn('[云端拉取] 保护本地未上传记录失败:', e.message); }
+            // v35.6：restoreFromData 前最后兜底去重
             try { _dedupeDataset(data.data); } catch(e) { console.warn('[兜底去重] 失败:', e.message); }
             P.restoreFromData(data.data);
-            // v35.4：更新同步计数（拉取后所有记录都是云端来的，不需要再上传）
             _lastFullSyncCount = data.data.history ? data.data.history.length : 0;
             _lastIncrSyncCount = _lastFullSyncCount;
             _saveSyncCounts();
@@ -7236,78 +7320,8 @@ async function cloudSave(manual, skipPrecheck) {
             } catch(_e) { console.warn('上传前检查失败，继续上传:', _e.message); }
         }
 
-        // v35.4：自动上传走增量模式——只传新增的几条记录，不传完整历史
-        if (!manual) {
-            try {
-                var _localLen = P.history ? P.history.length : 0;
-                if (_localLen <= _lastIncrSyncCount) {
-                    // 没有新记录，不需要上传
-                    _cloudSaving = false;
-                    return true;
-                }
-                // 计算新增的记录
-                var _newHist = P.history.slice(_lastIncrSyncCount);
-                var _newPred = (P.predHistory || []).slice(_lastIncrSyncCount);
-                var _newAcc = (P.accuracy || []).slice(_lastIncrSyncCount);
-                var _newPA = (P.profitAccuracy || []).slice(_lastIncrSyncCount);
-                
-                // 拉取云端现有的增量数据
-                updateCloudStatus('syncing', '☁️ 增量上传（' + _newHist.length + '条）...');
-                var _incrRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
-                var _incrData = (_incrRes.data && _incrRes.data.data) ? _incrRes.data.data : { history: [], predHistory: [], accuracy: [], profitAccuracy: [] };
-                
-                // v35.5修复：追加本地新增到云端incr时，先按 (date+timeSlot) 去重，
-                // 防止多设备并发/时序交叉导致同一批记录被重复写入 incr 行。
-                var _existingIncrKeys = {};
-                (_incrData.history || []).forEach(function(r){ var k = _recKey(r); if (k) _existingIncrKeys[k] = 1; });
-                var _freshIdx = [];
-                _newHist.forEach(function(r, i){
-                    var k = _recKey(r);
-                    if (k && _existingIncrKeys[k]) return; // 云端incr已存在，跳过
-                    if (k) _existingIncrKeys[k] = 1;
-                    _freshIdx.push(i);
-                });
-                if (_freshIdx.length === 0) {
-                    // 本地新增的记录云端incr都已有，不需要再写
-                    _lastIncrSyncCount = _localLen;
-                    _saveSyncCounts();
-                    _cloudSaving = false;
-                    console.log('[增量上传] 本地新增' + _newHist.length + '条在云端incr均已存在，跳过写入');
-                    updateCloudStatus('online', '☁️ 增量已同步，无需重复上传');
-                    return true;
-                }
-                var _reallyNewHist = _freshIdx.map(function(i){ return _newHist[i]; });
-                var _reallyNewPred = _pickByIndexes(_newPred, _freshIdx);
-                var _reallyNewAcc = _pickByIndexes(_newAcc, _freshIdx);
-                var _reallyNewPA = _pickByIndexes(_newPA, _freshIdx);
-                _incrData.history = (_incrData.history || []).concat(_reallyNewHist);
-                _incrData.predHistory = (_incrData.predHistory || []).concat(_reallyNewPred);
-                _incrData.accuracy = (_incrData.accuracy || []).concat(_reallyNewAcc);
-                _incrData.profitAccuracy = (_incrData.profitAccuracy || []).concat(_reallyNewPA);
-                _incrData._syncEpoch = P._syncEpoch || 0;
-                _incrData._adminOverride = _isAdmin ? { at: Date.now() } : (P._adminOverride || null);
-                
-                // 写回云端
-                var _incrRes2 = await supabaseClient.from(CLOUD_TABLE).upsert({
-                    id: INCR_ROW_ID,
-                    data: _incrData,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-                
-                if (_incrRes2.error) throw new Error(_incrRes2.error.message);
-                
-                // 更新本地记录：增量上传成功
-                _lastIncrSyncCount = _localLen;
-                _saveSyncCounts();
-                _cloudSaving = false;
-                console.log('[增量上传] 成功，新增', _newHist.length, '条，云端incr共', _incrData.history.length, '条');
-                updateCloudStatus('online', '☁️ 已增量上传 ' + _newHist.length + ' 条');
-                return true;
-            } catch(e) {
-                console.warn('[增量上传失败] 降级为全量上传:', e.message);
-                // 增量上传失败，继续走全量上传逻辑
-            }
-        }
+        // v35.8：纯全量同步——去掉incr行，每次都upsert完整main
+        // 简单可靠：没有两套数据合并、没有计数同步、没有竞态
 
         // 组装上传数据
         // v35.6：上传前兜底去重——把 P 的当前数据打包成临时对象过一遍去重，
@@ -7375,65 +7389,10 @@ async function cloudSave(manual, skipPrecheck) {
         }
         cloudLastSync = new Date();
         setAutoSync(true);
-        // v35.6：管理员权威上传——纯覆盖模式
-        // 管理员点「上传云端」时，本地数据就是唯一真相：
-        //   1) 不合并任何云端 incr（其他用户的未同步增量全部丢弃）
-        //   2) 直接清空云端 incr 行
-        //   3) _adminOverride.at 已在 saveData 里写入，其他设备拉取时会强制覆盖本地
-        // 普通用户手动上传才走"合并云端 incr 里别人新增的记录"的逻辑。
-        if (_isAdmin && manual) {
-            try {
-                await supabaseClient.from(CLOUD_TABLE).delete().eq('id', INCR_ROW_ID);
-                console.log('[管理员权威上传] 已清空云端 incr 行，丢弃所有非管理员增量');
-                _lastFullSyncCount = P.history.length;
-                _lastIncrSyncCount = P.history.length;
-                _saveSyncCounts();
-                renderAll();
-                debouncedSave();
-                updateCloudStatus('online', '👑 管理员权威覆盖完成：本地 ' + P.history.length + ' 条已强制覆盖云端，其他设备将自动同步');
-            } catch(e) { console.warn('[管理员权威上传] 清空incr失败:', e.message); }
-            return true;
-        }
-        // v35.5：普通用户手动全量上传后——合并云端incr里别人新增的记录、清空incr、更新同步计数
-        // v35.5关键修复：之前无脑 P.history.concat(incr.history) 导致重复——
-        // 自动增量上传时本地 P.history 已经包含了这些 incr 记录（本地录入的），
-        // 再 concat 一遍就会把同一批记录追加两次（即截图里 2584=2586、2585=2587 的根因）。
-        // 现在改为按 (date+timeSlot) 过滤，只把本地确实没有的 incr 记录（来自其他设备）合并进来。
-        try {
-            // 拉取云端incr，合并到本地history
-            var _incrMRes = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', INCR_ROW_ID).maybeSingle();
-            var _incrMData = (_incrMRes && _incrMRes.data && _incrMRes.data.data) ? _incrMRes.data.data : null;
-            var _freshCount = 0;
-            if (_incrMData && _incrMData.history && _incrMData.history.length > 0) {
-                var _newIdx2 = _filterNewIndexes(P.history || [], _incrMData.history);
-                _freshCount = _newIdx2.length;
-                if (_freshCount > 0) {
-                    P.history = (P.history || []).concat(_pickByIndexes(_incrMData.history, _newIdx2));
-                    if (_incrMData.predHistory) P.predHistory = (P.predHistory || []).concat(_pickByIndexes(_incrMData.predHistory, _newIdx2));
-                    if (_incrMData.accuracy) P.accuracy = (P.accuracy || []).concat(_pickByIndexes(_incrMData.accuracy, _newIdx2));
-                    if (_incrMData.profitAccuracy) P.profitAccuracy = (P.profitAccuracy || []).concat(_pickByIndexes(_incrMData.profitAccuracy, _newIdx2));
-                    // 重新组装并上传合并后的完整数据
-                    saveData.history = P.history;
-                    saveData.predHistory = P.predHistory || [];
-                    saveData.accuracy = P.accuracy || [];
-                    saveData.profitAccuracy = P.profitAccuracy || [];
-                    await supabaseClient.from(CLOUD_TABLE).upsert({
-                        id: CLOUD_ROW_ID, data: saveData, updated_at: new Date().toISOString()
-                    }, { onConflict: 'id' });
-                    console.log('[全量上传] 合并云端incr：' + _incrMData.history.length + ' 条中真正新增 ' + _freshCount + ' 条');
-                } else {
-                    console.log('[全量上传] 云端incr ' + _incrMData.history.length + ' 条本地已全部存在，跳过去重，避免重复追加');
-                }
-            }
-            // 清空云端incr
-            await supabaseClient.from(CLOUD_TABLE).delete().eq('id', INCR_ROW_ID);
-            // 更新本地同步计数
-            _lastFullSyncCount = P.history.length;
-            _lastIncrSyncCount = P.history.length;
-            _saveSyncCounts();
-            renderAll();
-            debouncedSave();
-        } catch(e) { console.warn('[全量上传] 合并incr失败:', e.message); }
+        // v35.8：纯全量同步——上传成功后直接更新计数，不再合并/清空incr
+        _lastFullSyncCount = P.history.length;
+        _lastIncrSyncCount = P.history.length;
+        _saveSyncCounts();
         updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端（全量' + (_sizeKB > 0 ? ' ' + _sizeKB + 'KB' : '') + '）');
         // v31.5：异步自动清理旧自动备份，保留最近5个（不阻塞主流程）
         try {
@@ -9977,6 +9936,32 @@ function updateStats() {
     var curMissG = calcCurrentMissStreak(P.accuracy);
     document.getElementById('maxMissGuild').textContent = maxMissG;
     document.getElementById('curMissGuild').textContent = curMissG;
+    // v35.6: 按 A/B/C 分别统计连胜和不胜
+    var _streaks = calcStreaksByGuild(P.history || []);
+    // 最大连胜卡片：显示三者中最大值，下方小字分别列出
+    var _maxWinVal = Math.max(_streaks.A.winMax, _streaks.B.winMax, _streaks.C.winMax);
+    var _maxWinGuild = 'A';
+    if (_streaks.B.winMax === _maxWinVal) _maxWinGuild = 'B';
+    if (_streaks.C.winMax === _maxWinVal) _maxWinGuild = 'C';
+    document.getElementById('maxStreak').textContent = _maxWinGuild + ':' + _maxWinVal;
+    document.getElementById('maxWinA').textContent = _streaks.A.winMax;
+    document.getElementById('maxWinB').textContent = _streaks.B.winMax;
+    document.getElementById('maxWinC').textContent = _streaks.C.winMax;
+    // 最长不胜卡片：显示三者中最大值
+    var _maxLoseVal = Math.max(_streaks.A.loseMax, _streaks.B.loseMax, _streaks.C.loseMax);
+    var _maxLoseGuild = 'A';
+    if (_streaks.B.loseMax === _maxLoseVal) _maxLoseGuild = 'B';
+    if (_streaks.C.loseMax === _maxLoseVal) _maxLoseGuild = 'C';
+    document.getElementById('maxLossStreak').textContent = _maxLoseGuild + ':' + _maxLoseVal;
+    document.getElementById('maxLoseA').textContent = _streaks.A.loseMax;
+    document.getElementById('maxLoseB').textContent = _streaks.B.loseMax;
+    document.getElementById('maxLoseC').textContent = _streaks.C.loseMax;
+    // 当前不胜卡片
+    var _curLoseMax = Math.max(_streaks.A.loseCur, _streaks.B.loseCur, _streaks.C.loseCur);
+    var _curLoseGuild = 'A';
+    if (_streaks.B.loseCur === _curLoseMax) _curLoseGuild = 'B';
+    if (_streaks.C.loseCur === _curLoseMax) _curLoseGuild = 'C';
+    document.getElementById('curLoseStreak').textContent = _curLoseGuild + ':' + _curLoseMax;
     var maxMissP = calcMaxMissStreak(P.profitAccuracy);
     var curMissP = calcCurrentMissStreak(P.profitAccuracy);
     document.getElementById('maxMissProfit').textContent = maxMissP;
