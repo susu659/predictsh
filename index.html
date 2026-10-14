@@ -1,12 +1,13 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v35.8 · 管理员在线版</title>
+<title>商会三竞预测系统 v36.1 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -17,11 +18,13 @@
     'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
   ];
   // v30.22：优先加载本地 SDK，彻底摆脱 CDN 不稳定问题
+  // v36.1：本地 ./supabase.js 移到最后——本地双击打开时不再先请求不存在的文件报 404；
+  // 仅当所有 CDN 都失败时才尝试本地文件（部署到自带 SDK 的服务器时仍可用）
   var supabaseUrls = [
-    './supabase.js',
     'https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
     'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
-    'https://registry.npmmirror.com/@supabase/supabase-js/2.45.0/files/dist/umd/supabase.js'
+    'https://registry.npmmirror.com/@supabase/supabase-js/2.45.0/files/dist/umd/supabase.js',
+    './supabase.js'
   ];
   function loadScript(urls, idx, onOk, onFail) {
     if (idx >= urls.length) { onFail && onFail(); return; }
@@ -602,8 +605,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v35.8</span></h1>
-<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v35.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 纯全量同步·无增量无重复</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v36.1</span></h1>
+<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v36.1</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -989,7 +992,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v35.8';
+  var APP_VERSION = 'v36.1';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1760,24 +1763,23 @@ function debouncedSave() {
         } else {
             setTimeout(_doSave, 0);
         }
-        // v27.4：云端上传节流——8秒内重复变更只上传一次，避免频繁录入时反复上传导致卡顿和失败
-        if (_autoSyncEnabled && supabaseClient && cloudOnline) {
-            var _now = Date.now();
-            if (_now - _lastCloudSaveTime < CLOUD_SAVE_THROTTLE_MS) {
-                _pendingCloudSave = true;
-                if (!_cloudThrottleTimer) {
-                    var _remain = CLOUD_SAVE_THROTTLE_MS - (_now - _lastCloudSaveTime);
-                    _cloudThrottleTimer = setTimeout(function() {
-                        _cloudThrottleTimer = null;
-                        if (_pendingCloudSave) {
-                            _pendingCloudSave = false;
-                            if (_autoSyncEnabled && supabaseClient && cloudOnline) cloudSave();
-                        }
-                    }, _remain + 100);
+        // v36.1：录入/修改成功后，从这次操作起算5秒自动上传
+        // —— 停手5秒后才上传一次；期间继续录入/修改会清除旧定时器重新计时。
+        // 首次启动保护：定时器照常起（这样才是"录完5秒后上传"），到点时如果首拉取
+        //   还没完成，就保持 _pendingCloudSave=true 等 finally 里上传，不提前传。
+        if (_autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) {
+            if (_cloudThrottleTimer) { clearTimeout(_cloudThrottleTimer); _cloudThrottleTimer = null; }
+            _pendingCloudSave = true;
+            _cloudThrottleTimer = setTimeout(function() {
+                _cloudThrottleTimer = null;
+                if (!_pendingCloudSave) return;
+                if (!_firstCloudSyncDone) {
+                    // 首拉取还没结束：保持 _pendingCloudSave=true，等 finally 里上传
+                    return;
                 }
-            } else {
-                cloudSave();
-            }
+                _pendingCloudSave = false;
+                if (_autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) cloudSave();
+            }, 5000);
         }
     }, 300);
 }
@@ -1996,7 +1998,7 @@ function getTimeSlot(date, align) {
     var slotMinute = align ? ((gameIntervalMinutes === 30) ? (minute < 30 ? 0 : 30) : 0) : minute;
     var startHour = hour;
     var startMinute = slotMinute;
-    var startSecond = second;
+    var startSecond = align ? 0 : second; // v36.1: 对齐模式下秒清零，保证同一局 timeSlot 稳定
     // 计算结束时间（秒级精度）
     var endTotalSec = startHour * 3600 + startMinute * 60 + startSecond + gameIntervalMinutes * 60;
     var endHour = Math.floor(endTotalSec / 3600) % 24;
@@ -2017,7 +2019,13 @@ function parseTimeSlot(str) {
     if (!m) return null;
     var now = new Date();
     var sec = m[5] ? parseInt(m[5]) : 0;
-    var d = new Date(now.getFullYear(), parseInt(m[1]) - 1, parseInt(m[2]), parseInt(m[3]), parseInt(m[4]), sec);
+    var yr = now.getFullYear();
+    var mo = parseInt(m[1]) - 1, da = parseInt(m[2]), hh = parseInt(m[3]), mm = parseInt(m[4]);
+    var d = new Date(yr, mo, da, hh, mm, sec);
+    // v36.1: 跨年修正——解析出的日期比现在晚超过11个月，说明是去年的数据
+    if (d.getTime() - now.getTime() > 300 * 24 * 3600 * 1000) {
+        d = new Date(yr - 1, mo, da, hh, mm, sec);
+    }
     return d;
 }
 // 生成往前推N局的时间段（v25.1起每局间隔 = 局时长 + 局间休息秒数）
@@ -2066,7 +2074,7 @@ function excelSerialToDateStr(serial) {
     if (typeof serial !== 'number' || isNaN(serial) || serial < 1) return '';
     var jsDate = new Date((serial - 25569) * 86400 * 1000);
     if (isNaN(jsDate.getTime())) return '';
-    return (jsDate.getMonth() + 1) + '月' + jsDate.getDate() + '日';
+    return (jsDate.getUTCMonth() + 1) + '月' + jsDate.getUTCDate() + '日'; // v36.1: 用UTC方法，避免本地时区差一天
 }
 // v23.1修复：统一日期输入格式（支持Excel序列号、8-25、8/25、8月25日等）
 function normalizeDateStr(val) {
@@ -5534,7 +5542,8 @@ if(curBrier > 0.3){
     addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC, investWinner) {
         var rec = {a: a, b: b, c: c};
         rec.timeSlot = timeSlot || getTimeSlot();
-        rec.date = new Date().toISOString().slice(0,10); // v31.2: 记录日期用于两日对比
+        var _nowDate = new Date();
+        rec.date = _nowDate.getFullYear() + '-' + String(_nowDate.getMonth()+1).padStart(2,'0') + '-' + String(_nowDate.getDate()).padStart(2,'0'); // v36.1: 改用本地日期，凌晨录入不再错一天
         // v25.5: 收益字段（大/中/小），旧数据兼容默认为空
         rec.profitWinner = profitWinner || '';
         rec.profitA = profitA || '';
@@ -6330,6 +6339,9 @@ var CLOUD_MAX_RETRY = 8; // 上传最大重试次数
 var CLOUD_PULL_MAX_RETRY = 5; // v31.4：拉取最大自动重试次数
 var _cloudPullRetryCount = 0; // v31.4：拉取重试计数
 var _networkRetryTimer = null; // v31.4：网络恢复后自动重试拉取的定时器
+// v36.1：首次启动保护——打开系统后首次云端拉取完成前，只拉取、不自动上传，
+// 避免本地旧数据在云端最新数据拉下来之前就被推上去覆盖别人的新数据。
+var _firstCloudSyncDone = false;
 // v27.4：测试模式——开启后所有操作只保存在本地，手动点「上传云端」才会上传
 var TEST_MODE_KEY = 'mm_test_mode_v1';
 var _testMode = false;
@@ -6943,10 +6955,33 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
             }
             // v31：测试模式下跳过启动云端拉取，防止弱网/测试时云端旧数据覆盖本地新数据
             if (_testMode) {
-                updateCloudStatus('online', '🧪 测试模式：跳过启动拉取，数据仅保存在本地');
+                updateCloudStatus('online', '🧪 测试模式：数据仅保存在本地，不会上传云端');
+                _firstCloudSyncDone = true; // 测试模式不走首次拉取，直接解除保护
             } else {
-                updateCloudStatus('syncing', '正在从云端拉取数据...');
-                cloudLoad(true);
+                // v36.1：打开系统后延迟5秒再自动拉取——避免打开瞬间立即发请求，
+                // 让页面先渲染、本地数据先加载完，5秒后再静默拉取云端最新。
+                // 本次启动只拉取、不上传；等拉取完成后才恢复"录入停手5秒自动上传"。
+                updateCloudStatus('online', '⏳ 已进入系统，5秒后自动拉取云端最新（本次只拉取、不上传）…');
+                setTimeout(function() {
+                    if (!supabaseClient || _testMode) { _firstCloudSyncDone = true; return; }
+                    updateCloudStatus('syncing', '正在从云端拉取最新数据（仅拉取，暂不上传）…');
+                    cloudLoad(true).finally(function() {
+                        _firstCloudSyncDone = true; // 首次拉取结束（无论成败），解除"只拉取"保护
+                        console.log('[启动] 首次云端拉取已结束，恢复正常上传节奏');
+                        // v36.1：如果等待期间录了新局（debouncedSave 的5秒定时器到点时首拉取还没好，
+                        //   挂起在 _pendingCloudSave=true），现在补传。
+                        if (_pendingCloudSave && _autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) {
+                            console.log('[启动] 补传等待期间录入的新局…');
+                            setTimeout(function() {
+                                if (_pendingCloudSave) {
+                                    _pendingCloudSave = false;
+                                    if (_cloudThrottleTimer) { clearTimeout(_cloudThrottleTimer); _cloudThrottleTimer = null; }
+                                    if (_autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) cloudSave();
+                                }
+                            }, 1000);
+                        }
+                    });
+                }, 5000);
             }
             // v35.8：纯全量轮询——每20秒检查main长度，比本地长就拉完整数据合并
             if (_autoPullTimer) { clearInterval(_autoPullTimer); _autoPullTimer = null; }
@@ -6999,9 +7034,11 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
             }
         } else {
             updateCloudStatus('error', 'Supabase SDK 未加载，请检查网络后刷新');
+            _firstCloudSyncDone = true; // v36.1：SDK加载失败也解除保护，避免录入后永远不上传
         }
     } catch(e) {
         updateCloudStatus('error', '初始化失败: ' + e.message);
+        _firstCloudSyncDone = true; // v36.1：初始化异常也解除保护
     }
     return true;
 }
@@ -7130,15 +7167,19 @@ async function cloudLoad(silent) {
             if (P._rebuildPending) {
                 await new Promise(function(resolve){ P.rebuildHistoryAsync(null, resolve); });
                 renderAll();
-                debouncedSave();
+                // v36.1：拉取后本地重建predHistory只写本地，不触发上传（这不是用户新数据）
+                try { P.saveLocal(); } catch(e) {}
             }
             cloudLastSync = new Date();
             _lastCloudLoadTime = Date.now(); // v26.5：防重复保护
-            updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已加载云端 ' + (data.data.history ? data.data.history.length : 0) + ' 局记录');
+            // v36.1：首次拉取完成提示——告诉用户"只拉取"阶段结束，后续录入会自动上传
+            var _pullCount = data.data.history ? data.data.history.length : 0;
+            updateCloudStatus('online', '✅ 已拉取云端 ' + _pullCount + ' 局 · 首次加载完成，后续录入新数据停手5秒后将自动上传');
             return true;
         } else {
             cloudLastSync = new Date();
-            updateCloudStatus('online', '云端暂无数据，录入后将自动上传');
+            // v36.1：云端空库提示
+            updateCloudStatus('online', '☁️ 云端暂无数据 · 首次拉取完成，你录入的第一条新数据将在停手5秒后自动上传');
             return true;
         }
     } catch(e) {
@@ -7191,7 +7232,7 @@ window.addEventListener('offline', function() {
 // v27.5：定期自动备份——每小时一次，只保留最近24个备份
 var _lastAutoBackupDate = '';
 var _autoBackupTimer = null;
-var AUTO_BACKUP_KEEP_COUNT = 24; // 自动备份只保留最近24个
+var AUTO_BACKUP_KEEP_COUNT = 6; // v36.1: 自动备份保留最近6个（与本地一致，避免云端膨胀）
 function checkAutoBackup() {
     var now = new Date();
     var dateStr = now.toISOString().slice(0,10);
@@ -7208,7 +7249,8 @@ function checkAutoBackup() {
         modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
         modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
         learnIterations: P.learnIterations || 0,
-        _syncEpoch: P._syncEpoch || 0
+        _syncEpoch: P._syncEpoch || 0,
+        _count: P.history.length
     };
     if (supabaseClient && cloudOnline) {
         console.log('[自动备份] 云端备份，时间:', hourKey + '时');
@@ -8405,7 +8447,8 @@ function doCloudBackup() {
             reflectionLog: P.reflectionLog ? P.reflectionLog.slice() : [],
             maxStreakEver: P.maxStreakEver || 0,
             bestBrier: isFinite(P._bestBrier) ? P._bestBrier : null,
-            patternHitCache: P.patternHitCache ? Object.assign({}, P.patternHitCache) : {}
+            patternHitCache: P.patternHitCache ? Object.assign({}, P.patternHitCache) : {},
+            _count: (P.history ? P.history.length : 0)
         };
         var now = new Date();
         var backupId = 'backup_' + now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0') + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0') + String(now.getSeconds()).padStart(2,'0');
@@ -8432,7 +8475,8 @@ function loadBackupList() {
     if (!supabaseClient) return;
     var tbody = document.getElementById('backupListBody');
     tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#999;">加载中...</td></tr>';
-    supabaseClient.from(CLOUD_TABLE).select('id, updated_at').like('id', 'backup_%').order('updated_at', {ascending: false})
+    // v36.1: 一次请求，只查 id+时间+局数（data->>_count 提取文本，不拉大JSON）
+    supabaseClient.from(CLOUD_TABLE).select('id, updated_at,data->>_count').like('id', 'backup_%').order('updated_at', {ascending: false})
         .then(function(res) {
             if (res.error) { tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载失败：' + res.error.message + '</td></tr>'; return; }
             var list = res.data || [];
@@ -8440,14 +8484,24 @@ function loadBackupList() {
                 tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#999;">暂无备份，点上方「创建新备份」</td></tr>';
                 return;
             }
+            // 自动删除超过保留数量的旧备份
+            if (list.length > AUTO_BACKUP_KEEP_COUNT) {
+                var oldIds = list.slice(AUTO_BACKUP_KEEP_COUNT).map(function(r) { return r.id; });
+                supabaseClient.from(CLOUD_TABLE).delete().in('id', oldIds).then(function(dr) {
+                    if (dr.error) console.warn('[自动清理] 删除失败:', dr.error.message);
+                }).catch(function() {});
+                list = list.slice(0, AUTO_BACKUP_KEEP_COUNT);
+            }
             var html = '';
             for (var i = 0; i < list.length; i++) {
                 var item = list[i];
                 var t = item.updated_at ? new Date(item.updated_at) : null;
                 var tStr = t ? t.toLocaleString('zh-CN') : item.id;
+                // data->>_count 返回的 key 是 _count（字符串如 "2639"），旧备份为 null
+                var cnt = (item._count !== null && item._count !== undefined && item._count !== '') ? item._count + ' 局' : '-';
                 html += '<tr>' +
                     '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
-                    '<td style="padding:8px;" id="backupCount_' + i + '">加载中...</td>' +
+                    '<td style="padding:8px;">' + cnt + '</td>' +
                     '<td style="padding:8px;">' +
                         '<button onclick="restoreFromBackup(\'' + item.id + '\')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px;">恢复</button>' +
                         '<button onclick="deleteBackup(\'' + item.id + '\')" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
@@ -8455,20 +8509,35 @@ function loadBackupList() {
                     '</tr>';
             }
             tbody.innerHTML = html;
-            // 异步加载每个备份的历史局数
-            for (var j = 0; j < list.length; j++) {
-                (function(idx, bid) {
-                    supabaseClient.from(CLOUD_TABLE).select('data').eq('id', bid).maybeSingle().then(function(r) {
-                        var el = document.getElementById('backupCount_' + idx);
-                        if (el && r.data && r.data.data && r.data.data.history) {
-                            el.textContent = r.data.data.history.length + ' 局';
-                        } else if (el) { el.textContent = '-'; }
-                    }).catch(function() { var el = document.getElementById('backupCount_' + idx); if (el) el.textContent = '-'; });
-                })(j, list[j].id);
-            }
         }).catch(function(e) {
             tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载异常：' + e.message + '</td></tr>';
         });
+}
+// v36.1: 手动一键清理旧备份——保留最近6个，删除其余所有 backup_ 开头的行
+function cleanupAllOldBackups() {
+    if (!supabaseClient) { showRecordResult(false, '提示', '云同步未初始化'); return; }
+    var msg = document.getElementById('backupStatusMsg');
+    if (!confirm('确定清理旧备份吗？\n\n将保留最近 ' + AUTO_BACKUP_KEEP_COUNT + ' 个备份，删除其余所有云端备份。\n此操作不可撤销！')) return;
+    msg.style.color = '#e65100'; msg.textContent = '正在清理...';
+    supabaseClient.from(CLOUD_TABLE).select('id, updated_at').like('id', 'backup_%').order('updated_at', {ascending: false})
+        .then(function(res) {
+            if (res.error) { msg.style.color = '#e74c3c'; msg.textContent = '查询失败：' + res.error.message; return; }
+            var list = res.data || [];
+            if (list.length <= AUTO_BACKUP_KEEP_COUNT) {
+                msg.style.color = '#2e7d32'; msg.textContent = '备份数量正常（' + list.length + '个），无需清理';
+                return;
+            }
+            var oldIds = list.slice(AUTO_BACKUP_KEEP_COUNT).map(function(r) { return r.id; });
+            msg.textContent = '正在删除 ' + oldIds.length + ' 个旧备份...';
+            supabaseClient.from(CLOUD_TABLE).delete().in('id', oldIds)
+                .then(function(delRes) {
+                    if (delRes.error) { msg.style.color = '#e74c3c'; msg.textContent = '删除失败：' + delRes.error.message; return; }
+                    msg.style.color = '#2e7d32'; msg.textContent = '✅ 已删除 ' + oldIds.length + ' 个旧备份，保留最近 ' + AUTO_BACKUP_KEEP_COUNT + ' 个';
+                    loadBackupList();
+                })
+                .catch(function(e) { msg.style.color = '#e74c3c'; msg.textContent = '删除异常：' + e.message; });
+        })
+        .catch(function(e) { msg.style.color = '#e74c3c'; msg.textContent = '查询异常：' + e.message; });
 }
 // ========== 本地自动备份加载与恢复 ==========
 function loadLocalBackupList() {
@@ -8784,7 +8853,8 @@ function renderModelAccuracy() {
         });
         if (damped.length) {
             dampNote = '<div style="margin-top:6px;color:#e53935;font-size:12px;">🤖 自动降权（近60局低于随机）：' + damped.join('、') + '</div>';
-            try { debouncedSave(); } catch(e) {}
+            // v36.1：渲染时的自动降权只写本地，不触发云端上传（否则打开页面渲染一次就上传一次）
+            try { P.saveLocal(); } catch(e) {}
         }
     }
     var rowsHtml = '';
@@ -9890,7 +9960,8 @@ function renderCards() {
         patternDetail.style.display='block';
         patternDetail.innerHTML='<strong>🔬 规律选择：</strong>v25按「置信度×历史准确率」动态选最优窗口（近8局'+(pats.win8?pats.win8.length:0)+'种 / 近7局'+(pats.win7?pats.win7.length:0)+'种 / 近6局'+(pats.win6?pats.win6.length:0)+'种 / 近10局'+(pats.win10?pats.win10.length:0)+'种 / 全局'+(pats.global?pats.global.length:0)+'种） | 当前采用：'+result.source;
     }
-    debouncedSave(); // v18.0：防抖300ms保存+toast提示
+    // v36.1：渲染卡片只本地保存预测结果，不触发云端上传（否则打开页面渲染一次就误上传）
+    try { P.saveLocal(); } catch(e) {}
 }
 function updateStats() {
     document.getElementById('totalGames').textContent=P.history.length;
@@ -11307,10 +11378,12 @@ var _pendingImportSource = ''; // 'excel' or 'csv'
 // 生成记录的唯一键（用于去重）
 // 优先用timeSlot，其次用a|b|c分数组合
 function _recordKey(rec) {
-    // v29修复：以abc分数组合为唯一去重键，不依赖timeSlot
-    // 原因：无时间列Excel每次自动生成timeSlot不同、手动录入与Excel导入格式不一致，都会导致去重失效
-    // abc分数组合（a|b|c）在业务上可唯一标识一局比赛
-    return 'rec_' + rec.a + '|' + rec.b + '|' + rec.c;
+    // v36.1: 改用 date+timeSlot 做唯一键（与 _recKey 一致），不再用ABC组合——ABC组合一天内可能重复
+    if (!rec) return null;
+    var d = rec.date || '';
+    var t = rec.timeSlot || '';
+    if (!d && !t) return null;
+    return 'rec_' + d + '|' + t;
 }
 // 增量去重：从newRecs中过滤掉已存在于existingRecs的记录
 // 返回 {unique: [], duplicates: [], dupCount: number}
@@ -11947,7 +12020,7 @@ function importRecords(recs,replace,st){
             _importErrors.push({ row: ri+1, a:r.a, b:r.b, c:r.c, errors: errs });
             continue; // 跳过错误行
         }
-        cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC);
+        cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC,r.investWinner);
     }
     P.history=cumIR.history.slice();
     P.predHistory=cumIR.predHistory.slice();
@@ -12052,18 +12125,11 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
         var investTxt = iW ? ('，获胜投资：' + iW) : '';
-        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt + '\n\n⏱️ 5秒后自动上传云端...');
+        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt + '\n\n⏱️ 停手5秒后自动上传云端（连续录入会重新计时）...');
         // v35.2：记录录入时间（用于间隔限制）
         _lastRecordTime = Date.now();
-        // v35.2：录入成功后5秒自动上传云端
-        setTimeout(function() {
-            try {
-                if (supabaseClient && cloudOnline) {
-                    cloudSave();
-                    console.log('[录入] 5秒后自动上传云端');
-                }
-            } catch(e) { console.warn('[录入]自动上传失败:', e.message); }
-        }, 5000);
+        // v36.1：上传统一由 debouncedSave() 内的 5 秒定时器处理（带首次启动保护、测试模式拦截、
+        //        连续录入重新计时），此处不再单独 setTimeout cloudSave()，避免重复上传两次。
     } catch(e) {
         console.error('[录入] 出错:', e);
         showRecordResult(false, '录入出错', '出错了: ' + e.message + '\n\n请再点一次录入按钮重试。');
@@ -12174,7 +12240,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
         var end = Math.min(idx + batchSize, total);
         for (; idx < end; idx++) {
             var r = hist[idx];
-            P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC);
+            P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner);
         }
         var pct = Math.round(idx / total * 100);
         btn.textContent = '🔄 重新学习中... ' + idx + '/' + total + ' (' + pct + '%)';
@@ -12249,7 +12315,12 @@ function fixFalseTies() {
         var ph = P.predHistory[i]; var rec = P.history[i+1];
         if (ph.isTie && rec) { var w = getWinner(rec); if (w) { ph.isTie = false; fixed++; } }
     }
-    if (fixed > 0) { console.log('[平局修复] 纠正'+fixed+'条'); try { debouncedSave(); } catch(e){} }
+    if (fixed > 0) {
+        console.log('[平局修复] 纠正'+fixed+'条');
+        // v36.1：启动时自动修复旧数据只写本地，不触发云端上传——
+        //   否则首次拉取一结束，_pendingCloudSave 会导致自动补传，违背"第一次打开只拉取不上传"。
+        try { P.saveLocal(); } catch(e) { console.warn('[平局修复] saveLocal失败:', e.message); }
+    }
     return fixed;
 }
 P.loadLocal();
@@ -12314,7 +12385,8 @@ if (P._rebuildPending) {
         },
         function() {
             renderAll();
-            debouncedSave();
+            // v36.1：本地重建predHistory完成只写本地，不触发上传
+            try { P.saveLocal(); } catch(e) {}
             var tip = document.getElementById('rebuildTip');
             if (tip) {
                 tip.innerHTML = '✅ 历史预测数据重建完成！';
@@ -12730,9 +12802,10 @@ setTimeout(function(){
 </div>
 <!-- 操作区（验证通过后显示） -->
 <div id="backupActionArea" style="display:none;">
-<div style="display:flex;gap:10px;margin-bottom:14px;">
-<button class="btn-modal-confirm" style="background:#2e7d32;flex:1;" onclick="doCloudBackup()">📤 创建新备份</button>
-<button class="btn-modal-cancel" style="flex:1;" onclick="loadBackupList()">🔄 刷新列表</button>
+<div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+<button class="btn-modal-confirm" style="background:#2e7d32;flex:1;min-width:120px;" onclick="doCloudBackup()">📤 创建新备份</button>
+<button class="btn-modal-cancel" style="flex:1;min-width:120px;" onclick="loadBackupList()">🔄 刷新列表</button>
+<button class="btn-modal-cancel" style="flex:1;min-width:120px;background:#e65100;color:#fff;" onclick="cleanupAllOldBackups()">🧹 清理旧备份(保留6个)</button>
 </div>
 <p id="backupStatusMsg" style="font-size:13px;margin:0 0 10px;min-height:18px;"></p>
 <div style="max-height:320px;overflow-y:auto;border:1px solid #e0e0e0;border-radius:8px;">
