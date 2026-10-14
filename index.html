@@ -663,6 +663,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="cloud-info" id="cloudInfoText">配置 Supabase 后启用多人实时同步</div>
 <button class="cloud-btn cloud-btn-pull" id="cloudPullBtn">🔄 拉取最新</button>
 <button class="cloud-btn cloud-btn-push" id="cloudPushBtn">☁️ 上传云端</button>
+<button class="cloud-btn" id="forceSyncBtn" style="display:none;background:#c62828;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;font-weight:bold;">👑 强制同步到所有端</button>
 <button class="cloud-btn" id="cloudReconfigBtn" style="background:#ff9800;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">⚙️ 重新配置</button>
 <button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔐 设备管理</button>
 <button class="cloud-btn" id="backupRestoreBtn" style="background:#00bcd4;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">💾 备份/恢复</button>
@@ -6862,6 +6863,7 @@ function toggleAdminMode() {
         var ob1 = document.getElementById('onlineBtn'); if (ob1) ob1.style.display = 'none';
         var gpb1 = document.getElementById('ghPublishBtn'); if (gpb1) gpb1.style.display = 'none';
         var ghb1 = document.getElementById('ghHistoryBtn'); if (ghb1) ghb1.style.display = 'none';
+        var fs1 = document.getElementById('forceSyncBtn'); if (fs1) fs1.style.display = 'none';
         showRecordResult(true, '成功', '已退出管理员模式');
         return;
     }
@@ -6876,6 +6878,7 @@ function toggleAdminMode() {
     var ob2 = document.getElementById('onlineBtn'); if (ob2) ob2.style.display = '';
     var gpb2 = document.getElementById('ghPublishBtn'); if (gpb2) gpb2.style.display = '';
     var ghb2 = document.getElementById('ghHistoryBtn'); if (ghb2) ghb2.style.display = '';
+    var fs2 = document.getElementById('forceSyncBtn'); if (fs2) fs2.style.display = '';
     showRecordResult(true, '成功', '已进入管理员模式！\n您上传或恢复的数据将强制覆盖其他所有设备。');
 }
 function initCloud() {
@@ -6900,6 +6903,7 @@ function initCloud() {
             var ob3 = document.getElementById('onlineBtn'); if (ob3) ob3.style.display = '';
             var gpb3 = document.getElementById('ghPublishBtn'); if (gpb3) gpb3.style.display = '';
             var ghb3 = document.getElementById('ghHistoryBtn'); if (ghb3) ghb3.style.display = '';
+            var fs3 = document.getElementById('forceSyncBtn'); if (fs3) fs3.style.display = '';
         }
     } catch(e) {}
     // 绑定管理员模式按钮
@@ -6997,6 +7001,19 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                         if (!r || !r.data || !r.data.data || !r.data.data.history) return;
                         var cloudHist = r.data.data.history;
                         var localLen = P.history ? P.history.length : 0;
+                        // v36.1：检测管理员强制同步——纪元更新或管理员标记更新时，无条件完整覆盖本地（即使云端数据更短）
+                        var _cloudEpoch = r.data.data._syncEpoch || 0;
+                        var _localEpoch = P._syncEpoch || 0;
+                        var _cloudAdmin = r.data.data._adminOverride || null;
+                        var _localAdmin = P._adminOverride || null;
+                        var _epochForce = _cloudEpoch > _localEpoch;
+                        var _adminForce = _cloudAdmin && (!_localAdmin || _cloudAdmin.at > _localAdmin.at);
+                        if (_epochForce || _adminForce) {
+                            console.log('[轮询] 检测到管理员强制同步（纪元 ' + _localEpoch + '→' + _cloudEpoch + '），完整覆盖本地');
+                            updateCloudStatus('syncing', '👑 检测到管理员强制同步，正在覆盖本地数据...');
+                            await cloudLoad(true);
+                            return;
+                        }
                         // 云端比本地长，有其他端的新记录
                         if (cloudHist.length <= localLen) return;
                         // 检查本地有没有云端没有的key（本地可能有未上传的新记录）
@@ -7440,6 +7457,8 @@ async function cloudSave(manual, skipPrecheck) {
         }
         cloudLastSync = new Date();
         setAutoSync(true);
+        // v36.1：上传成功后把实际写入云端的管理员标记同步回本地，避免本机轮询误判"云端更新"覆盖自己
+        if (saveData._adminOverride) { P._adminOverride = saveData._adminOverride; try { P.saveLocal(); } catch(e) {} }
         // v35.8：纯全量同步——上传成功后直接更新计数，不再合并/清空incr
         _lastFullSyncCount = P.history.length;
         _lastIncrSyncCount = P.history.length;
@@ -7474,6 +7493,41 @@ async function cloudSave(manual, skipPrecheck) {
         return false;
     } finally {
         _cloudSaving = false;
+    }
+}
+// v36.1：管理员强制同步——把本地数据作为权威版本，强制覆盖所有其他设备
+async function forceSyncToAll() {
+    if (!_isAdmin) { showRecordResult(false, '提示', '仅管理员可使用强制同步，请先进入管理员模式'); return; }
+    if (!supabaseClient || !cloudOnline) { showRecordResult(false, '提示', '云端未连接，无法同步'); return; }
+    var _n = P.history ? P.history.length : 0;
+    if (!confirm('👑 强制同步到所有端\n\n'
+        + '将把本机当前数据（' + _n + ' 局）作为权威版本上传，\n'
+        + '其他所有设备（前台电脑、老板手机等）在 20 秒内\n'
+        + '会被强制覆盖为你的数据，即使数据更少也会覆盖。\n\n'
+        + '⚠️ 其他设备上尚未同步的记录将被覆盖丢失。\n\n'
+        + '确定继续吗？')) return;
+    var btn = document.getElementById('forceSyncBtn');
+    var origText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '同步中...'; }
+    try {
+        // 递增纪元 + 写管理员权威标记，让其他设备无条件拉取覆盖
+        P._syncEpoch = (P._syncEpoch || 0) + 1;
+        P._adminOverride = { at: Date.now() };
+        try { P.saveLocal(); } catch(e) {}
+        var ok = await cloudSave(true);
+        if (ok) {
+            showRecordResult(true, '✅ 强制同步成功',
+                '本机数据（' + _n + ' 局）已作为权威版本上传\n\n'
+                + '其他设备将在 20 秒内自动拉取并覆盖\n'
+                + '（若对方正在操作，最长约 30 秒后生效）\n\n'
+                + '同步纪元：' + P._syncEpoch);
+        } else {
+            showRecordResult(false, '同步失败', '上传失败，请检查网络后重试。\n本地数据未受影响。');
+        }
+    } catch(e) {
+        showRecordResult(false, '同步失败', '出错：' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = origText; }
     }
 }
 function bindCloudEvents() {
@@ -7532,6 +7586,8 @@ function bindCloudEvents() {
         btn.disabled = false;
         btn.textContent = originalText;
     });
+    var forceSync = document.getElementById('forceSyncBtn');
+    if (forceSync) forceSync.addEventListener('click', forceSyncToAll);
     var reconfig = document.getElementById('cloudReconfigBtn');
     if (reconfig) reconfig.addEventListener('click', function() {
         if (confirm('确定要清除云端配置重新输入吗？（不会删除已上传到 Supabase 的数据）')) {
