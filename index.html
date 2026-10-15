@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v37.5 · 管理员在线版</title>
+<title>商会三竞预测系统 v37.8 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -601,8 +602,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v37.5</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v37.5</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 重算预测快照修复投资预测丢失</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v37.8</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v37.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 重算预测快照修复投资预测丢失</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -989,7 +990,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v37.5';
+  var APP_VERSION = 'v37.8';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2726,8 +2727,9 @@ function predictFromSimilarProfitPattern(history) {
         }
     }
     allResults = uniqueResults;
-    // v32.0: 收益盘只收≥90%匹配——低于90%不显示、不计算
-    var useResults = allResults.filter(function(r){ return r.similarity >= 0.90; });
+    // v37.7: 用户要求"去掉所有不匹配部分"——只保留逐位完全匹配（exactSim=1.0）的收益片段，
+    // 任何一位不同的整条剔除，不参与投票。
+    var useResults = allResults.filter(function(r){ return r.exactSim >= 0.999; });
     if (useResults.length === 0) return null; // 没有90%以上匹配就不预测收益盘
     // 简单计数（用于UI显示票数）
     var profitCount = {大:0, 中:0, 小:0};
@@ -2887,7 +2889,7 @@ function predictFromSimilarLossPattern(history) {
     if (history.length < 10) return null;
     var lossSeq = history.map(getLossSide);
     var L = lossSeq.length;
-    var windowLengths = [3, 4, 5, 6, 8, 10];
+    var windowLengths = [5, 6, 8, 10]; // v37.7: 用户要求血本相似盘5局及以上才记录，去掉3、4局档
     var allResults = [];
 
     for (var wi = 0; wi < windowLengths.length; wi++) {
@@ -3554,12 +3556,13 @@ function findSimilarSegments(window, history, opts) {
     // v28.3: 综合 = 指纹30% + 序列50% + 分数分布20%
     var wsSim = _winnerSeqSimilarity(winSeq, histWinSeq);
     var combinedSim = fpSim * 0.3 + wsSim * 0.5 + scoreDistSim * 0.2;
-        // v31.5: 严格匹配——只收获胜方序列差异<=1局
+        // v37.7: 用户要求"去掉所有不匹配部分"——只保留胜方序列完全一致的片段，
+        // 任何一位不同的历史片段整条剔除，不参与投票。
         var _mismatchIdx = [];
         for (var _mi = 0; _mi < winLen; _mi++) {
             if (winSeq[_mi] !== histWinSeq[_mi]) _mismatchIdx.push(_mi);
         }
-        var _looseMatch = (_mismatchIdx.length <= 1) && (_mismatchIdx.length === 0 || _mismatchIdx[0] !== 0);
+        var _looseMatch = (_mismatchIdx.length === 0);
         if (_looseMatch) {
             var nextIdx = start + winLen;
             if (nextIdx < history.length) {
@@ -4377,7 +4380,7 @@ class Predictor {
                     if (_curInvWin[_ei] === _histWin[_ei]) _exact++;
                 }
                 var _sim = _exact / _wLen;
-                if (_sim >= 0.75) { // 至少75%匹配
+                if (_sim >= 0.999) { // v37.7: 只收逐位完全匹配的投资片段，带不匹配位的整条剔除
                     var _nextI = _s + _wLen;
                     if (_nextI < invSeq.length) {
                         invMatches.push({
@@ -6298,6 +6301,72 @@ function _pickByIndexes(arr, idxList) {
     if (!Array.isArray(arr)) return [];
     return idxList.map(function(i){ return arr[i]; }).filter(function(x){ return x !== undefined; });
 }
+// v37.6修复：上传前把云端里"本地缺失"的记录按 key(date|timeSlot) 合并进本地，
+// 再让 cloudSave 用合并后的全集 upsert。解决多行并发时 main 行被对端旧数据覆盖、
+// 导致"上传成功/拉取成功但记录过不来"的问题。
+// 返回本次从云端带回的记录条数。
+function _mergeRemoteHistoryIntoLocal(remoteData) {
+    try {
+        if (!remoteData || !Array.isArray(remoteData.history)) return 0;
+        // v37.6修复：即使没有新记录，也要先把云端较新的同步纪元和管理员强制标记合并到本地，
+        // 否则普通端自动上传时会用本地旧值/null 把云端的 _syncEpoch、_adminOverride 覆盖掉，
+        // 导致管理员「强制同步到所有端」的信号刚写上去就被抹掉、其他端永远收不到。
+        if (remoteData._syncEpoch && remoteData._syncEpoch > (P._syncEpoch || 0)) {
+            P._syncEpoch = remoteData._syncEpoch;
+        }
+        if (remoteData._adminOverride && remoteData._adminOverride.at) {
+            var _localAdm = P._adminOverride;
+            var _remoteAt = remoteData._adminOverride.at || 0;
+            var _localAt = (_localAdm && _localAdm.at) || 0;
+            if (_remoteAt > _localAt) {
+                P._adminOverride = remoteData._adminOverride;
+            }
+        }
+        var localHist = P.history || [];
+        var seen = {};
+        localHist.forEach(function(r){ var k = _recKey(r); if (k) seen[k] = 1; });
+        var addIdx = [];
+        remoteData.history.forEach(function(r, i){
+            var k = _recKey(r);
+            if (!k) return;          // 旧数据无 key，不参与合并
+            if (seen[k]) return;      // 本地已有，跳过
+            seen[k] = 1;
+            addIdx.push(i);
+        });
+        if (addIdx.length === 0) return 0;
+        // append 本地末尾（与轮询合并同一套 append 语义，保持前缀对齐假设）
+        var addHist = _pickByIndexes(remoteData.history, addIdx);
+        P.history = localHist.concat(addHist);
+        if (Array.isArray(remoteData.predHistory)) {
+            var addPred = _pickByIndexes(remoteData.predHistory, addIdx.map(function(i){ return i - 1; }));
+            P.predHistory = (P.predHistory || []).concat(addPred);
+        }
+        if (Array.isArray(remoteData.accuracy)) {
+            var addAcc = _pickByIndexes(remoteData.accuracy, addIdx.map(function(i){ return i - 1; }));
+            P.accuracy = (P.accuracy || []).concat(addAcc);
+        }
+        if (Array.isArray(remoteData.profitAccuracy)) {
+            var addPA = _pickByIndexes(remoteData.profitAccuracy, addIdx.map(function(i){ return i - 1; }));
+            P.profitAccuracy = (P.profitAccuracy || []).concat(addPA);
+        }
+        if (Array.isArray(remoteData.profitBrierHistory) && Array.isArray(P.profitBrierHistory)) {
+            P.profitBrierHistory = P.profitBrierHistory.concat(remoteData.profitBrierHistory.slice(-addIdx.length));
+        }
+        if (Array.isArray(remoteData.investAccuracy) && Array.isArray(P.investAccuracy)) {
+            P.investAccuracy = P.investAccuracy.concat(remoteData.investAccuracy.slice(-addIdx.length));
+        }
+        // 模型学习迭代次数取较大者，避免被旧端拉低
+        if (remoteData.learnIterations && remoteData.learnIterations > (P.learnIterations || 0)) {
+            P.learnIterations = remoteData.learnIterations;
+        }
+        try { P.maxStreakEver = calcMaxStreak(P.history); } catch(e) {}
+        console.log('[上传前合并] 从云端带回对端新记录 ' + addIdx.length + ' 条，本地现共 ' + P.history.length + ' 局');
+        return addIdx.length;
+    } catch(e) {
+        console.warn('[上传前合并] 失败，继续上传:', e && e.message);
+        return 0;
+    }
+}
 // v35.5：一次性清理本地 history 里已经存在的重复记录（按 date+timeSlot 去重，保留首次出现）
 // 用法：浏览器控制台执行 dedupeLocalHistory() ，然后点「上传云端」覆盖。
 window.dedupeLocalHistory = function() {
@@ -7460,6 +7529,24 @@ async function cloudSave(manual, skipPrecheck) {
             } catch(_e) { console.warn('上传前检查失败，继续上传:', _e.message); }
         }
 
+        // v37.6修复：无论手动还是自动上传，真正 upsert 前都先把云端 main 行读下来，
+        // 合并掉本地缺失的记录，再用合并后的全集覆盖上去——杜绝对端刚传的记录被本端旧快照吞掉。
+        try {
+            var _remoteForMerge = (typeof _cloudData !== 'undefined' && _cloudData) ? _cloudData : null;
+            if (!_remoteForMerge) {
+                var _mergeChk = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
+                _remoteForMerge = (_mergeChk && _mergeChk.data && _mergeChk.data.data) ? _mergeChk.data.data : null;
+            }
+            if (_remoteForMerge) {
+                var _mergedN = _mergeRemoteHistoryIntoLocal(_remoteForMerge);
+                if (_mergedN > 0) {
+                    try { P.saveLocal(); } catch(e) {}
+                    try { renderAll(); } catch(e) {}
+                    updateCloudStatus('online', '🔀 上传前已合并对端 ' + _mergedN + ' 条新记录，正在上传合并结果...');
+                }
+            }
+        } catch(_me) { console.warn('[上传前合并] 读云端失败，继续按本地上传:', _me && _me.message); }
+
         // v35.8：纯全量同步——去掉incr行，每次都upsert完整main
         // 简单可靠：没有两套数据合并、没有计数同步、没有竞态
 
@@ -7542,6 +7629,17 @@ async function cloudSave(manual, skipPrecheck) {
         _lastIncrSyncCount = P.history.length;
         _saveSyncCounts();
         updateCloudStatus('online', '最后同步: ' + cloudLastSync.toLocaleTimeString() + ' · 已上传云端（全量' + (_sizeKB > 0 ? ' ' + _sizeKB + 'KB' : '') + '）');
+        // v37.6：自动上传（录入后停手5秒触发）成功后弹窗提示；
+        // 手动点「上传云端」按钮自身已有弹窗，不重复弹。
+        if (!manual) {
+            try {
+                var _syncedMsg = '本次录入已成功上传云端 ✅\n当前共 ' + P.history.length + ' 局';
+                if (typeof _mergedN !== 'undefined' && _mergedN > 0) {
+                    _syncedMsg += '\n（并自动合并了对端 ' + _mergedN + ' 条新记录）';
+                }
+                showRecordResult(true, '☁️ 云同步成功', _syncedMsg);
+            } catch(e) {}
+        }
         // v31.5：异步自动清理旧自动备份，保留最近5个（不阻塞主流程）
         try {
             supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'backup_autosave_%')
