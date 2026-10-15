@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v37.8 · 管理员在线版</title>
+<title>商会三竞预测系统 v37.9 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -602,8 +602,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v37.8</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v37.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 重算预测快照修复投资预测丢失</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v37.9</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v37.9</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 动态权重裁判+严格相似盘+覆盖导入防2倍</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -709,29 +709,29 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="interval-btn active" id="btnInterval30" onclick="setGameInterval(30)">⏱️ 半小时一局</button>
 </div>
 <div class="guild-inputs">
-<div class="guild-input guild-a">
+<div class="guild-input guild-a" style="border-left:3px solid #e74c3c;">
 <label class="guild-label">🏮 商会A</label>
 <select id="inputA"><option value="0">0分</option><option value="0.5">0.5分</option><option value="1">1分</option><option value="2">2分</option><option value="3">3分</option></select>
 </div>
-<div class="guild-input guild-b">
+<div class="guild-input guild-b" style="border-left:3px solid #3498db;">
 <label class="guild-label">🏮 商会B</label>
 <select id="inputB"><option value="0">0分</option><option value="0.5">0.5分</option><option value="1">1分</option><option value="2">2分</option><option value="3">3分</option></select>
 </div>
-<div class="guild-input guild-c">
+<div class="guild-input guild-c" style="border-left:3px solid #2ecc71;">
 <label class="guild-label">🏮 商会C</label>
 <select id="inputC"><option value="0">0分</option><option value="0.5">0.5分</option><option value="1">1分</option><option value="2">2分</option><option value="3">3分</option></select>
 </div>
 </div>
 <!-- v26.0: 收益录入区域（直接录入获胜收益，大/中/小） -->
-<div style="margin-top:14px;padding-top:14px;border-top:2px dashed #e9ecef;">
-<div style="font-weight:600;font-size:15px;color:#302b63;margin-bottom:10px;">💰 获胜收益录入（大/中/小）</div>
-<div class="guild-inputs" style="margin-bottom:0;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
-<div class="guild-input" style="max-width:300px;">
-<label class="guild-label">🏆 获胜商会收益</label>
+<div style="margin-top:18px;padding-top:16px;border-top:2px dashed #e9ecef;">
+<div style="font-weight:600;font-size:15px;color:#302b63;margin-bottom:12px;">💰 获胜收益录入（大/中/小）</div>
+<div class="guild-inputs" style="margin-bottom:0;grid-template-columns:repeat(2,minmax(220px,300px));gap:16px;max-width:640px;">
+<div class="guild-input" style="max-width:none;border-left:3px solid #f39c12;">
+<label class="guild-label" style="color:#f39c12;">🏆 获胜商会收益</label>
 <select id="inputProfitWinner"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
 </div>
-<div class="guild-input" style="max-width:300px;">
-<label class="guild-label">💎 获胜商会投资</label>
+<div class="guild-input" style="max-width:none;border-left:3px solid #9c27b0;">
+<label class="guild-label" style="color:#9c27b0;">💎 获胜商会投资</label>
 <select id="inputInvestWinner"><option value="">未选</option><option value="大">大</option><option value="中">中</option><option value="小">小</option></select>
 </div>
 </div>
@@ -990,7 +990,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v37.8';
+  var APP_VERSION = 'v37.9';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -4536,6 +4536,31 @@ class Predictor {
             profitPattern: models.profitPattern ? mw.profitPattern : 0,
             ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
+        // v37.9: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
+        // 最近准的临时加权，最近连续失误的临时降权；样本不足10局不调整；不写回modelWeights，
+        // 与长期慢学习（每局小步调权重）互不干扰。
+        try {
+            // learnIters=4：每局录入 learnFromResult 内部 iters 循环会 push 4 次 modelPerf，
+            // 所以 _DYN_WIN=80 对应"最近20局"，_DYN_MIN=40 对应"最近10局才参与动态调整"。
+            var _DYN_WIN = 80, _DYN_MIN = 40, _DYN_BASE = 0.33;
+            var _dynKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+            var _dynLog = [];
+            var _selfDyn = this;
+            _dynKeys.forEach(function(name){
+                var perf = _selfDyn.modelPerf[name];
+                if (!w[name]) { return; }
+                if (!perf || perf.length < _DYN_MIN) { _dynLog.push(name + '=样本不足'); return; }
+                var recent = perf.slice(-_DYN_WIN);
+                var hits = 0;
+                for (var _di = 0; _di < recent.length; _di++) if (recent[_di]) hits++;
+                var acc = hits / recent.length;
+                var f = 1.0 + (acc - _DYN_BASE) * 0.9;
+                f = Math.max(0.55, Math.min(1.6, f));
+                w[name] *= f;
+                _dynLog.push(name + '@' + (acc*100).toFixed(0) + '%→' + f.toFixed(2));
+            });
+            if (window._debugDynWeights) console.log('[动态裁判]', _dynLog.join(' | '));
+        } catch(_dynE) { console.warn('[动态裁判] 计算失败，按原权重:', _dynE.message); }
         var wsum = w.global + w.multiWindow + w.score + w.streak + w.rotation + w.alternation + w.trend + w.regression + w.similarPattern + w.profitPattern + w.ngram;
         if (wsum === 0) wsum = 1;
         for (var k in w) w[k] /= wsum;
@@ -6281,7 +6306,8 @@ function _recKey(rec) {
     var d = rec.date || '';
     var t = rec.timeSlot || '';
     if (!d && !t) return null; // 旧数据无时间字段，不参与去重
-    return d + '|' + t;
+    // v38.0：判重必须同时匹配时段+ABC比分+收益+投资，否则同时段不同比分会被误判为重复
+    return d + '|' + t + '|' + (rec.a ?? '') + '|' + (rec.b ?? '') + '|' + (rec.c ?? '') + '|' + (rec.profitWinner || '') + '|' + (rec.investWinner || '');
 }
 // 把 incrHist 里本地已存在的记录剔除，返回真正需要追加的索引列表
 function _filterNewIndexes(existingHist, incrHist) {
@@ -6349,11 +6375,14 @@ function _mergeRemoteHistoryIntoLocal(remoteData) {
             var addPA = _pickByIndexes(remoteData.profitAccuracy, addIdx.map(function(i){ return i - 1; }));
             P.profitAccuracy = (P.profitAccuracy || []).concat(addPA);
         }
+        // v37.9: 稀疏数组合并长度对齐 profitAccuracy 新增条数（与轮询合并一致），
+        // 之前用 history 新增条数 slice 末尾会错位
+        var _sparseLen = (typeof addPA !== 'undefined' && addPA.length) ? addPA.length : addIdx.length;
         if (Array.isArray(remoteData.profitBrierHistory) && Array.isArray(P.profitBrierHistory)) {
-            P.profitBrierHistory = P.profitBrierHistory.concat(remoteData.profitBrierHistory.slice(-addIdx.length));
+            P.profitBrierHistory = P.profitBrierHistory.concat(remoteData.profitBrierHistory.slice(-_sparseLen));
         }
         if (Array.isArray(remoteData.investAccuracy) && Array.isArray(P.investAccuracy)) {
-            P.investAccuracy = P.investAccuracy.concat(remoteData.investAccuracy.slice(-addIdx.length));
+            P.investAccuracy = P.investAccuracy.concat(remoteData.investAccuracy.slice(-_sparseLen));
         }
         // 模型学习迭代次数取较大者，避免被旧端拉低
         if (remoteData.learnIterations && remoteData.learnIterations > (P.learnIterations || 0)) {
@@ -6402,14 +6431,16 @@ window.dedupeLocalHistory = function() {
 // 兜底防护：无论云端 main/incr 怎么拼，落到本地前最后再过一遍，杜绝任何重复。
 function _dedupeDataset(data) {
     if (!data || !Array.isArray(data.history)) return data;
+    // v38.0：去重保留最后出现的记录（新录覆盖旧录），避免后录入的正确比分被先合并的旧记录吞掉
     var seen = {};
     var keepIdx = [];
-    data.history.forEach(function(r, i){
-        var k = _recKey(r);
-        if (k && seen[k]) return;
-        if (k) seen[k] = 1;
-        keepIdx.push(i);
-    });
+    for (var _di = data.history.length - 1; _di >= 0; _di--) {
+        var _rk = _recKey(data.history[_di]);
+        if (_rk && seen[_rk]) continue;
+        if (_rk) seen[_rk] = 1;
+        keepIdx.push(_di);
+    }
+    keepIdx.sort(function(a,b){return a-b;}); // 恢复正序
     if (keepIdx.length === data.history.length) return data; // 没有重复
     var removed = data.history.length - keepIdx.length;
     data.history = keepIdx.map(function(i){ return data.history[i]; });
@@ -7123,6 +7154,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                     if (Date.now() - _lastLocalChange < 30000) return;
                     if (!supabaseClient || !cloudOnline || _testMode) return;
                     if (_cloudSaving) return;
+                    if (!_autoSyncEnabled) return; // v37.9: 覆盖导入后禁止自动拉取合并，避免云端旧数据被append回来
                     try {
                         // 只拉main的history长度，轻量
                         var r = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
@@ -7199,6 +7231,9 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
 }
 async function cloudLoad(silent) {
     if (!supabaseClient) { if (!silent) updateCloudStatus('error', '未配置云端'); return false; }
+    // v37.9: 覆盖导入后 _autoSyncEnabled=false 期间，禁止任何拉取（含手动点按钮），
+    // 否则云端旧数据会把刚覆盖的新数据冲掉。等用户手动点「上传云端」后自动恢复。
+    if (!_autoSyncEnabled) { if (!silent) updateCloudStatus('online', '⚠️ 覆盖导入后，请先点「☁️ 上传云端」再拉取，避免旧数据冲掉新导入的数据'); return false; }
     if (!silent) updateCloudStatus('syncing', '正在从云端拉取最新数据...');
     try {
         var res = await supabaseClient.from(CLOUD_TABLE).select('data, updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
@@ -7250,10 +7285,22 @@ async function cloudLoad(silent) {
             // v35.8：纯全量同步——只有main一行，没有incr
             var localHistLen = P.history ? P.history.length : 0;
             var cloudHistLen = data.data.history ? data.data.history.length : 0;
+            // v37.9修复：非强制同步时，不再用云端直接覆盖本地，而是做 key 级合并——
+            // 把云端里本地没有的记录 append 进来，同时保留本地已有记录。
+            // 之前 localHistLen > cloudHistLen 就直接 return，导致云端有新记录但本地总数更多时拉不到；
+            // 局数相同时 restoreFromData 覆盖又会冲掉本地刚录的记录。
             if (!forceOverride && localHistLen > cloudHistLen) {
-                cloudLastSync = new Date();
-                updateCloudStatus('online', '本地有新数据（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地，点「上传云端」同步');
-                return true;
+                // 本地比云端长：仍要检查云端有没有本地缺的记录（并发录入场景）
+                var _remoteHist = data.data.history || [];
+                var _localSeen = {};
+                (P.history || []).forEach(function(r){ var k = _recKey(r); if (k) _localSeen[k] = 1; });
+                var _remoteMissing = _remoteHist.filter(function(r){ var k = _recKey(r); return k && !_localSeen[k]; });
+                if (_remoteMissing.length === 0) {
+                    cloudLastSync = new Date();
+                    updateCloudStatus('online', '本地有新数据（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地，点「上传云端」同步');
+                    return true;
+                }
+                // 云端有本地缺的记录，走合并逻辑（不 return）
             }
             if (forceOverride) {
                 P._syncEpoch = cloudEpoch;
@@ -7269,6 +7316,30 @@ async function cloudLoad(silent) {
                 if (lastCloud.a === lastLocal.a && lastCloud.b === lastLocal.b && lastCloud.c === lastLocal.c) {
                     dataChanged = false;
                 }
+            }
+            // v37.9：非强制同步时，用合并而不是覆盖——云端本地没有的记录 append 到本地末尾
+            if (!forceOverride) {
+                var _mergedFromCloud = _mergeRemoteHistoryIntoLocal(data.data);
+                if (_mergedFromCloud > 0) {
+                    dataChanged = true;
+                    console.log('[云端拉取] 合并云端本地缺失记录 ' + _mergedFromCloud + ' 条');
+                }
+                // 合并后用最新的 P.history 存本地
+                try { P.saveLocal(); } catch(e) {}
+                idbSave(STORE_KEY, {history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy, profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy, _syncEpoch: P._syncEpoch, _adminOverride: P._adminOverride});
+                _lastFullSyncCount = P.history.length;
+                _lastIncrSyncCount = P.history.length;
+                _saveSyncCounts();
+                cloudLastSync = new Date();
+                if (dataChanged || silent === false) {
+                    var _rhc2 = document.getElementById('historyContainer');
+                    if (_rhc2) _rhc2.removeAttribute('data-page');
+                    renderAll();
+                } else {
+                    updateStats();
+                }
+                updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局');
+                return true;
             }
             // v35.6关键防护：本地有未上传的新记录时（刚录入还没上传），
             // 把这些记录附加到云端数据后面，避免被云端旧数据冲掉。
@@ -7522,16 +7593,26 @@ async function cloudSave(manual, skipPrecheck) {
                 var localAdmin = P._adminOverride || null;
                 var adminNewer = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
                 if ((cloudEpoch > (P._syncEpoch || 0)) || (!_isAdmin && adminNewer)) {
-                    var reason = cloudEpoch > (P._syncEpoch || 0) ? '云端数据已重置（纪元' + cloudEpoch + '）' : '云端有管理员更新';
-                    updateCloudStatus('syncing', '检测到' + reason + '，先拉取覆盖本地...');
-                    await cloudLoad(true);
+                    if (!_autoSyncEnabled) {
+                        // v37.9: 覆盖导入后等待手动上传——不拉云端数据覆盖本地（本地是权威新数据），
+                        // 但保留云端较新的 epoch/adminOverride，否则本地上传会把管理员强制同步信号抹掉。
+                        if (cloudEpoch > (P._syncEpoch || 0)) P._syncEpoch = cloudEpoch;
+                        if (adminNewer && cloudAdmin) P._adminOverride = cloudAdmin;
+                        console.log('[覆盖导入后上传] 保留云端较新同步信号: epoch=' + P._syncEpoch);
+                    } else {
+                        var reason = cloudEpoch > (P._syncEpoch || 0) ? '云端数据已重置（纪元' + cloudEpoch + '）' : '云端有管理员更新';
+                        updateCloudStatus('syncing', '检测到' + reason + '，先拉取覆盖本地...');
+                        await cloudLoad(true);
+                    }
                 }
             } catch(_e) { console.warn('上传前检查失败，继续上传:', _e.message); }
         }
 
         // v37.6修复：无论手动还是自动上传，真正 upsert 前都先把云端 main 行读下来，
         // 合并掉本地缺失的记录，再用合并后的全集覆盖上去——杜绝对端刚传的记录被本端旧快照吞掉。
-        try {
+        // v37.9修复：覆盖导入后 _autoSyncEnabled=false 期间，跳过合并，直接用本地新数据覆盖云端，
+        // 否则会把云端旧数据按key全部append回来，覆盖变2倍。
+        if (_autoSyncEnabled) try {
             var _remoteForMerge = (typeof _cloudData !== 'undefined' && _cloudData) ? _cloudData : null;
             if (!_remoteForMerge) {
                 var _mergeChk = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
@@ -7572,6 +7653,9 @@ async function cloudSave(manual, skipPrecheck) {
                 P.predHistory = _uploadSnapshot.predHistory;
                 P.accuracy = _uploadSnapshot.accuracy;
                 P.profitAccuracy = _uploadSnapshot.profitAccuracy;
+                // v37.9: 同步写回稀疏数组，否则上传的Brier/投资统计仍按旧长度错位
+                if (Array.isArray(_uploadSnapshot.profitBrierHistory)) P.profitBrierHistory = _uploadSnapshot.profitBrierHistory;
+                if (Array.isArray(_uploadSnapshot.investAccuracy)) P.investAccuracy = _uploadSnapshot.investAccuracy;
             }
         } catch(e) { console.warn('[上传前兜底去重] 失败:', e.message); }
         var _cloudPredHist = P.predHistory || [];
@@ -11906,6 +11990,9 @@ function confirmImport() {
     if (mode === 'replace') {
         try{ createSnapshot('覆盖导入前自动备份（'+(P.history?P.history.length:0)+'条）'); _lastImportSnapshotIdx = _snapshots.length - 1; }catch(e){}
         P.clearAll();
+        // v37.9修复：覆盖导入后禁用"上传前合并云端"，否则用户按提示点「上传云端」时，
+        // 会把云端旧数据按key全部append回来，导致覆盖变2倍。上传成功后由 setAutoSync(true) 恢复。
+        setAutoSync(false);
     }
     
     // ===== v30 增量模式：尾局锚点对齐 + 真增量追加（不再全量重建）=====
@@ -12359,6 +12446,23 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     if(has2 && has3){
         showRecordResult(false, '录入失败', '2分和3分不能同时出现！请修改后重新录入。');
         return;
+    }
+    // v38.0：录入前检测完全重复（同时段+同ABC+同收益+同投资）——避免两家并发录完全相同局时重复入库
+    var _pendingSlot = getTimeSlot();
+    var _pendingNow = new Date();
+    var _pendingDate = _pendingNow.getFullYear() + '-' + String(_pendingNow.getMonth()+1).padStart(2,'0') + '-' + String(_pendingNow.getDate()).padStart(2,'0');
+    var _pendingPW = document.getElementById('inputProfitWinner').value || '';
+    var _pendingIW = document.getElementById('inputInvestWinner').value || '';
+    var _pendingRec = {date:_pendingDate, timeSlot:_pendingSlot, a:a, b:b, c:c, profitWinner:_pendingPW, investWinner:_pendingIW};
+    var _pendingKey = _recKey(_pendingRec);
+    var _dupIdx = -1;
+    for (var _di = (P.history||[]).length - 1; _di >= 0; _di--) {
+        if (_recKey(P.history[_di]) === _pendingKey) { _dupIdx = _di; break; }
+    }
+    if (_dupIdx >= 0) {
+        var _dupRec = P.history[_dupIdx];
+        var _dupAct = confirm('⚠️ 完全重复提示\n\n即将录入：' + _pendingSlot + '\nA' + a + ' B' + b + ' C' + c + (_pendingPW ? ' 收益'+_pendingPW : '') + (_pendingIW ? ' 投资'+_pendingIW : '') + '\n\n与本地第' + (_dupIdx+1) + '局完全相同（时段+比分+收益+投资）。\n\n点「确定」= 取消录入（该条已存在）\n点「取消」= 仍要追加一条');
+        if (_dupAct) return; // 用户选"确定"=不录
     }
     // v26.4：录入二次确认
     var pWConfirm = document.getElementById('inputProfitWinner').value;
