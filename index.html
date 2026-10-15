@@ -1,13 +1,9 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v36.1 · 管理员在线版</title>
+<title>商会三竞预测系统 v37.5 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -605,8 +601,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v36.1</span></h1>
-<p class="subtitle">三盘独立规律 · 九模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v36.1</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v37.5</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v37.5</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 重算预测快照修复投资预测丢失</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -993,7 +989,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v36.1';
+  var APP_VERSION = 'v37.5';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1690,17 +1686,18 @@ function applyFusionRefinement(finalProbs, history) {
     });
 }
 // ========== 工具函数 ==========
+// v37.0修复: 用Map做winner缓存，不再在原始rec对象上挂_wcKey/_wc（之前污染对象导致JSON体积膨胀、云端同步变慢）
+var _winnerCacheMap = new Map();
 function getWinner(rec) {
-    // v34.3性能优化：winner 结果缓存——a/b/c 不变时直接复用，避免每次渲染全表都重算
     var _key = rec.a + '_' + rec.b + '_' + rec.c;
-    if (rec._wcKey === _key && rec._wc) return rec._wc;
+    var cached = _winnerCacheMap.get(_key);
+    if (cached) return cached;
     var vals = [rec.a, rec.b, rec.c];
     var maxVal = Math.max.apply(null, vals);
     // v30.22：游戏无平局，永远返回一个赢家；并列按 A→B→C，绝不返回null
     var w = 'A';
     for (var i = 0; i < 3; i++) { if (vals[i] === maxVal) { w = GUILDS[i]; break; } }
-    rec._wcKey = _key;
-    rec._wc = w;
+    _winnerCacheMap.set(_key, w);
     return w;
 }
 // v29.8: 血本方——ABC中得0分的那一方（有效局只有一个0分）
@@ -4070,6 +4067,10 @@ class Predictor {
         this.accuracy = [];
         this.lastPrediction = null;
         this.maxStreakEver = 0;
+        // v37.1修复: 构造函数初始化稀疏数组
+        this.profitAccuracy = [];
+        this.profitBrierHistory = [];
+        this.investAccuracy = [];
        this.modelWeights = {
     global: 0.10,
     multiWindow: 0.13,
@@ -4084,7 +4085,8 @@ class Predictor {
 };
         this.modelPerf = {};
         // v30.22.2修复：构造函数必须初始化高级模型命中率表，否则新用户_scoreAdvancedModels直接return、_advAcc永远0.5
-        this.advancedModelPerf = {similar:[], loss:[], markov:[], bayes:[], trend:[], rebound:[]};
+        // v37.1修复: 补全profit键
+        this.advancedModelPerf = {similar:[], loss:[], profit:[], markov:[], bayes:[], trend:[], rebound:[]};
         // v30.22：更短窗口权重更高，global权重降低
         this.windowWeights = {win3: 0.25, win5: 0.30, win8: 0.25, win10: 0.15, global: 0.05};
         this.windowPerf = {win6: [], win7: [], win8: [], win10: [], global: []};
@@ -4528,9 +4530,10 @@ class Predictor {
             trend: models.trend ? mw.trend : 0,
             regression: models.regression ? mw.regression : 0,
             similarPattern: models.similarPattern ? (mw.similarPattern * this._simWeightFactor()) : 0,  // v31-③④: 数据量自适应+漂移降权
-            profitPattern: models.profitPattern ? mw.profitPattern : 0
+            profitPattern: models.profitPattern ? mw.profitPattern : 0,
+            ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
-        var wsum = w.global + w.multiWindow + w.score + w.streak + w.rotation + w.alternation + w.trend + w.regression + w.similarPattern + w.profitPattern;
+        var wsum = w.global + w.multiWindow + w.score + w.streak + w.rotation + w.alternation + w.trend + w.regression + w.similarPattern + w.profitPattern + w.ngram;
         if (wsum === 0) wsum = 1;
         for (var k in w) w[k] /= wsum;
         var combined = {A:0, B:0, C:0};
@@ -4550,7 +4553,7 @@ class Predictor {
         addModel('回归', models.regression, w.regression);
         addModel('相似盘', models.similarPattern, w.similarPattern);
         addModel('收益规律', models.profitPattern, w.profitPattern);
-        addModel('短程转移', models.ngram, 0.08);  // v31-①: n-gram固定弱权重
+        addModel('短程转移', models.ngram, w.ngram);  // v37.0修复: 使用归一化后的ngram权重
         var norm = normalizeProbs(combined);
         // 连胜衰减
         var ts = getTailStreak(records);
@@ -4740,7 +4743,7 @@ class Predictor {
                 var slotTop = slotBias.A>=slotBias.B && slotBias.A>=slotBias.C ? 'A' : slotBias.B>=slotBias.C ? 'B' : 'C';
                 this._statsFactors.push('🕐 <strong>'+nowSlot+'时段</strong>历史'+slotTotal+'局：A'+(slotCounts.A)+'次 B'+(slotCounts.B)+'次 C'+(slotCounts.C)+'次 → '+slotTop+'开得多，微调+15%');
             }
-        } catch(e) {}
+        } catch(e) { console.warn('[统计因子-时段] 计算失败:', e.message); }
         try {
             // 因子2: 血本→赢家联动——历史上谁是0分方时谁更容易赢
             var lossWinMap = {A:{A:0,B:0,C:0}, B:{A:0,B:0,C:0}, C:{A:0,B:0,C:0}};
@@ -4768,7 +4771,7 @@ class Predictor {
                 var lwTop = lwBias.A>=lwBias.B && lwBias.A>=lwBias.C ? 'A' : lwBias.B>=lwBias.C ? 'B' : 'C';
                 this._statsFactors.push('🩸 近10局血本方多为<strong>'+likelyLoser+'</strong>，历史统计：'+likelyLoser+'是血本时，'+lwTop+'赢'+(lw[lwTop])+'/'+lwTotal+'局 → 微调+12%');
             }
-        } catch(e) {}
+        } catch(e) { console.warn('[统计因子-血本联动] 计算失败:', e.message); }
         try {
             // 因子3: 连续同向后反转——连续N局同方向后下一局统计
             var n = this.history.length;
@@ -4800,7 +4803,7 @@ class Predictor {
                     this._statsFactors.push('🔄 已连开<strong>'+lastWinner+'</strong>'+streakLen+'局，历史'+afterTotal+'次同走势后：A'+afterCounts.A+'次 B'+afterCounts.B+'次 C'+afterCounts.C+'次 → '+afterTop+'最易反转，微调+15%');
                 }
             }
-        } catch(e) {}
+        } catch(e) { console.warn('[统计因子-连胜反转] 计算失败:', e.message); }
         finalProbs = normalizeProbs(finalProbs);
     }
     // v30.22：多模型规律叠加——6大高级模型，权重各自跟随近期准确率（自主学习，优胜劣汰）
@@ -5662,6 +5665,12 @@ if(curBrier > 0.3){
                         predicted: prevPrediction.profitPrediction.predicted,
                         probs: prevPrediction.profitPrediction.probs,
                         confidence: prevPrediction.profitPrediction.confidence
+                    } : null,
+                    // v37.1修复: 平局分支补全investPrediction
+                    investPrediction: prevPrediction.investPrediction ? {
+                        predicted: prevPrediction.investPrediction.predicted,
+                        probs: prevPrediction.investPrediction.probs,
+                        confidence: prevPrediction.investPrediction.confidence
                     } : null
                 });
             }
@@ -5684,15 +5693,20 @@ if(curBrier > 0.3){
         if (lastWinner && this.profitAccuracy && this.profitAccuracy.length > 0 && lastRec.profitWinner) this.profitAccuracy.pop();
         // v30.22修复:同步弹出profitBrierHistory
         if (lastWinner && this.profitBrierHistory && this.profitBrierHistory.length > 0 && lastRec.profitWinner) this.profitBrierHistory.pop();
+        // v37.0修复: 同步弹出investAccuracy（之前遗漏，撤销后投资命中率统计会错位）
+        if (lastWinner && this.investAccuracy && this.investAccuracy.length > 0 && lastRec.investWinner) this.investAccuracy.pop();
         if (this.predHistory.length > 0) this.predHistory.pop();
         if (this.reflectionLog.length > 0 && this.reflectionLog[0].gameIdx === this.history.length + 1) this.reflectionLog.shift();
         this.lastPrediction = this.predHistory.length > 0 ? this.predHistory[this.predHistory.length-1].guild : null;
     }
     clearAll() {
         this.history = []; this.predHistory = []; this.accuracy = []; this.profitAccuracy = []; this.lastPrediction = null; this.maxStreakEver = 0;
+        // v37.0修复: 补全遗漏的稀疏数组重置
+        this.profitBrierHistory = [];
+        this.investAccuracy = [];
         this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27,profitPattern:0.09}; // v17: similarPattern提高; v30.22修复:补充profitPattern权重
         this.modelPerf = {};
-        this.advancedModelPerf = {similar:[], loss:[], markov:[], bayes:[], trend:[], rebound:[]};
+        this.advancedModelPerf = {similar:[], loss:[], profit:[], markov:[], bayes:[], trend:[], rebound:[]};
         this.windowWeights = {win6:0.32,win7:0.20,win8:0.28,win10:0.12,global:0.08};
         this.windowPerf = {win6:[],win7:[],win8:[],win10:[],global:[]};
         this.learnIterations = 0; this.reflectionLog = [];
@@ -5878,6 +5892,9 @@ if(curBrier > 0.3){
                 predHistory: this.predHistory, // v26.2：完整保存，不再截断，避免大数量级刷新后重建
                 accuracy: this.accuracy,
                 profitAccuracy: (this.profitAccuracy || []),
+                // v37.0修复: 补全遗漏的稀疏数组保存（之前刷新页面后收益Brier和投资命中率数据丢失）
+                profitBrierHistory: (this.profitBrierHistory || []),
+                investAccuracy: (this.investAccuracy || []),
                 modelWeights: this.modelWeights,
                 modelPerf: this.modelPerf,
                 advancedModelPerf: this.advancedModelPerf,
@@ -5897,11 +5914,18 @@ if(curBrier > 0.3){
                 saveData.predHistory = saveData.predHistory.slice(-500);
                 saveData.accuracy = saveData.accuracy.slice(-500);
                 saveData.profitAccuracy = (saveData.profitAccuracy || []).slice(-500);
+                // v37.0修复: 同步截断稀疏数组
+                saveData.profitBrierHistory = (saveData.profitBrierHistory || []).slice(-500);
+                saveData.investAccuracy = (saveData.investAccuracy || []).slice(-500);
                 json = JSON.stringify(saveData);
             }
             if (json.length > 4500000) {
                 saveData.predHistory = saveData.predHistory.slice(-100);
                 saveData.accuracy = saveData.accuracy.slice(-100);
+                // v37.0修复: 同步截断所有稀疏数组
+                saveData.profitAccuracy = (saveData.profitAccuracy || []).slice(-100);
+                saveData.profitBrierHistory = (saveData.profitBrierHistory || []).slice(-100);
+                saveData.investAccuracy = (saveData.investAccuracy || []).slice(-100);
                 json = JSON.stringify(saveData);
             }
             // 本地数据加密
@@ -5932,6 +5956,9 @@ if(curBrier > 0.3){
             this.predHistory = p.predHistory.slice();
             this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
             this.profitAccuracy = Array.isArray(p.profitAccuracy) ? p.profitAccuracy.slice() : [];
+            // v37.0修复: 补全遗漏的稀疏数组恢复
+            this.profitBrierHistory = Array.isArray(p.profitBrierHistory) ? p.profitBrierHistory.slice() : [];
+            this.investAccuracy = Array.isArray(p.investAccuracy) ? p.investAccuracy.slice() : [];
             this.learnIterations = p.learnIterations || 0;
             this.maxStreakEver = calcMaxStreak(this.history);
             if (this.predHistory.length > 0) {
@@ -5946,6 +5973,9 @@ if(curBrier > 0.3){
             this.predHistory = Array.isArray(p.predHistory) ? p.predHistory.slice() : [];
             this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
             this.profitAccuracy = Array.isArray(p.profitAccuracy) ? p.profitAccuracy.slice() : [];
+            // v37.0修复: 补全遗漏的稀疏数组恢复
+            this.profitBrierHistory = Array.isArray(p.profitBrierHistory) ? p.profitBrierHistory.slice() : [];
+            this.investAccuracy = Array.isArray(p.investAccuracy) ? p.investAccuracy.slice() : [];
             this.learnIterations = p.learnIterations || 0;
             this.maxStreakEver = calcMaxStreak(this.history);
             if (this.predHistory.length > 0) {
@@ -6038,6 +6068,9 @@ if(curBrier > 0.3){
                     this.predHistory = p.predHistory.slice();
                     this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
                     this.profitAccuracy = Array.isArray(p.profitAccuracy) ? p.profitAccuracy.slice() : [];
+                    // v37.1修复: 补全遗漏的稀疏数组恢复
+                    this.profitBrierHistory = Array.isArray(p.profitBrierHistory) ? p.profitBrierHistory.slice() : [];
+                    this.investAccuracy = Array.isArray(p.investAccuracy) ? p.investAccuracy.slice() : [];
                     this.learnIterations = p.learnIterations || 0;
                     this.maxStreakEver = calcMaxStreak(this.history);
                     if (this.predHistory.length > 0) {
@@ -6050,6 +6083,9 @@ if(curBrier > 0.3){
                     this.predHistory = Array.isArray(p.predHistory) ? p.predHistory.slice() : [];
                     this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
                     this.profitAccuracy = Array.isArray(p.profitAccuracy) ? p.profitAccuracy.slice() : [];
+                    // v37.1修复: 补全遗漏的稀疏数组恢复
+                    this.profitBrierHistory = Array.isArray(p.profitBrierHistory) ? p.profitBrierHistory.slice() : [];
+                    this.investAccuracy = Array.isArray(p.investAccuracy) ? p.investAccuracy.slice() : [];
                     this.learnIterations = p.learnIterations || 0;
                     this.maxStreakEver = calcMaxStreak(this.history);
                     if (this.predHistory.length > 0) {
@@ -6081,10 +6117,11 @@ if(curBrier > 0.3){
                 // v25.8修复：合并旧权重与新字段默认值，防止旧数据缺少profitPattern导致NaN
                 var defaultMW = {global:0.10,multiWindow:0.13,score:0.11,streak:0.10,rotation:0.07,alternation:0.06,trend:0.05,regression:0.04,similarPattern:0.25,profitPattern:0.09};
                 this.modelWeights = Object.assign({}, defaultMW, p.modelWeights);
-                // 归一化
+                // v37.0: 统一用 self=this 写法（和restoreFromData保持一致，避免thisArg混淆）
+                var self = this;
                 var mwSum = 0;
-                Object.keys(this.modelWeights).forEach(function(k){ mwSum += this.modelWeights[k]; }, this);
-                if (mwSum > 0) Object.keys(this.modelWeights).forEach(function(k){ this.modelWeights[k] /= mwSum; }, this);
+                Object.keys(self.modelWeights).forEach(function(k){ mwSum += self.modelWeights[k]; });
+                if (mwSum > 0) Object.keys(self.modelWeights).forEach(function(k){ self.modelWeights[k] /= mwSum; });
             }
             if (p.modelPerf) this.modelPerf = p.modelPerf;
             if (p.profitAccuracy && Array.isArray(p.profitAccuracy)) {
@@ -6141,6 +6178,9 @@ if(curBrier > 0.3){
                 self.predHistory = rebuildP.predHistory.slice();
                 self.accuracy = rebuildP.accuracy.slice();
                 self.profitAccuracy = rebuildP.profitAccuracy ? rebuildP.profitAccuracy.slice() : [];
+                // v37.1修复: 补全稀疏数组
+                self.profitBrierHistory = rebuildP.profitBrierHistory ? rebuildP.profitBrierHistory.slice() : [];
+                self.investAccuracy = rebuildP.investAccuracy ? rebuildP.investAccuracy.slice() : [];
                 self.modelWeights = Object.assign({}, rebuildP.modelWeights);
                 self.learnIterations = rebuildP.learnIterations;
                 self.maxStreakEver = calcMaxStreak(self.history);
@@ -6305,18 +6345,37 @@ function _dedupeDataset(data) {
     var removed = data.history.length - keepIdx.length;
     data.history = keepIdx.map(function(i){ return data.history[i]; });
     if (Array.isArray(data.predHistory)) {
-        // predHistory[i] 对应 history[i+1]；按 history 保留下来的下标重新映射
+        // v37.0修复: predHistory[k] 对应 history[k+1]，即 history[h] 对应 predHistory[h-1]
+        // 之前写反成 hi+1，导致去重后预测快照全部错位一局
         var newPred = [];
-        keepIdx.forEach(function(hi, newI){
-            var pi = hi + 1; // 第 hi 条 history 对应的 predHistory 下标
-            if (data.predHistory[pi]) newPred[newI] = data.predHistory[pi];
+        keepIdx.forEach(function(hi){
+            if (hi > 0 && data.predHistory[hi - 1]) {
+                newPred.push(data.predHistory[hi - 1]);
+            }
         });
-        // 保留第一条 predHistory（对应 history[0]，是开局前预测）
-        if (data.predHistory[0]) newPred.unshift(data.predHistory[0]);
-        data.predHistory = newPred.filter(Boolean);
+        data.predHistory = newPred;
     }
-    if (Array.isArray(data.accuracy)) data.accuracy = data.accuracy.filter(function(_, i){ return keepIdx.indexOf(i) >= 0; });
-    if (Array.isArray(data.profitAccuracy)) data.profitAccuracy = data.profitAccuracy.filter(function(_, i){ return keepIdx.indexOf(i) >= 0; });
+    if (Array.isArray(data.accuracy)) {
+        // v37.0修复: accuracy[k] 与 predHistory[k] 一一对应，同样映射
+        var newAcc = [];
+        keepIdx.forEach(function(hi){
+            if (hi > 0 && data.accuracy[hi - 1] !== undefined) {
+                newAcc.push(data.accuracy[hi - 1]);
+            }
+        });
+        data.accuracy = newAcc;
+    }
+    if (Array.isArray(data.profitAccuracy)) {
+        // v37.0修复: profitAccuracy是稀疏数组（只有录入了收益数据的局才有条目），和history不是1:1对应
+        // 之前用hi-1索引会错位，改为保守策略：去重后截断到新predHistory长度，用户可点"重新计算预测快照"精确重建
+        data.profitAccuracy = data.profitAccuracy.slice(0, data.predHistory.length);
+    }
+    if (Array.isArray(data.profitBrierHistory)) {
+        data.profitBrierHistory = data.profitBrierHistory.slice(0, data.predHistory.length);
+    }
+    if (Array.isArray(data.investAccuracy)) {
+        data.investAccuracy = data.investAccuracy.slice(0, data.predHistory.length);
+    }
     console.log('[兜底去重] 合并后数据集删除 ' + removed + ' 条重复，剩余 ' + data.history.length + ' 条');
     return data;
 }
@@ -7021,21 +7080,31 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                         if (fresh.length === 0) return; // 云端没有本地没有的（本地更长但key重复）
                         // 合并云端多出的记录
                         var newHist = _pickByIndexes(cloudHist, fresh);
-                        var newPred = cloudHist && r.data.data.predHistory ? _pickByIndexes(r.data.data.predHistory, fresh.map(function(i){return i+1;})) : [];
-                        var newAcc = r.data.data.accuracy ? _pickByIndexes(r.data.data.accuracy, fresh) : [];
-                        var newPA = r.data.data.profitAccuracy ? _pickByIndexes(r.data.data.profitAccuracy, fresh) : [];
+                        // v37.1修复: predHistory索引映射应该是i-1（predHistory[i-1]对应cloudHist[i]），之前写i+1完全错位
+                        var newPred = cloudHist && r.data.data.predHistory ? _pickByIndexes(r.data.data.predHistory, fresh.map(function(i){return i-1;})) : [];
+                        var newAcc = r.data.data.accuracy ? _pickByIndexes(r.data.data.accuracy, fresh.map(function(i){return i-1;})) : [];
+                        var newPA = r.data.data.profitAccuracy ? _pickByIndexes(r.data.data.profitAccuracy, fresh.map(function(i){return i-1;})) : [];
+                        // v37.1修复: 补全稀疏数组合并（保守取末尾新增部分）
+                        var newPB = r.data.data.profitBrierHistory ? r.data.data.profitBrierHistory.slice(-newPA.length) : [];
+                        var newIA = r.data.data.investAccuracy ? r.data.data.investAccuracy.slice(-newPA.length) : [];
                         P.history = (P.history || []).concat(newHist);
                         P.predHistory = (P.predHistory || []).concat(newPred);
                         P.accuracy = (P.accuracy || []).concat(newAcc);
                         P.profitAccuracy = (P.profitAccuracy || []).concat(newPA);
+                        if (newPB.length) P.profitBrierHistory = (P.profitBrierHistory || []).concat(newPB);
+                        if (newIA.length) P.investAccuracy = (P.investAccuracy || []).concat(newIA);
                         // v35.8: 兜底去重，防止任何路径产生重复
                         try {
-                            var _ds = { history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy };
+                            var _ds = { history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy,
+                                profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy };
                             _dedupeDataset(_ds);
                             P.history = _ds.history;
                             P.predHistory = _ds.predHistory;
                             P.accuracy = _ds.accuracy;
                             P.profitAccuracy = _ds.profitAccuracy;
+                            // v37.1修复: 同步恢复稀疏数组
+                            if (_ds.profitBrierHistory) P.profitBrierHistory = _ds.profitBrierHistory;
+                            if (_ds.investAccuracy) P.investAccuracy = _ds.investAccuracy;
                         } catch(e) {}
                         P.maxStreakEver = calcMaxStreak(P.history);
                         _lastIncrSyncCount = P.history.length;
@@ -7263,6 +7332,9 @@ function checkAutoBackup() {
         predHistory: P.predHistory ? P.predHistory.slice() : [],
         accuracy: P.accuracy ? P.accuracy.slice() : [],
         profitAccuracy: P.profitAccuracy ? P.profitAccuracy.slice() : [],
+        // v37.1修复: 补全稀疏数组
+        profitBrierHistory: P.profitBrierHistory ? P.profitBrierHistory.slice() : [],
+        investAccuracy: P.investAccuracy ? P.investAccuracy.slice() : [],
         modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
         modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
         learnIterations: P.learnIterations || 0,
@@ -7398,7 +7470,10 @@ async function cloudSave(manual, skipPrecheck) {
             history: (P.history || []).slice(),
             predHistory: (P.predHistory || []).slice(),
             accuracy: (P.accuracy || []).slice(),
-            profitAccuracy: (P.profitAccuracy || []).slice()
+            profitAccuracy: (P.profitAccuracy || []).slice(),
+            // v37.0修复: 补全稀疏数组到去重快照
+            profitBrierHistory: (P.profitBrierHistory || []).slice(),
+            investAccuracy: (P.investAccuracy || []).slice()
         };
         try {
             var _beforeLen = _uploadSnapshot.history.length;
@@ -7418,6 +7493,9 @@ async function cloudSave(manual, skipPrecheck) {
             predHistory: _cloudPredHist,
             accuracy: P.accuracy || [],
             profitAccuracy: P.profitAccuracy || [],
+            // v37.0修复: 补全遗漏的稀疏数组上传（之前云同步不保存收益Brier和投资命中率数据）
+            profitBrierHistory: P.profitBrierHistory || [],
+            investAccuracy: P.investAccuracy || [],
             modelWeights: P.modelWeights,
             modelPerf: P.modelPerf,
             windowPerf: P.windowPerf,
@@ -7674,8 +7752,11 @@ function bindCloudEvents() {
                 // 把文件内容里的旧版本号替换成新的
                 text = text.split(oldVer).join(inputVer);
 
-                // base64 编码（兼容中文）
-                var b64 = btoa(unescape(encodeURIComponent(text)));
+                // base64 编码（兼容中文）—— v37.0: 替换废弃的unescape写法
+                var _utf8Bytes = new TextEncoder().encode(text);
+                var _binary = '';
+                for (var _bi = 0; _bi < _utf8Bytes.length; _bi++) _binary += String.fromCharCode(_utf8Bytes[_bi]);
+                var b64 = btoa(_binary);
                 // 1) 取远程当前文件 sha（不存在则新建）
                 btn.textContent = '读取远程…';
                 var getRes = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path + '?ref=' + ghCfg.branch);
@@ -8495,6 +8576,9 @@ function doCloudBackup() {
             predHistory: P.predHistory ? P.predHistory.slice() : [],
             accuracy: P.accuracy ? P.accuracy.slice() : [],
             profitAccuracy: P.profitAccuracy ? P.profitAccuracy.slice() : [],
+            // v37.1修复: 补全稀疏数组
+            profitBrierHistory: P.profitBrierHistory ? P.profitBrierHistory.slice() : [],
+            investAccuracy: P.investAccuracy ? P.investAccuracy.slice() : [],
             modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
             modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
             windowPerf: P.windowPerf ? Object.assign({}, P.windowPerf) : {},
@@ -8635,6 +8719,9 @@ function restoreLocalBackup(idx) {
         P.predHistory = b.data.predHistory || [];
         P.accuracy = b.data.accuracy || [];
         P.profitAccuracy = b.data.profitAccuracy || [];
+        // v37.1修复: 补全稀疏数组
+        P.profitBrierHistory = b.data.profitBrierHistory || [];
+        P.investAccuracy = b.data.investAccuracy || [];
         P.modelWeights = b.data.modelWeights || {};
         P.modelPerf = b.data.modelPerf || {};
         P.windowPerf = b.data.windowPerf || {};
@@ -8668,6 +8755,9 @@ function restoreFromBackup(backupId) {
             P.predHistory = data.predHistory ? data.predHistory.slice() : [];
             P.accuracy = data.accuracy ? data.accuracy.slice() : [];
             P.profitAccuracy = data.profitAccuracy ? data.profitAccuracy.slice() : [];
+            // v37.1修复: 补全稀疏数组
+            P.profitBrierHistory = data.profitBrierHistory ? data.profitBrierHistory.slice() : [];
+            P.investAccuracy = data.investAccuracy ? data.investAccuracy.slice() : [];
             if (data.modelWeights) P.modelWeights = Object.assign({}, data.modelWeights);
             if (data.modelPerf) P.modelPerf = Object.assign({}, data.modelPerf);
             if (data.windowPerf) P.windowPerf = Object.assign({}, data.windowPerf);
@@ -8687,10 +8777,15 @@ function restoreFromBackup(backupId) {
             var now = new Date().toISOString();
             var mainData = {
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
-                profitAccuracy: P.profitAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf,
+                profitAccuracy: P.profitAccuracy,
+                // v37.1修复: 补全稀疏数组
+                profitBrierHistory: P.profitBrierHistory || [],
+                investAccuracy: P.investAccuracy || [],
+                modelWeights: P.modelWeights, modelPerf: P.modelPerf,
                 windowPerf: P.windowPerf, learnIterations: P.learnIterations,
-                reflectionLog: (P.reflectionLog || []).slice(-200), // v30.22：云端也保留200条 bestBrier: P._bestBrier || null,
-                    _syncEpoch: P._syncEpoch,
+                reflectionLog: (P.reflectionLog || []).slice(-200), // v30.22：云端也保留200条
+                bestBrier: P._bestBrier || null,
+                _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride || null // v26.4：管理员权威标记
             };
             return supabaseClient.from(CLOUD_TABLE).upsert({ id: CLOUD_ROW_ID, data: mainData, updated_at: now }, { onConflict: 'id' });
@@ -8807,9 +8902,16 @@ function recalcPredSnapshots() {
                     predicted: pred.profitPrediction.predicted,
                     probs: pred.profitPrediction.probs,
                     confidence: pred.profitPrediction.confidence
+                } : null,
+                // v37.3修复: 补全investPrediction字段（之前漏存，导致重算后预测投资列全空）
+                investPrediction: pred.investPrediction ? {
+                    predicted: pred.investPrediction.predicted,
+                    probs: pred.investPrediction.probs,
+                    confidence: pred.investPrediction.confidence
                 } : null
             } : null);
-            recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC);
+            // v37.3修复: 补传第9个参数investWinner（之前漏传，导致重建后所有记录无投资数据）
+            recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner);
         }
         var pct = Math.round((i / total) * 100);
         document.getElementById('recalcBar').style.width = pct + '%';
@@ -11222,7 +11324,7 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
                 var cbEnd = Math.min(cbDone + cbBatch, cbTotal);
                 for (var ri = cbDone; ri < cbEnd; ri++) {
                     var r = recs[ri];
-                    cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC);
+                    cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner);
                 }
                 cbDone = cbEnd;
                 if (cbDone < cbTotal) { setTimeout(cbNext, 0); }
@@ -11230,6 +11332,10 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
                     P.history = cumP.history.slice();
                     P.predHistory = cumP.predHistory.slice();
                     P.accuracy = cumP.accuracy.slice();
+                    // v37.1修复: 补全稀疏数组恢复
+                    P.profitAccuracy = cumP.profitAccuracy ? cumP.profitAccuracy.slice() : [];
+                    P.profitBrierHistory = cumP.profitBrierHistory ? cumP.profitBrierHistory.slice() : [];
+                    P.investAccuracy = cumP.investAccuracy ? cumP.investAccuracy.slice() : [];
                     P.modelWeights = Object.assign({}, cumP.modelWeights);
                     P.learnIterations = cumP.learnIterations;
                     P.maxStreakEver = calcMaxStreak(P.history);
@@ -11356,7 +11462,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?cleanWinValue(parts[colMap.PW]):'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}rec.investWinner=colMap.IW!==undefined?cleanWinValue(parts[colMap.IW]):'';recs.push(rec);}}
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
-                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
+                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.profitAccuracy=cumCSV.profitAccuracy?cumCSV.profitAccuracy.slice():[];P.profitBrierHistory=cumCSV.profitBrierHistory?cumCSV.profitBrierHistory.slice():[];P.investAccuracy=cumCSV.investAccuracy?cumCSV.investAccuracy.slice():[];P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
         };
         readerCSV.readAsText(file);this.value='';
@@ -11408,6 +11514,10 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                         P.history=cumP.history.slice();
                         P.predHistory=cumP.predHistory.slice();
                         P.accuracy=cumP.accuracy.slice();
+                        // v37.1修复: 补全稀疏数组恢复
+                        P.profitAccuracy = cumP.profitAccuracy ? cumP.profitAccuracy.slice() : [];
+                        P.profitBrierHistory = cumP.profitBrierHistory ? cumP.profitBrierHistory.slice() : [];
+                        P.investAccuracy = cumP.investAccuracy ? cumP.investAccuracy.slice() : [];
                         P.modelWeights=Object.assign({},cumP.modelWeights);
                         P.learnIterations=cumP.learnIterations;
                         P.maxStreakEver=calcMaxStreak(P.history);
@@ -11975,6 +12085,7 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     P.accuracy = cumP.accuracy.slice();
     P.profitAccuracy = cumP.profitAccuracy ? cumP.profitAccuracy.slice() : [];
     P.profitBrierHistory = cumP.profitBrierHistory ? cumP.profitBrierHistory.slice() : [];
+    P.investAccuracy = cumP.investAccuracy ? cumP.investAccuracy.slice() : [];
     P.modelWeights = Object.assign({}, cumP.modelWeights);
     P.modelPerf = cumP.modelPerf ? Object.assign({}, cumP.modelPerf) : {};
     P.windowPerf = cumP.windowPerf ? Object.assign({}, cumP.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
@@ -12081,6 +12192,10 @@ function importRecords(recs,replace,st){
     P.history=cumIR.history.slice();
     P.predHistory=cumIR.predHistory.slice();
     P.accuracy=cumIR.accuracy.slice();
+    // v37.0修复: 补全遗漏的稀疏数组恢复
+    P.profitAccuracy = cumIR.profitAccuracy ? cumIR.profitAccuracy.slice() : [];
+    P.profitBrierHistory = cumIR.profitBrierHistory ? cumIR.profitBrierHistory.slice() : [];
+    P.investAccuracy = cumIR.investAccuracy ? cumIR.investAccuracy.slice() : [];
     P.modelWeights=Object.assign({},cumIR.modelWeights);
     P.learnIterations=cumIR.learnIterations;
     P.maxStreakEver=calcMaxStreak(P.history);
@@ -12120,6 +12235,11 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
     var a=parseFloat(document.getElementById('inputA').value);
     var b=parseFloat(document.getElementById('inputB').value);
     var c=parseFloat(document.getElementById('inputC').value);
+    // v37.0修复: 输入空值时parseFloat返回NaN，提前提示避免后续校验显示"NaN分"
+    if (isNaN(a) || isNaN(b) || isNaN(c)) {
+        showRecordResult(false, '录入失败', '请先填写A、B、C三个商会的得分！\n不能留空或输入非数字内容。');
+        return;
+    }
     // 录入校验：ABC得分不能重复，不能有两个0，不能同时出现2和3
     var scores=[a,b,c];
     var guilds=['A','B','C'];
@@ -13081,6 +13201,70 @@ function closeEditRecordModal() {
     document.getElementById('editRecordModal').classList.remove('open');
     _editRecordIdx = -1;
 }
+// v37.0: 从第 startIdx 条记录开始重建预测快照（编辑/删除记录后调用）
+// predHistory[k] = 预测第 k+2 局时的快照，用到 history[0..k]
+// 修改 history[startIdx] 会影响所有 k >= startIdx 的 predHistory[k]
+// 所以保留 predHistory[0..startIdx-1]，重建 predHistory[startIdx..end]
+function rebuildPredHistoryFrom(startIdx) {
+    if (!P.history || P.history.length === 0) return;
+    startIdx = Math.max(0, startIdx);
+    if (startIdx === 0) startIdx = 1; // 第0条记录本身没有前置预测，从第1条开始重建
+    
+    // 截断：保留前 startIdx 条预测（predHistory[0..startIdx-1]）
+    P.predHistory = P.predHistory.slice(0, startIdx);
+    P.accuracy = P.accuracy.slice(0, startIdx);
+    if (P.profitAccuracy) P.profitAccuracy = P.profitAccuracy.slice(0, startIdx);
+    if (P.profitBrierHistory) P.profitBrierHistory = P.profitBrierHistory.slice(0, startIdx);
+    if (P.investAccuracy) P.investAccuracy = P.investAccuracy.slice(0, startIdx);
+    
+    // 用临时Predictor完整重建（快速模式跳过O(n²)相似盘匹配）
+    var rebuildP = new Predictor();
+    rebuildP._fastRebuild = true;
+    rebuildP.modelWeights = Object.assign({}, P.modelWeights);
+    
+    // 逐条addRecord所有记录，让rebuildP内部完成全部预测和学习
+    for (var i = 0; i < P.history.length; i++) {
+        var h = P.history[i];
+        rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner);
+    }
+    
+    // 从 rebuildP.predHistory[startIdx] 开始追加（前 startIdx 条和原来一致，跳过）
+    for (var j = startIdx; j < rebuildP.predHistory.length; j++) {
+        P.predHistory.push(rebuildP.predHistory[j]);
+    }
+    for (var j = startIdx; j < rebuildP.accuracy.length; j++) {
+        P.accuracy.push(rebuildP.accuracy[j]);
+    }
+    // 稀疏数组：同样从 startIdx 开始追加新增部分
+    // 注意：稀疏数组和accuracy不是1:1的，不能直接用index对应
+    // 保守策略：直接用 rebuildP 的稀疏数组末尾新增部分追加
+    // 由于稀疏数组只有录入了对应数据的局才有条目，这里采用"末尾对齐"策略
+    // 更精确的做法需要逐局判断是否有profit/invest数据，这里简化处理
+    if (rebuildP.profitAccuracy && rebuildP.profitAccuracy.length > startIdx) {
+        // 粗略估计：稀疏数组前半段和P截断后的长度大致匹配，直接追加后半段
+        var newPALen = rebuildP.profitAccuracy.length - Math.min(rebuildP.profitAccuracy.length, startIdx);
+        for (var j = rebuildP.profitAccuracy.length - newPALen; j < rebuildP.profitAccuracy.length; j++) {
+            P.profitAccuracy.push(rebuildP.profitAccuracy[j]);
+        }
+    }
+    if (rebuildP.profitBrierHistory && rebuildP.profitBrierHistory.length > startIdx) {
+        var newPBLen = rebuildP.profitBrierHistory.length - Math.min(rebuildP.profitBrierHistory.length, startIdx);
+        for (var j = rebuildP.profitBrierHistory.length - newPBLen; j < rebuildP.profitBrierHistory.length; j++) {
+            P.profitBrierHistory.push(rebuildP.profitBrierHistory[j]);
+        }
+    }
+    if (rebuildP.investAccuracy && rebuildP.investAccuracy.length > startIdx) {
+        var newIALen = rebuildP.investAccuracy.length - Math.min(rebuildP.investAccuracy.length, startIdx);
+        for (var j = rebuildP.investAccuracy.length - newIALen; j < rebuildP.investAccuracy.length; j++) {
+            P.investAccuracy.push(rebuildP.investAccuracy[j]);
+        }
+    }
+    
+    // 合并学习后的模型权重
+    P.modelWeights = rebuildP.modelWeights;
+    P.lastPrediction = P.predHistory.length > 0 ? P.predHistory[P.predHistory.length - 1].guild : null;
+}
+
 function saveEditRecord() {
     if (_editRecordIdx < 0) return;
     var a = parseFloat(document.getElementById('editRecA').value);
@@ -13089,6 +13273,12 @@ function saveEditRecord() {
     var profit = document.getElementById('editRecProfit').value;
     var invest = document.getElementById('editRecInvest').value;
     var errEl = document.getElementById('editRecordError');
+    // v37.0修复: 增加NaN校验，避免用户清空输入框后validateRecord显示"A分数NaN无效"
+    if (isNaN(a) || isNaN(b) || isNaN(c)) {
+        errEl.textContent = '请输入有效的数字（不能留空）';
+        errEl.style.display = 'block';
+        return;
+    }
     var errs = validateRecord({a:a, b:b, c:c});
     if (errs.length > 0) {
         errEl.textContent = errs.join('；');
@@ -13102,33 +13292,8 @@ function saveEditRecord() {
     P.history[_editRecordIdx].c = c;
     if (profit) P.history[_editRecordIdx].profitWinner = profit;
     if (invest) P.history[_editRecordIdx].investWinner = invest;
-    // v27.4: 修复截断位置——predHistory[i]对应history[i+1]的预测，编辑第N局应截断到N-1
-    P.predHistory = P.predHistory.slice(0, Math.max(0, _editRecordIdx - 1));
-    P.accuracy = P.accuracy.slice(0, Math.max(0, _editRecordIdx - 1));
-    for (var i = _editRecordIdx; i < P.history.length; i++) {
-        if (i > 0) {
-            var pred = P.predict();
-            if (pred) {
-                var predEntry = {
-                    guild: pred.predictedGuild,
-                    probs: {A: pred.probabilities.A, B: pred.probabilities.B, C: pred.probabilities.C},
-                    rank: {A: pred.rank.A, B: pred.rank.B, C: pred.rank.C},
-                    sorted: pred.sorted.map(function(x){return [x[0],x[1]];}),
-                    source: pred.sourceKey,
-                    profitPrediction: pred.profitPrediction ? {
-                        predicted: pred.profitPrediction.predicted,
-                        probs: pred.profitPrediction.probs,
-                        confidence: pred.profitPrediction.confidence
-                    } : null
-                };
-                P.predHistory.push(predEntry);
-                var actualWinner = getWinner(P.history[i]);
-                P.accuracy.push(pred.predictedGuild === actualWinner);
-                P.learnFromResult(pred, actualWinner, i);
-            }
-        }
-    }
-    P.lastPrediction = P.predHistory.length > 0 ? P.predHistory[P.predHistory.length - 1].guild : null;
+    // v37.0修复: 用临时Predictor正确重建预测快照（之前在完整history上直接predict等于开卷考试，污染学习数据）
+    rebuildPredHistoryFrom(_editRecordIdx);
     P.maxStreakEver = calcMaxStreak(P.history);
     renderAll();
     debouncedSave();
@@ -13142,10 +13307,8 @@ document.addEventListener('click', function(e) {
         if (!confirm('删除第' + (i+1) + '局？')) return;
         createSnapshot('删除第' + (i+1) + '局');
         P.history.splice(i,1);
-        if (i>0 && i-1<P.accuracy.length) P.accuracy.splice(i-1,1);
-        if (P.profitAccuracy && i>0 && i-1<P.profitAccuracy.length) P.profitAccuracy.splice(i-1,1);
-        if (i>0 && i-1<P.predHistory.length) P.predHistory.splice(i-1,1);
-        P.lastPrediction=P.predHistory.length>0?P.predHistory[P.predHistory.length-1].guild:null;
+        // v37.0修复: 删除记录后从i开始重建预测快照（之前简单splice导致后续预测全部错位、学习数据污染）
+        rebuildPredHistoryFrom(i);
         renderAll(); debouncedSave();
     } else if (e.target.classList.contains('time-edit-cell')) {
         var idx = parseInt(e.target.getAttribute('data-idx'));
@@ -13317,19 +13480,43 @@ if (clearFilterBtn) clearFilterBtn.onclick = function() {
 var ENC_KEY = 'mm_encryption_enabled_v1';
 var ENC_PWD_KEY = 'mm_encryption_pwd_v1';
 function xorEncrypt(str, pwd) {
-    var result = '';
-    for (var i = 0; i < str.length; i++) result += String.fromCharCode(str.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
-    return 'ENC:' + btoa(unescape(encodeURIComponent(result)));
+    // v37.1修复: 正确的字节级XOR——先UTF-8编码，再对字节XOR，最后base64
+    // 之前的字符级XOR + TextEncoder会把孤立代理项替换成U+FFFD，导致含中文数据损坏
+    var utf8Bytes = new TextEncoder().encode(str);
+    var pwdBytes = new TextEncoder().encode(pwd);
+    var result = new Uint8Array(utf8Bytes.length);
+    for (var i = 0; i < utf8Bytes.length; i++) {
+        result[i] = utf8Bytes[i] ^ pwdBytes[i % pwdBytes.length];
+    }
+    var binary = '';
+    for (var j = 0; j < result.length; j++) binary += String.fromCharCode(result[j]);
+    return 'ENC2:' + btoa(binary);
 }
 function xorDecrypt(encStr, pwd) {
     try {
-        var raw = decodeURIComponent(escape(atob(encStr.substring(4))));
+        var pwdBytes = new TextEncoder().encode(pwd);
+        // 新格式：ENC2: 字节级XOR（v37.1+）
+        if (encStr.indexOf('ENC2:') === 0) {
+            var binary = atob(encStr.substring(5));
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            var decrypted = new Uint8Array(bytes.length);
+            for (var i = 0; i < bytes.length; i++) {
+                decrypted[i] = bytes[i] ^ pwdBytes[i % pwdBytes.length];
+            }
+            return new TextDecoder().decode(decrypted);
+        }
+        // 旧格式：ENC: 字符级XOR（v37.0及更早，保持向后兼容）
+        var oldBinary = atob(encStr.substring(4));
+        var utf8Bytes = new Uint8Array(oldBinary.length);
+        for (var i = 0; i < oldBinary.length; i++) utf8Bytes[i] = oldBinary.charCodeAt(i);
+        var raw = new TextDecoder('utf-8', {fatal: false}).decode(utf8Bytes);
         var result = '';
         for (var i = 0; i < raw.length; i++) result += String.fromCharCode(raw.charCodeAt(i) ^ pwd.charCodeAt(i % pwd.length));
         return result;
     } catch(e) { return null; }
 }
-function isEncrypted(data) { return typeof data === 'string' && data.indexOf('ENC:') === 0; }
+function isEncrypted(data) { return typeof data === 'string' && (data.indexOf('ENC:') === 0 || data.indexOf('ENC2:') === 0); }
 function openEncryptModal() {
     var enabled = localStorage.getItem(ENC_KEY) === '1';
     var statusEl = document.getElementById('encryptStatus');
