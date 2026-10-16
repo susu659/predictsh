@@ -1,11 +1,12 @@
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v38.1 · 管理员在线版</title>
+<title>商会三竞预测系统 v38.2 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -603,8 +604,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v38.1</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v38.1</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 动态权重裁判+严格相似盘+覆盖导入防2倍</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v38.2</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v38.2</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 动态权重裁判+严格相似盘+覆盖导入防2倍</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -991,7 +992,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v38.1';
+  var APP_VERSION = 'v38.2';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -4537,7 +4538,7 @@ class Predictor {
             profitPattern: models.profitPattern ? mw.profitPattern : 0,
             ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
-        // v38.1: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
+        // v38.2: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
         // 最近准的临时加权，最近连续失误的临时降权；样本不足10局不调整；不写回modelWeights，
         // 与长期慢学习（每局小步调权重）互不干扰。
         try {
@@ -6307,7 +6308,7 @@ function _recKey(rec) {
     var d = rec.date || '';
     var t = rec.timeSlot || '';
     if (!d && !t) return null; // 旧数据无时间字段，不参与去重
-    // v38.1：判重必须同时匹配时段+ABC比分+收益+投资，否则同时段不同比分会被误判为重复
+    // v38.2：判重必须同时匹配时段+ABC比分+收益+投资，否则同时段不同比分会被误判为重复
     return d + '|' + t + '|' + (rec.a ?? '') + '|' + (rec.b ?? '') + '|' + (rec.c ?? '') + '|' + (rec.profitWinner || '') + '|' + (rec.investWinner || '');
 }
 // 把 incrHist 里本地已存在的记录剔除，返回真正需要追加的索引列表
@@ -6376,7 +6377,7 @@ function _mergeRemoteHistoryIntoLocal(remoteData) {
             var addPA = _pickByIndexes(remoteData.profitAccuracy, addIdx.map(function(i){ return i - 1; }));
             P.profitAccuracy = (P.profitAccuracy || []).concat(addPA);
         }
-        // v38.1: 稀疏数组合并长度对齐 profitAccuracy 新增条数（与轮询合并一致），
+        // v38.2: 稀疏数组合并长度对齐 profitAccuracy 新增条数（与轮询合并一致），
         // 之前用 history 新增条数 slice 末尾会错位
         var _sparseLen = (typeof addPA !== 'undefined' && addPA.length) ? addPA.length : addIdx.length;
         if (Array.isArray(remoteData.profitBrierHistory) && Array.isArray(P.profitBrierHistory)) {
@@ -6432,7 +6433,7 @@ window.dedupeLocalHistory = function() {
 // 兜底防护：无论云端 main/incr 怎么拼，落到本地前最后再过一遍，杜绝任何重复。
 function _dedupeDataset(data) {
     if (!data || !Array.isArray(data.history)) return data;
-    // v38.1：去重保留最后出现的记录（新录覆盖旧录），避免后录入的正确比分被先合并的旧记录吞掉
+    // v38.2：去重保留最后出现的记录（新录覆盖旧录），避免后录入的正确比分被先合并的旧记录吞掉
     var seen = {};
     var keepIdx = [];
     for (var _di = data.history.length - 1; _di >= 0; _di--) {
@@ -6963,7 +6964,7 @@ function restoreSnapshotObject(s) {
         P._syncEpoch = d._syncEpoch || 0;
         P._adminOverride = d._adminOverride || null;
         if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
-        // v38.1: 恢复快照后标记，下次上传跳过合并，直接覆盖云端
+        // v38.2: 恢复快照后标记，下次上传跳过合并，直接覆盖云端
         window._skipNextMerge = true;
         renderAll();
         debouncedSave();
@@ -7157,7 +7158,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                     if (Date.now() - _lastLocalChange < 30000) return;
                     if (!supabaseClient || !cloudOnline || _testMode) return;
                     if (_cloudSaving) return;
-                    if (!_autoSyncEnabled) return; // v38.1: 覆盖导入后禁止自动拉取合并，避免云端旧数据被append回来
+                    if (!_autoSyncEnabled) return; // v38.2: 覆盖导入后禁止自动拉取合并，避免云端旧数据被append回来
                     try {
                         // 只拉main的history长度，轻量
                         var r = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
@@ -7234,7 +7235,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
 }
 async function cloudLoad(silent) {
     if (!supabaseClient) { if (!silent) updateCloudStatus('error', '未配置云端'); return false; }
-    // v38.1: 覆盖导入后 _autoSyncEnabled=false 期间，禁止任何拉取（含手动点按钮），
+    // v38.2: 覆盖导入后 _autoSyncEnabled=false 期间，禁止任何拉取（含手动点按钮），
     // 否则云端旧数据会把刚覆盖的新数据冲掉。等用户手动点「上传云端」后自动恢复。
     if (!_autoSyncEnabled) { if (!silent) updateCloudStatus('online', '⚠️ 覆盖导入后，请先点「☁️ 上传云端」再拉取，避免旧数据冲掉新导入的数据'); return false; }
     if (!silent) updateCloudStatus('syncing', '正在从云端拉取最新数据...');
@@ -7597,7 +7598,7 @@ async function cloudSave(manual, skipPrecheck) {
                 var adminNewer = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
                 if ((cloudEpoch > (P._syncEpoch || 0)) || (!_isAdmin && adminNewer)) {
                     if (!_autoSyncEnabled) {
-                        // v38.1: 覆盖导入后等待手动上传——不拉云端数据覆盖本地（本地是权威新数据），
+                        // v38.2: 覆盖导入后等待手动上传——不拉云端数据覆盖本地（本地是权威新数据），
                         // 但保留云端较新的 epoch/adminOverride，否则本地上传会把管理员强制同步信号抹掉。
                         if (cloudEpoch > (P._syncEpoch || 0)) P._syncEpoch = cloudEpoch;
                         if (adminNewer && cloudAdmin) P._adminOverride = cloudAdmin;
@@ -7613,7 +7614,7 @@ async function cloudSave(manual, skipPrecheck) {
 
         // v37.6修复：无论手动还是自动上传，真正 upsert 前都先把云端 main 行读下来，
         // 合并掉本地缺失的记录，再用合并后的全集覆盖上去——杜绝对端刚传的记录被本端旧快照吞掉。
-        // v38.1修复：覆盖导入后 _autoSyncEnabled=false 期间，跳过合并，直接用本地新数据覆盖云端，
+        // v38.2修复：覆盖导入后 _autoSyncEnabled=false 期间，跳过合并，直接用本地新数据覆盖云端，
         // 否则会把云端旧数据按key全部append回来，覆盖变2倍。
         if (_autoSyncEnabled && !window._skipNextMerge) try {
             var _remoteForMerge = (typeof _cloudData !== 'undefined' && _cloudData) ? _cloudData : null;
@@ -7630,7 +7631,7 @@ async function cloudSave(manual, skipPrecheck) {
                 }
             }
         } catch(_me) { console.warn('[上传前合并] 读云端失败，继续按本地上传:', _me && _me.message); }
-        // v38.1: 删除后跳过合并标记，用完即清
+        // v38.2: 删除后跳过合并标记，用完即清
         window._skipNextMerge = false;
 
         // v35.8：纯全量同步——去掉incr行，每次都upsert完整main
@@ -7658,7 +7659,7 @@ async function cloudSave(manual, skipPrecheck) {
                 P.predHistory = _uploadSnapshot.predHistory;
                 P.accuracy = _uploadSnapshot.accuracy;
                 P.profitAccuracy = _uploadSnapshot.profitAccuracy;
-                // v38.1: 同步写回稀疏数组，否则上传的Brier/投资统计仍按旧长度错位
+                // v38.2: 同步写回稀疏数组，否则上传的Brier/投资统计仍按旧长度错位
                 if (Array.isArray(_uploadSnapshot.profitBrierHistory)) P.profitBrierHistory = _uploadSnapshot.profitBrierHistory;
                 if (Array.isArray(_uploadSnapshot.investAccuracy)) P.investAccuracy = _uploadSnapshot.investAccuracy;
             }
@@ -10665,7 +10666,7 @@ function applyTimeEdit(idx, field, value) {
         baseSlot = addHoursToTimeSlot(baseSlot, 1);
         P.history[i].timeSlot = baseSlot;
     }
-    // v38.1: 时间修改后标记，下次上传跳过合并，直接覆盖云端（避免旧时间数据又被同步回来）
+    // v38.2: 时间修改后标记，下次上传跳过合并，直接覆盖云端（避免旧时间数据又被同步回来）
     window._skipNextMerge = true;
     debouncedSave();
     renderHistory();
@@ -11997,7 +11998,7 @@ function confirmImport() {
     if (mode === 'replace') {
         try{ createSnapshot('覆盖导入前自动备份（'+(P.history?P.history.length:0)+'条）'); _lastImportSnapshotIdx = _snapshots.length - 1; }catch(e){}
         P.clearAll();
-        // v38.1修复：覆盖导入后禁用"上传前合并云端"，否则用户按提示点「上传云端」时，
+        // v38.2修复：覆盖导入后禁用"上传前合并云端"，否则用户按提示点「上传云端」时，
         // 会把云端旧数据按key全部append回来，导致覆盖变2倍。上传成功后由 setAutoSync(true) 恢复。
         setAutoSync(false);
     }
@@ -12454,7 +12455,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         showRecordResult(false, '录入失败', '2分和3分不能同时出现！请修改后重新录入。');
         return;
     }
-    // v38.1：录入前检测完全重复（同时段+同ABC+同收益+同投资）——避免两家并发录完全相同局时重复入库
+    // v38.2：录入前检测完全重复（同时段+同ABC+同收益+同投资）——避免两家并发录完全相同局时重复入库
     var _pendingSlot = getTimeSlot();
     var _pendingNow = new Date();
     var _pendingDate = _pendingNow.getFullYear() + '-' + String(_pendingNow.getMonth()+1).padStart(2,'0') + '-' + String(_pendingNow.getDate()).padStart(2,'0');
@@ -13598,7 +13599,7 @@ function saveEditRecord() {
     closeEditRecordModal();
     // v37.2: 只改原始数据，不重建预测历史，改完直接刷新+后台保存
     P.maxStreakEver = calcMaxStreak(P.history);
-    // v38.1: 编辑后标记，下次上传跳过合并，直接覆盖云端（避免旧数据又被同步回来）
+    // v38.2: 编辑后标记，下次上传跳过合并，直接覆盖云端（避免旧数据又被同步回来）
     window._skipNextMerge = true;
     renderAll();
     debouncedSave();
@@ -13615,7 +13616,7 @@ document.addEventListener('click', function(e) {
         if (i > 0 && P.predHistory.length >= i) P.predHistory.splice(i - 1, 1);
         if (i > 0 && P.accuracy.length >= i) P.accuracy.splice(i - 1, 1);
         P.maxStreakEver = calcMaxStreak(P.history);
-        // v38.1: 删除后标记，下次上传跳过合并，直接覆盖云端（避免删除的记录又被同步回来）
+        // v38.2: 删除后标记，下次上传跳过合并，直接覆盖云端（避免删除的记录又被同步回来）
         window._skipNextMerge = true;
         renderAll(); debouncedSave();
     } else if (e.target.classList.contains('time-edit-cell')) {
