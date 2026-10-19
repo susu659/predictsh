@@ -7,7 +7,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v39.3 · AI自适应版</title>
+<title>商会三竞预测系统 v39.4 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -605,8 +605,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.3</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.3</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 记录ID对齐防错位</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.4</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.4</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 记录ID对齐防错位</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -993,7 +993,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v39.3';
+  var APP_VERSION = 'v39.4';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -3581,7 +3581,7 @@ function findSimilarSegments(window, history, opts) {
                     });
                 }
                 // v17: 时间衰减因子
-                // v39.3: 动态基线——根据相似盘近期命中率自动调整（准→更信近期；不准→平缓）
+                // v39.4: 动态基线——根据相似盘近期命中率自动调整（准→更信近期；不准→平缓）
                 var _rb = opts._recencyBase || 0.5;
                 var recencyFactor = _rb + (1 - _rb) * (start / Math.max(1, history.length - winLen));
                 results.push({
@@ -3621,7 +3621,7 @@ function predictFromSimilarPattern(window, history) {
     // v20: 核心原则 — 纯相似度排名，智能去重，更多候选
     var minSim = 0.42;  // v23: 恢复为0.42，确保匹配质量
     var allResults = [];
-    // v39.3: AI智能调参——根据相似盘近期命中率自动调整时间衰减和投票阈值
+    // v39.4: AI智能调参——根据相似盘近期命中率自动调整时间衰减和投票阈值
     // 相似盘准（>40%）→ 更信任近期匹配（衰减陡）、放宽阈值多选
     // 相似盘不准（<30%）→ 衰减平缓、收紧阈值只信高质量匹配
     var _simPerf = (typeof P !== 'undefined' && P.modelPerf && P.modelPerf.similarPattern) ? P.modelPerf.similarPattern.slice(-20) : [];
@@ -3700,7 +3700,7 @@ function predictFromSimilarPattern(window, history) {
     }
     allResults = uniqueResults;
     
-    // v32.0: 投票只收高质量匹配——v39.3: 阈值动态化（相似盘准→0.58多选；不准→0.72精选）
+    // v32.0: 投票只收高质量匹配——v39.4: 阈值动态化（相似盘准→0.58多选；不准→0.72精选）
     var votePool = allResults.filter(function(r){ return r.similarity >= _voteThresh; });
     if (votePool.length === 0) votePool = allResults.slice(0, 5); // 实在没有高匹配就用Top5兜底
     // 取Top 20高相似度匹配参与投票
@@ -6408,6 +6408,16 @@ function _pickByIndexes(arr, idxList) {
     if (!Array.isArray(arr)) return [];
     return idxList.map(function(i){ return arr[i]; }).filter(function(x){ return x !== undefined; });
 }
+// v39.3: 按rid匹配predHistory条目（不再用i-1硬映射，避免两端数组错位）
+function _pickPredByRid(remotePred, newHist) {
+    var predByRid = {};
+    (remotePred || []).forEach(function(p){ if (p && p.rid) predByRid[p.rid] = p; });
+    var result = [];
+    (newHist || []).forEach(function(h){
+        if (h && h._rid && predByRid[h._rid]) result.push(predByRid[h._rid]);
+    });
+    return result;
+}
 // v37.6修复：上传前把云端里"本地缺失"的记录按 key(date|timeSlot) 合并进本地，
 // 再让 cloudSave 用合并后的全集 upsert。解决多行并发时 main 行被对端旧数据覆盖、
 // 导致"上传成功/拉取成功但记录过不来"的问题。
@@ -6444,27 +6454,12 @@ function _mergeRemoteHistoryIntoLocal(remoteData) {
         // append 本地末尾（与轮询合并同一套 append 语义，保持前缀对齐假设）
         var addHist = _pickByIndexes(remoteData.history, addIdx);
         P.history = localHist.concat(addHist);
-        if (Array.isArray(remoteData.predHistory)) {
-            var addPred = _pickByIndexes(remoteData.predHistory, addIdx.map(function(i){ return i - 1; }));
-            P.predHistory = (P.predHistory || []).concat(addPred);
-        }
-        if (Array.isArray(remoteData.accuracy)) {
-            var addAcc = _pickByIndexes(remoteData.accuracy, addIdx.map(function(i){ return i - 1; }));
-            P.accuracy = (P.accuracy || []).concat(addAcc);
-        }
-        if (Array.isArray(remoteData.profitAccuracy)) {
-            var addPA = _pickByIndexes(remoteData.profitAccuracy, addIdx.map(function(i){ return i - 1; }));
-            P.profitAccuracy = (P.profitAccuracy || []).concat(addPA);
-        }
-        // v38.2: 稀疏数组合并长度对齐 profitAccuracy 新增条数（与轮询合并一致），
-        // 之前用 history 新增条数 slice 末尾会错位
-        var _sparseLen = (typeof addPA !== 'undefined' && addPA.length) ? addPA.length : addIdx.length;
-        if (Array.isArray(remoteData.profitBrierHistory) && Array.isArray(P.profitBrierHistory)) {
-            P.profitBrierHistory = P.profitBrierHistory.concat(remoteData.profitBrierHistory.slice(-_sparseLen));
-        }
-        if (Array.isArray(remoteData.investAccuracy) && Array.isArray(P.investAccuracy)) {
-            P.investAccuracy = P.investAccuracy.concat(remoteData.investAccuracy.slice(-_sparseLen));
-        }
+        // v39.3: predHistory/accuracy按rid匹配，不再用i-1硬映射
+        var addPred = _pickPredByRid(remoteData.predHistory, addHist);
+        P.predHistory = (P.predHistory || []).concat(addPred);
+        // v39.3: accuracy等从predHistory条目重建（不再硬拼索引）
+        P._rebuildStatsFromPred && P._rebuildStatsFromPred();
+        P._migrateRids && P._migrateRids();
         // 模型学习迭代次数取较大者，避免被旧端拉低
         if (remoteData.learnIterations && remoteData.learnIterations > (P.learnIterations || 0)) {
             P.learnIterations = remoteData.learnIterations;
@@ -7280,18 +7275,13 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                         // 合并云端多出的记录
                         var newHist = _pickByIndexes(cloudHist, fresh);
                         // v37.1修复: predHistory索引映射应该是i-1（predHistory[i-1]对应cloudHist[i]），之前写i+1完全错位
-                        var newPred = cloudHist && r.data.data.predHistory ? _pickByIndexes(r.data.data.predHistory, fresh.map(function(i){return i-1;})) : [];
-                        var newAcc = r.data.data.accuracy ? _pickByIndexes(r.data.data.accuracy, fresh.map(function(i){return i-1;})) : [];
-                        var newPA = r.data.data.profitAccuracy ? _pickByIndexes(r.data.data.profitAccuracy, fresh.map(function(i){return i-1;})) : [];
-                        // v37.1修复: 补全稀疏数组合并（保守取末尾新增部分）
-                        var newPB = r.data.data.profitBrierHistory ? r.data.data.profitBrierHistory.slice(-newPA.length) : [];
-                        var newIA = r.data.data.investAccuracy ? r.data.data.investAccuracy.slice(-newPA.length) : [];
+                        // v39.3: predHistory按rid匹配，不再用i-1硬映射
+                        var newPred = _pickPredByRid(r.data.data.predHistory, newHist);
                         P.history = (P.history || []).concat(newHist);
                         P.predHistory = (P.predHistory || []).concat(newPred);
-                        P.accuracy = (P.accuracy || []).concat(newAcc);
-                        P.profitAccuracy = (P.profitAccuracy || []).concat(newPA);
-                        if (newPB.length) P.profitBrierHistory = (P.profitBrierHistory || []).concat(newPB);
-                        if (newIA.length) P.investAccuracy = (P.investAccuracy || []).concat(newIA);
+                        // v39.3: 统计数组从predHistory重建，不再硬拼索引
+                        P._rebuildStatsFromPred();
+                        P._migrateRids();
                         // v35.8: 兜底去重，防止任何路径产生重复
                         try {
                             var _ds = { history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy,
