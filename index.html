@@ -7,7 +7,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v39.2 · AI自适应版</title>
+<title>商会三竞预测系统 v39.3 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -605,8 +605,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.2</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.2</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 记录ID对齐防错位</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.3</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.3</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 记录ID对齐防错位</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -993,7 +993,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v39.2';
+  var APP_VERSION = 'v39.3';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -3581,7 +3581,7 @@ function findSimilarSegments(window, history, opts) {
                     });
                 }
                 // v17: 时间衰减因子
-                // v39.2: 动态基线——根据相似盘近期命中率自动调整（准→更信近期；不准→平缓）
+                // v39.3: 动态基线——根据相似盘近期命中率自动调整（准→更信近期；不准→平缓）
                 var _rb = opts._recencyBase || 0.5;
                 var recencyFactor = _rb + (1 - _rb) * (start / Math.max(1, history.length - winLen));
                 results.push({
@@ -3621,7 +3621,7 @@ function predictFromSimilarPattern(window, history) {
     // v20: 核心原则 — 纯相似度排名，智能去重，更多候选
     var minSim = 0.42;  // v23: 恢复为0.42，确保匹配质量
     var allResults = [];
-    // v39.2: AI智能调参——根据相似盘近期命中率自动调整时间衰减和投票阈值
+    // v39.3: AI智能调参——根据相似盘近期命中率自动调整时间衰减和投票阈值
     // 相似盘准（>40%）→ 更信任近期匹配（衰减陡）、放宽阈值多选
     // 相似盘不准（<30%）→ 衰减平缓、收紧阈值只信高质量匹配
     var _simPerf = (typeof P !== 'undefined' && P.modelPerf && P.modelPerf.similarPattern) ? P.modelPerf.similarPattern.slice(-20) : [];
@@ -3700,7 +3700,7 @@ function predictFromSimilarPattern(window, history) {
     }
     allResults = uniqueResults;
     
-    // v32.0: 投票只收高质量匹配——v39.2: 阈值动态化（相似盘准→0.58多选；不准→0.72精选）
+    // v32.0: 投票只收高质量匹配——v39.3: 阈值动态化（相似盘准→0.58多选；不准→0.72精选）
     var votePool = allResults.filter(function(r){ return r.similarity >= _voteThresh; });
     if (votePool.length === 0) votePool = allResults.slice(0, 5); // 实在没有高匹配就用Top5兜底
     // 取Top 20高相似度匹配参与投票
