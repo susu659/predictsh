@@ -1,12 +1,13 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v38.2 · 管理员在线版</title>
+<title>商会三竞预测系统 v39.1 · 管理员在线版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -604,8 +605,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v38.2</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v38.2</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 动态权重裁判+严格相似盘+覆盖导入防2倍</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.1</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · 智能诊断校准 <span style="color:#ffd700;font-weight:700;">v39.1</span>　<span style="color:#4caf50;font-weight:600;">☁️ 开页5秒后拉取·录入停手5秒上传·首次只拉取不上传</span>　<span style="color:#e91e63;font-weight:600;">🔧 动态权重裁判+严格相似盘+覆盖导入防2倍</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -992,7 +993,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v38.2';
+  var APP_VERSION = 'v39.1';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -3521,8 +3522,9 @@ function findSimilarSegments(window, history, opts) {
     var windowFps = window.map(_recordFingerprint);
     var currentWindowStart = history.length - winLen;
     // v34.2性能优化：预计算整个历史的胜方序列和指纹数组，避免循环内反复slice+map+重新计算
-    var histWinnerSeq = _toWinnerSeq(history);  // 全历史胜方序列，O(n)一次
-    var histFingerprints = history.map(_recordFingerprint);  // 全历史指纹，O(n)一次
+    // v39.1: 支持外部传入预计算结果，避免predictFromSimilarPattern里8次重复计算
+    var histWinnerSeq = opts._histWinnerSeq || _toWinnerSeq(history);
+    var histFingerprints = opts._histFingerprints || history.map(_recordFingerprint);
     // v31: 预统计"当前窗口胜方序列"在整段历史中的出现次数
     var _curKey = winSeq.join('');
     var matchCount = 0;
@@ -3535,6 +3537,12 @@ function findSimilarSegments(window, history, opts) {
         var histFps = histFingerprints.slice(start, start + winLen);
         var histWinSeq = histWinnerSeq.slice(start, start + winLen);
         var histSlice = history.slice(start, start + winLen);
+        // v39.1性能优化：先快速比较胜方序列，不一致直接跳过，不做后续指纹/分数计算
+        var _mismatchIdx = [];
+        for (var _mi = 0; _mi < winLen; _mi++) {
+            if (winSeq[_mi] !== histWinSeq[_mi]) _mismatchIdx.push(_mi);
+        }
+        if (_mismatchIdx.length > 0) continue; // v37.7要求胜方序列完全一致才入结果，快速过滤
         // 计算综合相似度
     var fpSim = 0;
     for (var fi = 0; fi < winLen; fi++) {
@@ -3558,14 +3566,8 @@ function findSimilarSegments(window, history, opts) {
     // v28.3: 综合 = 指纹30% + 序列50% + 分数分布20%
     var wsSim = _winnerSeqSimilarity(winSeq, histWinSeq);
     var combinedSim = fpSim * 0.3 + wsSim * 0.5 + scoreDistSim * 0.2;
-        // v37.7: 用户要求"去掉所有不匹配部分"——只保留胜方序列完全一致的片段，
-        // 任何一位不同的历史片段整条剔除，不参与投票。
-        var _mismatchIdx = [];
-        for (var _mi = 0; _mi < winLen; _mi++) {
-            if (winSeq[_mi] !== histWinSeq[_mi]) _mismatchIdx.push(_mi);
-        }
-        var _looseMatch = (_mismatchIdx.length === 0);
-        if (_looseMatch) {
+        // v39.1: 上面已快速过滤过胜方序列，走到这里就是完全匹配
+        {
             var nextIdx = start + winLen;
             if (nextIdx < history.length) {
                 var nextRec = history[nextIdx];
@@ -3579,7 +3581,9 @@ function findSimilarSegments(window, history, opts) {
                     });
                 }
                 // v17: 时间衰减因子
-                var recencyFactor = 0.7 + 0.3 * (start / Math.max(1, history.length - winLen));
+                // v39.2: 动态基线——根据相似盘近期命中率自动调整（准→更信近期；不准→平缓）
+                var _rb = opts._recencyBase || 0.5;
+                var recencyFactor = _rb + (1 - _rb) * (start / Math.max(1, history.length - winLen));
                 results.push({
                     startIdx: start,
                     similarity: combinedSim,
@@ -3617,15 +3621,28 @@ function predictFromSimilarPattern(window, history) {
     // v20: 核心原则 — 纯相似度排名，智能去重，更多候选
     var minSim = 0.42;  // v23: 恢复为0.42，确保匹配质量
     var allResults = [];
+    // v39.2: AI智能调参——根据相似盘近期命中率自动调整时间衰减和投票阈值
+    // 相似盘准（>40%）→ 更信任近期匹配（衰减陡）、放宽阈值多选
+    // 相似盘不准（<30%）→ 衰减平缓、收紧阈值只信高质量匹配
+    var _simPerf = (typeof P !== 'undefined' && P.modelPerf && P.modelPerf.similarPattern) ? P.modelPerf.similarPattern.slice(-20) : [];
+    var _simAcc = _simPerf.length >= 5 ? _simPerf.filter(function(x){return x;}).length / _simPerf.length : 0.33;
+    // 时间衰减基线：准→0.35（近期权重最高1.0，最早0.35）；不准→0.65（平缓）
+    var _recencyBase = 0.65 - Math.max(0, Math.min(1, (_simAcc - 0.30) / 0.30)) * 0.30;
+    // 投票阈值：准→0.58（多选）；不准→0.72（精选）
+    var _voteThresh = 0.72 - Math.max(0, Math.min(1, (_simAcc - 0.30) / 0.30)) * 0.14;
     // v34.3: 窗口档位补全为[5,6,7,8,9,10,11,12]八档，全部显示
     var windowLengths = [5, 6, 7, 8, 9, 10, 11, 12];
+    
+    // v39.1性能优化：预计算全历史胜方序列和指纹，8个窗口档位复用，不重复算
+    var _histWinnerSeq = _toWinnerSeq(history);
+    var _histFingerprints = history.map(_recordFingerprint);
     
     // 多窗口长度匹配，收集所有候选
     for (var wi = 0; wi < windowLengths.length; wi++) {
         var wLen = windowLengths[wi];
         if (history.length < wLen + 1) continue;
         var curWindow = history.slice(-wLen);
-        var results = findSimilarSegments(curWindow, history, {minSim: _minSimForLen(wLen), maxResults: 50}); // v31.5: 从18放宽到50，有匹配的都显示
+        var results = findSimilarSegments(curWindow, history, {minSim: _minSimForLen(wLen), maxResults: 50, _histWinnerSeq: _histWinnerSeq, _histFingerprints: _histFingerprints, _recencyBase: _recencyBase}); // v31.5: 从18放宽到50，有匹配的都显示
         for (var ri = 0; ri < results.length; ri++) {
             results[ri].scanWindowLen = wLen;
         }
@@ -3683,8 +3700,8 @@ function predictFromSimilarPattern(window, history) {
     }
     allResults = uniqueResults;
     
-    // v32.0: 投票只收≥65%高质量匹配——低相似度(60-65%)匹配只显示不投票，避免噪音稀释高置信信号
-    var votePool = allResults.filter(function(r){ return r.similarity >= 0.65; });
+    // v32.0: 投票只收高质量匹配——v39.2: 阈值动态化（相似盘准→0.58多选；不准→0.72精选）
+    var votePool = allResults.filter(function(r){ return r.similarity >= _voteThresh; });
     if (votePool.length === 0) votePool = allResults.slice(0, 5); // 实在没有高匹配就用Top5兜底
     // 取Top 20高相似度匹配参与投票
     var useResults = votePool.slice(0, 20);
@@ -4064,6 +4081,10 @@ function detectCyclePattern(history) {
         cycleCount: foundCycles.length,
         bestG: bestG
     };
+}
+// v39.0: 全局记录ID生成器——每局唯一，删除/撤销/云合并按ID对齐，不依赖数组下标
+function _genRid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 class Predictor {
     constructor() {
@@ -4538,7 +4559,7 @@ class Predictor {
             profitPattern: models.profitPattern ? mw.profitPattern : 0,
             ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
-        // v38.2: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
+        // v39.1: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
         // 最近准的临时加权，最近连续失误的临时降权；样本不足10局不调整；不写回modelWeights，
         // 与长期慢学习（每局小步调权重）互不干扰。
         try {
@@ -5575,6 +5596,7 @@ if(curBrier > 0.3){
     }
     addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC, investWinner) {
         var rec = {a: a, b: b, c: c};
+        rec._rid = _genRid(); // v39.0: 每局唯一ID，删除/合并按此对齐
         rec.timeSlot = timeSlot || getTimeSlot();
         var _nowDate = new Date();
         rec.date = _nowDate.getFullYear() + '-' + String(_nowDate.getMonth()+1).padStart(2,'0') + '-' + String(_nowDate.getDate()).padStart(2,'0'); // v36.1: 改用本地日期，凌晨录入不再错一天
@@ -5619,6 +5641,10 @@ if(curBrier > 0.3){
                     } : null
                 });
                 this.accuracy.push(winner === prevPrediction.predictedGuild);
+                // v39.0: 把rid和对错信息挂到predHistory条目上，删除/重建时按ID对齐
+                var _lastPh = this.predHistory[this.predHistory.length - 1];
+                _lastPh.rid = rec._rid;
+                _lastPh.correct = (winner === prevPrediction.predictedGuild);
                 // v30.22：给6个高级模型打分（自主学习）
                 try { this._scoreAdvancedModels(winner); } catch(e) { console.warn('[高级模型评分]失败:', e.message); }
                 if (this.accuracy.length > 100000) this.accuracy.shift();
@@ -5637,6 +5663,9 @@ if(curBrier > 0.3){
                     this.profitBrierHistory = this.profitBrierHistory || [];
                     this.profitBrierHistory.push(profitBrier);
                     if (this.profitBrierHistory.length > 100000) this.profitBrierHistory.shift();
+                    // v39.0: 存到predHistory条目，删除后可重建
+                    _lastPh.profitCorrect = profitCorrect;
+                    _lastPh.profitBrier = profitBrier;
                 }
                 // v33.1: 投资预测学习记录
                 var actualInvest = rec.investWinner;
@@ -5646,6 +5675,7 @@ if(curBrier > 0.3){
                     this.investAccuracy = this.investAccuracy || [];
                     this.investAccuracy.push(investCorrect);
                     if (this.investAccuracy.length > 100000) this.investAccuracy.shift();
+                    _lastPh.investCorrect = investCorrect; // v39.0
                 }
                 // v26.2：快速重建模式跳过学习和反思日志（重建只需要predHistory用于显示）
                 if (!this._fastRebuild) {
@@ -5703,6 +5733,9 @@ if(curBrier > 0.3){
                         confidence: prevPrediction.investPrediction.confidence
                     } : null
                 });
+                // v39.0: 平局条目也挂rid，删除时按ID匹配
+                this.predHistory[this.predHistory.length - 1].rid = rec._rid;
+                this.predHistory[this.predHistory.length - 1].correct = null;
             }
             if (this.predHistory.length > 100000) this.predHistory.shift();
         }
@@ -5714,20 +5747,63 @@ if(curBrier > 0.3){
     }
     undoLast() {
         if (this.history.length === 0) return;
-        // v16修复：只有非平局局才pop accuracy（平局局不记录accuracy）
         var lastRec = this.history[this.history.length - 1];
-        var lastWinner = getWinner(lastRec);
         this.history.pop();
-        if (lastWinner && this.accuracy.length > 0) this.accuracy.pop();
-        // v30.22修复:只有当上一局有获胜方且有收益数据时才弹出profitAccuracy，避免数据错位
-        if (lastWinner && this.profitAccuracy && this.profitAccuracy.length > 0 && lastRec.profitWinner) this.profitAccuracy.pop();
-        // v30.22修复:同步弹出profitBrierHistory
-        if (lastWinner && this.profitBrierHistory && this.profitBrierHistory.length > 0 && lastRec.profitWinner) this.profitBrierHistory.pop();
-        // v37.0修复: 同步弹出investAccuracy（之前遗漏，撤销后投资命中率统计会错位）
-        if (lastWinner && this.investAccuracy && this.investAccuracy.length > 0 && lastRec.investWinner) this.investAccuracy.pop();
-        if (this.predHistory.length > 0) this.predHistory.pop();
+        // v39.0: 按rid找predHistory对应条目删除（不再无脑pop，避免平局/删除中间局错位）
+        var rid = lastRec._rid;
+        if (rid) {
+            for (var i = this.predHistory.length - 1; i >= 0; i--) {
+                if (this.predHistory[i].rid === rid) { this.predHistory.splice(i, 1); break; }
+            }
+        } else if (this.predHistory.length > 0) {
+            this.predHistory.pop(); // 旧数据无rid，回退老逻辑
+        }
+        // v39.0: 从predHistory重建统计数组，保证对齐
+        this._rebuildStatsFromPred();
         if (this.reflectionLog.length > 0 && this.reflectionLog[0].gameIdx === this.history.length + 1) this.reflectionLog.shift();
         this.lastPrediction = this.predHistory.length > 0 ? this.predHistory[this.predHistory.length-1].guild : null;
+    }
+    // v39.0: 从predHistory条目重建平行统计数组，删除/合并后不错位
+    _rebuildStatsFromPred() {
+        this.accuracy = [];
+        this.profitAccuracy = [];
+        this.profitBrierHistory = [];
+        this.investAccuracy = [];
+        for (var i = 0; i < this.predHistory.length; i++) {
+            var ph = this.predHistory[i];
+            if (ph.isTie) continue;
+            if (ph.correct === undefined || ph.correct === null) continue;
+            this.accuracy.push(!!ph.correct);
+            if (ph.profitCorrect !== undefined && ph.profitCorrect !== null) {
+                this.profitAccuracy.push(ph.profitCorrect);
+                if (ph.profitBrier !== undefined) this.profitBrierHistory.push(ph.profitBrier);
+            }
+            if (ph.investCorrect !== undefined && ph.investCorrect !== null) {
+                this.investAccuracy.push(ph.investCorrect);
+            }
+        }
+    }
+    // v39.0: 旧数据迁移——给没有rid的历史补ID，给predHistory补correct字段
+    _migrateRids() {
+        for (var i = 0; i < this.history.length; i++) {
+            if (!this.history[i]._rid) this.history[i]._rid = _genRid();
+        }
+        for (var j = 0; j < this.predHistory.length; j++) {
+            var ph = this.predHistory[j];
+            if (!ph.rid) {
+                var histRec = this.history[j + 1]; // 旧数据：predHistory[j]对应history[j+1]
+                if (histRec) {
+                    ph.rid = histRec._rid;
+                    if (ph.correct === undefined) {
+                        if (ph.isTie) { ph.correct = null; }
+                        else {
+                            var w = getWinner(histRec);
+                            ph.correct = w ? (ph.guild === w) : null;
+                        }
+                    }
+                }
+            }
+        }
     }
     clearAll() {
         this.history = []; this.predHistory = []; this.accuracy = []; this.profitAccuracy = []; this.lastPrediction = null; this.maxStreakEver = 0;
@@ -6180,6 +6256,9 @@ if(curBrier > 0.3){
             if (p.patternHitCache) this.patternHitCache = p.patternHitCache;
             // v25.2修复：加载完成后强制归一化窗口权重，清除历史遗留的负权重
             normalizeWindowWeights();
+            // v39.0: 旧数据补rid + 重建统计数组
+            this._migrateRids();
+            this._rebuildStatsFromPred();
         } catch(e) { console.error('loadLocal error:', e); }
     }
     // v26.2：异步分批重建predHistory，快速模式跳过相似盘匹配，每批50条
@@ -6308,7 +6387,7 @@ function _recKey(rec) {
     var d = rec.date || '';
     var t = rec.timeSlot || '';
     if (!d && !t) return null; // 旧数据无时间字段，不参与去重
-    // v38.2：判重必须同时匹配时段+ABC比分+收益+投资，否则同时段不同比分会被误判为重复
+    // v39.1：判重必须同时匹配时段+ABC比分+收益+投资，否则同时段不同比分会被误判为重复
     return d + '|' + t + '|' + (rec.a ?? '') + '|' + (rec.b ?? '') + '|' + (rec.c ?? '') + '|' + (rec.profitWinner || '') + '|' + (rec.investWinner || '');
 }
 // 把 incrHist 里本地已存在的记录剔除，返回真正需要追加的索引列表
@@ -6377,7 +6456,7 @@ function _mergeRemoteHistoryIntoLocal(remoteData) {
             var addPA = _pickByIndexes(remoteData.profitAccuracy, addIdx.map(function(i){ return i - 1; }));
             P.profitAccuracy = (P.profitAccuracy || []).concat(addPA);
         }
-        // v38.2: 稀疏数组合并长度对齐 profitAccuracy 新增条数（与轮询合并一致），
+        // v39.1: 稀疏数组合并长度对齐 profitAccuracy 新增条数（与轮询合并一致），
         // 之前用 history 新增条数 slice 末尾会错位
         var _sparseLen = (typeof addPA !== 'undefined' && addPA.length) ? addPA.length : addIdx.length;
         if (Array.isArray(remoteData.profitBrierHistory) && Array.isArray(P.profitBrierHistory)) {
@@ -6433,7 +6512,7 @@ window.dedupeLocalHistory = function() {
 // 兜底防护：无论云端 main/incr 怎么拼，落到本地前最后再过一遍，杜绝任何重复。
 function _dedupeDataset(data) {
     if (!data || !Array.isArray(data.history)) return data;
-    // v38.2：去重保留最后出现的记录（新录覆盖旧录），避免后录入的正确比分被先合并的旧记录吞掉
+    // v39.1：去重保留最后出现的记录（新录覆盖旧录），避免后录入的正确比分被先合并的旧记录吞掉
     var seen = {};
     var keepIdx = [];
     for (var _di = data.history.length - 1; _di >= 0; _di--) {
@@ -6938,6 +7017,19 @@ function createSnapshot(reason) {
         try { pushOlogToCloud(snap); } catch(e2) {}
     } catch(e) { console.warn("snapshot failed", e); try { showRecordResult(false, "快照生成失败", e.message); } catch(e2){} }
 }
+// v38.x: 操作完成后，把最后一条本机快照的 count 修正为"操作后的实际局数"
+// createSnapshot 时记录的是操作前局数（用于回滚恢复），这里改成操作后，方便日志列表和表格对得上
+function _finalizeLastSnapCount() {
+    try {
+        if (!_snapshots || _snapshots.length === 0) return;
+        var last = _snapshots[_snapshots.length - 1];
+        var newCount = P.history ? P.history.length : 0;
+        if (last.count === newCount) return; // 编辑等局数不变的操作不动
+        last.count = newCount;
+        saveSnapshots();
+        try { pushOlogToCloud(last); } catch(e) {} // 同步更新云端同一条记录
+    } catch(e) {}
+}
 function restoreSnapshot(idx) {
     var s = _snapshots[idx];
     return s ? restoreSnapshotObject(s) : false;
@@ -6964,7 +7056,9 @@ function restoreSnapshotObject(s) {
         P._syncEpoch = d._syncEpoch || 0;
         P._adminOverride = d._adminOverride || null;
         if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
-        // v38.2: 恢复快照后标记，下次上传跳过合并，直接覆盖云端
+        P._migrateRids(); // v39.0: 旧数据补rid
+        P._rebuildStatsFromPred(); // v39.0: 重建统计数组保证对齐
+        // v39.1: 恢复快照后标记，下次上传跳过合并，直接覆盖云端
         window._skipNextMerge = true;
         renderAll();
         debouncedSave();
@@ -7158,7 +7252,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                     if (Date.now() - _lastLocalChange < 30000) return;
                     if (!supabaseClient || !cloudOnline || _testMode) return;
                     if (_cloudSaving) return;
-                    if (!_autoSyncEnabled) return; // v38.2: 覆盖导入后禁止自动拉取合并，避免云端旧数据被append回来
+                    if (!_autoSyncEnabled) return; // v39.1: 覆盖导入后禁止自动拉取合并，避免云端旧数据被append回来
                     try {
                         // 只拉main的history长度，轻量
                         var r = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
@@ -7211,6 +7305,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                             if (_ds.profitBrierHistory) P.profitBrierHistory = _ds.profitBrierHistory;
                             if (_ds.investAccuracy) P.investAccuracy = _ds.investAccuracy;
                         } catch(e) {}
+                        P._migrateRids(); P._rebuildStatsFromPred(); // v39.0: 云合并后按rid对齐
                         P.maxStreakEver = calcMaxStreak(P.history);
                         _lastIncrSyncCount = P.history.length;
                         _lastFullSyncCount = P.history.length;
@@ -7235,7 +7330,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
 }
 async function cloudLoad(silent) {
     if (!supabaseClient) { if (!silent) updateCloudStatus('error', '未配置云端'); return false; }
-    // v38.2: 覆盖导入后 _autoSyncEnabled=false 期间，禁止任何拉取（含手动点按钮），
+    // v39.1: 覆盖导入后 _autoSyncEnabled=false 期间，禁止任何拉取（含手动点按钮），
     // 否则云端旧数据会把刚覆盖的新数据冲掉。等用户手动点「上传云端」后自动恢复。
     if (!_autoSyncEnabled) { if (!silent) updateCloudStatus('online', '⚠️ 覆盖导入后，请先点「☁️ 上传云端」再拉取，避免旧数据冲掉新导入的数据'); return false; }
     if (!silent) updateCloudStatus('syncing', '正在从云端拉取最新数据...');
@@ -7598,7 +7693,7 @@ async function cloudSave(manual, skipPrecheck) {
                 var adminNewer = cloudAdmin && (!localAdmin || cloudAdmin.at > localAdmin.at);
                 if ((cloudEpoch > (P._syncEpoch || 0)) || (!_isAdmin && adminNewer)) {
                     if (!_autoSyncEnabled) {
-                        // v38.2: 覆盖导入后等待手动上传——不拉云端数据覆盖本地（本地是权威新数据），
+                        // v39.1: 覆盖导入后等待手动上传——不拉云端数据覆盖本地（本地是权威新数据），
                         // 但保留云端较新的 epoch/adminOverride，否则本地上传会把管理员强制同步信号抹掉。
                         if (cloudEpoch > (P._syncEpoch || 0)) P._syncEpoch = cloudEpoch;
                         if (adminNewer && cloudAdmin) P._adminOverride = cloudAdmin;
@@ -7614,7 +7709,7 @@ async function cloudSave(manual, skipPrecheck) {
 
         // v37.6修复：无论手动还是自动上传，真正 upsert 前都先把云端 main 行读下来，
         // 合并掉本地缺失的记录，再用合并后的全集覆盖上去——杜绝对端刚传的记录被本端旧快照吞掉。
-        // v38.2修复：覆盖导入后 _autoSyncEnabled=false 期间，跳过合并，直接用本地新数据覆盖云端，
+        // v39.1修复：覆盖导入后 _autoSyncEnabled=false 期间，跳过合并，直接用本地新数据覆盖云端，
         // 否则会把云端旧数据按key全部append回来，覆盖变2倍。
         if (_autoSyncEnabled && !window._skipNextMerge) try {
             var _remoteForMerge = (typeof _cloudData !== 'undefined' && _cloudData) ? _cloudData : null;
@@ -7631,7 +7726,7 @@ async function cloudSave(manual, skipPrecheck) {
                 }
             }
         } catch(_me) { console.warn('[上传前合并] 读云端失败，继续按本地上传:', _me && _me.message); }
-        // v38.2: 删除后跳过合并标记，用完即清
+        // v39.1: 删除后跳过合并标记，用完即清
         window._skipNextMerge = false;
 
         // v35.8：纯全量同步——去掉incr行，每次都upsert完整main
@@ -7659,7 +7754,7 @@ async function cloudSave(manual, skipPrecheck) {
                 P.predHistory = _uploadSnapshot.predHistory;
                 P.accuracy = _uploadSnapshot.accuracy;
                 P.profitAccuracy = _uploadSnapshot.profitAccuracy;
-                // v38.2: 同步写回稀疏数组，否则上传的Brier/投资统计仍按旧长度错位
+                // v39.1: 同步写回稀疏数组，否则上传的Brier/投资统计仍按旧长度错位
                 if (Array.isArray(_uploadSnapshot.profitBrierHistory)) P.profitBrierHistory = _uploadSnapshot.profitBrierHistory;
                 if (Array.isArray(_uploadSnapshot.investAccuracy)) P.investAccuracy = _uploadSnapshot.investAccuracy;
             }
@@ -8714,7 +8809,12 @@ function doRestoreSnapshot(idx) {
     var s = (_viewSnaps && _viewSnaps[idx]) || _snapshots[idx];
     if (!s) return;
     var devTxt = s.device ? '（' + s.device + '）' : '';
-    if (!confirm('确定回滚到 ' + new Date(s.time).toLocaleString('zh-CN') + ' 的快照' + devTxt + '？\n\n操作：' + s.reason + '\n当时局数：' + s.count + '\n\n当前数据将被覆盖。')) return;
+    // v38.x: count 已改为"操作后局数"，回滚提示需从 data 解析操作前局数
+    var preCount = s.count;
+    if (s.data) {
+        try { var _d0 = JSON.parse(s.data); if (_d0.history && _d0.history.length !== undefined) preCount = _d0.history.length; } catch(e) {}
+    }
+    if (!confirm('确定回滚到 ' + new Date(s.time).toLocaleString('zh-CN') + ' 的快照' + devTxt + '？\n\n操作：' + s.reason + '\n回滚后局数：' + preCount + '\n\n当前数据将被覆盖。')) return;
     // v30.22：如果是云端日志且没有完整数据，先加载
     if (!s.data || s._hasFullData === false) {
         var statusMsg = document.getElementById('snapshotStatusMsg');
@@ -8956,6 +9056,7 @@ function restoreFromBackup(backupId) {
             if (data.bestBrier !== undefined && isFinite(data.bestBrier)) P._bestBrier = data.bestBrier;
             if (data.patternHitCache) P.patternHitCache = Object.assign({}, data.patternHitCache);
             if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
+            P._migrateRids(); P._rebuildStatsFromPred(); // v39.0
             P._syncEpoch = (P._syncEpoch || 0) + 1; // v26.4：恢复后备纪元+1，强制其他设备覆盖
             if (_isAdmin) P._adminOverride = { at: Date.now() }; // v26.4：管理员恢复，加权威标记
             normalizeWindowWeights();
@@ -9123,11 +9224,15 @@ function recalcPredSnapshots() {
                         if (winner) {
                             P.accuracy.push(winner === snap.guild); // v29修复：用push保持索引对齐
                             snap.isTie = false;
+                            snap.correct = (winner === snap.guild); // v39.0
                         } else {
                             snap.isTie = true; // 平局不记录accuracy
+                            snap.correct = null;
                         }
+                        snap.rid = P.history[histIdx]._rid; // v39.0: 关联history记录ID
                     } else {
                         snap.isTie = true;
+                        snap.correct = null;
                     }
                     P.predHistory.push(snap);
                 }
@@ -9597,10 +9702,11 @@ function renderCards() {
         var fb = document.getElementById('lastResultFeedback');
         if (P.predHistory && P.predHistory.length > 0 && P.accuracy && P.accuracy.length > 0) {
             var lastPred = P.predHistory[P.predHistory.length-1];
-            var lastCorrect = P.accuracy[P.accuracy.length-1];
             var actualWinner = getWinner(P.history[P.history.length-1]);
             if (lastPred && actualWinner) {
                 fb.style.display = 'block';
+                // v38.x: 不直接读 accuracy 最后一条（平局/删除/云同步会导致错位），实时比对
+                var lastCorrect = (lastPred.guild === actualWinner);
                 if (lastCorrect) {
                     fb.style.background = '#d4edda'; fb.style.color = '#155724';
                     fb.innerHTML = '✅ 上局预测<strong>'+lastPred.guild+'</strong> → 实际开<strong>'+actualWinner+'</strong>，命中！';
@@ -10448,9 +10554,10 @@ function updateStats() {
             var li = P.predHistory.length - 1;
             var lp = P.predHistory[li];
             if (lp) {
-                var lastHit = P.accuracy[P.accuracy.length-1];
                 var lastP = lp.probs ? (lp.probs[lp.guild]*100).toFixed(0)+'%' : '';
                 var actualW = P.history.length > 0 ? getWinner(P.history[P.history.length-1]) : null;
+                // v38.x: 实时比对，不读错位的 accuracy 数组
+                var lastHit = actualW ? (lp.guild === actualW) : false;
                 diag.unshift((lastHit?'✅':'❌')+' 上局预测 <b>'+lp.guild+'</b>('+lastP+')，实际 <b>'+(actualW||'?')+'</b> '+(lastHit?'命中':'未中'));
             }
         }
@@ -10666,7 +10773,7 @@ function applyTimeEdit(idx, field, value) {
         baseSlot = addHoursToTimeSlot(baseSlot, 1);
         P.history[i].timeSlot = baseSlot;
     }
-    // v38.2: 时间修改后标记，下次上传跳过合并，直接覆盖云端（避免旧时间数据又被同步回来）
+    // v39.1: 时间修改后标记，下次上传跳过合并，直接覆盖云端（避免旧时间数据又被同步回来）
     window._skipNextMerge = true;
     debouncedSave();
     renderHistory();
@@ -11998,7 +12105,7 @@ function confirmImport() {
     if (mode === 'replace') {
         try{ createSnapshot('覆盖导入前自动备份（'+(P.history?P.history.length:0)+'条）'); _lastImportSnapshotIdx = _snapshots.length - 1; }catch(e){}
         P.clearAll();
-        // v38.2修复：覆盖导入后禁用"上传前合并云端"，否则用户按提示点「上传云端」时，
+        // v39.1修复：覆盖导入后禁用"上传前合并云端"，否则用户按提示点「上传云端」时，
         // 会把云端旧数据按key全部append回来，导致覆盖变2倍。上传成功后由 setAutoSync(true) 恢复。
         setAutoSync(false);
     }
@@ -12455,7 +12562,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         showRecordResult(false, '录入失败', '2分和3分不能同时出现！请修改后重新录入。');
         return;
     }
-    // v38.2：录入前检测完全重复（同时段+同ABC+同收益+同投资）——避免两家并发录完全相同局时重复入库
+    // v39.1：录入前检测完全重复（同时段+同ABC+同收益+同投资）——避免两家并发录完全相同局时重复入库
     var _pendingSlot = getTimeSlot();
     var _pendingNow = new Date();
     var _pendingDate = _pendingNow.getFullYear() + '-' + String(_pendingNow.getMonth()+1).padStart(2,'0') + '-' + String(_pendingNow.getDate()).padStart(2,'0');
@@ -12505,6 +12612,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
         if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 100)); _hc.setAttribute('data-page', _tp); }
         try { renderAll(); } catch(e) { console.error('[录入]renderAll失败:', e.message); }
+        try { _finalizeLastSnapCount(); } catch(e) {} // v38.x: 修正快照count为录入后局数
         try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
         try { showLearnTip(); } catch(e) {}
@@ -12532,6 +12640,7 @@ document.getElementById('btnUndo').addEventListener('click',function(){
     if(!confirm('确认撤销上一局？\n\n上一局：A' + last.a + ' B' + last.b + ' C' + last.c + profitTxt + investTxt2 + '\n\n撤销后可在操作日志回滚。')) return;
     createSnapshot('撤销上一局');
     P.undoLast();renderAll();debouncedSave();
+    try { _finalizeLastSnapCount(); } catch(e) {} // v38.x: 修正快照count为撤销后局数
     showRecordResult(true, '撤销成功', '已撤销第' + (P.history.length + 1) + '局：A' + last.a + ' B' + last.b + ' C' + last.c);
     // v35.4：撤销后自动覆盖式同步云端incr——确保云端和本地一致
     try {
@@ -12573,6 +12682,7 @@ document.getElementById('btnClear').addEventListener('click',function(){
     P._syncEpoch = (P._syncEpoch || 0) + 1;
     setAutoSync(false); // v27.3：清空后禁用自动同步，避免误清空立刻污染云端
     renderAll();
+    try { _finalizeLastSnapCount(); } catch(e) {} // v38.x: 清空后局数=0
     P.saveLocal();
     // v27.3：清空后不自动同步，由用户确认后手动上传
     updateCloudStatus('online', '⚠️ 数据已清空（' + count + '条），确认无误后请点「上传云端」同步');
@@ -13599,7 +13709,7 @@ function saveEditRecord() {
     closeEditRecordModal();
     // v37.2: 只改原始数据，不重建预测历史，改完直接刷新+后台保存
     P.maxStreakEver = calcMaxStreak(P.history);
-    // v38.2: 编辑后标记，下次上传跳过合并，直接覆盖云端（避免旧数据又被同步回来）
+    // v39.1: 编辑后标记，下次上传跳过合并，直接覆盖云端（避免旧数据又被同步回来）
     window._skipNextMerge = true;
     renderAll();
     debouncedSave();
@@ -13611,14 +13721,22 @@ document.addEventListener('click', function(e) {
         var i = parseInt(e.target.getAttribute('data-idx'));
         if (!confirm('删除第' + (i+1) + '局？')) return;
         createSnapshot('删除第' + (i+1) + '局');
+        var deletedRec = P.history[i];
         P.history.splice(i, 1);
-        // v37.3: 快速删除：只删对应预测记录，不重建全部预测
-        if (i > 0 && P.predHistory.length >= i) P.predHistory.splice(i - 1, 1);
-        if (i > 0 && P.accuracy.length >= i) P.accuracy.splice(i - 1, 1);
+        // v39.0: 按rid找predHistory对应条目删除（不再按局号splice，平局/中间删局不再错位）
+        if (deletedRec && deletedRec._rid) {
+            for (var j = P.predHistory.length - 1; j >= 0; j--) {
+                if (P.predHistory[j].rid === deletedRec._rid) { P.predHistory.splice(j, 1); break; }
+            }
+        } else if (i > 0 && P.predHistory.length >= i) {
+            P.predHistory.splice(i - 1, 1); // 旧数据回退
+        }
+        P._rebuildStatsFromPred(); // v39.0: 重建统计数组，自动对齐
         P.maxStreakEver = calcMaxStreak(P.history);
-        // v38.2: 删除后标记，下次上传跳过合并，直接覆盖云端（避免删除的记录又被同步回来）
+        // v39.1: 删除后标记，下次上传跳过合并，直接覆盖云端（避免删除的记录又被同步回来）
         window._skipNextMerge = true;
         renderAll(); debouncedSave();
+        try { _finalizeLastSnapCount(); } catch(e) {} // v38.x: 修正快照count为删除后局数
     } else if (e.target.classList.contains('time-edit-cell')) {
         var idx = parseInt(e.target.getAttribute('data-idx'));
         var field = e.target.getAttribute('data-field');
