@@ -1,13 +1,9 @@
-
-
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v39.4 · AI自适应版</title>
+<title>商会三竞预测系统 v39.6 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -605,8 +601,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.4</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.4</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 记录ID对齐防错位</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.6</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.6</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 操作日志局数跳号修复 · 云端上传体积瘦身</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -993,7 +989,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v39.4';
+  var APP_VERSION = 'v39.6';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1234,6 +1230,8 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     }
         _currentLoginType = 'admin';
         try { localStorage.setItem(LOGIN_TYPE_KEY, 'admin'); } catch(e) {}
+        // v39.6：管理员登录成功即自动进入管理员模式，不再要求点按钮二次输密码
+        try { _enterAdminMode(); } catch(e) {}
         hide();
         return;
       }
@@ -1476,6 +1474,14 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     _adminFromSystem = true;
     // 显示遮罩层，切换到管理员视图
     document.getElementById('accessOverlay').style.display = 'flex';
+    // v39.6：已是管理员模式（管理员登录态）直接进设备管理面板，不再要二次密码
+    if (typeof _isAdmin !== 'undefined' && _isAdmin) {
+      if (!loadSbCfg()) { showRecordResult(false, '提示', '请先配置云同步'); return; }
+      document.getElementById('adminLoginArea').style.display = 'none';
+      document.getElementById('adminPanelArea').style.display = 'block';
+      loadAdmin();
+      return;
+    }
     document.getElementById('adminLoginArea').style.display = 'block';
     document.getElementById('adminPanelArea').style.display = 'none';
     document.getElementById('adminPasswordInput').value = '';
@@ -6937,6 +6943,8 @@ function syncOlogToCloud() {
 function clearAllSnapshots() {
     var total = (_snapshots ? _snapshots.length : 0) + (_cloudSnaps ? _cloudSnaps.length : 0);
     if (!confirm('确定清空全部操作日志（共 ' + total + ' 条）？\n\n包括本机和其他设备的回滚快照，清空后不可恢复！')) return;
+    // v39.6: 清掉所有本机快照挂着的延迟push定时器，避免清空后800ms内又把刚删的推回云端
+    (_snapshots||[]).forEach(function(x){ if (x._pendingPushTimer) { clearTimeout(x._pendingPushTimer); x._pendingPushTimer = null; } });
     _snapshots = []; _cloudSnaps = [];
     try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
@@ -6952,6 +6960,12 @@ function deleteSnapshot(idx) {
     if (!s) return;
     if (!confirm('删除这条日志？\n' + new Date(s.time).toLocaleString() + ' ' + s.reason + (s.device ? '（' + s.device + '）' : ''))) return;
     var key = s.time + '|' + s.reason + '|' + (s.device||'');
+    // v39.6: 删除前清掉这条快照可能还挂着的延迟push定时器，避免800ms后又被push回云端
+    (_snapshots||[]).forEach(function(x){
+        if ((x.time+'|'+x.reason+'|'+(x.device||'')) === key && x._pendingPushTimer) {
+            clearTimeout(x._pendingPushTimer); x._pendingPushTimer = null;
+        }
+    });
     _snapshots = (_snapshots||[]).filter(function(x){ return (x.time+'|'+x.reason+'|'+(x.device||'')) !== key; });
     _cloudSnaps = (_cloudSnaps||[]).filter(function(x){ return (x.time+'|'+x.reason+'|'+(x.device||'')) !== key; });
     try { saveSnapshots(); } catch(e){}
@@ -6971,6 +6985,12 @@ function deleteSnapshotsByDevice() {
     var n2 = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') === dev; }).length;
     if (!confirm('删除设备「' + dev + '」的全部操作日志（本机 ' + n1 + ' 条 + 云端 ' + n2 + ' 条）？')) return;
     var removed = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') === dev; });
+    // v39.6: 清掉这些快照挂着的延迟push定时器
+    (_snapshots||[]).forEach(function(x){
+        if ((x.device||'本机') === dev && x._pendingPushTimer) {
+            clearTimeout(x._pendingPushTimer); x._pendingPushTimer = null;
+        }
+    });
     _snapshots = (_snapshots||[]).filter(function(s){ return (s.device||'本机') !== dev; });
     _cloudSnaps = (_cloudSnaps||[]).filter(function(s){ return (s.device||'本机') !== dev; });
     try { saveSnapshots(); } catch(e){}
@@ -7009,20 +7029,38 @@ function createSnapshot(reason) {
         _snapshots.push(snap);
         if (_snapshots.length > 200) _snapshots = _snapshots.slice(-200);
         saveSnapshots();
-        try { pushOlogToCloud(snap); } catch(e2) {}
+        // v39.6修复：延迟800ms再push，让_finalizeLastSnapCount有机会先把count改成操作后值，
+        // 避免"createSnapshot push旧count"与"_finalize push新count"两次upsert同一行发生网络竞态，
+        // 导致云端最终落到旧count（日志里出现两个2902、缺2903）。
+        // _finalize会clearTimeout并立即push正确count；800ms内没被finalize的（如异常路径）也会兜底push一次。
+        snap._pendingPushTimer = setTimeout(function() {
+            snap._pendingPushTimer = null;
+            // v39.6兜底：如果这条快照在800ms内已被用户删除/清空，就不再push，否则删了会被重新推回云端
+            var stillExists = (_snapshots||[]).indexOf(snap) >= 0;
+            if (!stillExists) return;
+            try { pushOlogToCloud(snap); } catch(e2) {}
+        }, 800);
     } catch(e) { console.warn("snapshot failed", e); try { showRecordResult(false, "快照生成失败", e.message); } catch(e2){} }
 }
 // v38.x: 操作完成后，把最后一条本机快照的 count 修正为"操作后的实际局数"
 // createSnapshot 时记录的是操作前局数（用于回滚恢复），这里改成操作后，方便日志列表和表格对得上
+// v39.6修复：取消createSnapshot安排的延迟push，立即用正确count push一次（消除两次upsert竞态）
 function _finalizeLastSnapCount() {
     try {
         if (!_snapshots || _snapshots.length === 0) return;
         var last = _snapshots[_snapshots.length - 1];
         var newCount = P.history ? P.history.length : 0;
-        if (last.count === newCount) return; // 编辑等局数不变的操作不动
-        last.count = newCount;
-        saveSnapshots();
-        try { pushOlogToCloud(last); } catch(e) {} // 同步更新云端同一条记录
+        // 取消createSnapshot的延迟push，避免旧count后到覆盖本次新count
+        if (last._pendingPushTimer) {
+            clearTimeout(last._pendingPushTimer);
+            last._pendingPushTimer = null;
+        }
+        if (last.count !== newCount) {
+            last.count = newCount;
+            saveSnapshots();
+        }
+        // v39.6: 即使count没变（如编辑局不改变局数），也要push一次——延迟push已被取消，不push这条日志就丢了
+        try { pushOlogToCloud(last); } catch(e) {}
     } catch(e) {}
 }
 function restoreSnapshot(idx) {
@@ -7105,32 +7143,41 @@ function updateCloudStatus(status, info) {
     cloudOnline = (status === 'online');
 }
 // v26.4：管理员模式切换
+// v39.6：管理员登录后自动进入管理员模式——统一设置 _isAdmin 与 UI，不再要求二次输密码
+function _enterAdminMode() {
+    _isAdmin = true;
+    try { localStorage.setItem(ADMIN_MODE_KEY, '1'); } catch(e) {}
+    var btn = document.getElementById('adminModeBtn');
+    if (btn) { btn.textContent = '👑 管理员模式✅'; btn.style.background = '#4caf50'; }
+    var sb = document.getElementById('snapshotBtn'); if (sb) sb.style.display = '';
+    var ob = document.getElementById('onlineBtn'); if (ob) ob.style.display = '';
+    var gpb = document.getElementById('ghPublishBtn'); if (gpb) gpb.style.display = '';
+    var ghb = document.getElementById('ghHistoryBtn'); if (ghb) ghb.style.display = '';
+    var fs = document.getElementById('forceSyncBtn'); if (fs) fs.style.display = '';
+}
+function _exitAdminMode() {
+    _isAdmin = false;
+    try { localStorage.removeItem(ADMIN_MODE_KEY); } catch(e) {}
+    var btn = document.getElementById('adminModeBtn');
+    if (btn) { btn.textContent = '👑 管理员模式'; btn.style.background = '#795548'; }
+    var sb = document.getElementById('snapshotBtn'); if (sb) sb.style.display = 'none';
+    var ob = document.getElementById('onlineBtn'); if (ob) ob.style.display = 'none';
+    var gpb = document.getElementById('ghPublishBtn'); if (gpb) gpb.style.display = 'none';
+    var ghb = document.getElementById('ghHistoryBtn'); if (ghb) ghb.style.display = 'none';
+    var fs = document.getElementById('forceSyncBtn'); if (fs) fs.style.display = 'none';
+}
 function toggleAdminMode() {
     if (_isAdmin) {
-        _isAdmin = false;
-        try { localStorage.removeItem(ADMIN_MODE_KEY); } catch(e) {}
-        var btn = document.getElementById('adminModeBtn');
-        if (btn) { btn.textContent = '👑 管理员模式'; btn.style.background = '#795548'; }
-        var sb1 = document.getElementById('snapshotBtn'); if (sb1) sb1.style.display = 'none';
-        var ob1 = document.getElementById('onlineBtn'); if (ob1) ob1.style.display = 'none';
-        var gpb1 = document.getElementById('ghPublishBtn'); if (gpb1) gpb1.style.display = 'none';
-        var ghb1 = document.getElementById('ghHistoryBtn'); if (ghb1) ghb1.style.display = 'none';
-        var fs1 = document.getElementById('forceSyncBtn'); if (fs1) fs1.style.display = 'none';
-        showRecordResult(true, '成功', '已退出管理员模式');
+        // v39.6：管理员登录态下退出管理员模式不需要再输密码，直接退出（刷新后管理员登录会自动恢复）
+        _exitAdminMode();
+        showRecordResult(true, '成功', '已临时退出管理员模式（刷新页面后自动恢复）');
         return;
     }
+    // 非管理员登录态：进入管理员模式仍需输密码
     var pwd = prompt('请输入管理员密码：');
     if (pwd === null) return;
     if (!checkAdminPwd(pwd)) { showRecordResult(false, '提示', '密码错误'); return; }
-    _isAdmin = true;
-    try { localStorage.setItem(ADMIN_MODE_KEY, '1'); } catch(e) {}
-    var btn2 = document.getElementById('adminModeBtn');
-    if (btn2) { btn2.textContent = '👑 管理员模式✅'; btn2.style.background = '#4caf50'; }
-    var sb2 = document.getElementById('snapshotBtn'); if (sb2) sb2.style.display = '';
-    var ob2 = document.getElementById('onlineBtn'); if (ob2) ob2.style.display = '';
-    var gpb2 = document.getElementById('ghPublishBtn'); if (gpb2) gpb2.style.display = '';
-    var ghb2 = document.getElementById('ghHistoryBtn'); if (ghb2) ghb2.style.display = '';
-    var fs2 = document.getElementById('forceSyncBtn'); if (fs2) fs2.style.display = '';
+    _enterAdminMode();
     showRecordResult(true, '成功', '已进入管理员模式！\n您上传或恢复的数据将强制覆盖其他所有设备。');
 }
 function initCloud() {
@@ -7145,19 +7192,8 @@ function initCloud() {
     }
     if (configPanel) configPanel.style.display = 'none';
     if (bar) bar.style.display = 'flex';
-    // v26.4：恢复管理员模式状态
-    try {
-        if (localStorage.getItem(ADMIN_MODE_KEY) === '1') {
-            _isAdmin = true;
-            var amb = document.getElementById('adminModeBtn');
-            if (amb) { amb.textContent = '👑 管理员模式✅'; amb.style.background = '#4caf50'; }
-            var sb3 = document.getElementById('snapshotBtn'); if (sb3) sb3.style.display = '';
-            var ob3 = document.getElementById('onlineBtn'); if (ob3) ob3.style.display = '';
-            var gpb3 = document.getElementById('ghPublishBtn'); if (gpb3) gpb3.style.display = '';
-            var ghb3 = document.getElementById('ghHistoryBtn'); if (ghb3) ghb3.style.display = '';
-            var fs3 = document.getElementById('forceSyncBtn'); if (fs3) fs3.style.display = '';
-        }
-    } catch(e) {}
+    // v39.6：管理员模式自动进入的判断移到 _currentLoginType 恢复之后（见下方 supabaseClient 初始化块内），
+    // 否则此时 _currentLoginType 还是初始 'user'，判断永远 false。
     // 绑定管理员模式按钮
     var adminBtn = document.getElementById('adminModeBtn');
     if (adminBtn && !adminBtn._bound) { adminBtn._bound = true; adminBtn.onclick = toggleAdminMode; }
@@ -7193,6 +7229,13 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
             try {
                 var _savedLoginType = localStorage.getItem(LOGIN_TYPE_KEY);
                 if (_savedLoginType) _currentLoginType = _savedLoginType;
+            } catch(e) {}
+            // v39.6：此时 _currentLoginType 已从 localStorage 恢复，管理员登录态自动进管理员模式
+            // （不管用户上次是否临时退出；ADMIN_MODE_KEY=1 的老逻辑也保留兼容）
+            try {
+                if (_currentLoginType === 'admin' || localStorage.getItem(ADMIN_MODE_KEY) === '1') {
+                    _enterAdminMode();
+                }
             } catch(e) {}
             var _testBtn = document.getElementById('testModeBtn');
             if (_currentLoginType === 'test') {
@@ -7750,9 +7793,52 @@ async function cloudSave(manual, skipPrecheck) {
             }
         } catch(e) { console.warn('[上传前兜底去重] 失败:', e.message); }
         var _cloudPredHist = P.predHistory || [];
+        // v39.6：上传瘦身——本地P.predHistory保留全字段用于模型命中率统计(ph.mp驱动自动降权)和历史表排名快照(ph.sorted)，
+        // 云端只裁掉"纯展示、回看不读、已算成标量"的子对象：
+        //   - profitPrediction/investPrediction 的 probs 三向概率 + confidence（Brier已存为ph.profitBrier标量，历史表只显示predicted）
+        //   - reflectionLog 每条的 windowWeights 快照（全局权重 P.windowWeights 已单独上传）
+        // 注意：mp/sorted/rank/probs/correct/rid 等全部保留，模型面板、历史表、回测、rebuild均不受影响。
+        var _slimPredHist = [];
+        for (var _spi = 0; _spi < _cloudPredHist.length; _spi++) {
+            var _ph = _cloudPredHist[_spi];
+            if (!_ph) { _slimPredHist.push(null); continue; }
+            var _s = {
+                guild: _ph.guild,
+                probs: _ph.probs,
+                rank: _ph.rank,
+                sorted: _ph.sorted,
+                source: _ph.source,
+                pattern: _ph.pattern,
+                mp: _ph.mp,
+                rid: _ph.rid,
+                correct: _ph.correct,
+                isTie: _ph.isTie,
+                profitCorrect: _ph.profitCorrect,
+                profitBrier: _ph.profitBrier,
+                investCorrect: _ph.investCorrect
+            };
+            // 收益/投资预测只保留 predicted（历史表列要用），裁掉 probs 三向数组与 confidence
+            if (_ph.profitPrediction && _ph.profitPrediction.predicted) {
+                _s.profitPrediction = { predicted: _ph.profitPrediction.predicted };
+            }
+            if (_ph.investPrediction && _ph.investPrediction.predicted) {
+                _s.investPrediction = { predicted: _ph.investPrediction.predicted };
+            }
+            _slimPredHist.push(_s);
+        }
+        // v39.6：反思日志裁掉每条的 windowWeights 快照（全局权重 P.windowWeights 已单独上传）
+        var _slimReflection = [];
+        var _rawRefl = (P.reflectionLog || []).slice(-200);
+        for (var _sri = 0; _sri < _rawRefl.length; _sri++) {
+            var _re = _rawRefl[_sri];
+            if (!_re) { _slimReflection.push(_re); continue; }
+            var _sr = {};
+            for (var _rk in _re) { if (_rk !== 'windowWeights') _sr[_rk] = _re[_rk]; }
+            _slimReflection.push(_sr);
+        }
         var saveData = {
             history: P.history,
-            predHistory: _cloudPredHist,
+            predHistory: _slimPredHist,
             accuracy: P.accuracy || [],
             profitAccuracy: P.profitAccuracy || [],
             // v37.0修复: 补全遗漏的稀疏数组上传（之前云同步不保存收益Brier和投资命中率数据）
@@ -7762,7 +7848,7 @@ async function cloudSave(manual, skipPrecheck) {
             modelPerf: P.modelPerf,
             windowPerf: P.windowPerf,
             learnIterations: P.learnIterations,
-            reflectionLog: (P.reflectionLog || []).slice(-200),
+            reflectionLog: _slimReflection,
             bestBrier: P._bestBrier || null,
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
@@ -8175,6 +8261,15 @@ function bindCloudEvents() {
 // ========== 备份/恢复功能（需管理员密码） ==========
 // 备份密码与管理员模式共用 checkAdminPwd()，不再单独存明文
 function openBackupModal() {
+    // v39.6：管理员模式下打开备份弹窗免密，直接进入操作区；非管理员仍需输密码
+    if (_isAdmin) {
+        document.getElementById("backupPwdArea").style.display = "none";
+        document.getElementById("backupActionArea").style.display = "block";
+        document.getElementById("backupStatusMsg").textContent = "";
+        document.getElementById("backupModalOverlay").classList.add("open");
+        loadLocalBackupList();
+        return;
+    }
     // 本地备份不需要云端，直接打开；云端备份仍需密码验证
     document.getElementById("backupPwdArea").style.display = "block";
     document.getElementById("backupActionArea").style.display = "none";
@@ -8823,6 +8918,7 @@ function doRestoreSnapshot(idx) {
 function _doRestoreActual(s) {
     createSnapshot('回滚前自动备份');
     if (restoreSnapshotObject(s)) {
+        try { _finalizeLastSnapCount(); } catch(e) {} // v39.6: 回滚后修正count为回滚后局数
         document.getElementById('snapshotStatusMsg').textContent = '✅ 回滚成功！';
         renderSnapshotList();
         setTimeout(closeSnapshotModal, 800);
@@ -9011,6 +9107,7 @@ function restoreLocalBackup(idx) {
         P.saveLocal();
         renderAll();
         try { renderHistory(); } catch(e) {}
+        try { _finalizeLastSnapCount(); } catch(e) {} // v39.6: 恢复备份后修正count
         alert("✅ 本地备份已恢复（" + P.history.length + " 局）");
     } catch(e) {
         alert("恢复失败：" + e.message);
