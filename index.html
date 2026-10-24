@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v39.6 · AI自适应版</title>
+<title>商会三竞预测系统 v39.8 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -601,8 +602,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.6</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.6</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 操作日志局数跳号修复 · 云端上传体积瘦身</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.8</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 重构后数据翻倍修复</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -989,7 +990,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v39.6';
+  var APP_VERSION = 'v39.8';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -5600,12 +5601,16 @@ if(curBrier > 0.3){
         if (edge>=0.05) return {action:'caution', label:'⚠️ 可小注/观望', reason:'优势不大，校准命中'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
         return {action:'skip', label:'⏭️ 建议跳过本局', reason:'无概率优势，校准命中仅'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
     }
-    addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC, investWinner) {
+    addRecord(a, b, c, timeSlot, profitWinner, profitA, profitB, profitC, investWinner, origDate) {
         var rec = {a: a, b: b, c: c};
         rec._rid = _genRid(); // v39.0: 每局唯一ID，删除/合并按此对齐
         rec.timeSlot = timeSlot || getTimeSlot();
+        // v39.8修复：重构/重算/导入历史时必须保留原始日期。
+        // 原实现无条件把 date 写成"今天"，导致 _recKey(=date|timeSlot|abc|profit|invest)
+        // 与云端旧记录对不上，轮询合并把同局记录当新记录 append，数据每重构一次翻一倍。
         var _nowDate = new Date();
-        rec.date = _nowDate.getFullYear() + '-' + String(_nowDate.getMonth()+1).padStart(2,'0') + '-' + String(_nowDate.getDate()).padStart(2,'0'); // v36.1: 改用本地日期，凌晨录入不再错一天
+        var _todayStr = _nowDate.getFullYear() + '-' + String(_nowDate.getMonth()+1).padStart(2,'0') + '-' + String(_nowDate.getDate()).padStart(2,'0'); // v36.1: 改用本地日期，凌晨录入不再错一天
+        rec.date = (origDate && /^\d{4}-\d{2}-\d{2}$/.test(String(origDate))) ? String(origDate) : _todayStr;
         // v25.5: 收益字段（大/中/小），旧数据兼容默认为空
         rec.profitWinner = profitWinner || '';
         rec.profitA = profitA || '';
@@ -6283,7 +6288,7 @@ if(curBrier > 0.3){
             var end = Math.min(idx + batchSize, hist.length);
             for (; idx < end; idx++) {
                 var h = hist[idx];
-                rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner);
+                rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date，避免_recKey与云端错位导致云合并翻倍
             }
             if (onProgress) onProgress(idx, hist.length);
             if (idx < hist.length) {
@@ -6508,6 +6513,55 @@ window.dedupeLocalHistory = function() {
     debouncedSave();
     console.log('[去重] 已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条');
     alert('已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条。\n\n请点「上传云端」按钮，把干净数据覆盖到云端。');
+};
+// v39.8：清理"重构污染翻倍"产生的存量重复。
+// 成因：addRecord 旧版把 date 强制写成当天，重构/重算后本地记录 date=操作日，
+// 与云端原始比赛日记录 _recKey(含date) 对不上，被轮询合并当新记录 append 一倍。
+// 判重时【不看 date】，改用 timeSlot|a|b|c|profit|invest 分组；组内多条时保留 date 最早的那条（=真实比赛日原始记录），
+// 删掉 date 被污染成操作日的重复副本。用法：控制台执行 dedupeRebuildDup()，完成后点「上传云端」覆盖。
+window.dedupeRebuildDup = function() {
+    if (!P || !Array.isArray(P.history) || P.history.length === 0) { alert('history 不可用或为空'); return; }
+    try { createSnapshot('重构污染清理前自动备份（' + P.history.length + '条）'); } catch (e) {}
+    var groups = {};
+    P.history.forEach(function(r, i) {
+        var k = (r.timeSlot || '') + '|' + (r.a ?? '') + '|' + (r.b ?? '') + '|' + (r.c ?? '') + '|' + (r.profitWinner || '') + '|' + (r.investWinner || '');
+        (groups[k] = groups[k] || []).push(i);
+    });
+    var keepIdx = [];
+    var removed = 0;
+    Object.keys(groups).forEach(function(k) {
+        var idxs = groups[k];
+        if (idxs.length === 1) { keepIdx.push(idxs[0]); return; }
+        // 组内多条：保留 date 最早的那条（YYYY-MM-DD 字符串可比；空串最小=早期无日期原始数据，优先保留）
+        var best = idxs[0];
+        idxs.forEach(function(i) {
+            var di = String(P.history[i].date || '');
+            var db = String(P.history[best].date || '');
+            if (di < db) best = i;
+        });
+        keepIdx.push(best);
+        removed += idxs.length - 1;
+    });
+    keepIdx.sort(function(a, b) { return a - b; });
+    var before = P.history.length;
+    P.history = keepIdx.map(function(i) { return P.history[i]; });
+    // predHistory 按 _rid 对齐过滤，避免预测快照错位
+    var keepRids = {};
+    P.history.forEach(function(h) { if (h._rid) keepRids[h._rid] = 1; });
+    var newPred = [];
+    (P.predHistory || []).forEach(function(ph) {
+        if (ph && ph.rid) { if (keepRids[ph.rid]) newPred.push(ph); }
+        else newPred.push(ph); // 旧数据无 rid，保守保留
+    });
+    P.predHistory = newPred;
+    try { P._rebuildStatsFromPred(); } catch (e) {}
+    try { P.maxStreakEver = calcMaxStreak(P.history); } catch (e) {}
+    _lastFullSyncCount = 0; _lastIncrSyncCount = 0;
+    try { _saveSyncCounts(); } catch (e) {}
+    renderAll();
+    try { debouncedSave(); } catch (e) {}
+    console.log('[重构污染清理] 原 ' + before + ' 条 → 剩余 ' + P.history.length + ' 条，删除重复 ' + removed + ' 条');
+    alert('重构污染清理完成：\n原 ' + before + ' 条 → 剩余 ' + P.history.length + ' 条（删除重复 ' + removed + ' 条）。\n\n已自动备份快照。请点「☁️ 上传云端」把干净数据覆盖到云端。');
 };
 // v35.6：对一整份数据集（history/predHistory/accuracy/profitAccuracy）做全量去重
 // 兜底防护：无论云端 main/incr 怎么拼，落到本地前最后再过一遍，杜绝任何重复。
@@ -9287,7 +9341,7 @@ function recalcPredSnapshots() {
                 } : null
             } : null);
             // v37.3修复: 补传第9个参数investWinner（之前漏传，导致重建后所有记录无投资数据）
-            recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner);
+            recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date
         }
         var pct = Math.round((i / total) * 100);
         document.getElementById('recalcBar').style.width = pct + '%';
@@ -11708,7 +11762,7 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
                 var cbEnd = Math.min(cbDone + cbBatch, cbTotal);
                 for (var ri = cbDone; ri < cbEnd; ri++) {
                     var r = recs[ri];
-                    cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner);
+                    cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.8: 传原始date
                 }
                 cbDone = cbEnd;
                 if (cbDone < cbTotal) { setTimeout(cbNext, 0); }
@@ -11846,7 +11900,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?cleanWinValue(parts[colMap.PW]):'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}rec.investWinner=colMap.IW!==undefined?cleanWinValue(parts[colMap.IW]):'';recs.push(rec);}}
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
-                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.profitAccuracy=cumCSV.profitAccuracy?cumCSV.profitAccuracy.slice():[];P.profitBrierHistory=cumCSV.profitBrierHistory?cumCSV.profitBrierHistory.slice():[];P.investAccuracy=cumCSV.investAccuracy?cumCSV.investAccuracy.slice():[];P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
+                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner,recs[ri].date);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.profitAccuracy=cumCSV.profitAccuracy?cumCSV.profitAccuracy.slice():[];P.profitBrierHistory=cumCSV.profitBrierHistory?cumCSV.profitBrierHistory.slice():[];P.investAccuracy=cumCSV.investAccuracy?cumCSV.investAccuracy.slice():[];P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
         };
         readerCSV.readAsText(file);this.value='';
@@ -11891,7 +11945,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 var xlsBatch=100,xlsTotal=recs.length,xlsDone=0;
                 function xlsNext(){
                     var end=Math.min(xlsDone+xlsBatch,xlsTotal);
-                    for(var ri=xlsDone;ri<end;ri++){cumP.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner);}
+                    for(var ri=xlsDone;ri<end;ri++){cumP.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner,recs[ri].date);}
                     xlsDone=end;
                     if(xlsDone<xlsTotal){setTimeout(xlsNext,0);}
                     else{
@@ -12252,7 +12306,7 @@ function confirmImport() {
                     incInvalid++;
                     continue;
                 }
-                P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner);
+                P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.8: 传原始date
             }
             incDone = incEnd;
             var pct = Math.round(incDone / incTotal * 100);
@@ -12304,7 +12358,7 @@ function confirmImport() {
         var endIdx = Math.min(startIdx + batchSize, hist.length);
         for (var ri = startIdx; ri < endIdx; ri++) {
             var r = hist[ri];
-            cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner);
+            cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.8: 传原始date
         }
         currentBatch++;
         var pct = Math.round((currentBatch / totalBatches) * 100);
@@ -12574,7 +12628,7 @@ function importRecords(recs,replace,st){
             _importErrors.push({ row: ri+1, a:r.a, b:r.b, c:r.c, errors: errs });
             continue; // 跳过错误行
         }
-        cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC,r.investWinner);
+        cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC,r.investWinner,r.date); // v39.8: 传原始date
     }
     P.history=cumIR.history.slice();
     P.predHistory=cumIR.predHistory.slice();
@@ -13632,7 +13686,7 @@ function rebuildPredHistoryFrom(startIdx) {
     // 逐条addRecord所有记录，让rebuildP内部完成全部预测和学习
     for (var i = 0; i < P.history.length; i++) {
         var h = P.history[i];
-        rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner);
+        rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date，避免_recKey与云端错位导致云合并翻倍
     }
     
     // 从 rebuildP.predHistory[startIdx] 开始追加（前 startIdx 条和原来一致，跳过）
@@ -13727,7 +13781,7 @@ function rebuildPredHistoryFromAsync(startIdx, onComplete) {
         for (var i = done; i < end; i++) {
             rebuildP._skipPred = (i <= skipPredUntil);
             var h = P.history[i];
-            rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner);
+            rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date，避免_recKey与云端错位导致云合并翻倍
         }
         done = end;
         // 进度只算真正需要重算的部分
