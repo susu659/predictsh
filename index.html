@@ -6,7 +6,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v40.4 · AI自适应版</title>
+<title>商会三竞预测系统 v40.5 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -608,8 +608,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.4</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.4</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.5</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.5</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -999,7 +999,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v40.4';
+  var APP_VERSION = 'v40.5';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -8313,20 +8313,29 @@ function bindCloudEvents() {
             if (!f) return;
             var btn = ghPubBtn;
             btn.disabled = true; var orig = btn.textContent; btn.textContent = '上传中…';
+            // v40.5：按所选文件名发布到同名远程文件（选 index.html 发 index.html，选 draw.html 发 draw.html）
+            var targetPath = f.name;
+            if (!/^[\w\-.]+\.(html|htm)$/i.test(targetPath)) {
+                showRecordResult(false, '发布失败', '文件名不合法，仅支持根目录下的 .html/.htm 文件：' + targetPath);
+                btn.disabled = false; btn.textContent = orig; return;
+            }
             try {
                 var text = await f.text();
 
-                // ===== 自动版本号：v31.3 -> v31.4（小版本+1，补丁号清零） =====
+                // ===== 版本号：仅含版本号的首页才提示升级；抽签系统等无版本号文件直接发布 =====
                 var vm = text.match(/v(\d+)\.(\d+)(?:\.(\d+))?/);
-                var oldVer = vm ? vm[0] : 'v1.0';
-                var vMaj = vm ? parseInt(vm[1], 10) : 1;
-                var vMin = vm ? parseInt(vm[2], 10) : 0;
-                var newVer = 'v' + vMaj + '.' + (vMin + 1);
-                var inputVer = prompt('新版本号（当前 ' + oldVer + '，默认小版本+1）：', newVer);
-                if (inputVer === null) { btn.disabled = false; btn.textContent = orig; return; }
-                inputVer = inputVer.trim() || newVer;
-                // 把文件内容里的旧版本号替换成新的
-                text = text.split(oldVer).join(inputVer);
+                var oldVer = vm ? vm[0] : null;
+                var inputVer = null;
+                if (vm) {
+                    var vMaj = parseInt(vm[1], 10);
+                    var vMin = parseInt(vm[2], 10);
+                    var newVer = 'v' + vMaj + '.' + (vMin + 1);
+                    var rawVer = prompt('新版本号（当前 ' + oldVer + '，默认小版本+1）：', newVer);
+                    if (rawVer === null) { btn.disabled = false; btn.textContent = orig; return; }
+                    inputVer = rawVer.trim() || newVer;
+                    // 把文件内容里的旧版本号替换成新的
+                    text = text.split(oldVer).join(inputVer);
+                }
 
                 // base64 编码（兼容中文）—— v37.0: 替换废弃的unescape写法
                 var _utf8Bytes = new TextEncoder().encode(text);
@@ -8335,7 +8344,7 @@ function bindCloudEvents() {
                 var b64 = btoa(_binary);
                 // 1) 取远程当前文件 sha（不存在则新建）
                 btn.textContent = '读取远程…';
-                var getRes = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path + '?ref=' + ghCfg.branch);
+                var getRes = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + encodeURIComponent(targetPath) + '?ref=' + ghCfg.branch);
                 var sha = null;
                 if (getRes.status === 200) {
                     var cur = await getRes.json();
@@ -8346,7 +8355,7 @@ function bindCloudEvents() {
                 }
                 // 2) PUT 覆盖（失败自动重试2次，间隔3秒）
                 var body = {
-                    message: 'release ' + inputVer + ' @ ' + new Date().toLocaleString('zh-CN'),
+                    message: (inputVer ? ('release ' + inputVer) : ('upload ' + targetPath)) + ' @ ' + new Date().toLocaleString('zh-CN'),
                     content: b64,
                     branch: ghCfg.branch
                 };
@@ -8355,7 +8364,7 @@ function bindCloudEvents() {
                 var putRes = null, putErr = null;
                 for (var attempt = 1; attempt <= 3; attempt++) {
                     btn.textContent = '上传中…（第' + attempt + '次）';
-                    putRes = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + ghCfg.path, 'PUT', body);
+                    putRes = await ghApi('/repos/' + ghCfg.owner + '/' + ghCfg.repo + '/contents/' + encodeURIComponent(targetPath), 'PUT', body);
                     if (putRes.ok) { putErr = null; break; }
                     putErr = await putRes.json().catch(function(){ return {message: 'HTTP ' + putRes.status}; });
                     // 401/403/404 不重试（配置错了）
@@ -8365,9 +8374,8 @@ function bindCloudEvents() {
 
                 if (putRes.ok) {
                     showRecordResult(true, '发布成功',
-                        '已推送到 GitHub！\n\n版本：' + inputVer + '（从 ' + oldVer + ' 升级）\n' +
-                        '文件：' + f.name + '（' + (f.size/1024).toFixed(0) + ' KB）\n' +
-                        'Pages: https://' + ghCfg.owner + '.github.io/' + ghCfg.repo + '/\n\n其他设备刷新即可看到新版（Pages 有1~2分钟缓存）。');
+                        '已推送到 GitHub！\n\n文件：' + targetPath + '（' + (f.size/1024).toFixed(0) + ' KB）' + (inputVer ? ('\n版本：' + inputVer + '（从 ' + oldVer + ' 升级）') : '') + '\n' +
+                        '线上地址：https://' + ghCfg.owner + '.github.io/' + ghCfg.repo + '/' + targetPath + '\n\n其他设备刷新即可看到新版（Pages 有1~2分钟缓存）。');
                 } else {
                     var hint = '';
                     if (putRes.status === 401) hint = '\n→ token 无效或过期，请到 localStorage 删 mm_github_cfg_v1 后重新点发布';
