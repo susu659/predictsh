@@ -6,7 +6,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v40.3 · AI自适应版</title>
+<title>商会三竞预测系统 v40.4 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -604,8 +604,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.3</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.3</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.4</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.4</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -994,7 +994,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v40.3';
+  var APP_VERSION = 'v40.4';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1622,6 +1622,50 @@ function applyConfigSnapshot(cfg) {
         var el = document.getElementById(f.control);
         if (el) el.value = CONFIG[f.key];
     });
+}
+// v42: 把可同步配置先重置回出厂默认——权威覆盖时云端旧数据缺 config 字段，
+// 不能保留本机上一轮学习留下的参数，否则多端强制拉取同一旧云端后参数仍会分叉。
+function resetConfigToDefaults() {
+    _CONFIG_SYNC_FIELDS.forEach(function (f) { CONFIG[f.key] = f.def; });
+    normalizeWindowWeights();
+    _CONFIG_SYNC_FIELDS.forEach(function (f) {
+        var el = document.getElementById(f.control);
+        if (el) el.value = CONFIG[f.key];
+    });
+}
+// v42: 连续错误计数 / 紧急模式 / 局间隔等运行时学习状态快照，纳入本地、云端、备份、快照全链路同步，
+// 避免两台设备从同一份历史恢复后 errorBoost、紧急降权与局间隔设置不一致，导致后续学习逐步漂移。
+function snapshotRuntimeState(P) {
+    return {
+        consecutiveErrors: P.consecutiveErrors || 0,
+        emergencyMode: !!P.emergencyMode,
+        emergencyUntilGame: (P._emergencyUntilGame == null || !isFinite(Number(P._emergencyUntilGame))) ? -1 : Number(P._emergencyUntilGame),
+        maxConsecutiveErrors: P._maxConsecutiveErrors || 0,
+        gameInterval: (gameIntervalMinutes === 60) ? 60 : 30
+    };
+}
+function applyRuntimeState(P, d, preserve) {
+    if (!P) return;
+    // 权威恢复（preserve=false）先重置为确定默认值；云端/备份缺这些字段时回到默认，而不是残留本机学习态。
+    // 非强制合并（preserve=true）保留本机未上传的实时学习态，只覆盖远端明确给出的字段。
+    if (!preserve) {
+        P.consecutiveErrors = 0;
+        P.emergencyMode = false;
+        P._emergencyUntilGame = -1;
+        P._maxConsecutiveErrors = 0;
+        gameIntervalMinutes = 30;
+    }
+    if (d && typeof d === 'object') {
+        if (isFinite(Number(d.consecutiveErrors))) P.consecutiveErrors = Math.max(0, Math.round(Number(d.consecutiveErrors)));
+        if (typeof d.emergencyMode === 'boolean') P.emergencyMode = d.emergencyMode;
+        var _eug = isFinite(Number(d.emergencyUntilGame)) ? Number(d.emergencyUntilGame) : (isFinite(Number(d._emergencyUntilGame)) ? Number(d._emergencyUntilGame) : null);
+        if (_eug !== null) P._emergencyUntilGame = Math.round(_eug);
+        var _mce = isFinite(Number(d.maxConsecutiveErrors)) ? Number(d.maxConsecutiveErrors) : (isFinite(Number(d._maxConsecutiveErrors)) ? Number(d._maxConsecutiveErrors) : null);
+        if (_mce !== null) P._maxConsecutiveErrors = Math.max(0, Math.round(_mce));
+        if (d.gameInterval === 30 || d.gameInterval === 60) gameIntervalMinutes = d.gameInterval;
+    }
+    try { saveIntervalSetting(); } catch(e) {}
+    if (typeof updateIntervalUI === 'function') { try { updateIntervalUI(); } catch(e) {} }
 }
 // ========== v17: Match-length weight for similarity (提高权重) ==========
 function lengthWeight(matchLen) {
@@ -5872,6 +5916,11 @@ if(curBrier > 0.3){
         this.windowPerf = {win6:[],win7:[],win8:[],win10:[],global:[]};
         this.learnIterations = 0; this.reflectionLog = [];
         this._lastModels = {}; this._lastPatterns = {};
+        // v42: 清空/重建数据集时同步重置连续错误与紧急模式，避免旧学习态残留到新历史上
+        this.consecutiveErrors = 0;
+        this.emergencyMode = false;
+        this._emergencyUntilGame = -1;
+        this._maxConsecutiveErrors = 0;
     }
     // ===== 回测（v24性能优化：移除冗余的全部历史训练，直接用当前modelWeights滑动回测）=====
     runBacktest() {
@@ -6065,6 +6114,7 @@ if(curBrier > 0.3){
                 bestBrier: safeV(this._bestBrier),
                 patternHitCache: this.patternHitCache || {},
                 config: snapshotConfig(), // v41: 跨端同步可配置参数
+                runtimeState: snapshotRuntimeState(this), // v42: 连续错误/紧急模式/局间隔同步
                 _syncEpoch: this._syncEpoch || 0,
                 _adminOverride: this._adminOverride || null
             };
@@ -6180,7 +6230,10 @@ if(curBrier > 0.3){
         }
         if (p.bestBrier && isFinite(p.bestBrier)) this._bestBrier = p.bestBrier;
         if (p.patternHitCache) this.patternHitCache = p.patternHitCache;
-        if (p.config) applyConfigSnapshot(p.config); // v41: 云端/备份参数对齐本机面板
+        // v42: 先回到出厂默认再应用云端/备份参数；旧云端缺 config 时不再残留本机学习权重
+        resetConfigToDefaults();
+        if (p.config) applyConfigSnapshot(p.config);
+        applyRuntimeState(this, p.runtimeState); // v42: 连续错误/紧急模式/局间隔权威对齐
         if (p.reflectionLog) {
             var seen = {};
             var deduped = [];
@@ -6315,7 +6368,10 @@ if(curBrier > 0.3){
             }
             if (p.bestBrier && isFinite(p.bestBrier)) this._bestBrier = p.bestBrier;
             if (p.patternHitCache) this.patternHitCache = p.patternHitCache;
-            if (p.config) applyConfigSnapshot(p.config); // v41: 本地缓存参数对齐
+            // v42: 先回默认再应用本机缓存参数；同步连续错误/紧急模式/局间隔
+            resetConfigToDefaults();
+            if (p.config) applyConfigSnapshot(p.config);
+            applyRuntimeState(this, p.runtimeState);
             // v25.2修复：加载完成后强制归一化窗口权重，清除历史遗留的负权重
             normalizeWindowWeights();
             // v39.0: 旧数据补rid + 重建统计数组
@@ -6358,6 +6414,11 @@ if(curBrier > 0.3){
                 ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!self.advancedModelPerf[k]) self.advancedModelPerf[k]=[]; });
                 self.windowPerf = rebuildP.windowPerf ? Object.assign({}, rebuildP.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
                 self.learnIterations = rebuildP.learnIterations;
+                // v42: 重建后同步连续错误/紧急模式，避免主实例残留旧历史上的学习态
+                self.consecutiveErrors = rebuildP.consecutiveErrors || 0;
+                self.emergencyMode = !!rebuildP.emergencyMode;
+                self._emergencyUntilGame = (rebuildP._emergencyUntilGame == null || !isFinite(Number(rebuildP._emergencyUntilGame))) ? -1 : Number(rebuildP._emergencyUntilGame);
+                self._maxConsecutiveErrors = rebuildP._maxConsecutiveErrors || 0;
                 self.maxStreakEver = calcMaxStreak(self.history);
                 if (self.predHistory.length > 0) {
                     self.lastPrediction = self.predHistory[self.predHistory.length-1].guild;
@@ -6500,6 +6561,7 @@ function _alignRemoteModels(remoteData) {
     if (remoteData.windowPerf) { P.windowPerf = Object.assign({}, remoteData.windowPerf); if (!P.windowPerf.win7) P.windowPerf.win7 = []; }
     if (remoteData.patternHitCache) P.patternHitCache = Object.assign({}, remoteData.patternHitCache);
     if (remoteData.config) applyConfigSnapshot(remoteData.config);
+    if (remoteData.runtimeState) applyRuntimeState(P, remoteData.runtimeState, true); // v42: 云端学习状态/局间隔对齐，保留本机未上传项
 }
 function _mergeRemoteHistoryIntoLocal(remoteData) {
     try {
@@ -7154,7 +7216,8 @@ function createSnapshot(reason) {
                 reflectionLog: P.reflectionLog, maxStreakEver: P.maxStreakEver,
                 profitBrierHistory: P.profitBrierHistory,
                 _bestBrier: (typeof P._bestBrier !== "undefined" ? P._bestBrier : null),
-                patternHitCache: P.patternHitCache, config: snapshotConfig()
+                patternHitCache: P.patternHitCache, config: snapshotConfig(),
+                runtimeState: snapshotRuntimeState(P)
             })
         };
         _snapshots.push(snap);
@@ -7220,7 +7283,9 @@ function restoreSnapshotObject(s) {
         if (typeof d.maxStreakEver !== "undefined") P.maxStreakEver = d.maxStreakEver; else P.maxStreakEver = calcMaxStreak(P.history);
         if (typeof d._bestBrier !== "undefined" && d._bestBrier !== null) P._bestBrier = d._bestBrier;
         if (d.patternHitCache) P.patternHitCache = Object.assign({}, d.patternHitCache);
+        resetConfigToDefaults(); // v42: 缺参数先回默认，避免残留当前本机学习值
         if (d.config) applyConfigSnapshot(d.config);
+        applyRuntimeState(P, d.runtimeState); // v42: 恢复连续错误/紧急模式/局间隔
         P.learnIterations = d.learnIterations || 0;
         P._syncEpoch = d._syncEpoch || 0;
         P._adminOverride = d._adminOverride || null;
@@ -7596,7 +7661,7 @@ async function cloudLoad(silent) {
                 }
                 // 合并后用最新的 P.history 存本地
                 try { P.saveLocal(); } catch(e) {}
-                idbSave(STORE_KEY, {history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy, profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf, advancedModelPerf: P.advancedModelPerf, windowPerf: P.windowPerf, patternHitCache: P.patternHitCache, config: snapshotConfig(), _syncEpoch: P._syncEpoch, _adminOverride: P._adminOverride});
+                idbSave(STORE_KEY, {history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy, profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf, advancedModelPerf: P.advancedModelPerf, windowPerf: P.windowPerf, patternHitCache: P.patternHitCache, config: snapshotConfig(), runtimeState: snapshotRuntimeState(P), _syncEpoch: P._syncEpoch, _adminOverride: P._adminOverride});
                 _lastFullSyncCount = P.history.length;
                 _lastIncrSyncCount = P.history.length;
                 _saveSyncCounts();
@@ -7751,6 +7816,7 @@ function checkAutoBackup() {
         windowPerf: P.windowPerf ? Object.assign({}, P.windowPerf) : {},
         patternHitCache: P.patternHitCache ? Object.assign({}, P.patternHitCache) : {},
         config: snapshotConfig(),
+        runtimeState: snapshotRuntimeState(P),
         learnIterations: P.learnIterations || 0,
         _syncEpoch: P._syncEpoch || 0,
         _count: P.history.length
@@ -7995,6 +8061,7 @@ async function cloudSave(manual, skipPrecheck) {
             bestBrier: P._bestBrier || null,
             patternHitCache: P.patternHitCache || {}, // v41: 规律命中缓存跨端同步
             config: snapshotConfig(), // v41: 可配置参数跨端同步
+            runtimeState: snapshotRuntimeState(P), // v42: 连续错误/紧急模式/局间隔跨端同步
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
         };
@@ -9109,6 +9176,7 @@ function doCloudBackup() {
             bestBrier: isFinite(P._bestBrier) ? P._bestBrier : null,
             patternHitCache: P.patternHitCache ? Object.assign({}, P.patternHitCache) : {},
             config: snapshotConfig(), // v41: 备份一并保存参数
+            runtimeState: snapshotRuntimeState(P), // v42: 备份一并保存学习状态/局间隔
             _count: (P.history ? P.history.length : 0)
         };
         var now = new Date();
@@ -9253,7 +9321,9 @@ function restoreLocalBackup(idx) {
         P.reflectionLog = b.data.reflectionLog || [];
         P._bestBrier = b.data._bestBrier || null;
         P.patternHitCache = b.data.patternHitCache || {};
+        resetConfigToDefaults(); // v42: 缺参数先回默认
         if (b.data.config) applyConfigSnapshot(b.data.config);
+        applyRuntimeState(P, b.data.runtimeState); // v42: 恢复学习状态/局间隔
         P.saveLocal();
         renderAll();
         try { renderHistory(); } catch(e) {}
@@ -9295,7 +9365,9 @@ function restoreFromBackup(backupId) {
             P.maxStreakEver = data.maxStreakEver || calcMaxStreak(P.history);
             if (data.bestBrier !== undefined && isFinite(data.bestBrier)) P._bestBrier = data.bestBrier;
             if (data.patternHitCache) P.patternHitCache = Object.assign({}, data.patternHitCache);
+            resetConfigToDefaults(); // v42: 缺参数先回默认
             if (data.config) applyConfigSnapshot(data.config);
+            applyRuntimeState(P, data.runtimeState); // v42: 恢复学习状态/局间隔
             if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
             P._migrateRids(); P._rebuildStatsFromPred(); // v39.0
             P._syncEpoch = (P._syncEpoch || 0) + 1; // v26.4：恢复后备纪元+1，强制其他设备覆盖
@@ -9318,6 +9390,7 @@ function restoreFromBackup(backupId) {
                 bestBrier: P._bestBrier || null,
                 patternHitCache: P.patternHitCache || {},
                 config: snapshotConfig(),
+                runtimeState: snapshotRuntimeState(P), // v42: 回写云端主行携带学习状态/局间隔
                 _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride || null // v26.4：管理员权威标记
             };
