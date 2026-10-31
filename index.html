@@ -269,6 +269,10 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
 .tab-btn{background:none;border:none;padding:12px 20px;font-size:15px;font-weight:600;cursor:pointer;color:#6c757d;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s}
 .tab-btn.active{color:#302b63;border-bottom-color:#302b63}
 .tab-btn:hover{color:#302b63;background:rgba(48,43,99,.04)}
+a.tab-link-external{text-decoration:none;display:inline-flex;align-items:center;margin-left:auto;color:#8a6d1f;border:1px solid #e6c25a;border-radius:8px;padding:10px 18px;font-weight:700;background:#fff8e1;border-bottom:1px solid #e6c25a}
+a.tab-link-external:hover{color:#5d4a0a;background:#ffefb0}
+body.dark-mode a.tab-link-external{color:#ffd77a;background:#3a3220;border-color:#8a6d1f}
+body.dark-mode a.tab-link-external:hover{background:#4a3f26}
 .model-detail{background:#eef2ff;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;line-height:1.7;font-family:monospace}
 .learn-detail{background:#f0f4ff;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;line-height:1.7}
 .pattern-detail{background:#fff8e1;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:12px;line-height:1.7}
@@ -680,6 +684,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="tab-btn" data-tab="learn">🧠 学习与反思</button>
 <button class="tab-btn" data-tab="backtest">📈 回测分析</button>
 <button class="tab-btn" data-tab="optimize">⚙️ 参数优化</button>
+<a class="tab-btn tab-link-external" href="draw.html" target="_blank" rel="noopener">🎲 商会抽签系统</a>
 </div>
 <!-- ============ 主界面Tab ============ -->
 <div class="tab-content" id="tab-main">
