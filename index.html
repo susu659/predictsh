@@ -1,11 +1,12 @@
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v40.2 · AI自适应版</title>
+<title>商会三竞预测系统 v40.3 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -603,8 +604,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.2</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.2</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.3</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.3</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -993,7 +994,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v40.2';
+  var APP_VERSION = 'v40.3';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1584,6 +1585,43 @@ function normalizeWindowWeights() {
         CONFIG.win10W /= total;
         CONFIG.globalW /= total;
     }
+}
+// ===== v41: 可跨端同步的配置快照（本地存储 / 云端主数据 / 备份 / 快照统一对齐，修复多端参数分叉）=====
+// 只纳入面板可改 + 被学习就地改写的标量；prior/simW/fusion* 为固定常量，不随端同步。
+var _CONFIG_SYNC_FIELDS = [
+    { key: 'streakDecayMax',   control: 'cfgStreakDecayMax',   type: 'float', def: 0.18 },
+    { key: 'coldBonusCap',     control: 'cfgColdBonusCap',     type: 'float', def: 0.025 },
+    { key: 'win6W',            control: 'cfgWin6W',            type: 'float', def: 0.32 },
+    { key: 'win7W',            control: 'cfgWin7W',            type: 'float', def: 0.20 },
+    { key: 'win8W',            control: 'cfgWin8W',            type: 'float', def: 0.28 },
+    { key: 'win10W',           control: 'cfgWin10W',           type: 'float', def: 0.12 },
+    { key: 'globalW',          control: 'cfgGlobalW',          type: 'float', def: 0.08 },
+    { key: 'learnRate',        control: 'cfgLearnRate',        type: 'float', def: 0.06 },
+    { key: 'learnIters',       control: 'cfgLearnIters',       type: 'int',   def: 3 },
+    { key: 'learnDecay',       control: 'cfgLearnDecay',       type: 'float', def: 0.7 },
+    { key: 'minData',          control: 'cfgMinData',           type: 'int',   def: 3 },
+    { key: 'patternThreshold', control: 'cfgPatternThresh',    type: 'float', def: 0.60 },
+    { key: 'rollbackWindow',  control: 'cfgRollbackWindow',   type: 'int',   def: 5 }
+];
+function snapshotConfig() {
+    var out = {};
+    _CONFIG_SYNC_FIELDS.forEach(function (f) { out[f.key] = CONFIG[f.key]; });
+    return out;
+}
+function applyConfigSnapshot(cfg) {
+    if (!cfg || typeof cfg !== 'object') return;
+    _CONFIG_SYNC_FIELDS.forEach(function (f) {
+        var v = cfg[f.key];
+        if (v === undefined || v === null || !isFinite(Number(v))) return;
+        var num = Number(v);
+        CONFIG[f.key] = (f.type === 'int') ? Math.round(num) : num;
+    });
+    normalizeWindowWeights();
+    // 回填面板控件，保证界面显示与当前生效参数一致（旧版本无对应控件时静默跳过）
+    _CONFIG_SYNC_FIELDS.forEach(function (f) {
+        var el = document.getElementById(f.control);
+        if (el) el.value = CONFIG[f.key];
+    });
 }
 // ========== v17: Match-length weight for similarity (提高权重) ==========
 function lengthWeight(matchLen) {
@@ -4124,6 +4162,7 @@ class Predictor {
         // v30.22.2修复：构造函数必须初始化高级模型命中率表，否则新用户_scoreAdvancedModels直接return、_advAcc永远0.5
         // v37.1修复: 补全profit键
         this.advancedModelPerf = {similar:[], loss:[], profit:[], markov:[], bayes:[], trend:[], rebound:[]};
+        this.patternHitCache = {}; // v41: 规律命中缓存，随本地/云端/备份统一同步
         // v30.22：更短窗口权重更高，global权重降低
         this.windowWeights = {win3: 0.25, win5: 0.30, win8: 0.25, win10: 0.15, global: 0.05};
         this.windowPerf = {win6: [], win7: [], win8: [], win10: [], global: []};
@@ -5828,6 +5867,7 @@ if(curBrier > 0.3){
         this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27,profitPattern:0.09}; // v17: similarPattern提高; v30.22修复:补充profitPattern权重
         this.modelPerf = {};
         this.advancedModelPerf = {similar:[], loss:[], profit:[], markov:[], bayes:[], trend:[], rebound:[]};
+        this.patternHitCache = {};
         this.windowWeights = {win6:0.32,win7:0.20,win8:0.28,win10:0.12,global:0.08};
         this.windowPerf = {win6:[],win7:[],win8:[],win10:[],global:[]};
         this.learnIterations = 0; this.reflectionLog = [];
@@ -6024,6 +6064,7 @@ if(curBrier > 0.3){
                 reflectionLog: this.reflectionLog.slice(-200), // v30.22：保留最近200条，防止操作日志丢失
                 bestBrier: safeV(this._bestBrier),
                 patternHitCache: this.patternHitCache || {},
+                config: snapshotConfig(), // v41: 跨端同步可配置参数
                 _syncEpoch: this._syncEpoch || 0,
                 _adminOverride: this._adminOverride || null
             };
@@ -6139,6 +6180,7 @@ if(curBrier > 0.3){
         }
         if (p.bestBrier && isFinite(p.bestBrier)) this._bestBrier = p.bestBrier;
         if (p.patternHitCache) this.patternHitCache = p.patternHitCache;
+        if (p.config) applyConfigSnapshot(p.config); // v41: 云端/备份参数对齐本机面板
         if (p.reflectionLog) {
             var seen = {};
             var deduped = [];
@@ -6245,6 +6287,10 @@ if(curBrier > 0.3){
                 if (mwSum > 0) Object.keys(self.modelWeights).forEach(function(k){ self.modelWeights[k] /= mwSum; });
             }
             if (p.modelPerf) this.modelPerf = p.modelPerf;
+            // v41: 补回高级模型命中率表（旧本地缓存可能缺失），并保证七个键齐全
+            if (p.advancedModelPerf) this.advancedModelPerf = p.advancedModelPerf;
+            if (!this.advancedModelPerf) this.advancedModelPerf = {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+            ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!this.advancedModelPerf[k]) this.advancedModelPerf[k]=[]; }, this);
             if (p.profitAccuracy && Array.isArray(p.profitAccuracy)) {
                 this.profitAccuracy = p.profitAccuracy.slice();
             }
@@ -6269,6 +6315,7 @@ if(curBrier > 0.3){
             }
             if (p.bestBrier && isFinite(p.bestBrier)) this._bestBrier = p.bestBrier;
             if (p.patternHitCache) this.patternHitCache = p.patternHitCache;
+            if (p.config) applyConfigSnapshot(p.config); // v41: 本地缓存参数对齐
             // v25.2修复：加载完成后强制归一化窗口权重，清除历史遗留的负权重
             normalizeWindowWeights();
             // v39.0: 旧数据补rid + 重建统计数组
@@ -6306,6 +6353,10 @@ if(curBrier > 0.3){
                 self.profitBrierHistory = rebuildP.profitBrierHistory ? rebuildP.profitBrierHistory.slice() : [];
                 self.investAccuracy = rebuildP.investAccuracy ? rebuildP.investAccuracy.slice() : [];
                 self.modelWeights = Object.assign({}, rebuildP.modelWeights);
+                self.modelPerf = rebuildP.modelPerf ? Object.assign({}, rebuildP.modelPerf) : {};
+                self.advancedModelPerf = rebuildP.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+                ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!self.advancedModelPerf[k]) self.advancedModelPerf[k]=[]; });
+                self.windowPerf = rebuildP.windowPerf ? Object.assign({}, rebuildP.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
                 self.learnIterations = rebuildP.learnIterations;
                 self.maxStreakEver = calcMaxStreak(self.history);
                 if (self.predHistory.length > 0) {
@@ -6437,6 +6488,19 @@ function _pickPredByRid(remotePred, newHist) {
 // 再让 cloudSave 用合并后的全集 upsert。解决多行并发时 main 行被对端旧数据覆盖、
 // 导致"上传成功/拉取成功但记录过不来"的问题。
 // 返回本次从云端带回的记录条数。
+// v41: 拉取合并时以云端权威快照对齐本地模型统计与参数，修复"历史相同但模型命中率/配置不同"导致的预测分叉。
+// 仅用于云端拉取；上传前合并不调用本函数，保留本地刚录局次的实时学习状态。
+function _alignRemoteModels(remoteData) {
+    if (!remoteData) return;
+    if (remoteData.modelWeights) P.modelWeights = Object.assign({}, remoteData.modelWeights);
+    if (remoteData.modelPerf) P.modelPerf = Object.assign({}, remoteData.modelPerf);
+    if (remoteData.advancedModelPerf) P.advancedModelPerf = remoteData.advancedModelPerf;
+    if (!P.advancedModelPerf) P.advancedModelPerf = {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+    ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
+    if (remoteData.windowPerf) { P.windowPerf = Object.assign({}, remoteData.windowPerf); if (!P.windowPerf.win7) P.windowPerf.win7 = []; }
+    if (remoteData.patternHitCache) P.patternHitCache = Object.assign({}, remoteData.patternHitCache);
+    if (remoteData.config) applyConfigSnapshot(remoteData.config);
+}
 function _mergeRemoteHistoryIntoLocal(remoteData) {
     try {
         if (!remoteData || !Array.isArray(remoteData.history)) return 0;
@@ -7086,10 +7150,11 @@ function createSnapshot(reason) {
                 profitAccuracy: P.profitAccuracy, investAccuracy: P.investAccuracy, modelWeights: P.modelWeights,
                 learnIterations: P.learnIterations, _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride,
-                modelPerf: P.modelPerf, windowPerf: P.windowPerf, windowWeights: P.windowWeights,
+                modelPerf: P.modelPerf, advancedModelPerf: P.advancedModelPerf, windowPerf: P.windowPerf, windowWeights: P.windowWeights,
                 reflectionLog: P.reflectionLog, maxStreakEver: P.maxStreakEver,
+                profitBrierHistory: P.profitBrierHistory,
                 _bestBrier: (typeof P._bestBrier !== "undefined" ? P._bestBrier : null),
-                patternHitCache: P.patternHitCache
+                patternHitCache: P.patternHitCache, config: snapshotConfig()
             })
         };
         _snapshots.push(snap);
@@ -7145,12 +7210,17 @@ function restoreSnapshotObject(s) {
         P.investAccuracy = d.investAccuracy ? d.investAccuracy.slice() : [];
         if (d.modelWeights) P.modelWeights = Object.assign({}, d.modelWeights);
         if (d.modelPerf) P.modelPerf = Object.assign({}, d.modelPerf);
+        if (d.advancedModelPerf) P.advancedModelPerf = d.advancedModelPerf;
+        if (!P.advancedModelPerf) P.advancedModelPerf = {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+        ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
         if (d.windowPerf) P.windowPerf = Object.assign({}, d.windowPerf);
         if (d.windowWeights) P.windowWeights = Object.assign({}, d.windowWeights);
+        if (Array.isArray(d.profitBrierHistory)) P.profitBrierHistory = d.profitBrierHistory.slice();
         if (d.reflectionLog) P.reflectionLog = d.reflectionLog.slice();
         if (typeof d.maxStreakEver !== "undefined") P.maxStreakEver = d.maxStreakEver; else P.maxStreakEver = calcMaxStreak(P.history);
         if (typeof d._bestBrier !== "undefined" && d._bestBrier !== null) P._bestBrier = d._bestBrier;
         if (d.patternHitCache) P.patternHitCache = Object.assign({}, d.patternHitCache);
+        if (d.config) applyConfigSnapshot(d.config);
         P.learnIterations = d.learnIterations || 0;
         P._syncEpoch = d._syncEpoch || 0;
         P._adminOverride = d._adminOverride || null;
@@ -7517,6 +7587,8 @@ async function cloudLoad(silent) {
             }
             // v37.9：非强制同步时，用合并而不是覆盖——云端本地没有的记录 append 到本地末尾
             if (!forceOverride) {
+                // v41: 云端不短于本地时，以云端权威快照对齐模型统计与参数；本地有未上传新局时保留本地实时学习状态
+                if (localHistLen <= cloudHistLen) { try { _alignRemoteModels(data.data); } catch(e) {} }
                 var _mergedFromCloud = _mergeRemoteHistoryIntoLocal(data.data);
                 if (_mergedFromCloud > 0) {
                     dataChanged = true;
@@ -7524,7 +7596,7 @@ async function cloudLoad(silent) {
                 }
                 // 合并后用最新的 P.history 存本地
                 try { P.saveLocal(); } catch(e) {}
-                idbSave(STORE_KEY, {history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy, profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy, _syncEpoch: P._syncEpoch, _adminOverride: P._adminOverride});
+                idbSave(STORE_KEY, {history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy, profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf, advancedModelPerf: P.advancedModelPerf, windowPerf: P.windowPerf, patternHitCache: P.patternHitCache, config: snapshotConfig(), _syncEpoch: P._syncEpoch, _adminOverride: P._adminOverride});
                 _lastFullSyncCount = P.history.length;
                 _lastIncrSyncCount = P.history.length;
                 _saveSyncCounts();
@@ -7675,6 +7747,10 @@ function checkAutoBackup() {
         investAccuracy: P.investAccuracy ? P.investAccuracy.slice() : [],
         modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
         modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
+        advancedModelPerf: P.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]},
+        windowPerf: P.windowPerf ? Object.assign({}, P.windowPerf) : {},
+        patternHitCache: P.patternHitCache ? Object.assign({}, P.patternHitCache) : {},
+        config: snapshotConfig(),
         learnIterations: P.learnIterations || 0,
         _syncEpoch: P._syncEpoch || 0,
         _count: P.history.length
@@ -7912,10 +7988,13 @@ async function cloudSave(manual, skipPrecheck) {
             investAccuracy: P.investAccuracy || [],
             modelWeights: P.modelWeights,
             modelPerf: P.modelPerf,
+            advancedModelPerf: P.advancedModelPerf, // v41: 七类高级模型近期命中率跨端同步
             windowPerf: P.windowPerf,
             learnIterations: P.learnIterations,
             reflectionLog: _slimReflection,
             bestBrier: P._bestBrier || null,
+            patternHitCache: P.patternHitCache || {}, // v41: 规律命中缓存跨端同步
+            config: snapshotConfig(), // v41: 可配置参数跨端同步
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
         };
@@ -9021,6 +9100,7 @@ function doCloudBackup() {
             investAccuracy: P.investAccuracy ? P.investAccuracy.slice() : [],
             modelWeights: P.modelWeights ? Object.assign({}, P.modelWeights) : {},
             modelPerf: P.modelPerf ? Object.assign({}, P.modelPerf) : {},
+            advancedModelPerf: P.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]},
             windowPerf: P.windowPerf ? Object.assign({}, P.windowPerf) : {},
             windowWeights: P.windowWeights ? Object.assign({}, P.windowWeights) : {},
             learnIterations: P.learnIterations || 0,
@@ -9028,6 +9108,7 @@ function doCloudBackup() {
             maxStreakEver: P.maxStreakEver || 0,
             bestBrier: isFinite(P._bestBrier) ? P._bestBrier : null,
             patternHitCache: P.patternHitCache ? Object.assign({}, P.patternHitCache) : {},
+            config: snapshotConfig(), // v41: 备份一并保存参数
             _count: (P.history ? P.history.length : 0)
         };
         var now = new Date();
@@ -9164,12 +9245,15 @@ function restoreLocalBackup(idx) {
         P.investAccuracy = b.data.investAccuracy || [];
         P.modelWeights = b.data.modelWeights || {};
         P.modelPerf = b.data.modelPerf || {};
+        P.advancedModelPerf = b.data.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+        ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
         P.windowPerf = b.data.windowPerf || {};
         P.learnIterations = b.data.learnIterations || 0;
         P._syncEpoch = b.data._syncEpoch || 0;
         P.reflectionLog = b.data.reflectionLog || [];
         P._bestBrier = b.data._bestBrier || null;
         P.patternHitCache = b.data.patternHitCache || {};
+        if (b.data.config) applyConfigSnapshot(b.data.config);
         P.saveLocal();
         renderAll();
         try { renderHistory(); } catch(e) {}
@@ -9201,6 +9285,9 @@ function restoreFromBackup(backupId) {
             P.investAccuracy = data.investAccuracy ? data.investAccuracy.slice() : [];
             if (data.modelWeights) P.modelWeights = Object.assign({}, data.modelWeights);
             if (data.modelPerf) P.modelPerf = Object.assign({}, data.modelPerf);
+            if (data.advancedModelPerf) P.advancedModelPerf = data.advancedModelPerf;
+            if (!P.advancedModelPerf) P.advancedModelPerf = {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+            ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
             if (data.windowPerf) P.windowPerf = Object.assign({}, data.windowPerf);
             if (data.windowWeights) P.windowWeights = Object.assign({}, data.windowWeights);
             P.learnIterations = data.learnIterations || 0;
@@ -9208,6 +9295,7 @@ function restoreFromBackup(backupId) {
             P.maxStreakEver = data.maxStreakEver || calcMaxStreak(P.history);
             if (data.bestBrier !== undefined && isFinite(data.bestBrier)) P._bestBrier = data.bestBrier;
             if (data.patternHitCache) P.patternHitCache = Object.assign({}, data.patternHitCache);
+            if (data.config) applyConfigSnapshot(data.config);
             if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
             P._migrateRids(); P._rebuildStatsFromPred(); // v39.0
             P._syncEpoch = (P._syncEpoch || 0) + 1; // v26.4：恢复后备纪元+1，强制其他设备覆盖
@@ -9224,9 +9312,12 @@ function restoreFromBackup(backupId) {
                 profitBrierHistory: P.profitBrierHistory || [],
                 investAccuracy: P.investAccuracy || [],
                 modelWeights: P.modelWeights, modelPerf: P.modelPerf,
+                advancedModelPerf: P.advancedModelPerf,
                 windowPerf: P.windowPerf, learnIterations: P.learnIterations,
                 reflectionLog: (P.reflectionLog || []).slice(-200), // v30.22：云端也保留200条
                 bestBrier: P._bestBrier || null,
+                patternHitCache: P.patternHitCache || {},
+                config: snapshotConfig(),
                 _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride || null // v26.4：管理员权威标记
             };
@@ -9816,10 +9907,18 @@ function renderAll() {
 function renderCards() {
     try { updateDriftBadge(); } catch(e) {}
     // v34.2性能优化：改进预测缓存键——加入predHistory/accuracy/modelWeights关键指纹，避免权重更新后用到旧结果
+    // v41: 指纹再纳入 CONFIG 关键参数、窗口命中率、高级模型命中率，避免参数/模型状态变化后复用旧预测结果
     var _mw = P.modelWeights || {};
+    var _cfgArr = [CONFIG.win6W,CONFIG.win7W,CONFIG.win8W,CONFIG.win10W,CONFIG.globalW,CONFIG.learnRate,CONFIG.learnDecay,CONFIG.patternThreshold,CONFIG.streakDecayMax,CONFIG.coldBonusCap,CONFIG.minData,CONFIG.learnIters,CONFIG.rollbackWindow];
+    var _cfgSig = _cfgArr.map(function(x){ return Math.round((Number(x)||0)*10000); }).join('-');
+    var _ap = P.advancedModelPerf || {};
+    var _apSig = ['similar','loss','profit','markov','bayes','trend','rebound'].map(function(k){ var a=_ap[k]||[]; return a.length+':'+a.reduce(function(s,v){return s+(v?1:0);},0); }).join('|');
+    var _wp = P.windowPerf || {};
+    var _wpSig = ['win6','win7','win8','win10','global'].map(function(k){ var a=_wp[k]||[]; return a.length; }).join('-');
     var histSig = P.history.length + '_' + (P.history.length > 0 ? P.history[P.history.length-1].a + '_' + P.history[P.history.length-1].b + '_' + P.history[P.history.length-1].c : 'empty')
         + '_ph' + P.predHistory.length + '_acc' + P.accuracy.length
-        + '_mw' + Math.round(((_mw.global||0)+(_mw.streak||0)+(_mw.score||0))*1000);
+        + '_mw' + Math.round(((_mw.global||0)+(_mw.streak||0)+(_mw.score||0))*1000)
+        + '_cfg' + _cfgSig + '_ap' + _apSig + '_wp' + _wpSig;
     var result;
     if (window._predCache && window._predCache.sig === histSig) {
         result = window._predCache.result;
@@ -11787,6 +11886,10 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
                     P.profitBrierHistory = cumP.profitBrierHistory ? cumP.profitBrierHistory.slice() : [];
                     P.investAccuracy = cumP.investAccuracy ? cumP.investAccuracy.slice() : [];
                     P.modelWeights = Object.assign({}, cumP.modelWeights);
+                    P.modelPerf = cumP.modelPerf ? Object.assign({}, cumP.modelPerf) : {};
+                    P.advancedModelPerf = cumP.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+                    ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
+                    P.windowPerf = cumP.windowPerf ? Object.assign({}, cumP.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
                     P.learnIterations = cumP.learnIterations;
                     P.maxStreakEver = calcMaxStreak(P.history);
                     if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length-1].guild;
@@ -11912,7 +12015,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var i=1;i<lines.length;i++){var parts=parseCSVLine(lines[i]);if(parts.length<3)continue;var a=parseCell(parts[colMap.A]),b=parseCell(parts[colMap.B]),c=parseCell(parts[colMap.C]);if([a,b,c].every(function(v){return v!==null;})){var rec={a:a,b:b,c:c};if(hasSeparateCols){var dStr=normalizeDateStr(parts[colMap.DATE]);var tStr=parts[colMap.TIME]?parts[colMap.TIME].trim():'';if(dStr||tStr)rec.timeSlot=combineTimeSlot(dStr,tStr);}else if(hasTimeCol&&parts[colMap.TIME]){rec.timeSlot=parts[colMap.TIME].trim();}if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?cleanWinValue(parts[colMap.PW]):'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}rec.investWinner=colMap.IW!==undefined?cleanWinValue(parts[colMap.IW]):'';recs.push(rec);}}
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 if(!hasTimeCol&&!hasSeparateCols){var nowCsv=new Date();for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,nowCsv);}}
-                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner,recs[ri].date);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.profitAccuracy=cumCSV.profitAccuracy?cumCSV.profitAccuracy.slice():[];P.profitBrierHistory=cumCSV.profitBrierHistory?cumCSV.profitBrierHistory.slice():[];P.investAccuracy=cumCSV.investAccuracy?cumCSV.investAccuracy.slice():[];P.modelWeights=Object.assign({},cumCSV.modelWeights);P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
+                if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner,recs[ri].date);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.profitAccuracy=cumCSV.profitAccuracy?cumCSV.profitAccuracy.slice():[];P.profitBrierHistory=cumCSV.profitBrierHistory?cumCSV.profitBrierHistory.slice():[];P.investAccuracy=cumCSV.investAccuracy?cumCSV.investAccuracy.slice():[];P.modelWeights=Object.assign({},cumCSV.modelWeights);P.modelPerf=cumCSV.modelPerf?Object.assign({},cumCSV.modelPerf):{};P.advancedModelPerf=cumCSV.advancedModelPerf||{similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){if(!P.advancedModelPerf[k])P.advancedModelPerf[k]=[];});P.windowPerf=cumCSV.windowPerf?Object.assign({},cumCSV.windowPerf):{win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入'+recs.length+'条　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
         };
         readerCSV.readAsText(file);this.value='';
@@ -11969,6 +12072,10 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                         P.profitBrierHistory = cumP.profitBrierHistory ? cumP.profitBrierHistory.slice() : [];
                         P.investAccuracy = cumP.investAccuracy ? cumP.investAccuracy.slice() : [];
                         P.modelWeights=Object.assign({},cumP.modelWeights);
+                        P.modelPerf = cumP.modelPerf ? Object.assign({}, cumP.modelPerf) : {};
+                        P.advancedModelPerf = cumP.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+                        ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
+                        P.windowPerf = cumP.windowPerf ? Object.assign({}, cumP.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
                         P.learnIterations=cumP.learnIterations;
                         P.maxStreakEver=calcMaxStreak(P.history);
                         if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;
@@ -12541,13 +12648,17 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     P.investAccuracy = cumP.investAccuracy ? cumP.investAccuracy.slice() : [];
     P.modelWeights = Object.assign({}, cumP.modelWeights);
     P.modelPerf = cumP.modelPerf ? Object.assign({}, cumP.modelPerf) : {};
+    P.advancedModelPerf = cumP.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+    ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
     P.windowPerf = cumP.windowPerf ? Object.assign({}, cumP.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
     P.learnIterations = cumP.learnIterations;
+    // v41: 重建后旧规律缓存失效，清空避免残留指纹误导
+    try { P.patternHitCache = {}; } catch(e) {}
     P.maxStreakEver = calcMaxStreak(P.history);
     if (P.predHistory.length > 0) {
         P.lastPrediction = P.predHistory[P.predHistory.length - 1].guild;
     }
-    
+
     renderAll();
     // v26.4：导入是大操作，立即保存本地
     P.saveLocal();
@@ -12650,6 +12761,10 @@ function importRecords(recs,replace,st){
     P.profitBrierHistory = cumIR.profitBrierHistory ? cumIR.profitBrierHistory.slice() : [];
     P.investAccuracy = cumIR.investAccuracy ? cumIR.investAccuracy.slice() : [];
     P.modelWeights=Object.assign({},cumIR.modelWeights);
+    P.modelPerf = cumIR.modelPerf ? Object.assign({}, cumIR.modelPerf) : {};
+    P.advancedModelPerf = cumIR.advancedModelPerf || {similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};
+    ['similar','loss','profit','markov','bayes','trend','rebound'].forEach(function(k){ if(!P.advancedModelPerf[k]) P.advancedModelPerf[k]=[]; });
+    P.windowPerf = cumIR.windowPerf ? Object.assign({}, cumIR.windowPerf) : {win6:[],win7:[],win8:[],win10:[],global:[]};
     P.learnIterations=cumIR.learnIterations;
     P.maxStreakEver=calcMaxStreak(P.history);
     if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;
@@ -12893,7 +13008,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
 document.getElementById('btnResetLearn').addEventListener('click',function(){
     if(!confirm('确定重置学习状态？模型权重将恢复默认'))return;
     P.modelWeights={global:0.16,multiWindow:0.16,score:0.14,streak:0.10,rotation:0.08,alternation:0.07,trend:0.05,regression:0.05,similarPattern:0.19,profitPattern:0.09}; // v17: 添加similarPattern; v30.22修复:补充profitPattern
-    P.modelPerf={};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
+    P.modelPerf={};P.advancedModelPerf={similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
     CONFIG.win6W=0.32;CONFIG.win7W=0.20;CONFIG.win8W=0.28;CONFIG.win10W=0.12;CONFIG.globalW=0.08;
     normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();showRecordResult(true, '成功', '学习状态已重置'); // v18.0：防抖保存
 });
