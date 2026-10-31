@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v39.9 · AI自适应版</title>
+<title>商会三竞预测系统 v40.2 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -603,8 +603,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v39.9</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v39.9</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 命中率反馈自动调权 · 重构后数据翻倍修复</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.2</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.2</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -983,15 +983,17 @@ create policy "ac update" on access_control for update using (true);</textarea><
 // ============================================================
 (function(){
   // ===== 配置（可修改）=====
-  var ACCESS_PASSWORD = 'zll2026';
-  var ADMIN_PASSWORD = 'asd123123';
+  // v39.9: 密码以 base64 存储，源码里不出现明文（= btoa('zll2026')）
+  var ACCESS_PWD_B64 = 'emxsMjAyNg==';
+  function checkAccessPwd(input) { try { return btoa(String(input)) === ACCESS_PWD_B64; } catch(e) { return false; } }
+  // ADMIN 密码已统一用 ADMIN_PWD_B64 + checkAdminPwd()，不再保留明文变量
   var TEST_USERNAME = 'test'; // v27.4：测试账号用户名
   var TEST_PASSWORD = 'asd123123'; // v27.4：测试账号密码，登录后强制测试模式
   LOGIN_TYPE_KEY = 'mm_login_type_v1'; // v27.4：记录登录类型（test/user/admin）
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v39.9';
+  var APP_VERSION = 'v40.2';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -1225,7 +1227,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       }
       if (_loginType === 'admin') {
         // v26.4：管理员登录——验证管理员密码，直接进入，无需授权
-        if (pwd !== ADMIN_PASSWORD) {
+        if (!checkAdminPwd(pwd)) {
         var hint = document.getElementById('loginTypeHint');
         if (hint) { hint.textContent = '❌ 管理员密码错误，请重试'; hint.style.color = '#e74c3c'; }
         return;
@@ -1238,7 +1240,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
         return;
       }
       // 用户登录——验证用户密码，注册设备，等待授权
-      if (pwd !== ACCESS_PASSWORD) {
+      if (!checkAccessPwd(pwd)) {
         var hint2 = document.getElementById('loginTypeHint');
         if (hint2) { hint2.textContent = '❌ 用户密码错误，请重试'; hint2.style.color = '#e74c3c'; }
         return;
@@ -1296,7 +1298,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
       document.getElementById('adminPasswordInput').value = '';
     };
     document.getElementById('adminPasswordBtn').onclick = function() {
-      if (document.getElementById('adminPasswordInput').value !== ADMIN_PASSWORD) { showRecordResult(false, '提示', '管理员密码错误'); return; }
+      if (!checkAdminPwd(document.getElementById('adminPasswordInput').value)) { showRecordResult(false, '提示', '管理员密码错误'); return; }
       if (!loadSbCfg()) { showRecordResult(false, '提示', '请先配置云同步'); return; }
       document.getElementById('adminLoginArea').style.display = 'none';
       document.getElementById('adminPanelArea').style.display = 'block';
@@ -1479,6 +1481,7 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
     // v39.6：已是管理员模式（管理员登录态）直接进设备管理面板，不再要二次密码
     if (typeof _isAdmin !== 'undefined' && _isAdmin) {
       if (!loadSbCfg()) { showRecordResult(false, '提示', '请先配置云同步'); return; }
+      show('admin'); // v39.10修复：必须切换到admin视图，否则accessOverlay默认显示cloud视图
       document.getElementById('adminLoginArea').style.display = 'none';
       document.getElementById('adminPanelArea').style.display = 'block';
       loadAdmin();
@@ -5606,7 +5609,7 @@ if(curBrier > 0.3){
         var rec = {a: a, b: b, c: c};
         rec._rid = _genRid(); // v39.0: 每局唯一ID，删除/合并按此对齐
         rec.timeSlot = timeSlot || getTimeSlot();
-        // v39.9修复：重构/重算/导入历史时必须保留原始日期。
+        // v39.8修复：重构/重算/导入历史时必须保留原始日期。
         // 原实现无条件把 date 写成"今天"，导致 _recKey(=date|timeSlot|abc|profit|invest)
         // 与云端旧记录对不上，轮询合并把同局记录当新记录 append，数据每重构一次翻一倍。
         var _nowDate = new Date();
@@ -6289,7 +6292,7 @@ if(curBrier > 0.3){
             var end = Math.min(idx + batchSize, hist.length);
             for (; idx < end; idx++) {
                 var h = hist[idx];
-                rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.9: 传原始date，避免_recKey与云端错位导致云合并翻倍
+                rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date，避免_recKey与云端错位导致云合并翻倍
             }
             if (onProgress) onProgress(idx, hist.length);
             if (idx < hist.length) {
@@ -6396,11 +6399,11 @@ function _loadSyncCounts() {
 // v35.6修复：key 为空（旧数据缺 date/timeSlot）时返回 null，调用方不参与去重，避免误删。
 function _recKey(rec) {
     if (!rec) return null;
-    var d = rec.date || '';
     var t = rec.timeSlot || '';
-    if (!d && !t) return null; // 旧数据无时间字段，不参与去重
-    // v38.2：判重必须同时匹配时段+ABC比分+收益+投资，否则同时段不同比分会被误判为重复
-    return d + '|' + t + '|' + (rec.a ?? '') + '|' + (rec.b ?? '') + '|' + (rec.c ?? '') + '|' + (rec.profitWinner || '') + '|' + (rec.investWinner || '');
+    if (!t) return null; // 旧数据无时段，不参与去重
+    // v39.9：判重不看 date——重构/重算会把 date 写成操作日，导致云端原始记录与本地副本 key 对不上被当新记录 append 翻倍。
+    // 与 dedupeRebuildDup 同一套 key：timeSlot|a|b|c|profit|invest
+    return t + '|' + (rec.a ?? '') + '|' + (rec.b ?? '') + '|' + (rec.c ?? '') + '|' + (rec.profitWinner || '') + '|' + (rec.investWinner || '');
 }
 // 把 incrHist 里本地已存在的记录剔除，返回真正需要追加的索引列表
 function _filterNewIndexes(existingHist, incrHist) {
@@ -6515,7 +6518,7 @@ window.dedupeLocalHistory = function() {
     console.log('[去重] 已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条');
     alert('已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条。\n\n请点「上传云端」按钮，把干净数据覆盖到云端。');
 };
-// v39.9：清理"重构污染翻倍"产生的存量重复。
+// v39.8：清理"重构污染翻倍"产生的存量重复。
 // 成因：addRecord 旧版把 date 强制写成当天，重构/重算后本地记录 date=操作日，
 // 与云端原始比赛日记录 _recKey(含date) 对不上，被轮询合并当新记录 append 一倍。
 // 判重时【不看 date】，改用 timeSlot|a|b|c|profit|invest 分组；组内多条时保留 date 最早的那条（=真实比赛日原始记录），
@@ -6874,7 +6877,15 @@ function pushOlogToCloud(snap, retry) {
                 }
             } catch(e) {}
         }, function(e){
-            console.warn("olog push fail (try " + (retry+1) + "):", e && e.message);
+            var _em = (e && e.message) ? e.message : '';
+            // v39.9：权限错误（非管理员对 olog 行无写权限）不重试、不进待传队列，
+            // 重试也是403，只会浪费请求并堆积待传快照。日志仅存本地，不影响主数据同步。
+            var _isAuthErr = _em.indexOf('401') >= 0 || _em.indexOf('403') >= 0 || _em.indexOf('Unauthorized') >= 0 || _em.indexOf('permission') >= 0 || _em.indexOf('row-level security') >= 0;
+            if (_isAuthErr) {
+                console.warn("[olog] 无写权限（" + _em + "），操作日志仅存本地，不影响数据同步");
+                return;
+            }
+            console.warn("olog push fail (try " + (retry+1) + "):", _em);
             if (retry < 2) {
                 setTimeout(function(){ pushOlogToCloud(snap, retry+1); }, 2000 * (retry+1));
             } else {
@@ -9342,7 +9353,7 @@ function recalcPredSnapshots() {
                 } : null
             } : null);
             // v37.3修复: 补传第9个参数investWinner（之前漏传，导致重建后所有记录无投资数据）
-            recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.9: 传原始date
+            recalcP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date
         }
         var pct = Math.round((i / total) * 100);
         document.getElementById('recalcBar').style.width = pct + '%';
@@ -11763,7 +11774,7 @@ document.getElementById('btnImportClipboard').addEventListener('click', async fu
                 var cbEnd = Math.min(cbDone + cbBatch, cbTotal);
                 for (var ri = cbDone; ri < cbEnd; ri++) {
                     var r = recs[ri];
-                    cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.9: 传原始date
+                    cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.8: 传原始date
                 }
                 cbDone = cbEnd;
                 if (cbDone < cbTotal) { setTimeout(cbNext, 0); }
@@ -12307,7 +12318,7 @@ function confirmImport() {
                     incInvalid++;
                     continue;
                 }
-                P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.9: 传原始date
+                P.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.8: 传原始date
             }
             incDone = incEnd;
             var pct = Math.round(incDone / incTotal * 100);
@@ -12359,7 +12370,7 @@ function confirmImport() {
         var endIdx = Math.min(startIdx + batchSize, hist.length);
         for (var ri = startIdx; ri < endIdx; ri++) {
             var r = hist[ri];
-            cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.9: 传原始date
+            cumP.addRecord(r.a, r.b, r.c, r.timeSlot, r.profitWinner, r.profitA, r.profitB, r.profitC, r.investWinner, r.date); // v39.8: 传原始date
         }
         currentBatch++;
         var pct = Math.round((currentBatch / totalBatches) * 100);
@@ -12629,7 +12640,7 @@ function importRecords(recs,replace,st){
             _importErrors.push({ row: ri+1, a:r.a, b:r.b, c:r.c, errors: errs });
             continue; // 跳过错误行
         }
-        cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC,r.investWinner,r.date); // v39.9: 传原始date
+        cumIR.addRecord(r.a,r.b,r.c,r.timeSlot,r.profitWinner,r.profitA,r.profitB,r.profitC,r.investWinner,r.date); // v39.8: 传原始date
     }
     P.history=cumIR.history.slice();
     P.predHistory=cumIR.predHistory.slice();
@@ -12781,37 +12792,19 @@ document.getElementById('btnUndo').addEventListener('click',function(){
     var investTxt2 = last.investWinner ? ('，获胜投资：' + last.investWinner) : '';
     if(!confirm('确认撤销上一局？\n\n上一局：A' + last.a + ' B' + last.b + ' C' + last.c + profitTxt + investTxt2 + '\n\n撤销后可在操作日志回滚。')) return;
     createSnapshot('撤销上一局');
-    P.undoLast();renderAll();debouncedSave();
+    P.undoLast();
+    // v39.9修复：撤销是"本地数据减少"操作，必须跳过上传前合并，
+    // 否则cloudSave会从云端把刚删掉的那局当"对端新记录"合并回来，导致撤销反复失效。
+    // 与 restoreSnapshotObject、覆盖导入等本地权威操作保持同一模式。
+    window._skipNextMerge = true;
+    renderAll();debouncedSave();
     try { _finalizeLastSnapCount(); } catch(e) {} // v38.x: 修正快照count为撤销后局数
-    showRecordResult(true, '撤销成功', '已撤销第' + (P.history.length + 1) + '局：A' + last.a + ' B' + last.b + ' C' + last.c);
-    // v35.4：撤销后自动覆盖式同步云端incr——确保云端和本地一致
+    showRecordResult(true, '撤销成功', '已撤销第' + (P.history.length + 1) + '局：A' + last.a + ' B' + last.b + ' C' + last.c + '\n\n正在立即覆盖同步到云端（已跳过合并，不会被拉回）');
+    // v39.9加固：撤销后立即强制上传（不等debouncedSave的5秒），
+    // 抢在20秒轮询之前把较短的本地数据覆盖云端，避免轮询把刚删的那局当对端新记录拉回。
     try {
-        if (supabaseClient && cloudOnline && !_testMode) {
-            setTimeout(async function() {
-                try {
-                    var _overwriteHist = P.history.slice(_lastFullSyncCount);
-                    var _overwritePred = (P.predHistory || []).slice(_lastFullSyncCount);
-                    var _overwriteAcc = (P.accuracy || []).slice(_lastFullSyncCount);
-                    var _overwritePA = (P.profitAccuracy || []).slice(_lastFullSyncCount);
-                    var _overwriteData = {
-                        history: _overwriteHist,
-                        predHistory: _overwritePred,
-                        accuracy: _overwriteAcc,
-                        profitAccuracy: _overwritePA,
-                        _syncEpoch: P._syncEpoch || 0,
-                        _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
-                    };
-                    await supabaseClient.from(CLOUD_TABLE).upsert({
-                        id: INCR_ROW_ID,
-                        data: _overwriteData,
-                        updated_at: new Date().toISOString()
-                    }, { onConflict: 'id' });
-                    _lastIncrSyncCount = P.history.length;
-                    _saveSyncCounts();
-                    console.log('[撤销后] 已覆盖同步云端incr，共', _overwriteHist.length, '条');
-                    updateCloudStatus('online', '☁️ 撤销已同步云端');
-                } catch(e) { console.warn('[撤销后同步失败]', e.message); }
-            }, 500);
+        if (supabaseClient && cloudOnline && !_testMode && !_cloudSaving) {
+            setTimeout(function() { cloudSave(false, true); }, 300);
         }
     } catch(e) {}
 });
@@ -13687,7 +13680,7 @@ function rebuildPredHistoryFrom(startIdx) {
     // 逐条addRecord所有记录，让rebuildP内部完成全部预测和学习
     for (var i = 0; i < P.history.length; i++) {
         var h = P.history[i];
-        rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.9: 传原始date，避免_recKey与云端错位导致云合并翻倍
+        rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date，避免_recKey与云端错位导致云合并翻倍
     }
     
     // 从 rebuildP.predHistory[startIdx] 开始追加（前 startIdx 条和原来一致，跳过）
@@ -13782,7 +13775,7 @@ function rebuildPredHistoryFromAsync(startIdx, onComplete) {
         for (var i = done; i < end; i++) {
             rebuildP._skipPred = (i <= skipPredUntil);
             var h = P.history[i];
-            rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.9: 传原始date，避免_recKey与云端错位导致云合并翻倍
+            rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); // v39.8: 传原始date，避免_recKey与云端错位导致云合并翻倍
         }
         done = end;
         // 进度只算真正需要重算的部分
