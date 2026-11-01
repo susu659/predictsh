@@ -748,8 +748,8 @@
                 </h2>
                 <div class="seg" id="source-seg" role="tablist" aria-label="数据源切换">
                     <button type="button" class="seg-btn active" data-source="seat" aria-pressed="true">商会席位</button>
-                    <button type="button" class="seg-btn" data-source="number" aria-pressed="false">编号 1~N</button>
-                    <button type="button" class="seg-btn" data-source="list" aria-pressed="false">成员名单</button>
+                    <button type="button" class="seg-btn" data-source="number" aria-pressed="false" hidden>编号 1~N</button>
+                    <button type="button" class="seg-btn" data-source="list" aria-pressed="false" hidden>成员名单</button>
                 </div>
 
                 <div id="seat-group">
@@ -775,7 +775,7 @@
                 <div class="input-group" id="common-count-group" style="margin-top:14px">
                     <div class="input-container">
                         <label for="count-input"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6v6H9z"/></svg>抽取个数</label>
-                        <input type="number" id="count-input" class="number-input" min="1" max="50" step="1" value="3" aria-label="抽取个数">
+                        <input type="number" id="count-input" class="number-input" min="1" max="50" step="1" value="5" aria-label="抽取个数">
                     </div>
                     <div class="error" id="count-error"></div>
                 </div>
@@ -799,9 +799,9 @@
                     抽取节奏
                 </h2>
                 <div class="seg" id="mode-seg" role="tablist" aria-label="抽取模式">
-                    <button type="button" class="seg-btn active" data-mode="manual" aria-pressed="true">手动单步</button>
+                    <button type="button" class="seg-btn active" data-mode="manual" aria-pressed="true" hidden>手动单步</button>
                     <button type="button" class="seg-btn" data-mode="auto" aria-pressed="false">自动逐个</button>
-                    <button type="button" class="seg-btn" data-mode="all" aria-pressed="false">全部显示</button>
+                    <button type="button" class="seg-btn" data-mode="all" aria-pressed="false" hidden>全部显示</button>
                 </div>
             </section>
 
@@ -831,7 +831,7 @@
             <div class="message" id="message" aria-live="polite">设置参数后点击「开始抽取」</div>
 
             <!-- 本轮已抽 -->
-            <section class="control-group" aria-label="本轮已抽名单">
+            <section class="control-group" aria-label="本轮已抽名单" hidden>
                 <div class="group-head">
                     <h2>本轮已抽 <span id="picked-count" class="hint-line" style="margin:0"></span></h2>
                 </div>
@@ -852,7 +852,7 @@
             </section>
 
             <!-- 累计统计 -->
-            <section class="control-group" aria-label="累计命中统计">
+            <section class="control-group" aria-label="累计命中统计" hidden>
                 <div class="group-head">
                     <h2>累计命中统计</h2>
                     <button type="button" class="mini-btn" id="clear-history-btn">清空统计</button>
@@ -953,7 +953,7 @@
         // phase: idle | rolling | waiting | auto | paused | done
         const state = {
             sourceMode: 'seat',
-            drawMode: 'manual',
+            drawMode: 'auto',
             pool: [],
             picked: [],
             phase: 'idle',
