@@ -7,7 +7,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v40.7 · AI自适应版</title>
+<title>商会三竞预测系统 v41.1 · AI自适应调优版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -609,8 +609,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.5</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.7</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🔗 跨端模型权重对齐修复 · 轮询同步补全模型状态 · 上传前合并同步学习参数</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.1</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调优 <span style="color:#ffd700;font-weight:700;">v41.1</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI辅助调优 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -707,6 +707,20 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="config-item"><label>回滚保护窗口</label><input type="number" id="cfgRollbackWindow" value="5" min="3" max="10" step="1"></div>
 </div>
 <button class="btn-primary" id="applyConfigBtn">✅ 应用参数</button>
+<div style="margin-top:16px;padding-top:14px;border-top:2px solid #e9ecef;">
+<h3 style="font-size:14px;margin-bottom:8px;">🤖 AI辅助调优（可选）</h3>
+<div class="config-grid">
+<div class="config-item"><label>API地址</label><input type="text" id="aiUrl" placeholder="https://api.openai.com/v1/chat/completions" style="font-size:12px;"></div>
+<div class="config-item"><label>API Key</label><input type="password" id="aiKey" placeholder="sk-..." style="font-size:12px;"></div>
+<div class="config-item"><label>模型名</label><input type="text" id="aiModel" placeholder="gpt-4o-mini / deepseek-chat" style="font-size:12px;"></div>
+</div>
+<div style="display:flex;gap:10px;align-items:center;margin-top:8px;">
+<label style="font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" id="aiEnabled"> 启用AI自动分析</label>
+<button class="btn-secondary" id="aiSaveBtn" style="flex:0 0 auto;padding:6px 14px;font-size:13px;">保存AI设置</button>
+<button class="btn-secondary" id="aiTestBtn" style="flex:0 0 auto;padding:6px 14px;font-size:13px;">测试连接</button>
+</div>
+<p style="font-size:11px;color:#999;margin-top:6px;">支持OpenAI兼容接口（豆包/DeepSeek/Kimi/通义等）。调优完成后自动分析各模型表现，给出加权/降权建议。</p>
+</div>
 </div>
 <div class="input-section">
 <h2 class="section-title">数据录入</h2>
@@ -812,6 +826,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 <div class="summary-box">
 <div id="autoBrierBadge" style="margin-bottom:6px;font-size:12px;color:#666;"></div>
+<div id="aiStatusBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;padding:14px 20px;background:linear-gradient(90deg,#667eea,#764ba2);color:#fff;text-align:center;font-size:16px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,0.3);pointer-events:none;"></div>
 <div id="driftBadge" style="margin-bottom:6px;font-size:12px;min-height:16px;"></div>
 <div class="summary-text" id="predSummary">暂无足够数据，请先录入至少一局。</div>
 <div id="confidenceDisplay" style="margin-top:12px;"></div>
@@ -969,13 +984,15 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="tab-content" id="tab-optimize" style="display:none;">
 <div class="optimize-panel open" style="display:block;">
 <h2 class="section-title">⚙️ 自动参数调优</h2>
-<p style="font-size:13px;color:#6c757d;margin-bottom:12px;">随机搜索在历史数据上自动寻找最优参数组合（含五级窗口权重 + 学习率）。</p>
+<p style="font-size:13px;color:#6c757d;margin-bottom:12px;">交叉验证：前70%历史数据搜索参数，后30%验证泛化性。先200组随机探索，再3轮坐标下降（逐个参数穷举最优值）。跑完显示训练集和验证集双分数，验证集下降会提示过拟合。</p>
 <div id="optimizeStatus" style="margin-bottom:12px;font-size:14px;color:#6c757d;">点击"开始调优"按钮启动搜索...</div>
 <div class="optimize-progress"><div class="optimize-progress-fill" id="optimizeProgressFill"></div></div>
 <div id="optimizeCurrent" style="font-size:13px;color:#495057;margin-bottom:8px;"></div>
 <div class="optimize-result" id="optimizeResult"></div>
 <button class="btn-optimize" id="btnStartOptimize" style="margin-top:12px;">🤖 开始调优</button>
 <button class="btn-primary" id="btnApplyOptimal" style="margin-top:12px;margin-left:12px;display:none;" disabled>✅ 应用最优参数</button>
+<button class="btn-secondary" id="btnAiAnalyze" style="margin-top:12px;margin-left:12px;">🧠 AI分析模型</button>
+<button class="btn-secondary" id="btnAiPredict" style="margin-top:12px;margin-left:12px;">🔮 AI预测下一局</button>
 <h3 style="margin-top:18px;font-size:15px;">📊 搜索历史（按得分排序）</h3>
 <div style="max-height:250px;overflow-y:auto;border:1px solid #e9ecef;border-radius:8px;margin-top:8px;">
 <table class="pred-history-table" id="optHistoryTable"><thead><tr><th>#</th><th>6局W</th><th>8局W</th><th>10局W</th><th>全局W</th><th>衰减</th><th>冷门</th><th>学习率</th><th>准确率</th><th>Brier</th></tr></thead><tbody id="optHistoryBody"></tbody></table>
@@ -1000,7 +1017,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v40.5';
+  var APP_VERSION = 'v41.1';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2322,13 +2339,22 @@ function generatePieLegend(data) {
 }
 // ========== v24: 渲染概率饼图 ==========
 function renderPieCharts() {
-    // 饼图1：ABC历史获胜概率
+    // 饼图1：ABC历史获胜概率——直接遍历全部history
     var winCounts = {A:0, B:0, C:0};
     var totalValid = 0;
-    P.history.forEach(function(rec) {
+    var histLen = P.history.length;
+    for (var hi = 0; hi < histLen; hi++) {
+        var rec = P.history[hi];
+        if (!rec) continue;
         var w = getWinner(rec);
         if (w && winCounts.hasOwnProperty(w)) { winCounts[w]++; totalValid++; }
-    });
+    }
+    console.log('[饼图统计] history总数=' + histLen + ', 有效统计=' + totalValid + ', A=' + winCounts.A + ' B=' + winCounts.B + ' C=' + winCounts.C);
+    // 更新标题显示总记录数
+    var h3el = document.querySelector('.chart-card h3');
+    if (h3el && h3el.textContent.indexOf('ABC历史获胜概率') >= 0) {
+        h3el.textContent = '🏆 ABC历史获胜概率（共' + histLen + '局）';
+    }
     var winData = [
         {label:'商会A', value:winCounts.A, color:'#e74c3c'},
         {label:'商会B', value:winCounts.B, color:'#3498db'},
@@ -2347,8 +2373,15 @@ function renderPieCharts() {
         if (!actualRec3) continue;
         var actualWinner3 = getWinner(actualRec3);
         if (!actualWinner3) continue;
-        // 严格校验：ABC排名必须是1/2/3各出现一次，不能有0，不能缺1
+        // v41.1: 旧数据没有rank字段，从probs补算
         var rk3 = ph3.rank;
+        if (!rk3 && ph3.probs) {
+            var p = ph3.probs;
+            var sorted = ['A','B','C'].sort(function(a,b){ return p[b]-p[a]; });
+            rk3 = { A:0, B:0, C:0 };
+            sorted.forEach(function(g, idx) { rk3[g] = idx+1; });
+            ph3.rank = rk3; // 缓存回写
+        }
         if (!rk3) { abnormalCount++; continue; }
         var rA = rk3.A, rB = rk3.B, rC = rk3.C;
         if ([rA,rB,rC].some(function(v){return v!==1&&v!==2&&v!==3;})) { abnormalCount++; continue; }
@@ -4206,7 +4239,8 @@ class Predictor {
     trend: 0.05,
     regression: 0.04,
     similarPattern: 0.25,
-    profitPattern: 0.09  // v25.5: 新增收益规律模型
+    profitPattern: 0.09,  // v25.5: 新增收益规律模型
+    aiModel: 0.15  // v41.1: AI预测模型，初始15%权重
 };
         this.modelPerf = {};
         // v30.22.2修复：构造函数必须初始化高级模型命中率表，否则新用户_scoreAdvancedModels直接return、_advAcc永远0.5
@@ -4386,6 +4420,11 @@ class Predictor {
         return normalizeProbs(probs);
     }
     // ===== v25.5: 收益规律模型 =====
+    // v41.1: AI预测模型——从缓存读取AI分析的概率
+    _modelAIPrediction() {
+        if (!this._aiCache || !this._aiCache.probs) return null;
+        return this._aiCache.probs; // {A:0.4, B:0.3, C:0.3}
+    }
     _modelProfitPattern(records) {
         var n = records.length;
         if (n < 5) return null;
@@ -4639,11 +4678,12 @@ class Predictor {
             regression: this._modelRegression(records),
             similarPattern: _isSmallWindow ? null : this._modelSimilarPattern(records),
             profitPattern: this._modelProfitPattern(records),
-            ngram: this._modelNGram(records)
+            ngram: this._modelNGram(records),
+            aiModel: this._modelAIPrediction()  // v41.1: AI预测模型
         };
         var mw = this.modelWeights;
         // v25.8修复：防御性检查，确保所有权重都是有效数字
-        ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'].forEach(function(k) {
+        ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel'].forEach(function(k) {
             if (mw[k] === undefined || mw[k] === null || isNaN(mw[k])) mw[k] = 0.08;
         });
         var w = {
@@ -4655,8 +4695,9 @@ class Predictor {
             alternation: models.alternation ? mw.alternation : 0,
             trend: models.trend ? mw.trend : 0,
             regression: models.regression ? mw.regression : 0,
-            similarPattern: models.similarPattern ? (mw.similarPattern * this._simWeightFactor()) : 0,  // v31-③④: 数据量自适应+漂移降权
+            similarPattern: models.similarPattern ? (mw.similarPattern * this._simWeightFactor()) : 0,
             profitPattern: models.profitPattern ? mw.profitPattern : 0,
+            aiModel: models.aiModel ? mw.aiModel : 0,  // v41.1: AI模型权重
             ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
         // v38.2: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
@@ -4666,7 +4707,7 @@ class Predictor {
             // learnIters=4：每局录入 learnFromResult 内部 iters 循环会 push 4 次 modelPerf，
             // 所以 _DYN_WIN=80 对应"最近20局"，_DYN_MIN=40 对应"最近10局才参与动态调整"。
             var _DYN_WIN = 80, _DYN_MIN = 40, _DYN_BASE = 0.33;
-            var _dynKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+            var _dynKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel'];
             var _dynLog = [];
             var _selfDyn = this;
             _dynKeys.forEach(function(name){
@@ -5317,10 +5358,24 @@ class Predictor {
             else if (globalCorrect === false) CONFIG.globalW -= lr * errorPenalty;
             normalizeWindowWeights();
             // 调整子模型权重
-            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern']; // v30.22修复:补充profitPattern
+            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel']; // v41.1: 加aiModel
             if (pAll && pAll.models) {
                 var self = this;
                 modelNames.forEach(function(name) {
+                    // v41.1: AI模型特殊处理——从缓存读取预测结果
+                    if (name === 'aiModel') {
+                        if (!self._aiCache || !self._aiCache.probs) return;
+                        var aiProbs = self._aiCache.probs;
+                        var aiPred = Object.keys(aiProbs).sort(function(a,b){return aiProbs[b]-aiProbs[a];})[0];
+                        var correct = (aiPred === actualWinner);
+                        if (!self.modelPerf[name]) self.modelPerf[name] = [];
+                        self.modelPerf[name].push(correct);
+                        if (self.modelPerf[name].length > 50) self.modelPerf[name].shift();
+                        if (correct) self.modelWeights[name] += lr * correctReward;
+                        else self.modelWeights[name] -= lr * errorPenalty;
+                        self.modelWeights[name] = Math.max(0.02, self.modelWeights[name]);
+                        return;
+                    }
                     var m = pAll.models[name];
                     if (!m) return;
                     var mr = computeRank(m);
@@ -5886,6 +5941,46 @@ if(curBrier > 0.3){
                 this.investAccuracy.push(ph.investCorrect);
             }
         }
+        // v41.2: 从predHistory重建modelPerf（各子模型命中率）
+        if (this.predHistory.length > 0 && (!this.modelPerf || Object.keys(this.modelPerf).length === 0)) {
+            console.log('[重建] modelPerf为空，从predHistory重建...');
+            this.modelPerf = {};
+            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+            modelNames.forEach(function(name) { this.modelPerf[name] = []; }, this);
+            for (var j = 0; j < this.predHistory.length; j++) {
+                var ph2 = this.predHistory[j];
+                if (ph2.isTie) continue;
+                var actualRec = this.history[j + 1];
+                if (!actualRec) continue;
+                var actualWinner = getWinner(actualRec);
+                if (!actualWinner) continue;
+                // 从predHistory的models字段重建每个模型的命中率
+                if (ph2.models) {
+                    modelNames.forEach(function(name) {
+                        var m = ph2.models[name];
+                        if (!m) return;
+                        var mr = m.rank || (m.probabilities ? {A:0,B:0,C:0} : null);
+                        if (!mr && m.probabilities) {
+                            var sorted = ['A','B','C'].sort(function(a,b){ return m.probabilities[b]-m.probabilities[a]; });
+                            mr = { A:0, B:0, C:0 };
+                            sorted.forEach(function(g, idx) { mr[g] = idx+1; });
+                        }
+                        if (!mr) return;
+                        var predictedGuild = actualWinner; // 临时
+                        // 找排名第一的 guild
+                        var topGuild = null;
+                        for (var g = 0; g < 3; g++) {
+                            var guildName = ['A','B','C'][g];
+                            if (mr[guildName] === 1) { topGuild = guildName; break; }
+                        }
+                        if (!topGuild) return;
+                        var correct = (topGuild === actualWinner);
+                        if (this.modelPerf[name].length < 50) this.modelPerf[name].push(correct);
+                    }, this);
+                }
+            }
+            console.log('[重建] modelPerf重建完成，各模型样本数：', modelNames.map(function(name){ return name+':'+this.modelPerf[name].length; }, this).join(', '));
+        }
     }
     // v39.0: 旧数据迁移——给没有rid的历史补ID，给predHistory补correct字段
     _migrateRids() {
@@ -5989,11 +6084,11 @@ if(curBrier > 0.3){
         if (profitCount > 0) { profitAcc /= profitCount; profitAvgBrier /= profitCount; }
         return {n:results.length, acc1:acc1, acc2:acc2, avgBrier:avgBrier, results:results, profitAcc:profitAcc, profitCount:profitCount, profitAvgBrier:profitAvgBrier};
     }
-    // ===== 自动调优（v20性能优化：跳过学习，轻量回测，分批让出UI）=====
+    // ===== 自动调优（v40.7: 交叉验证 + 坐标下降 + 全量回测）=====
     autoOptimize(callback) {
         var self = this;
         var origHistory = this.history.slice();
-        if (origHistory.length < 8) { callback({error:'数据不足，至少需要8局'}); return; }
+        if (origHistory.length < 50) { callback({error:'数据不足，至少需要50局'}); return; }
         var paramSpace = {
             streakDecayMax: [0.10, 0.15, 0.20, 0.25, 0.30],
             coldBonusCap: [0.01, 0.02, 0.03, 0.05],
@@ -6005,7 +6100,14 @@ if(curBrier > 0.3){
             learnRate: [0.03, 0.05, 0.08]
         };
         var keys = Object.keys(paramSpace);
-        var maxIter = 30; // v20: 从50降到30，配合更精准的评估
+        var n = origHistory.length;
+        // v40.7: 交叉验证——前70%训练找参数，后30%验证泛化性
+        var splitIdx = Math.floor(n * 0.70);
+        if (splitIdx < 50) splitIdx = Math.floor(n * 0.5);
+        var trainHist = origHistory.slice(0, splitIdx);
+        var valHist = origHistory.slice(splitIdx);
+        var randomIters = 200;
+        var coordPasses = 3; // 坐标下降轮数
         var tested = 0;
         var searchHistory = [];
         var bestScore = -999;
@@ -6015,24 +6117,21 @@ if(curBrier > 0.3){
             keys.forEach(function(k) { var arr=paramSpace[k]; c[k]=arr[Math.floor(Math.random()*arr.length)]; });
             return c;
         }
-        // v20: 轻量评估 — 直接构建历史，不做学习，只用_ensemblePredict滑动回测
-        function quickEval(combo) {
+        // 在指定历史上回测评分
+        function evalOnHist(combo, hist) {
             var origCfg = {};
             keys.forEach(function(k) { origCfg[k]=CONFIG[k]; CONFIG[k]=combo[k]; });
             normalizeWindowWeights();
-            // 直接构建历史（不触发学习）
             var tempP = new Predictor();
-            tempP.history = origHistory.slice();
-            // 轻量滑动回测：用最近20局窗口，每局用_ensemblePredict预测
+            tempP.history = hist.slice();
             var correct = 0, total = 0, brierSum = 0;
-            var maxBt = Math.min(origHistory.length, 60); // 最多回测60局
-            var startIdx = Math.max(6, origHistory.length - maxBt);
-            for (var i = startIdx; i < origHistory.length; i++) {
+            var startIdx = Math.max(6, 0);
+            for (var i = startIdx; i < hist.length; i++) {
                 var windowSize = Math.min(i, 15);
-                var slice = origHistory.slice(i - windowSize, i);
+                var slice = hist.slice(i - windowSize, i);
                 var pred = tempP._ensemblePredict(slice);
                 if (!pred) continue;
-                var actual = getWinner(origHistory[i]);
+                var actual = getWinner(hist[i]);
                 if (!actual) continue;
                 var predGuild = computeRank(pred.probs).predictedGuild;
                 if (predGuild === actual) correct++;
@@ -6041,27 +6140,89 @@ if(curBrier > 0.3){
             }
             keys.forEach(function(k) { CONFIG[k]=origCfg[k]; });
             normalizeWindowWeights();
-            if (total === 0) return {acc1:0, brier:1};
-            return {acc1: correct/total, brier: brierSum/(total*2)};
+            if (total === 0) return {acc1:0, brier:1, total:total};
+            return {acc1: correct/total, brier: brierSum/(total*2), total:total};
         }
-        // v20: 分批执行，每批5个，让出UI避免卡顿
-        var batchSize = 5;
+        // 综合评分：准确率 - 0.5*Brier，再加轻微正则（避免极端参数）
+        function scoreOf(m) {
+            if (m.total < 10) return -1; // 样本太少不评
+            return m.acc1 - m.brier * 0.5;
+        }
+        // 先测基线
+        var baseline = {};
+        keys.forEach(function(k) { baseline[k] = CONFIG[k]; });
+        var baseTrain = evalOnHist(baseline, trainHist);
+        var baseVal = evalOnHist(baseline, valHist);
+        var baseTrainScore = scoreOf(baseTrain);
+        var baseValScore = scoreOf(baseVal);
+        searchHistory.push({combo:baseline,acc1:baseTrain.acc1,brier:baseTrain.brier,score:baseTrainScore,valScore:baseValScore,isBaseline:true});
+        bestScore = baseTrainScore;
+        bestCombo = baseline;
+        tested = 1;
+        var batchSize = 2; // 小批量让出UI
+        var phase = 1; // 1=随机探索, 2=坐标下降
+        var coordPass = 0;
+        var coordKeyIdx = 0;
+        var coordValIdx = 0;
+        var coordTryCombo = null;
         function iterate() {
-            if (tested >= maxIter) {
-                callback({done:true,bestCombo:bestCombo,bestScore:bestScore,searchHistory:searchHistory,testedCount:tested});
+            if (phase === 1 && tested >= randomIters) {
+                // 随机探索完成，进入坐标下降
+                phase = 2;
+                coordPass = 0;
+                coordKeyIdx = 0;
+                coordValIdx = 0;
+            }
+            if (phase === 2 && coordPass >= coordPasses) {
+                // 全部完成，做最终验证
+                var finalVal = evalOnHist(bestCombo, valHist);
+                var finalValScore = scoreOf(finalVal);
+                callback({done:true,bestCombo:bestCombo,bestScore:bestScore,searchHistory:searchHistory,testedCount:tested,baselineScore:baseTrainScore,baselineValScore:baseValScore,valScore:finalValScore,maxBt:n});
                 return;
             }
-            var batchEnd = Math.min(tested + batchSize, maxIter);
-            for (var bi = tested; bi < batchEnd; bi++) {
-                var combo = randomCombo();
-                var m = quickEval(combo);
-                var score = m.acc1 - m.brier * 0.5;
-                searchHistory.push({combo:combo,acc1:m.acc1,brier:m.brier,score:score});
-                if (score > bestScore) { bestScore = score; bestCombo = combo; }
-                tested++;
+            var batchEnd = Math.min(tested + batchSize, (phase === 1 ? randomIters : 999999));
+            if (phase === 1) {
+                batchEnd = Math.min(tested + batchSize, randomIters);
+                for (var bi = tested; bi < batchEnd; bi++) {
+                    var combo = randomCombo();
+                    var m = evalOnHist(combo, trainHist);
+                    var s = scoreOf(m);
+                    searchHistory.push({combo:combo,acc1:m.acc1,brier:m.brier,score:s});
+                    if (s > bestScore) { bestScore = s; bestCombo = combo; }
+                    tested++;
+                }
+            } else {
+                // 坐标下降：固定其他参数，逐个试当前参数的所有取值
+                if (coordKeyIdx >= keys.length) {
+                    coordPass++;
+                    coordKeyIdx = 0;
+                    coordValIdx = 0;
+                    if (coordPass >= coordPasses) {
+                        var finalVal2 = evalOnHist(bestCombo, valHist);
+                        var finalValScore2 = scoreOf(finalVal2);
+                        callback({done:true,bestCombo:bestCombo,bestScore:bestScore,searchHistory:searchHistory,testedCount:tested,baselineScore:baseTrainScore,baselineValScore:baseValScore,valScore:finalValScore2,maxBt:n});
+                        return;
+                    }
+                }
+                var key = keys[coordKeyIdx];
+                var vals = paramSpace[key];
+                // 一批处理一个key的所有取值
+                for (var vi = 0; vi < vals.length && tested < batchEnd; vi++) {
+                    var c = Object.assign({}, bestCombo);
+                    c[key] = vals[vi];
+                    // 跳过和当前best相同的
+                    if (vals[vi] === bestCombo[key]) { tested++; continue; }
+                    var m = evalOnHist(c, trainHist);
+                    var s = scoreOf(m);
+                    searchHistory.push({combo:c,acc1:m.acc1,brier:m.brier,score:s});
+                    if (s > bestScore) { bestScore = s; bestCombo = c; }
+                    tested++;
+                }
+                coordKeyIdx++;
+                batchEnd = tested + 1; // 坐标下降每key一批
             }
-            callback({progress:tested/maxIter,testedCount:tested,maxIter:maxIter,currentBest:bestScore,currentBestCombo:bestCombo});
-            setTimeout(iterate, 0); // v20: 让出UI线程
+            callback({progress:tested/(randomIters + keys.length*coordPasses*3),testedCount:tested,maxIter:randomIters + keys.length*coordPasses*3,currentBest:bestScore,currentBestCombo:bestCombo});
+            setTimeout(iterate, 0);
         }
         setTimeout(iterate, 10);
     }
@@ -6073,24 +6234,36 @@ if(curBrier > 0.3){
             return true;
         } catch(e) {
             console.warn('[本地存储] 配额超限，尝试降级截断:', e.message);
-            // 第一次降级：截断predHistory/accuracy/profitAccuracy到最近500条
+            // v41.1修复：优先截断大字段，绝不截断history！
             try {
                 var d1 = Object.assign({}, dataObj);
+                // 先清掉缓存类大字段
+                if (d1.patternHitCache) d1.patternHitCache = {};
+                if (d1.reflectionLog) d1.reflectionLog = [];
+                if (d1.memoLog) d1.memoLog = [];
+                // 再截断predHistory/accuracy/profitAccuracy到最近500条（保留history和modelPerf完整）
                 if (Array.isArray(d1.predHistory)) d1.predHistory = d1.predHistory.slice(-500);
                 if (Array.isArray(d1.accuracy)) d1.accuracy = d1.accuracy.slice(-500);
                 if (Array.isArray(d1.profitAccuracy)) d1.profitAccuracy = d1.profitAccuracy.slice(-500);
-                if (d1.patternHitCache) d1.patternHitCache = {};
-                if (Array.isArray(d1.reflectionLog)) d1.reflectionLog = d1.reflectionLog.slice(-20);
+                if (Array.isArray(d1.profitBrierHistory)) d1.profitBrierHistory = d1.profitBrierHistory.slice(-500);
+                if (Array.isArray(d1.investAccuracy)) d1.investAccuracy = d1.investAccuracy.slice(-500);
                 localStorage.setItem(key, JSON.stringify(d1));
-                console.log('[本地存储] 第一次降级成功（截断到500条）');
+                console.log('[本地存储] 第一次降级成功（截断辅助数据到500条，history+modelPerf完整）');
                 return true;
             } catch(e2) {
-                console.warn('[本地存储] 第一次降级失败，尝试只保留history:', e2.message);
-                // 第二次降级：只保留history最近200条
+                console.warn('[本地存储] 第一次降级失败，尝试只保留核心数据:', e2.message);
+                // 第二次降级：保留history完整 + modelWeights + modelPerf + windowPerf（学习核心数据）
                 try {
-                    var d2 = { history: Array.isArray(dataObj.history) ? dataObj.history.slice(-200) : [] };
+                    var d2 = { 
+                        history: dataObj.history,
+                        modelWeights: dataObj.modelWeights,
+                        modelPerf: dataObj.modelPerf,
+                        windowPerf: dataObj.windowPerf,
+                        advancedModelPerf: dataObj.advancedModelPerf,
+                        _syncEpoch: dataObj._syncEpoch || 0
+                    };
                     localStorage.setItem(key, JSON.stringify(d2));
-                    console.log('[本地存储] 第二次降级成功（仅保留最近200条history）');
+                    console.log('[本地存储] 第二次降级成功（保留history+权重+命中率，无预测历史）');
                     return true;
                 } catch(e3) {
                     console.error('[本地存储] 所有降级均失败:', e3.message);
@@ -7546,7 +7719,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                             if (_ds.investAccuracy) P.investAccuracy = _ds.investAccuracy;
                         } catch(e) {}
                         P._migrateRids(); P._rebuildStatsFromPred(); // v39.0: 云合并后按rid对齐
-                        // v40.7修复: 轮询合并后必须对齐云端模型权重/配置，否则两台电脑历史相同但学习状态分叉→预测不一致
+                        // v40.6修复: 轮询合并后必须对齐云端模型权重/配置，否则两台电脑历史相同但学习状态分叉→预测不一致
                         try { _alignRemoteModels(r.data.data); } catch(_e) { console.warn('[轮询] 模型对齐失败:', _e && _e.message); }
                         P.maxStreakEver = calcMaxStreak(P.history);
                         _lastIncrSyncCount = P.history.length;
@@ -7969,7 +8142,7 @@ async function cloudSave(manual, skipPrecheck) {
             if (_remoteForMerge) {
                 var _mergedN = _mergeRemoteHistoryIntoLocal(_remoteForMerge);
                 if (_mergedN > 0) {
-                    // v40.7修复: 上传前合并远端记录后也必须对齐云端模型权重，避免学习状态分叉
+                    // v40.6修复: 上传前合并远端记录后也必须对齐云端模型权重，避免学习状态分叉
                     try { _alignRemoteModels(_remoteForMerge); } catch(_e) { console.warn('[上传前合并] 模型对齐失败:', _e && _e.message); }
                     try { P.saveLocal(); } catch(e) {}
                     try { renderAll(); } catch(e) {}
@@ -9584,7 +9757,7 @@ function recalcPredSnapshots() {
 
 // ===== v29.0: 子模型长期命中率 + 联合信号 + 数据健康 =====
 var _MODEL_KEYS = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
-var _MODEL_LABELS = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律'};
+var _MODEL_LABELS = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律',aiModel:'🤖 AI预测'};
 function _alignWinners() {
     var off = P.history.length - P.predHistory.length;
     var arr = [];
@@ -9864,11 +10037,11 @@ function autoBacktestTick() {
     }, {timeout: 2000});
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
-// v34.3：同样延迟到空闲，并在用户正在操作时主动跳过
+// v41.1: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
 var _lastOptimizeCount = 0;
 function autoOptimizeTick() {
-    if (!P.history || P.history.length < 200) return;
-    if (P.history.length - _lastOptimizeCount < 50) return;
+    if (!P.history || P.history.length < 100) return;
+    if (P.history.length - _lastOptimizeCount < 10) return;
     if (window._optRunning) return;
     _lastOptimizeCount = P.history.length;
     _idleCtl(function(){
@@ -9878,16 +10051,15 @@ function autoOptimizeTick() {
             return;
         }
         window._optRunning = true;
-        var oldAcc = 0;
-        if (_lastBacktest) oldAcc = _lastBacktest.acc1;
         P.autoOptimize(function(result){
             if (result.done) {
                 window._optRunning = false;
                 if (!result.bestCombo) return;
-                var newAcc = result.bestScore; // bestScore 综合分
-                var oldScore = oldAcc;
-                // 自动应用：如果新参数比当前好超过2%
-                if (result.bestScore > oldScore + 0.01) {
+                window._optimalParams = result.bestCombo;
+                // v40.7: 用baselineScore同量纲对比，提升>1%才自动应用
+                var baseScore = result.baselineScore !== undefined ? result.baselineScore : -999;
+                var improve = result.bestScore - baseScore;
+                if (improve > 0.01) {
                     var p = result.bestCombo;
                     try {
                         document.getElementById('cfgStreakDecayMax').value = p.streakDecayMax||0.18;
@@ -9899,23 +10071,173 @@ function autoOptimizeTick() {
                         document.getElementById('cfgGlobalW').value = p.globalW||0.08;
                         document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
                         reloadConfig();
-                        console.log('[autoOptimize] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
-                        // v30.22: 优化成功后在主界面显示绿色提示
+                        renderAll();
+                        debouncedSave();
+                        console.log('[autoOptimize] 自动应用新参数，提升', improve.toFixed(3));
                         var badge = document.getElementById('autoBrierBadge');
                         if (badge) {
                             var oldHtml = badge.innerHTML;
-                            badge.innerHTML = '<span style="color:#27ae60;font-weight:700;">⚡ 已自动优化参数（提升'+((result.bestScore-oldScore)*100).toFixed(1)+'%）</span>';
-                            setTimeout(function(){ badge.innerHTML = oldHtml; }, 5000);
+                            badge.innerHTML = '<span style="color:#27ae60;font-weight:700;">⚡ 已自动优化参数（提升'+(improve*100).toFixed(1)+'%）</span>';
+                            setTimeout(function(){ badge.innerHTML = oldHtml; }, 8000);
                         }
                         showLearnTip && showLearnTip();
                     } catch(e) { console.warn('[autoOptimize] apply failed:', e.message); }
                 }
-                window._optimalParams = result.bestCombo;
+                // v40.7: 调优完成后自动调用AI辅助分析
+                try { aiAnalyzeAndAdjust(function(){ debouncedSave(); renderAll(); }); aiPredictNext(); } catch(e) { console.warn('[AI联动]失败:', e.message); }
             }
         });
     }, {timeout: 5000});
 }
-// v31.0: 一键复制预测结果（v33.1: 四盘统一格式）
+
+// v40.7: AI辅助分析——调优完成后把模型表现发给大模型，获取加权建议
+var _AI_CFG_KEY = 'mm_ai_cfg_v1';
+var _aiCfg = { url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', key: '715e7bd1289b4b9f9481f1ea035ab8fb.2USXafnXBphI6TwB', model: 'glm-4-flash', enabled: true };
+try { var _ais = localStorage.getItem(_AI_CFG_KEY); if (_ais) Object.assign(_aiCfg, JSON.parse(_ais)); } catch(e) {}
+function _aiSaveCfg() { try { localStorage.setItem(_AI_CFG_KEY, JSON.stringify(_aiCfg)); } catch(e) {} }
+
+// v41.1: AI预测下一局——后台调AI分析走势，缓存概率供融合预测使用
+function aiPredictNext() {
+    console.log('[AI预测] 开始三预测深度分析...');
+    if (!_aiCfg.enabled) { console.log('[AI预测] AI未启用'); return; }
+    var aiBar = document.getElementById('aiStatusBar');
+    if (aiBar) { aiBar.style.display = 'block'; aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...'; }
+    var cfg = getCloudConfig();
+    var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
+    var hdrs = { 'Content-Type': 'application/json' };
+    if (cfg.key) { hdrs['Authorization'] = 'Bearer ' + cfg.key; hdrs['apikey'] = cfg.key; }
+    // 收集全部数据
+    var recent = P.history.slice(-30).map(function(r) { return r.a+'-'+r.b+'-'+r.c; });
+    var modelStats = [];
+    var mw = P.modelWeights || {};
+    var mp = P.modelPerf || {};
+    var names = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律',aiModel:'AI预测'};
+    Object.keys(names).forEach(function(k) {
+        var stats = mp[k];
+        var acc = stats && stats.length > 0 ? (stats.filter(function(x){return x;}).length / stats.length) : 0;
+        modelStats.push(names[k] + ': 命中率' + (acc*100).toFixed(0) + '% 权重' + (mw[k]*100).toFixed(0) + '%');
+    });
+    // 相似盘数据
+    var similarData = [];
+    try {
+        var last12 = P.history.slice(-12).map(function(r) { return getWinner(r); }).filter(function(x){return x;});
+        similarData.push('最近12局走势：' + last12.join('→'));
+        // 相似盘投票统计
+        var winCount = {A:0, B:0, C:0};
+        for (var i = 0; i < P.history.length; i++) {
+            var w = getWinner(P.history[i]);
+            if (w) winCount[w]++;
+        }
+        similarData.push('历史统计：A胜' + winCount.A + '次 B胜' + winCount.B + '次 C胜' + winCount.C + '次');
+    } catch(e) {}
+    // AI自己的历史表现
+    var aiPerf = mp.aiModel || [];
+    var aiAcc = aiPerf.length > 0 ? (aiPerf.filter(function(x){return x;}).length / aiPerf.length * 100).toFixed(0) : 0;
+    var aiRecent = aiPerf.slice(-10);
+    var aiRecentStr = aiRecent.map(function(x){return x?'✓':'✗';}).join(' ');
+    var prompt = '你是资深三竞预测专家，需要深度分析全部数据。\n\n' +
+        '【概念解释】\n' +
+        '- 相似盘：指历史上和当前走势类似的局面。比如当前是"A→C→C→A→B→B"，历史上出现过相同走势后下一局出什么，这就是相似盘规律。\n' +
+        '- 血本：指某一方全输（0分），连续输后下一局可能反弹。\n' +
+        '- 连胜：连续同一方赢，超过2局后可能反转。\n\n' +
+        '最近30局走势：' + recent.join(' ') + '\n\n' +
+        '相似盘数据：\n' + similarData.join('\n') + '\n\n' +
+        '系统模型表现：\n' + modelStats.join('\n') + '\n\n' +
+        '【你的历史表现】\n' +
+        '你之前预测了' + aiPerf.length + '局，命中率' + aiAcc + '%\n' +
+        '最近10局预测：' + aiRecentStr + '\n\n' +
+        '请预测三个维度：\n' +
+        '1. ABC获胜预测：A/B/C谁赢？\n' +
+        '2. 投资预测：下一把开大/中/小投资？\n' +
+        '3. 收益预测：下一把开大/中/小收益？\n\n' +
+        '思考：\n' +
+        '- 当前走势有什么规律？连胜后反转还是继续？\n' +
+        '- 相似盘历史中，这种走势后通常出什么？\n' +
+        '- 你之前预测对了多少局？错在哪里？\n\n' +
+        '只返回JSON：{"A":0.4,"B":0.3,"C":0.3,"invest":"大","profit":"中","reason":"详细分析理由"}';
+    console.log('[AI预测] 请求:', prompt);
+    fetch(proxyUrl, {
+        method: 'POST',
+        headers: hdrs,
+        body: JSON.stringify({ model: _aiCfg.model || 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
+    }).then(function(r){ return r.json(); }).then(function(data) {
+        console.log('[AI预测] 响应:', data);
+        var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+        if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } return; }
+        var jm = text.match(/\{[\s\S]*\}/);
+        if (!jm) { if (aiBar) { aiBar.innerHTML = '❌ AI未返回JSON'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } return; }
+        var pred = JSON.parse(jm[0]);
+        if (pred.A !== undefined && pred.B !== undefined && pred.C !== undefined) {
+            P._aiCache = { 
+                probs: {A:pred.A, B:pred.B, C:pred.C}, 
+                invest: pred.invest || '中',
+                profit: pred.profit || '中',
+                reason: pred.reason||'', 
+                time: Date.now() 
+            };
+            if (aiBar) {
+                aiBar.innerHTML = '🧠 AI预测：A='+(pred.A*100).toFixed(0)+'% B='+(pred.B*100).toFixed(0)+'% C='+(pred.C*100).toFixed(0)+'%<br>投资:'+pred.invest+' 收益:'+pred.profit+'<br><span style="font-size:12px;opacity:0.9;">'+(pred.reason||'')+'</span>';
+                setTimeout(function(){ aiBar.style.display='none'; }, 15000);
+            }
+            console.log('[AI预测] 成功:', pred);
+        }
+    }).catch(function(e) { console.warn('[AI预测]失败:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI预测失败：' + e.message; setTimeout(function(){ aiBar.style.display='none'; }, 5000); } });
+}
+
+function aiAnalyzeAndAdjust(callback) {
+    if (!_aiCfg.enabled || !_aiCfg.url || !_aiCfg.key) { callback && callback(null); return; }
+    var aiBar = document.getElementById('aiStatusBar');
+    if (aiBar) { aiBar.style.display = 'block'; aiBar.innerHTML = '🧠 AI正在分析模型表现...'; }
+    try {
+        var perf = [];
+        var mw = P.modelWeights || {};
+        var mp = P.modelPerf || {};
+        var names = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律',aiModel:'AI预测'};
+        Object.keys(names).forEach(function(k) {
+            var stats = mp[k];
+            var acc = stats && stats.length > 0 ? (stats.filter(function(x){return x;}).length / stats.length) : 0;
+            perf.push({model: names[k], key: k, weight: mw[k]||0, accuracy: acc, samples: stats?stats.length:0});
+        });
+        var recent = P.history.slice(-20).map(function(r) { return r.a+'-'+r.b+'-'+r.c; });
+        var prompt = '你是预测模型调优专家。以下是一个三选一预测系统的各模型表现数据：\n' +
+            JSON.stringify(perf, null, 2) + '\n\n最近20局走势：' + recent.join(' ') +
+            '\n\n请分析：哪些模型该加权、哪些该降权？只返回JSON，格式：{"boost":["similarPattern"],"reduce":["rotation","alternation"],"reason":"一句话理由"}。' +
+            '注意：样本量<100的模型不要轻易加权，命中率<35%的模型建议降权。';
+        var cfg = getCloudConfig();
+        var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
+        var hdrs = { 'Content-Type': 'application/json' };
+        if (cfg.key) { hdrs['Authorization'] = 'Bearer ' + cfg.key; hdrs['apikey'] = cfg.key; }
+        fetch(proxyUrl, {
+            method: 'POST',
+            headers: hdrs,
+            body: JSON.stringify({ model: _aiCfg.model || 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
+        }).then(function(r){ return r.json(); }).then(function(data) {
+            var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+            if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } callback && callback(null); return; }
+            var jm = text.match(/\{[\s\S]*\}/);
+            if (!jm) { if (aiBar) { aiBar.innerHTML = '❌ AI未返回JSON'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } callback && callback(null); return; }
+            var advice = JSON.parse(jm[0]);
+            var applied = [];
+            (advice.boost || []).forEach(function(k) {
+                if (mw[k] !== undefined) { mw[k] = Math.min(0.35, mw[k] * 1.15); applied.push('↑'+k); }
+            });
+            (advice.reduce || []).forEach(function(k) {
+                if (mw[k] !== undefined) { mw[k] = Math.max(0.01, mw[k] * 0.85); applied.push('↓'+k); }
+            });
+            var ws = Object.keys(mw).reduce(function(s,k){return s+mw[k];},0);
+            if (ws > 0) Object.keys(mw).forEach(function(k){ mw[k] /= ws; });
+            console.log('[AI建议]', advice.reason, applied.join(', '));
+            if (aiBar) { aiBar.innerHTML = '✅ 调优完成 · AI分析成功<br><span style="font-size:12px;">' + applied.join(' ') + '</span><br><span style="font-size:11px;opacity:0.9;">' + (advice.reason||'') + '</span>'; setTimeout(function(){ aiBar.style.display='none'; }, 10000); }
+            var badge = document.getElementById('autoBrierBadge');
+            if (badge && applied.length > 0) {
+                var oldHtml = badge.innerHTML;
+                badge.innerHTML = '<span style="color:#9b59b6;font-weight:700;">🤖 AI建议：' + applied.join(' ') + '</span>';
+                setTimeout(function(){ badge.innerHTML = oldHtml; }, 10000);
+            }
+            callback && callback(advice);
+        }).catch(function(e) { console.warn('[AI分析]失败:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI分析失败：' + e.message; setTimeout(function(){ aiBar.style.display='none'; }, 5000); } callback && callback(null); });
+    } catch(e) { console.warn('[AI分析]异常:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI分析异常：' + e.message; setTimeout(function(){ aiBar.style.display='none'; }, 5000); } callback && callback(null); }
+}
 function copyPrediction() {
     try {
         var p = P._threeWayAnalysis || {};
@@ -11155,8 +11477,8 @@ function renderLearnTab() {
         if (perf && perf.length>=3) { var rate=perf.filter(function(x){return x;}).length/perf.length; if(rate>bestRate){bestRate=rate;bestWin=w==='win6'?'近6局':w==='win7'?'近7局':w==='win8'?'近8局':w==='win10'?'近10局':'全局';} }
     });
     document.getElementById('learnBestWindow').textContent=bestWin+' ('+(bestRate*100).toFixed(0)+'%)';
-    var modelLabels={global:'全局胜率',multiWindow:'多窗口滑动',score:'分数加权',streak:'连胜/断连',rotation:'轮换检测',alternation:'交替模式',trend:'分数趋势',regression:'均值回归',similarPattern:'相似盘模式',profitPattern:'收益规律'};
-    var modelNames=['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+    var modelLabels={global:'全局胜率',multiWindow:'多窗口滑动',score:'分数加权',streak:'连胜/断连',rotation:'轮换检测',alternation:'交替模式',trend:'分数趋势',regression:'均值回归',similarPattern:'相似盘模式',profitPattern:'收益规律',aiModel:'🤖 AI预测'};
+    var modelNames=['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel'];
     var html='<table style="width:100%;border-collapse:separate;border-spacing:0;"><tr><th style="text-align:left;padding:8px 10px;border-bottom:2px solid #dee2e6;">模型</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">近10局准确率</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">当前权重</th><th style="text-align:left;padding:8px 10px;border-bottom:2px solid #dee2e6;">表现</th></tr>';
     modelNames.forEach(function(name){
         var perf=P.modelPerf[name]||[]; var recent=perf.slice(-10);
@@ -12975,6 +13297,10 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
         try { showLearnTip(); } catch(e) {}
+        // v41.1: 每次录入后自动调用AI分析
+        try { setTimeout(function(){ aiPredictNext(); }, 500); } catch(e) { console.warn('[AI录入后]失败:', e.message); }
+        // v41.2: 录入后立即预测下一局（不等500ms）
+        try { aiPredictNext(); } catch(e) { console.warn('[AI录入后立即]失败:', e.message); }
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
         var investTxt = iW ? ('，获胜投资：' + iW) : '';
@@ -13058,6 +13384,53 @@ document.getElementById('btnSimulate').addEventListener('click',function(){
 });
 document.getElementById('configToggleBtn').addEventListener('click',function(){document.getElementById('configPanel').classList.toggle('open');});
 document.getElementById('applyConfigBtn').addEventListener('click',function(){reloadConfig();renderAll();debouncedSave();showRecordResult(true, '成功', '参数已应用');}); // v18.0：防抖保存
+// v40.7: AI设置保存/测试
+(function(){
+    var urlEl = document.getElementById('aiUrl');
+    var keyEl = document.getElementById('aiKey');
+    var modelEl = document.getElementById('aiModel');
+    var enEl = document.getElementById('aiEnabled');
+    if (urlEl) { urlEl.value = _aiCfg.url || ''; keyEl.value = _aiCfg.key || ''; modelEl.value = _aiCfg.model || ''; enEl.checked = !!_aiCfg.enabled; }
+    document.getElementById('aiSaveBtn').addEventListener('click', function(){
+        _aiCfg.url = urlEl.value.trim();
+        _aiCfg.key = keyEl.value.trim();
+        _aiCfg.model = modelEl.value.trim();
+        _aiCfg.enabled = enEl.checked;
+        _aiSaveCfg();
+        showRecordResult(true, '成功', 'AI设置已保存' + (_aiCfg.enabled ? '，下次调优后自动分析' : ''));
+    });
+    document.getElementById('aiTestBtn').addEventListener('click', function(){
+        _aiCfg.url = urlEl.value.trim(); _aiCfg.key = keyEl.value.trim(); _aiCfg.model = modelEl.value.trim();
+        if (!_aiCfg.url || !_aiCfg.key) { showRecordResult(false, '提示', '请先填API地址和Key'); return; }
+        showRecordResult(true, '测试中', '正在测试AI连接...');
+        var testUrl = 'https://cors-anywhere.herokuapp.com/' + _aiCfg.url;
+        fetch(testUrl, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+_aiCfg.key, 'X-Requested-With':'XMLHttpRequest'},
+            body: JSON.stringify({model:_aiCfg.model||'glm-4-flash',messages:[{role:'user',content:'回复"OK"即可'}],max_tokens:10})
+        }).then(function(r){return r.json();}).then(function(d){
+            var t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+            showRecordResult(true, '连接成功', t ? 'AI回复: '+t.trim() : '连接成功');
+        }).catch(function(e){ showRecordResult(false, '连接失败', e.message); });
+    });
+    // v40.7: 手动触发AI分析
+    var aiBtn = document.getElementById('btnAiAnalyze');
+    if (aiBtn) aiBtn.addEventListener('click', function(){
+        aiBtn.disabled = true; aiBtn.textContent = '🧠 AI分析中...';
+        aiAnalyzeAndAdjust(function(advice){
+            aiBtn.disabled = false; aiBtn.textContent = '🧠 AI分析模型';
+            if (!advice) {
+                showRecordResult(false, 'AI分析失败', '请检查Supabase Edge Function是否部署成功');
+            }
+            renderAll(); debouncedSave();
+        });
+    });
+    // v41.1: 手动触发AI预测
+    var aiPredBtn = document.getElementById('btnAiPredict');
+    if (aiPredBtn) aiPredBtn.addEventListener('click', function(){
+        aiPredBtn.disabled = true; aiPredBtn.textContent = '🔮 AI预测中...';
+        aiPredictNext();
+        setTimeout(function(){ aiPredBtn.disabled = false; aiPredBtn.textContent = '🔮 AI预测下一局'; }, 3000);
+    });
+})();
 document.getElementById('btnRunBacktest').addEventListener('click',function(){document.querySelector('.tab-btn[data-tab="backtest"]').click();});
 document.getElementById('btnQuickLearn').addEventListener('click',function(){document.querySelector('.tab-btn[data-tab="learn"]').click();});
 document.getElementById('btnForceLearn').addEventListener('click',function(){
@@ -13098,7 +13471,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
 });
 document.getElementById('btnResetLearn').addEventListener('click',function(){
     if(!confirm('确定重置学习状态？模型权重将恢复默认'))return;
-    P.modelWeights={global:0.16,multiWindow:0.16,score:0.14,streak:0.10,rotation:0.08,alternation:0.07,trend:0.05,regression:0.05,similarPattern:0.19,profitPattern:0.09}; // v17: 添加similarPattern; v30.22修复:补充profitPattern
+    P.modelWeights={global:0.14,multiWindow:0.14,score:0.12,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.17,profitPattern:0.08,aiModel:0.15}; // v41.1: AI初始15%
     P.modelPerf={};P.advancedModelPerf={similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
     CONFIG.win6W=0.32;CONFIG.win7W=0.20;CONFIG.win8W=0.28;CONFIG.win10W=0.12;CONFIG.globalW=0.08;
     normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();showRecordResult(true, '成功', '学习状态已重置'); // v18.0：防抖保存
@@ -13113,16 +13486,27 @@ document.getElementById('btnStartOptimize').addEventListener('click',function(){
         if(result.done){
             btn.disabled=false;btn.textContent='🤖 重新调优';document.getElementById('optimizeProgressFill').style.width='100%';
             window._optimalParams=result.bestCombo;
-            var html='<strong>🏆 最优参数</strong><table style="margin-top:8px;font-size:12px;border-collapse:separate;border-spacing:0;">';
+            var improve = result.baselineScore !== undefined ? (result.bestScore - result.baselineScore) : 0;
+            var valImprove = (result.valScore !== undefined && result.baselineValScore !== undefined) ? (result.valScore - result.baselineValScore) : 0;
+            var improveHtml = improve > 0.005
+                ? ' <span style="color:#27ae60;font-weight:700;">↑ 训练集提升'+(improve*100).toFixed(1)+'%</span>'
+                : ' <span style="color:#e74c3c;font-weight:700;">当前参数已较优，无需更换</span>';
+            var valHtml = (result.valScore !== undefined && result.baselineValScore !== undefined)
+                ? '<br>验证集（后30%）：当前 '+result.baselineValScore.toFixed(3)+' → 新参数 '+result.valScore.toFixed(3)+(valImprove>0?' <span style="color:#27ae60;">↑泛化提升</span>':' <span style="color:#e74c3c;">↓泛化下降，警惕过拟合</span>')
+                : '';
+            var html='<strong>🏆 最优参数</strong>'+improveHtml+'<table style="margin-top:8px;font-size:12px;border-collapse:separate;border-spacing:0;">';
             Object.entries(result.bestCombo).forEach(function(kv){html+='<tr><td style="padding:3px 10px;">'+kv[0]+'</td><td style="padding:3px 10px;font-weight:600;">'+kv[1]+'</td></tr>';});
-            html+='</table><br>最优得分: <strong>'+result.bestScore.toFixed(3)+'</strong> | 测试 '+result.testedCount+' 组';
+            html+='</table><br>训练集得分: <strong>'+result.bestScore.toFixed(3)+'</strong> | 测试 '+result.testedCount+' 组 | 全量'+result.maxBt+'局'+valHtml;
             document.getElementById('optimizeResult').innerHTML=html;
             var tbody=document.getElementById('optHistoryBody');tbody.innerHTML='';
             result.searchHistory.slice().sort(function(a,b){return b.score-a.score;}).slice(0,15).forEach(function(h,i){
-                var tr=document.createElement('tr');tr.innerHTML='<td>'+(i+1)+'</td>'+Object.values(h.combo).map(function(v){return '<td>'+v+'</td>';}).join('')+'<td style="color:'+(h.acc1>0.5?'#27ae60':'#e74c3c')+'">'+(h.acc1*100).toFixed(0)+'%</td><td>'+h.brier.toFixed(3)+'</td>';
+                var tr=document.createElement('tr');
+                var baseTag = h.isBaseline ? ' <span style="color:#999;">(当前)</span>' : '';
+                tr.innerHTML='<td>'+(i+1)+baseTag+'</td>'+Object.values(h.combo).map(function(v){return '<td>'+v+'</td>';}).join('')+'<td style="color:'+(h.acc1>0.5?'#27ae60':'#e74c3c')+'">'+(h.acc1*100).toFixed(0)+'%</td><td>'+h.brier.toFixed(3)+'</td>';
                 tbody.appendChild(tr);
             });
             var ab=document.getElementById('btnApplyOptimal');ab.style.display='inline-block';ab.disabled=false;
+            document.getElementById('optimizeStatus').textContent='✅ 调优完成'+(improve>0.005?'，点「应用最优参数」生效':'，当前参数已最优');
         }
     });
 });
@@ -13162,6 +13546,8 @@ function fixFalseTies() {
 }
 P.loadLocal();
 fixFalseTies();
+// v41.2: 页面加载时自动先跑一次AI预测，确保第一局录入时就有AI预测记录
+try { setTimeout(function(){ aiPredictNext(); }, 2000); } catch(e) { console.warn('[启动AI预测]失败:', e.message); }
 // v27.4：如果localStorage数据不完整（predHistory被截断），从IndexedDB加载完整数据
 if (P.predHistory && P.history && P.predHistory.length < P.history.length - 1) {
     console.log('[初始化] localStorage数据不完整，从IndexedDB加载完整数据...');
