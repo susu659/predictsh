@@ -7,7 +7,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v41.1 · AI自适应调优版</title>
+<title>商会三竞预测系统 v41.10. · AI自适应调优版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -609,8 +609,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.1</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调优 <span style="color:#ffd700;font-weight:700;">v41.1</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI辅助调优 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.10.</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调优 <span style="color:#ffd700;font-weight:700;">v41.10.</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI辅助调优 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1017,7 +1017,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v41.1';
+  var APP_VERSION = 'v41.10.';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2373,7 +2373,7 @@ function renderPieCharts() {
         if (!actualRec3) continue;
         var actualWinner3 = getWinner(actualRec3);
         if (!actualWinner3) continue;
-        // v41.1: 旧数据没有rank字段，从probs补算
+        // v41.10.: 旧数据没有rank字段，从probs补算
         var rk3 = ph3.rank;
         if (!rk3 && ph3.probs) {
             var p = ph3.probs;
@@ -4240,7 +4240,7 @@ class Predictor {
     regression: 0.04,
     similarPattern: 0.25,
     profitPattern: 0.09,  // v25.5: 新增收益规律模型
-    aiModel: 0.15  // v41.1: AI预测模型，初始15%权重
+    aiModel: 0.15  // v41.10.: AI预测模型，初始15%权重
 };
         this.modelPerf = {};
         // v30.22.2修复：构造函数必须初始化高级模型命中率表，否则新用户_scoreAdvancedModels直接return、_advAcc永远0.5
@@ -4420,7 +4420,7 @@ class Predictor {
         return normalizeProbs(probs);
     }
     // ===== v25.5: 收益规律模型 =====
-    // v41.1: AI预测模型——从缓存读取AI分析的概率
+    // v41.10.: AI预测模型——从缓存读取AI分析的概率
     _modelAIPrediction() {
         if (!this._aiCache || !this._aiCache.probs) return null;
         return this._aiCache.probs; // {A:0.4, B:0.3, C:0.3}
@@ -4679,7 +4679,7 @@ class Predictor {
             similarPattern: _isSmallWindow ? null : this._modelSimilarPattern(records),
             profitPattern: this._modelProfitPattern(records),
             ngram: this._modelNGram(records),
-            aiModel: this._modelAIPrediction()  // v41.1: AI预测模型
+            aiModel: this._modelAIPrediction()  // v41.10.: AI预测模型
         };
         var mw = this.modelWeights;
         // v25.8修复：防御性检查，确保所有权重都是有效数字
@@ -4697,7 +4697,7 @@ class Predictor {
             regression: models.regression ? mw.regression : 0,
             similarPattern: models.similarPattern ? (mw.similarPattern * this._simWeightFactor()) : 0,
             profitPattern: models.profitPattern ? mw.profitPattern : 0,
-            aiModel: models.aiModel ? mw.aiModel : 0,  // v41.1: AI模型权重
+            aiModel: models.aiModel ? mw.aiModel : 0,  // v41.10.: AI模型权重
             ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
         // v38.2: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
@@ -5358,11 +5358,11 @@ class Predictor {
             else if (globalCorrect === false) CONFIG.globalW -= lr * errorPenalty;
             normalizeWindowWeights();
             // 调整子模型权重
-            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel']; // v41.1: 加aiModel
+            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel']; // v41.10.: 加aiModel
             if (pAll && pAll.models) {
                 var self = this;
                 modelNames.forEach(function(name) {
-                    // v41.1: AI模型特殊处理——从缓存读取预测结果
+                    // v41.10.: AI模型特殊处理——从缓存读取预测结果
                     if (name === 'aiModel') {
                         if (!self._aiCache || !self._aiCache.probs) return;
                         var aiProbs = self._aiCache.probs;
@@ -10037,7 +10037,7 @@ function autoBacktestTick() {
     }, {timeout: 2000});
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
-// v41.1: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
+// v41.10.: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
 var _lastOptimizeCount = 0;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 100) return;
@@ -10096,7 +10096,7 @@ var _aiCfg = { url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', key
 try { var _ais = localStorage.getItem(_AI_CFG_KEY); if (_ais) Object.assign(_aiCfg, JSON.parse(_ais)); } catch(e) {}
 function _aiSaveCfg() { try { localStorage.setItem(_AI_CFG_KEY, JSON.stringify(_aiCfg)); } catch(e) {} }
 
-// v41.1: AI预测下一局——后台调AI分析走势，缓存概率供融合预测使用
+// v41.10.: AI预测下一局——后台调AI分析走势，缓存概率供融合预测使用
 function aiPredictNext() {
     console.log('[AI预测] 开始三预测深度分析...');
     if (!_aiCfg.enabled) { console.log('[AI预测] AI未启用'); return; }
@@ -10117,44 +10117,69 @@ function aiPredictNext() {
         var acc = stats && stats.length > 0 ? (stats.filter(function(x){return x;}).length / stats.length) : 0;
         modelStats.push(names[k] + ': 命中率' + (acc*100).toFixed(0) + '% 权重' + (mw[k]*100).toFixed(0) + '%');
     });
-    // 相似盘数据
+    // 相似盘数据——调用系统的相似盘算法，把匹配结果发给AI
     var similarData = [];
     try {
         var last12 = P.history.slice(-12).map(function(r) { return getWinner(r); }).filter(function(x){return x;});
-        similarData.push('最近12局走势：' + last12.join('→'));
-        // 相似盘投票统计
+        similarData.push('当前走势（最近12局获胜方）：' + last12.join('→'));
+        // 调用系统的相似盘算法，获取匹配结果
+        var simResult = predictFromSimilarPattern(P.history.slice(-8), P.history);
+        if (simResult && simResult.useResults && simResult.useResults.length > 0) {
+            similarData.push('');
+            similarData.push('【相似盘匹配结果】（历史上类似走势后下一局出了什么）：');
+            var topResults = simResult.useResults.slice(0, 8); // 取前8个最高相似度的匹配
+            topResults.forEach(function(r, idx) {
+                var simPct = (r.similarity * 100).toFixed(0);
+                var nextW = r.nextWinner || '?';
+                var matchLen = r.matchLen || r.scanWindowLen || 6;
+                similarData.push((idx+1) + '. 相似度' + simPct + '%（' + matchLen + '局匹配）→ 下一局出【' + nextW + '】');
+            });
+            similarData.push('');
+            similarData.push('相似盘投票统计：A=' + (simResult.winCount.A||0) + '票 B=' + (simResult.winCount.B||0) + '票 C=' + (simResult.winCount.C||0) + '票');
+            similarData.push('相似度加权后：A=' + (simResult.weightedCount.A*100).toFixed(0) + '% B=' + (simResult.weightedCount.B*100).toFixed(0) + '% C=' + (simResult.weightedCount.C*100).toFixed(0) + '%');
+        }
+        // 历史统计
         var winCount = {A:0, B:0, C:0};
         for (var i = 0; i < P.history.length; i++) {
             var w = getWinner(P.history[i]);
             if (w) winCount[w]++;
         }
-        similarData.push('历史统计：A胜' + winCount.A + '次 B胜' + winCount.B + '次 C胜' + winCount.C + '次');
-    } catch(e) {}
+        similarData.push('');
+        similarData.push('历史总统计：A胜' + winCount.A + '次 B胜' + winCount.B + '次 C胜' + winCount.C + '次');
+    } catch(e) { console.warn('[AI相似盘]提取失败:', e.message); }
     // AI自己的历史表现
     var aiPerf = mp.aiModel || [];
     var aiAcc = aiPerf.length > 0 ? (aiPerf.filter(function(x){return x;}).length / aiPerf.length * 100).toFixed(0) : 0;
     var aiRecent = aiPerf.slice(-10);
     var aiRecentStr = aiRecent.map(function(x){return x?'✓':'✗';}).join(' ');
-    var prompt = '你是资深三竞预测专家，需要深度分析全部数据。\n\n' +
+    // 血本和连胜统计
+    var last10 = P.history.slice(-10);
+    var lossSide = last10.map(function(r){ return getLossSide(r); }).join('→');
+    var winners = last10.map(function(r){ return getWinner(r); }).join('→');
+    var prompt = '你是资深三竞预测专家，需要深度分析全部数据，一步步推理后再得出结论。\n\n' +
         '【概念解释】\n' +
-        '- 相似盘：指历史上和当前走势类似的局面。比如当前是"A→C→C→A→B→B"，历史上出现过相同走势后下一局出什么，这就是相似盘规律。\n' +
-        '- 血本：指某一方全输（0分），连续输后下一局可能反弹。\n' +
+        '- 相似盘：历史上和当前走势类似的局面。比如当前是"A→C→C→A→B→B"，历史上出现过相同走势后下一局出什么。\n' +
+        '- 血本：某一方得0分（全输），连续输后下一局可能反弹。\n' +
         '- 连胜：连续同一方赢，超过2局后可能反转。\n\n' +
-        '最近30局走势：' + recent.join(' ') + '\n\n' +
+        '【数据】\n' +
+        '最近30局走势（胜负顺序）：' + recent.join(' ') + '\n\n' +
+        '最近10局获胜方序列：' + winners + '\n\n' +
+        '最近10局血本方序列：' + lossSide + '\n\n' +
         '相似盘数据：\n' + similarData.join('\n') + '\n\n' +
-        '系统模型表现：\n' + modelStats.join('\n') + '\n\n' +
+        '系统11个模型表现：\n' + modelStats.join('\n') + '\n\n' +
         '【你的历史表现】\n' +
         '你之前预测了' + aiPerf.length + '局，命中率' + aiAcc + '%\n' +
         '最近10局预测：' + aiRecentStr + '\n\n' +
-        '请预测三个维度：\n' +
-        '1. ABC获胜预测：A/B/C谁赢？\n' +
+        '【深度思考步骤】\n' +
+        '第一步：分析当前走势规律——最近10局谁连胜了？谁连续血本了？有没有反转迹象？\n' +
+        '第二步：分析相似盘——历史上类似走势后下一局通常出什么？\n' +
+        '第三步：分析模型表现——哪个模型最近命中率最高？说明什么规律？\n' +
+        '第四步：结合你自己的历史表现——你之前预测错在哪里？这次要避免什么？\n\n' +
+        '【预测要求】\n' +
+        '1. ABC获胜预测：A/B/C谁赢？给出概率\n' +
         '2. 投资预测：下一把开大/中/小投资？\n' +
         '3. 收益预测：下一把开大/中/小收益？\n\n' +
-        '思考：\n' +
-        '- 当前走势有什么规律？连胜后反转还是继续？\n' +
-        '- 相似盘历史中，这种走势后通常出什么？\n' +
-        '- 你之前预测对了多少局？错在哪里？\n\n' +
-        '只返回JSON：{"A":0.4,"B":0.3,"C":0.3,"invest":"大","profit":"中","reason":"详细分析理由"}';
+        '只返回JSON：{"A":0.4,"B":0.3,"C":0.3,"invest":"大","profit":"中","reason":"详细分析理由（写清楚你是怎么一步步推理出来的）"}';
     console.log('[AI预测] 请求:', prompt);
     fetch(proxyUrl, {
         method: 'POST',
@@ -10166,7 +10191,9 @@ function aiPredictNext() {
         if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } return; }
         var jm = text.match(/\{[\s\S]*\}/);
         if (!jm) { if (aiBar) { aiBar.innerHTML = '❌ AI未返回JSON'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } return; }
-        var pred = JSON.parse(jm[0]);
+        // 清理JSON里的控制字符（换行符、制表符等）
+        var jsonStr = jm[0].replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ');
+        var pred = JSON.parse(jsonStr);
         if (pred.A !== undefined && pred.B !== undefined && pred.C !== undefined) {
             P._aiCache = { 
                 probs: {A:pred.A, B:pred.B, C:pred.C}, 
@@ -13297,7 +13324,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
         try { showLearnTip(); } catch(e) {}
-        // v41.1: 每次录入后自动调用AI分析
+        // v41.10.: 每次录入后自动调用AI分析
         try { setTimeout(function(){ aiPredictNext(); }, 500); } catch(e) { console.warn('[AI录入后]失败:', e.message); }
         // v41.2: 录入后立即预测下一局（不等500ms）
         try { aiPredictNext(); } catch(e) { console.warn('[AI录入后立即]失败:', e.message); }
@@ -13423,7 +13450,7 @@ document.getElementById('applyConfigBtn').addEventListener('click',function(){re
             renderAll(); debouncedSave();
         });
     });
-    // v41.1: 手动触发AI预测
+    // v41.10.: 手动触发AI预测
     var aiPredBtn = document.getElementById('btnAiPredict');
     if (aiPredBtn) aiPredBtn.addEventListener('click', function(){
         aiPredBtn.disabled = true; aiPredBtn.textContent = '🔮 AI预测中...';
@@ -13471,7 +13498,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
 });
 document.getElementById('btnResetLearn').addEventListener('click',function(){
     if(!confirm('确定重置学习状态？模型权重将恢复默认'))return;
-    P.modelWeights={global:0.14,multiWindow:0.14,score:0.12,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.17,profitPattern:0.08,aiModel:0.15}; // v41.1: AI初始15%
+    P.modelWeights={global:0.14,multiWindow:0.14,score:0.12,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.17,profitPattern:0.08,aiModel:0.15}; // v41.10.: AI初始15%
     P.modelPerf={};P.advancedModelPerf={similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
     CONFIG.win6W=0.32;CONFIG.win7W=0.20;CONFIG.win8W=0.28;CONFIG.win10W=0.12;CONFIG.globalW=0.08;
     normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();showRecordResult(true, '成功', '学习状态已重置'); // v18.0：防抖保存
