@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v41.7 · AI深度分析版</title>
+<title>商会三竞预测系统 v41.8 · AI深度分析版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -605,8 +605,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.7</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v41.7</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI预测 · 相似盘深度分析 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.8</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v41.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI预测 · 相似盘深度分析 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1013,7 +1013,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v41.7';
+  var APP_VERSION = 'v41.8';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -10230,12 +10230,13 @@ function aiPredictNext() {
         '第二步：相似盘检测——在全部历史局里，找和最近8局走势最像的片段，看历史上这些相似片段后下一局出了什么。匹配越长、次数越多，越可信。\n' +
         '第三步：窗口规律检测——在近6局、近7局、近8局、近10局、全部历史里，找有没有明显的连胜、轮换、交替等规律。\n' +
         '第四步：综合以上三个检测结果，得出你的预测概率。\n\n' +
-        '只返回JSON：{"A":0.35,"B":0.45,"C":0.20,"invest":"大","profit":"中","reason":"详细分析（每个步骤分别写：周期共振检测到了什么？相似盘匹配到了什么？窗口规律检测到了什么？最后综合得出什么结论？）"}';
+        '只返回JSON：{"A":你的概率,"B":你的概率,"C":你的概率,"invest":"大/中/小","profit":"大/中/小","reason":"详细分析（每个步骤分别写：周期共振检测到了什么？相似盘匹配到了什么？窗口规律检测到了什么？最后综合得出什么结论？）"}\n' +
+        '【重要】绝对不要总是返回固定值！必须根据实际数据分析，每次预测的概率都应该不一样！';
     console.log('[AI预测] 请求:', prompt);
     fetch(proxyUrl, {
         method: 'POST',
         headers: hdrs,
-        body: JSON.stringify({ model: _aiCfg.model || 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
+        body: JSON.stringify({ model: 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
     }).then(function(r){ return r.json(); }).then(function(data) {
         console.log('[AI预测] 响应:', data);
         var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
@@ -10246,8 +10247,14 @@ function aiPredictNext() {
         var jsonStr = jm[0].replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ');
         var pred = JSON.parse(jsonStr);
         if (pred.A !== undefined && pred.B !== undefined && pred.C !== undefined) {
+            // 自动归一化：如果AI返回的是百分比形式(32)，转成小数形式(0.32)
+            var a = pred.A > 1 ? pred.A / 100 : pred.A;
+            var b = pred.B > 1 ? pred.B / 100 : pred.B;
+            var c = pred.C > 1 ? pred.C / 100 : pred.C;
+            var sum = a + b + c;
+            if (sum > 0) { a = a/sum; b = b/sum; c = c/sum; }
             P._aiCache = { 
-                probs: {A:pred.A, B:pred.B, C:pred.C}, 
+                probs: {A:a, B:b, C:c}, 
                 invest: pred.invest || '中',
                 profit: pred.profit || '中',
                 reason: pred.reason||'', 
@@ -10256,7 +10263,11 @@ function aiPredictNext() {
             if (aiBar) {
                 var reasonText = pred.reason || '';
                 if (typeof reasonText !== 'string') reasonText = JSON.stringify(reasonText);
-                aiBar.innerHTML = '🧠 AI预测：A='+(pred.A*100).toFixed(0)+'% B='+(pred.B*100).toFixed(0)+'% C='+(pred.C*100).toFixed(0)+'%<br>投资:'+pred.invest+' 收益:'+pred.profit+'<br><span style="font-size:12px;opacity:0.9;">'+reasonText+'</span>';
+                // 修复：AI可能返回百分比形式(32)或小数形式(0.32)，自动判断
+                var aPct = pred.A > 1 ? pred.A : (pred.A * 100);
+                var bPct = pred.B > 1 ? pred.B : (pred.B * 100);
+                var cPct = pred.C > 1 ? pred.C : (pred.C * 100);
+                aiBar.innerHTML = '🧠 AI预测：A='+aPct.toFixed(0)+'% B='+bPct.toFixed(0)+'% C='+cPct.toFixed(0)+'%<br>投资:'+pred.invest+' 收益:'+pred.profit+'<br><span style="font-size:12px;opacity:0.9;">'+reasonText+'</span>';
                 setTimeout(function(){ aiBar.style.display='none'; }, 15000);
             }
             console.log('[AI预测] 成功:', pred);
@@ -10290,7 +10301,7 @@ function aiAnalyzeAndAdjust(callback) {
         fetch(proxyUrl, {
             method: 'POST',
             headers: hdrs,
-            body: JSON.stringify({ model: _aiCfg.model || 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
+            body: JSON.stringify({ model: 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
         }).then(function(r){ return r.json(); }).then(function(data) {
             var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
             if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } callback && callback(null); return; }
