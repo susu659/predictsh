@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v41.8 · AI深度分析版</title>
+<title>商会三竞预测系统 v41.9 · AI深度分析版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -605,8 +605,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.8</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v41.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI预测 · 相似盘深度分析 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.9</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v41.9</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI预测 · 相似盘深度分析 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1013,7 +1013,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v41.8';
+  var APP_VERSION = 'v41.9';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -10102,27 +10102,30 @@ function aiPredictNext() {
     var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
     var hdrs = { 'Content-Type': 'application/json' };
     if (cfg.key) { hdrs['Authorization'] = 'Bearer ' + cfg.key; hdrs['apikey'] = cfg.key; }
-    // 收集全部数据
-    var recent = P.history.slice(-30).map(function(r) { return r.a+'-'+r.b+'-'+r.c; });
+    // 最近20局走势——精简版
+    var recent = P.history.slice(-20).map(function(r) { return getWinner(r) || '?'; });
+    // 模型表现——只取最关键的3个，精简prompt
     var modelStats = [];
     var mw = P.modelWeights || {};
     var mp = P.modelPerf || {};
-    var names = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律',aiModel:'AI预测'};
-    Object.keys(names).forEach(function(k) {
+    var topModels = ['相似盘', '连胜', '轮换'];
+    var topKeys = ['similarPattern', 'streak', 'rotation'];
+    for (var i = 0; i < topKeys.length; i++) {
+        var k = topKeys[i];
         var stats = mp[k];
-        var acc = stats && stats.length > 0 ? (stats.filter(function(x){return x;}).length / stats.length) : 0;
-        modelStats.push(names[k] + ': 命中率' + (acc*100).toFixed(0) + '% 权重' + (mw[k]*100).toFixed(0) + '%');
-    });
-    // 相似盘数据——调用系统的相似盘算法，把匹配结果发给AI
+        var acc = stats && stats.length > 0 ? (stats.filter(function(x){return x;}).length / stats.length * 100).toFixed(0) : 0;
+        modelStats.push(topModels[i] + '模型：命中率' + acc + '%');
+    }
+    // 相似盘数据——详细匹配列表
     var similarData = [];
     try {
         var last12 = P.history.slice(-12).map(function(r) { return getWinner(r); }).filter(function(x){return x;});
-        similarData.push('当前走势（最近12局获胜方）：' + last12.join('→'));
-        // 调用系统的相似盘算法，获取匹配结果（预测谁赢）
+        similarData.push('当前走势（最近12局）：' + last12.join('→'));
+        // 相似盘预测谁赢——详细匹配列表
         var simResult = predictFromSimilarPattern(P.history.slice(-8), P.history);
         if (simResult && simResult.useResults && simResult.useResults.length > 0) {
             similarData.push('');
-            similarData.push('【相似盘预测（谁赢）】（历史上类似走势后下一局谁赢了）：');
+            similarData.push('【相似盘预测谁赢】：');
             var topResults = simResult.useResults.slice(0, 8);
             topResults.forEach(function(r, idx) {
                 var simPct = (r.similarity * 100).toFixed(0);
@@ -10132,54 +10135,26 @@ function aiPredictNext() {
                 similarData.push((idx+1) + '. ' + isExact + '相似度' + simPct + '%（' + matchLen + '局匹配）→ 下一局赢【' + nextW + '】');
             });
             similarData.push('');
-            similarData.push('（注意：相似度90%以上是完全匹配，权重最高，重点参考！）');
-            similarData.push('【相似盘规律】匹配长度越长（比如10局匹配比5局匹配准）、匹配次数越多（同一个模式历史出现5次比出现1次准），准确率越高！又长又多的匹配最准！');
-            similarData.push('');
-            similarData.push('相似盘投票（谁赢）：A=' + (simResult.winCount.A||0) + '票 B=' + (simResult.winCount.B||0) + '票 C=' + (simResult.winCount.C||0) + '票');
-            similarData.push('加权后谁赢概率：A=' + (simResult.weightedCount.A*100).toFixed(0) + '% B=' + (simResult.weightedCount.B*100).toFixed(0) + '% C=' + (simResult.weightedCount.C*100).toFixed(0) + '%');
-            // 找出最高概率的一方
-            var simTopGuild = 'A';
-            var simTopPct = simResult.weightedCount.A;
-            if (simResult.weightedCount.B > simTopPct) { simTopGuild = 'B'; simTopPct = simResult.weightedCount.B; }
-            if (simResult.weightedCount.C > simTopPct) { simTopGuild = 'C'; simTopPct = simResult.weightedCount.C; }
-            similarData.push('');
-            similarData.push('【关键】相似盘加权结果：' + simTopGuild + '最高（' + (simTopPct*100).toFixed(0) + '%）！你的预测应该以这个为基础，在此基础上根据走势规律微调！');
+            similarData.push('相似盘投票：A=' + (simResult.winCount.A||0) + ' B=' + (simResult.winCount.B||0) + ' C=' + (simResult.winCount.C||0) + '票');
+            similarData.push('加权概率：A=' + (simResult.weightedCount.A*100).toFixed(0) + '% B=' + (simResult.weightedCount.B*100).toFixed(0) + '% C=' + (simResult.weightedCount.C*100).toFixed(0) + '%');
         }
-        // 血本相似盘数据——预测下一局谁是0分（血本）
-        similarData.push('');
-        similarData.push('【血本相似盘（谁是血本/0分）】（注意：这是预测谁得0分，不是预测谁赢！）：');
-        var last10 = P.history.slice(-10);
-        var lossSeq = last10.map(function(r){ return getLossSide(r) || '?'; }).join('→');
-        similarData.push('最近10局血本方序列：' + lossSeq);
-        similarData.push('（血本=某一方得0分，连续血本后下一局可能反弹）');
-        // 收益相似盘和投资相似盘
+        // 收益和投资相似盘
         try {
             var predResult = P.predict();
             if (predResult && predResult.profitPrediction) {
                 var pp = predResult.profitPrediction;
                 if (pp.simProfit) {
-                    var sp = pp.simProfit;
                     similarData.push('');
-                    similarData.push('【收益相似盘（大/中/小收益）】：');
-                    similarData.push('相似盘预测收益：' + sp.predicted + '（大' + (sp.probs.大*100).toFixed(0) + '% 中' + (sp.probs.中*100).toFixed(0) + '% 小' + (sp.probs.小*100).toFixed(0) + '%）');
-                    similarData.push('匹配到' + sp.matchCount + '个历史相似收益片段');
+                    similarData.push('【收益相似盘】：');
+                    similarData.push('预测收益：' + pp.simProfit.predicted + '（大' + (pp.simProfit.probs.大*100).toFixed(0) + '% 中' + (pp.simProfit.probs.中*100).toFixed(0) + '% 小' + (pp.simProfit.probs.小*100).toFixed(0) + '%）');
                 }
                 if (pp.simInvest) {
-                    var si = pp.simInvest;
                     similarData.push('');
-                    similarData.push('【投资相似盘（大/中/小投资）】：');
-                    similarData.push('相似盘预测投资：' + si.predicted + '（大' + (si.probs.大*100).toFixed(0) + '% 中' + (si.probs.中*100).toFixed(0) + '% 小' + (si.probs.小*100).toFixed(0) + '%）');
+                    similarData.push('【投资相似盘】：');
+                    similarData.push('预测投资：' + pp.simInvest.predicted + '（大' + (pp.simInvest.probs.大*100).toFixed(0) + '% 中' + (pp.simInvest.probs.中*100).toFixed(0) + '% 小' + (pp.simInvest.probs.小*100).toFixed(0) + '%）');
                 }
             }
-        } catch(e) { console.warn('[AI收益/投资相似盘]提取失败:', e.message); }
-        // 历史统计
-        var winCount = {A:0, B:0, C:0};
-        for (var i = 0; i < P.history.length; i++) {
-            var w = getWinner(P.history[i]);
-            if (w) winCount[w]++;
-        }
-        similarData.push('');
-        similarData.push('历史总统计：A胜' + winCount.A + '次 B胜' + winCount.B + '次 C胜' + winCount.C + '次');
+        } catch(e) {}
     } catch(e) { console.warn('[AI相似盘]提取失败:', e.message); }
     // AI自己的历史表现
     var aiPerf = mp.aiModel || [];
