@@ -1,12 +1,13 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v40.5 · AI自适应版</title>
+<title>商会三竞预测系统 v40.7 · AI自适应版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -609,7 +610,7 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div class="container">
 <header>
 <h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v40.5</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.5</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 撤销同步修复 · 设备管理弹窗修复 · 密码加固 · 合并翻倍根治</span></p>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI自适应调参 <span style="color:#ffd700;font-weight:700;">v40.7</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🔗 跨端模型权重对齐修复 · 轮询同步补全模型状态 · 上传前合并同步学习参数</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -7545,6 +7546,8 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                             if (_ds.investAccuracy) P.investAccuracy = _ds.investAccuracy;
                         } catch(e) {}
                         P._migrateRids(); P._rebuildStatsFromPred(); // v39.0: 云合并后按rid对齐
+                        // v40.7修复: 轮询合并后必须对齐云端模型权重/配置，否则两台电脑历史相同但学习状态分叉→预测不一致
+                        try { _alignRemoteModels(r.data.data); } catch(_e) { console.warn('[轮询] 模型对齐失败:', _e && _e.message); }
                         P.maxStreakEver = calcMaxStreak(P.history);
                         _lastIncrSyncCount = P.history.length;
                         _lastFullSyncCount = P.history.length;
@@ -7553,7 +7556,7 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                         renderAll();
                         cloudLastSync = new Date();
                         updateCloudStatus('online', '📥 同步其他端 ' + fresh.length + ' 条（共' + P.history.length + '局）');
-                        console.log('[轮询] 合并其他端新记录 ' + fresh.length + ' 条');
+                        console.log('[轮询] 合并其他端新记录 ' + fresh.length + ' 条，模型状态已对齐云端');
                     } catch(e) { /* 网络错静默 */ }
                 }, 20000);
             }
@@ -7966,6 +7969,8 @@ async function cloudSave(manual, skipPrecheck) {
             if (_remoteForMerge) {
                 var _mergedN = _mergeRemoteHistoryIntoLocal(_remoteForMerge);
                 if (_mergedN > 0) {
+                    // v40.7修复: 上传前合并远端记录后也必须对齐云端模型权重，避免学习状态分叉
+                    try { _alignRemoteModels(_remoteForMerge); } catch(_e) { console.warn('[上传前合并] 模型对齐失败:', _e && _e.message); }
                     try { P.saveLocal(); } catch(e) {}
                     try { renderAll(); } catch(e) {}
                     updateCloudStatus('online', '🔀 上传前已合并对端 ' + _mergedN + ' 条新记录，正在上传合并结果...');
