@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v43.39 · AI修正裁判版</title>
+<title>商会三竞预测系统 v43.40 · AI修正裁判版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -607,8 +607,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.38</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.38</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 修正系数提到10.0 · 幅度达到10-15%</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.40</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.40</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 一局只预测一次 · 不重复调整</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1015,7 +1015,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v43.39';
+  var APP_VERSION = 'v43.40';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -5278,10 +5278,11 @@ class Predictor {
                 // v43.7: 修正力度加倍——信心×2.0，让AI的深度思考真正体现在结果上
                 // v43.18: 修正系数从2.0提到3.0，避免归一化稀释后修正幅度不明显
                 // v43.34: 修正系数提到5.0
-                // v43.38: 修正系数提到10.0，让修正幅度真正明显，达到10-15%浮动
-                var adjFactor = adj.confidence * 10.0; 
+                // v43.38: 修正系数提到10.0
+                // v43.39: 修正系数提到20.0，去掉钳制，让修正幅度真正达到10-15%浮动
+                var adjFactor = adj.confidence * 20.0; 
                 
-                // v43.39: 去掉修正值归一化——之前做了两次归一化（先归一化修正值，再归一化概率），导致修正幅度被严重稀释
+                // v43.40: 去掉修正值归一化——之前做了两次归一化（先归一化修正值，再归一化概率），导致修正幅度被严重稀释
                 // 概率后面会自动归一化，修正值不需要先归一化
                 
                 // 1. ABC获胜概率修正
@@ -10184,12 +10185,12 @@ function autoBacktestTick() {
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
 // v41.0: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
-// v43.39: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
+// v43.40: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
 var _lastOptimizeCount = 0;
 var _optInitDone = false;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 100) return;
-    // v43.39: 第一次调用时初始化基线，避免打开页面就跑优化
+    // v43.40: 第一次调用时初始化基线，避免打开页面就跑优化
     if (!_optInitDone) {
         _lastOptimizeCount = P.history.length;
         _optInitDone = true;
@@ -10254,6 +10255,12 @@ function _aiSaveCfg() { try { localStorage.setItem(_AI_CFG_KEY, JSON.stringify(_
 function aiPredictNext(isRetry) {
     console.log('[AI预测] 开始三预测深度分析...');
     if (!_aiCfg.enabled) { console.log('[AI预测] AI未启用'); return; }
+    // v43.40: 一局只AI预测一次——已经分析过就不再重复调，避免越调越离谱
+    if (P._aiCache && P._aiCache.time && !isRetry) {
+        console.log('[AI预测] 本局已AI分析过了，跳过重复调用');
+        if (aiBar) { aiBar.innerHTML = '✅ 本局已AI分析过了，录入新局后可再次预测'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); }
+        return;
+    }
     // v42.0: 防并发锁——上一次AI还没跑完就跳过，避免连续录入时API堆积
     if (window._aiPredictRunning) { console.log('[AI预测] 上一次还在运行，跳过本次'); return; }
     window._aiPredictRunning = true;
@@ -10286,7 +10293,7 @@ function aiPredictNext(isRetry) {
         // v43.5: 一次性调用P.predict()，三个维度的相似盘数据都从这里拿
         var _savedAiCache = P._aiCache;
         P._aiCache = null;
-        window._predCache = null; // v43.39: 收集数据前清空预测缓存，避免用旧缓存
+        window._predCache = null; // v43.40: 收集数据前清空预测缓存，避免用旧缓存
         var fullPred = P.predict();
         P._aiCache = _savedAiCache; // 恢复
 
@@ -10539,10 +10546,7 @@ function aiPredictNext(isRetry) {
                 adjProfitSmall: parseFloat(pred.adjProfitSmall) || 0,
                 confidence: parseFloat(pred.confidence) || 0.5
             };
-            // 钳制修正幅度：每个方向最多±0.15（15%），给AI足够发挥空间但不过度
-            ['adjA','adjB','adjC','adjInvestBig','adjInvestMid','adjInvestSmall','adjProfitBig','adjProfitMid','adjProfitSmall'].forEach(function(k) {
-                aiAdj[k] = Math.max(-0.15, Math.min(0.15, aiAdj[k]));
-            });
+            // v43.39: 去掉钳制，让AI根据数据大胆修正，有把握就大幅调
             aiAdj.confidence = Math.max(0, Math.min(1, aiAdj.confidence));
         } else if (pred.A !== undefined && pred.B !== undefined && pred.C !== undefined) {
             // 旧格式兼容：把概率转成修正值（相对于0.333均匀分布）
@@ -10578,8 +10582,8 @@ function aiPredictNext(isRetry) {
                 if (typeof reasonText !== 'string') reasonText = JSON.stringify(reasonText);
                 var confPct = (aiAdj.confidence * 100).toFixed(0);
                 // v43.18: 状态栏显示的修正值和predict()里的计算完全一致
-                // v43.38: 修正系数提到10.0
-                var actualFactor = aiAdj.confidence * 10.0;
+                // v43.39: 修正系数提到20.0，去掉钳制
+                var actualFactor = aiAdj.confidence * 20.0;
                 var actualAdjA = (aiAdj.adjA * actualFactor * 100).toFixed(1);
                 var actualAdjB = (aiAdj.adjB * actualFactor * 100).toFixed(1);
                 var actualAdjC = (aiAdj.adjC * actualFactor * 100).toFixed(1);
@@ -10588,7 +10592,7 @@ function aiPredictNext(isRetry) {
                     'B:' + (actualAdjB >= 0 ? '+' : '') + actualAdjB + '% ' +
                     'C:' + (actualAdjC >= 0 ? '+' : '') + actualAdjC + '%<br>' +
                     '<span style="font-size:12px;opacity:0.9;">' + reasonText + '</span>';
-                // v43.39: 用id绑定关闭按钮，比inline onclick更可靠
+                // v43.40: 用id绑定关闭按钮，比inline onclick更可靠
                 setTimeout(function() {
                     var closeBtn = document.getElementById('aiCloseBtn');
                     if (closeBtn) closeBtn.onclick = function() { aiBar.style.display = 'none'; };
