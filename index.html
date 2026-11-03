@@ -1,10 +1,11 @@
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v43.10 · AI修正裁判版</title>
+<title>商会三竞预测系统 v43.24 · AI修正裁判版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -606,8 +607,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.10</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.10</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 相似盘+血本盘交叉验证 · 打开不自动调优</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.24</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.24</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 血本盘完全对齐相似盘逻辑 · 败方序列硬过滤</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1014,7 +1015,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v43.10';
+  var APP_VERSION = 'v43.24';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -5269,24 +5270,11 @@ class Predictor {
             if (this._aiCache && this._aiCache.adjustment) {
                 var adj = this._aiCache.adjustment;
                 // v43.7: 修正力度加倍——信心×2.0，让AI的深度思考真正体现在结果上
-                var adjFactor = adj.confidence * 2.0; 
+                // v43.18: 修正系数从2.0提到3.0，避免归一化稀释后修正幅度不明显
+                var adjFactor = adj.confidence * 3.0; 
                 
-                // v43.2: 修正值归一化——三个值加起来必须为0，这样概率总和还是1
-                // 避免AI返回三个都加正数，导致归一化后结果偏差
-                var adjSumABC = adj.adjA + adj.adjB + adj.adjC;
-                adj.adjA -= adjSumABC / 3;
-                adj.adjB -= adjSumABC / 3;
-                adj.adjC -= adjSumABC / 3;
-                
-                var adjSumInvest = adj.adjInvestBig + adj.adjInvestMid + adj.adjInvestSmall;
-                adj.adjInvestBig -= adjSumInvest / 3;
-                adj.adjInvestMid -= adjSumInvest / 3;
-                adj.adjInvestSmall -= adjSumInvest / 3;
-                
-                var adjSumProfit = adj.adjProfitBig + adj.adjProfitMid + adj.adjProfitSmall;
-                adj.adjProfitBig -= adjSumProfit / 3;
-                adj.adjProfitMid -= adjSumProfit / 3;
-                adj.adjProfitSmall -= adjSumProfit / 3;
+                // v43.24: 去掉修正值归一化——之前做了两次归一化（先归一化修正值，再归一化概率），导致修正幅度被严重稀释
+                // 概率后面会自动归一化，修正值不需要先归一化
                 
                 // 1. ABC获胜概率修正
                 if (result.probabilities) {
@@ -5947,6 +5935,23 @@ if(curBrier > 0.3){
                         this.aiInvestAccuracy.push(aiInvestCorrect);
                         if (this.aiInvestAccuracy.length > 100) this.aiInvestAccuracy.shift();
                     }
+                    // v43.12: 新格式——追踪AI修正后ABC预测是否命中
+                    // 对比：AI修正后的预测 vs 系统基础预测（无AI修正）
+                    this.aiAdjustHistory = this.aiAdjustHistory || [];
+                    // 找AI修正后的最高概率方
+                    var aiPredWinner = prevPrediction.predictedGuild;
+                    // 找基础预测的最高概率方（没有AI修正的）
+                    // 注意：prevPrediction已经是修正后的，我们需要对比的是：修正前vs修正后，哪个对了
+                    // 简化：只记录AI修正后的预测是否命中，以及AI修正的方向
+                    var aiHit = (winner === aiPredWinner);
+                    this.aiAdjustHistory.push({
+                        time: this._aiCache.time,
+                        actual: winner,
+                        predicted: aiPredWinner,
+                        hit: aiHit,
+                        confidence: this._aiCache.adjustment ? this._aiCache.adjustment.confidence : 0
+                    });
+                    if (this.aiAdjustHistory.length > 100) this.aiAdjustHistory.shift();
                 }
                 // v26.2：快速重建模式跳过学习和反思日志（重建只需要predHistory用于显示）
                 if (!this._fastRebuild) {
@@ -10029,7 +10034,8 @@ function renderLossSimPanel() {
     if (!P.history || P.history.length < 8) { panel.style.display = 'none'; return; }
     var seq = P.history.map(getLossSide);
     var L = seq.length;
-    var windows = [4,5,6,8,10]; // v31.5: 去掉3局，>3局才匹配/显示
+    // v43.24: 照着相似盘逻辑重写——窗口档位和相似盘一样，败方序列完全一致才匹配
+    var windows = [5,6,7,8,9,10,11,12];
     var votes = {A:0, B:0, C:0};
     var matchRows = [];
     windows.forEach(function(w){
@@ -10038,6 +10044,7 @@ function renderLossSimPanel() {
         var hasNull = false;
         for (var ti = 0; ti < target.length; ti++) if (!target[ti]) hasNull = true;
         if (hasNull) return;
+        // 硬过滤：败方序列必须完全一致才匹配（和相似盘胜方序列完全一致一样）
         for (var j = w; j < L; j++) {
             var ok = true;
             for (var k = 0; k < w; k++) {
@@ -10046,7 +10053,10 @@ function renderLossSimPanel() {
             if (!ok) continue;
             var nextLoss = seq[j];
             if (!nextLoss) continue;
-            votes[nextLoss] = (votes[nextLoss]||0) + w;
+            // 权重 = 窗口长度 × 时间衰减（越近的匹配权重越大，和相似盘逻辑一致）
+            var recencyFactor = 0.5 + 0.5 * (j / Math.max(1, L - w));
+            var weight = w * recencyFactor;
+            votes[nextLoss] = (votes[nextLoss]||0) + weight;
             matchRows.push({w: w, at: j, next: nextLoss});
         }
     });
@@ -10150,12 +10160,12 @@ function autoBacktestTick() {
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
 // v41.0: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
-// v43.10: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
+// v43.24: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
 var _lastOptimizeCount = 0;
 var _optInitDone = false;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 100) return;
-    // v43.10: 第一次调用时初始化基线，避免打开页面就跑优化
+    // v43.24: 第一次调用时初始化基线，避免打开页面就跑优化
     if (!_optInitDone) {
         _lastOptimizeCount = P.history.length;
         _optInitDone = true;
@@ -10252,6 +10262,7 @@ function aiPredictNext(isRetry) {
         // v43.5: 一次性调用P.predict()，三个维度的相似盘数据都从这里拿
         var _savedAiCache = P._aiCache;
         P._aiCache = null;
+        window._predCache = null; // v43.24: 收集数据前清空预测缓存，避免用旧缓存
         var fullPred = P.predict();
         P._aiCache = _savedAiCache; // 恢复
 
@@ -10277,18 +10288,54 @@ function aiPredictNext(isRetry) {
         }
 
         // ===== 血本相似盘（推谁输）=====
-        if (fullPred && fullPred.threeWayAnalysis) {
-            var twa = fullPred.threeWayAnalysis;
+        // v43.18: 直接用P._threeWayAnalysis，不要用fullPred.threeWayAnalysis（那个可能是空的）
+        if (P._threeWayAnalysis) {
+            var twa = P._threeWayAnalysis;
             similarData.push('');
-            similarData.push('【血本相似盘（只能推谁输/谁是0分方）】：');
-            similarData.push('预测下一局血本方（输的一方）：' + (twa.lossSide || '无'));
+            similarData.push('【血本相似盘详细数据（推谁输）】：');
+            // v43.24: 照着相似盘逻辑重写血本匹配——窗口档位对齐，败方序列完全一致才匹配
+            var lossSeq = P.history.map(getLossSide);
+            var lossWindows = [5,6,7,8,9,10,11,12];
+            var lossVotes = {A:0, B:0, C:0};
+            var lossMatchCount = 0;
+            var L2 = lossSeq.length;
+            lossWindows.forEach(function(w){
+                if (L2 < w + 1) return;
+                var target = lossSeq.slice(L2 - w);
+                var hasNull = false;
+                for (var ti = 0; ti < target.length; ti++) if (!target[ti]) hasNull = true;
+                if (hasNull) return;
+                for (var j = w; j < L2; j++) {
+                    var ok = true;
+                    for (var k = 0; k < w; k++) {
+                        if (lossSeq[j-w+k] !== target[k]) { ok = false; break; }
+                    }
+                    if (!ok) continue;
+                    var nextLoss = lossSeq[j];
+                    if (!nextLoss) continue;
+                    var recencyFactor = 0.5 + 0.5 * (j / Math.max(1, L2 - w));
+                    var weight = w * recencyFactor;
+                    lossVotes[nextLoss] = (lossVotes[nextLoss]||0) + weight;
+                    lossMatchCount++;
+                }
+            });
+            var lossTotal = lossVotes.A + lossVotes.B + lossVotes.C;
+            similarData.push('血本投票：A=' + lossVotes.A + ' B=' + lossVotes.B + ' C=' + lossVotes.C + '票');
+            if (lossTotal > 0) {
+                similarData.push('血本加权概率：A=' + (lossVotes.A/lossTotal*100).toFixed(1) + '% B=' + (lossVotes.B/lossTotal*100).toFixed(1) + '% C=' + (lossVotes.C/lossTotal*100).toFixed(1) + '%');
+            }
+            similarData.push('共' + lossMatchCount + '个历史血本匹配');
+            similarData.push('预测最可能输（血本/0分方）：' + (twa.lossSide || '无'));
             similarData.push('');
-            similarData.push('⚠️ 相互验证（相似盘推谁赢 + 血本盘推谁输）：');
+            similarData.push('【系统综合预测】：');
+            similarData.push('预测最可能赢（冠军）：' + (twa.simTop || '?'));
+            similarData.push('');
+            similarData.push('⚠️ 交叉验证（相似盘推谁赢 + 血本盘推谁输）：');
             if (twa.simTop && twa.lossSide) {
                 if (twa.simTop !== twa.lossSide) {
-                    similarData.push('✅ 信号一致：相似盘推' + twa.simTop + '赢 + 血本盘推' + twa.lossSide + '输 → 相互增强，' + twa.simTop + '赢概率更高');
+                    similarData.push('✅ 信号一致：预测' + twa.simTop + '赢 + 预测' + twa.lossSide + '输 → 相互增强，' + twa.simTop + '赢概率更高');
                 } else {
-                    similarData.push('⚠️ 信号矛盾：相似盘推' + twa.simTop + '赢 + 血本盘也推' + twa.simTop + '输 → 方向冲突，' + twa.simTop + '赢概率应减弱');
+                    similarData.push('⚠️ 信号矛盾：预测' + twa.simTop + '赢 + 同时预测' + twa.simTop + '输 → 方向冲突，' + twa.simTop + '赢概率应减弱');
                 }
             }
         }
@@ -10415,10 +10462,16 @@ function aiPredictNext(isRetry) {
         '最近10局预测：' + aiRecentStr + '\n\n' +
         '【输出要求】\n' +
         '1. reason字段里必须严格按上面给你的【思考模板】一步步写，每一步都要有！\n' +
-        '2. 每个分析步骤里提到的数据，必须能在上面给你的数据里找到！\n' +
-        '3. 调整值正数=升高，负数=降低，单位是小数（0.05=5%）\n' +
-        '4. 三个维度各参考各的相似盘，不要混在一起！\n' +
-        '5. 调整值幅度可以大胆一点，每个方向最多±0.15（±15%），有把握就大胆修！\n\n' +
+        '2. ⚠️ 绝对禁止编造数据！每一步分析里提到的任何数字、序列、规律，必须能在上面给你的【基础数据】里找到原文！找不到的就不许提！\n' +
+        '3. ⚠️ 如果某个维度的数据缺失（比如投资相似盘没有匹配），就直接说"该维度数据不足，调整值设为0.00"，绝对不许借用其他维度的数据来凑数！\n' +
+        '4. 调整值正数=升高，负数=降低，单位是小数（0.05=5%）\n' +
+        '5. 三个维度各参考各的相似盘，不要混在一起！\n' +
+        '6. 调整值幅度可以大胆一点，每个方向最多±0.15（±15%），有把握就大胆修！\n' +
+        '7. 每一步分析里引用数据时，要明确说"根据XX数据..."，比如"根据【相似盘预测谁赢】里的加权概率，B=49.0%..."\n\n' +
+        '【最重要的三条铁律】\n' +
+        '🚫 不许编造：数据里没有的，绝对不许自己编一个出来！\n' +
+        '🚫 不许借用：投资的数据不够，就老实说不够，不许拿收益的来凑！\n' +
+        '🚫 不许瞎说：不确定的地方，就降低信心值，不要硬下结论！\n\n' +
         '只返回JSON：{"adjA":调整值,"adjB":调整值,"adjC":调整值,"adjInvestBig":调整值,"adjInvestMid":调整值,"adjInvestSmall":调整值,"adjProfitBig":调整值,"adjProfitMid":调整值,"adjProfitSmall":调整值,"confidence":你的信心(0-1),"reason":"严格按思考模板写的详细分析"}\n' +
         '【精度要求】调整值保留2位小数，例如+0.05、-0.03\n' +
         '【信心说明】confidence是你对自己修正判断的信心，0=完全没把握，1=非常确定\n';
@@ -10426,7 +10479,7 @@ function aiPredictNext(isRetry) {
     fetch(proxyUrl, {
         method: 'POST',
         headers: hdrs,
-        body: JSON.stringify({ model: 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
+        body: JSON.stringify({ model: 'glm-4.7-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
     }).then(function(r){ return r.json(); }).then(function(data) {
         console.log('[AI预测] 响应:', data);
         var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
@@ -10492,16 +10545,21 @@ function aiPredictNext(isRetry) {
                 var reasonText = pred.reason || '';
                 if (typeof reasonText !== 'string') reasonText = JSON.stringify(reasonText);
                 var confPct = (aiAdj.confidence * 100).toFixed(0);
-                // v43.8: 状态栏显示的修正值和predict()里的计算完全一致（都是confidence*2.0）
-                var actualFactor = aiAdj.confidence * 2.0;
+                // v43.18: 状态栏显示的修正值和predict()里的计算完全一致（都是confidence*3.0）
+                var actualFactor = aiAdj.confidence * 3.0;
                 var actualAdjA = (aiAdj.adjA * actualFactor * 100).toFixed(1);
                 var actualAdjB = (aiAdj.adjB * actualFactor * 100).toFixed(1);
                 var actualAdjC = (aiAdj.adjC * actualFactor * 100).toFixed(1);
-                aiBar.innerHTML = '✅ AI修正已应用！（信心' + confPct + '%）<span style="float:right;cursor:pointer;margin-left:10px;" onclick="this.parentElement.style.display=\'none\';">✕</span><br>' +
+                aiBar.innerHTML = '✅ AI修正已应用！（信心' + confPct + '%）<span id="aiCloseBtn" style="float:right;cursor:pointer;margin-left:10px;font-size:18px;line-height:1;">✕</span><br>' +
                     '实际修正：A:' + (actualAdjA >= 0 ? '+' : '') + actualAdjA + '% ' +
                     'B:' + (actualAdjB >= 0 ? '+' : '') + actualAdjB + '% ' +
                     'C:' + (actualAdjC >= 0 ? '+' : '') + actualAdjC + '%<br>' +
                     '<span style="font-size:12px;opacity:0.9;">' + reasonText + '</span>';
+                // v43.24: 用id绑定关闭按钮，比inline onclick更可靠
+                setTimeout(function() {
+                    var closeBtn = document.getElementById('aiCloseBtn');
+                    if (closeBtn) closeBtn.onclick = function() { aiBar.style.display = 'none'; };
+                }, 0);
                 setTimeout(function(){ aiBar.style.display='none'; }, 60000);
             }
             console.log('[AI修正] 成功:', aiAdj);
@@ -10547,7 +10605,7 @@ function aiAnalyzeAndAdjust(callback) {
         fetch(proxyUrl, {
             method: 'POST',
             headers: hdrs,
-            body: JSON.stringify({ model: 'glm-4-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
+            body: JSON.stringify({ model: 'glm-4.7-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
         }).then(function(r){ return r.json(); }).then(function(data) {
             var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
             if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } callback && callback(null); return; }
