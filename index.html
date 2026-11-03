@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v43.40 · AI修正裁判版</title>
+<title>商会三竞预测系统 v43.42 · AI修正裁判版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -607,8 +607,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.40</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.40</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 一局只预测一次 · 不重复调整</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.41</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.41</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 改用乘法调权重 · 修正幅度真正明显</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1015,7 +1015,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v43.40';
+  var APP_VERSION = 'v43.42';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -4768,7 +4768,78 @@ class Predictor {
         return {probs: norm, weights: w, sources: sources, models: models};
     }
     // ===== 主预测：五级窗口优先级 =====
+    // v43.42: 包装predict()——不管原来的predict从哪个分支return，都统一在这里应用AI修正
     predict() {
+        var result = this._predictOriginal();
+        if (!result) return result;
+        
+        try {
+            if (this._aiCache && this._aiCache.adjustment) {
+                var adj = this._aiCache.adjustment;
+                var adjFactor = adj.confidence * 1.5; 
+                
+                // 乘法修正：权重调整
+                var wA = result.probabilities.A * (1 + adj.adjA * adjFactor);
+                var wB = result.probabilities.B * (1 + adj.adjB * adjFactor);
+                var wC = result.probabilities.C * (1 + adj.adjC * adjFactor);
+                
+                var totalW = wA + wB + wC;
+                result.probabilities.A = wA / totalW;
+                result.probabilities.B = wB / totalW;
+                result.probabilities.C = wC / totalW;
+                
+                // 重算rank和sorted
+                var arr = [
+                    {g: 'A', p: result.probabilities.A},
+                    {g: 'B', p: result.probabilities.B},
+                    {g: 'C', p: result.probabilities.C}
+                ].sort(function(a, b) { return b.p - a.p; });
+                
+                result.rank = {};
+                arr.forEach(function(item, i) { result.rank[item.g] = i + 1; });
+                result.sorted = arr.map(function(item) { return [item.g, item.p]; });
+                result.predictedGuild = arr[0].g;
+                
+                // 投资概率修正
+                if (result.investPrediction && result.investPrediction.probs) {
+                    var iBig = result.investPrediction.probs.大 * (1 + adj.adjInvestBig * adjFactor);
+                    var iMid = result.investPrediction.probs.中 * (1 + adj.adjInvestMid * adjFactor);
+                    var iSmall = result.investPrediction.probs.小 * (1 + adj.adjInvestSmall * adjFactor);
+                    var isum = iBig + iMid + iSmall;
+                    if (isum > 0) {
+                        result.investPrediction.probs.大 = iBig / isum;
+                        result.investPrediction.probs.中 = iMid / isum;
+                        result.investPrediction.probs.小 = iSmall / isum;
+                        var bestI = '大', maxI = 0;
+                        ['大','中','小'].forEach(function(p){ if (result.investPrediction.probs[p] > maxI) { maxI = result.investPrediction.probs[p]; bestI = p; } });
+                        result.investPrediction.predicted = bestI;
+                    }
+                }
+                
+                // 收益概率修正
+                if (result.profitPrediction && result.profitPrediction.probs) {
+                    var pBig = result.profitPrediction.probs.大 * (1 + adj.adjProfitBig * adjFactor);
+                    var pMid = result.profitPrediction.probs.中 * (1 + adj.adjProfitMid * adjFactor);
+                    var pSmall = result.profitPrediction.probs.小 * (1 + adj.adjProfitSmall * adjFactor);
+                    var psum = pBig + pMid + pSmall;
+                    if (psum > 0) {
+                        result.profitPrediction.probs.大 = pBig / psum;
+                        result.profitPrediction.probs.中 = pMid / psum;
+                        result.profitPrediction.probs.小 = pSmall / psum;
+                        var bestP = '大', maxP = 0;
+                        ['大','中','小'].forEach(function(p){ if (result.profitPrediction.probs[p] > maxP) { maxP = result.profitPrediction.probs[p]; bestP = p; } });
+                        result.profitPrediction.predicted = bestP;
+                    }
+                }
+                
+                console.log('[AI修正] 已应用, 系数=' + adjFactor.toFixed(2));
+            }
+        } catch(e) { console.warn('[AI修正]失败:', e.message); }
+        
+        return result;
+    }
+    
+    _predictOriginal() {
         var n = this.history.length;
         if (n === 0) return null;
         // v34.2性能优化：每次predict()开始时重置强度缓存，避免用到旧数据
@@ -5270,92 +5341,6 @@ class Predictor {
             modelPicks: modelPicks,
             signalSplit: signalSplit  // v32.0: 信号分裂标记
         };
-        
-        // v43.0: AI修正裁判模式——在基础融合完成后，对三个维度做修正微调
-        try {
-            if (this._aiCache && this._aiCache.adjustment) {
-                var adj = this._aiCache.adjustment;
-                // v43.7: 修正力度加倍——信心×2.0，让AI的深度思考真正体现在结果上
-                // v43.18: 修正系数从2.0提到3.0，避免归一化稀释后修正幅度不明显
-                // v43.34: 修正系数提到5.0
-                // v43.38: 修正系数提到10.0
-                // v43.39: 修正系数提到20.0，去掉钳制，让修正幅度真正达到10-15%浮动
-                var adjFactor = adj.confidence * 20.0; 
-                
-                // v43.40: 去掉修正值归一化——之前做了两次归一化（先归一化修正值，再归一化概率），导致修正幅度被严重稀释
-                // 概率后面会自动归一化，修正值不需要先归一化
-                
-                // 1. ABC获胜概率修正
-                if (result.probabilities) {
-                    var pA = result.probabilities.A + adj.adjA * adjFactor;
-                    var pB = result.probabilities.B + adj.adjB * adjFactor;
-                    var pC = result.probabilities.C + adj.adjC * adjFactor;
-                    // 归一化
-                    var psum = pA + pB + pC;
-                    if (psum > 0) {
-                        result.probabilities.A = pA / psum;
-                        result.probabilities.B = pB / psum;
-                        result.probabilities.C = pC / psum;
-                        
-                        // v43.0: 修正后更新最可能预测和排名
-                        var bestGuild = 'A', maxProb = 0;
-                        ['A','B','C'].forEach(function(g){ 
-                            if (result.probabilities[g] > maxProb) { 
-                                maxProb = result.probabilities[g]; 
-                                bestGuild = g; 
-                            } 
-                        });
-                        result.predictedGuild = bestGuild;
-                        // 更新排名
-                        result.rank = result.rank || {};
-                        var sortedGuilds = ['A','B','C'].sort(function(a,b){ 
-                            return result.probabilities[b] - result.probabilities[a]; 
-                        });
-                        sortedGuilds.forEach(function(g, idx){
-                            result.rank[g] = idx + 1;
-                        });
-                        // v43.35: 关键修复！更新sorted数组，否则renderCards用旧的sorted渲染，数字不会变
-                        result.sorted = sortedGuilds.map(function(g){ return [g, result.probabilities[g]]; });
-                    }
-                }
-                
-                // 2. 投资概率修正
-                if (result.investPrediction && result.investPrediction.probs) {
-                    var iBig = result.investPrediction.probs.大 + adj.adjInvestBig * adjFactor;
-                    var iMid = result.investPrediction.probs.中 + adj.adjInvestMid * adjFactor;
-                    var iSmall = result.investPrediction.probs.小 + adj.adjInvestSmall * adjFactor;
-                    var isum = iBig + iMid + iSmall;
-                    if (isum > 0) {
-                        result.investPrediction.probs.大 = iBig / isum;
-                        result.investPrediction.probs.中 = iMid / isum;
-                        result.investPrediction.probs.小 = iSmall / isum;
-                        // 更新最可能的预测
-                        var bestI = '中', maxI = 0;
-                        ['大','中','小'].forEach(function(p){ if (result.investPrediction.probs[p] > maxI) { maxI = result.investPrediction.probs[p]; bestI = p; } });
-                        result.investPrediction.predicted = bestI;
-                    }
-                }
-                
-                // 3. 收益概率修正
-                if (result.profitPrediction && result.profitPrediction.probs) {
-                    var pBig = result.profitPrediction.probs.大 + adj.adjProfitBig * adjFactor;
-                    var pMid = result.profitPrediction.probs.中 + adj.adjProfitMid * adjFactor;
-                    var pSmall = result.profitPrediction.probs.小 + adj.adjProfitSmall * adjFactor;
-                    var psum2 = pBig + pMid + pSmall;
-                    if (psum2 > 0) {
-                        result.profitPrediction.probs.大 = pBig / psum2;
-                        result.profitPrediction.probs.中 = pMid / psum2;
-                        result.profitPrediction.probs.小 = pSmall / psum2;
-                        // 更新最可能的预测
-                        var bestP = '中', maxP = 0;
-                        ['大','中','小'].forEach(function(p){ if (result.profitPrediction.probs[p] > maxP) { maxP = result.profitPrediction.probs[p]; bestP = p; } });
-                        result.profitPrediction.predicted = bestP;
-                    }
-                }
-                
-                console.log('[AI修正] 已应用修正系数=' + adjFactor.toFixed(2));
-            }
-        } catch(e) { console.warn('[AI修正]失败:', e.message); }
         
         return result;
     }
@@ -10185,12 +10170,12 @@ function autoBacktestTick() {
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
 // v41.0: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
-// v43.40: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
+// v43.42: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
 var _lastOptimizeCount = 0;
 var _optInitDone = false;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 100) return;
-    // v43.40: 第一次调用时初始化基线，避免打开页面就跑优化
+    // v43.42: 第一次调用时初始化基线，避免打开页面就跑优化
     if (!_optInitDone) {
         _lastOptimizeCount = P.history.length;
         _optInitDone = true;
@@ -10293,7 +10278,7 @@ function aiPredictNext(isRetry) {
         // v43.5: 一次性调用P.predict()，三个维度的相似盘数据都从这里拿
         var _savedAiCache = P._aiCache;
         P._aiCache = null;
-        window._predCache = null; // v43.40: 收集数据前清空预测缓存，避免用旧缓存
+        window._predCache = null; // v43.42: 收集数据前清空预测缓存，避免用旧缓存
         var fullPred = P.predict();
         P._aiCache = _savedAiCache; // 恢复
 
@@ -10581,9 +10566,8 @@ function aiPredictNext(isRetry) {
                 var reasonText = pred.reason || '';
                 if (typeof reasonText !== 'string') reasonText = JSON.stringify(reasonText);
                 var confPct = (aiAdj.confidence * 100).toFixed(0);
-                // v43.18: 状态栏显示的修正值和predict()里的计算完全一致
-                // v43.39: 修正系数提到20.0，去掉钳制
-                var actualFactor = aiAdj.confidence * 20.0;
+                // v43.42: 状态栏显示的修正系数和predict()里的计算完全一致
+                var actualFactor = aiAdj.confidence * 1.5;
                 var actualAdjA = (aiAdj.adjA * actualFactor * 100).toFixed(1);
                 var actualAdjB = (aiAdj.adjB * actualFactor * 100).toFixed(1);
                 var actualAdjC = (aiAdj.adjC * actualFactor * 100).toFixed(1);
@@ -10592,7 +10576,7 @@ function aiPredictNext(isRetry) {
                     'B:' + (actualAdjB >= 0 ? '+' : '') + actualAdjB + '% ' +
                     'C:' + (actualAdjC >= 0 ? '+' : '') + actualAdjC + '%<br>' +
                     '<span style="font-size:12px;opacity:0.9;">' + reasonText + '</span>';
-                // v43.40: 用id绑定关闭按钮，比inline onclick更可靠
+                // v43.42: 用id绑定关闭按钮，比inline onclick更可靠
                 setTimeout(function() {
                     var closeBtn = document.getElementById('aiCloseBtn');
                     if (closeBtn) closeBtn.onclick = function() { aiBar.style.display = 'none'; };
