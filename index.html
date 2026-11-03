@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v41.9 · AI深度分析版</title>
+<title>商会三竞预测系统 v43.3 · AI修正裁判版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -605,8 +606,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v41.9</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v41.9</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 大模型AI预测 · 相似盘深度分析 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.3</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.3</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 相似盘深度分析 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1013,7 +1014,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v41.9';
+  var APP_VERSION = 'v43.3';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -4418,8 +4419,9 @@ class Predictor {
     // ===== v25.5: 收益规律模型 =====
     // v41.0: AI预测模型——从缓存读取AI分析的概率
     _modelAIPrediction() {
-        if (!this._aiCache || !this._aiCache.probs) return null;
-        return this._aiCache.probs; // {A:0.4, B:0.3, C:0.3}
+        // v43.0: AI不再作为平权投票模型，改为修正裁判模式
+        // 返回null表示不参与投票融合，修正在最终predict()里统一应用
+        return null;
     }
     _modelProfitPattern(records) {
         var n = records.length;
@@ -4479,6 +4481,7 @@ class Predictor {
             detailParts.push('收益规律(' + (profitPat.confidence*100).toFixed(0) + '%)→' + pp);
             this._lastProfitPattern = profitPat;
         }
+        // v43.0: AI修正已移到predict()函数最后统一处理，这里不再单独融合
         if (totalWeight === 0) return null;
         // 归一化
         var t = finalProbs.大 + finalProbs.中 + finalProbs.小;
@@ -4621,6 +4624,7 @@ class Predictor {
             finalProbs[altBoost] += 0.12;
             detailParts.push('交替→' + altBoost);
         }
+        // v43.0: AI修正已移到predict()函数最后统一处理，这里不再单独融合
         // 归一化
         var t = finalProbs.大 + finalProbs.中 + finalProbs.小;
         if (t > 0) { finalProbs.大/=t; finalProbs.中/=t; finalProbs.小/=t; }
@@ -5259,6 +5263,102 @@ class Predictor {
             modelPicks: modelPicks,
             signalSplit: signalSplit  // v32.0: 信号分裂标记
         };
+        
+        // v43.0: AI修正裁判模式——在基础融合完成后，对三个维度做修正微调
+        try {
+            if (this._aiCache && this._aiCache.adjustment) {
+                var adj = this._aiCache.adjustment;
+                // v43.3: 进一步加大AI修正力度——信心×1.0，让AI的深度思考真正体现在结果上
+                var adjFactor = adj.confidence * 1.0; 
+                
+                // v43.3: 修正值归一化——三个值加起来必须为0，这样概率总和还是1
+                // 避免AI返回三个都加正数，导致归一化后结果偏差
+                var adjSumABC = adj.adjA + adj.adjB + adj.adjC;
+                adj.adjA -= adjSumABC / 3;
+                adj.adjB -= adjSumABC / 3;
+                adj.adjC -= adjSumABC / 3;
+                
+                var adjSumInvest = adj.adjInvestBig + adj.adjInvestMid + adj.adjInvestSmall;
+                adj.adjInvestBig -= adjSumInvest / 3;
+                adj.adjInvestMid -= adjSumInvest / 3;
+                adj.adjInvestSmall -= adjSumInvest / 3;
+                
+                var adjSumProfit = adj.adjProfitBig + adj.adjProfitMid + adj.adjProfitSmall;
+                adj.adjProfitBig -= adjSumProfit / 3;
+                adj.adjProfitMid -= adjSumProfit / 3;
+                adj.adjProfitSmall -= adjSumProfit / 3;
+                
+                // 1. ABC获胜概率修正
+                if (result.probabilities) {
+                    var pA = result.probabilities.A + adj.adjA * adjFactor;
+                    var pB = result.probabilities.B + adj.adjB * adjFactor;
+                    var pC = result.probabilities.C + adj.adjC * adjFactor;
+                    // 归一化
+                    var psum = pA + pB + pC;
+                    if (psum > 0) {
+                        result.probabilities.A = pA / psum;
+                        result.probabilities.B = pB / psum;
+                        result.probabilities.C = pC / psum;
+                        
+                        // v43.0: 修正后更新最可能预测和排名
+                        var bestGuild = 'A', maxProb = 0;
+                        ['A','B','C'].forEach(function(g){ 
+                            if (result.probabilities[g] > maxProb) { 
+                                maxProb = result.probabilities[g]; 
+                                bestGuild = g; 
+                            } 
+                        });
+                        result.predictedGuild = bestGuild;
+                        // 更新排名
+                        result.rank = result.rank || {};
+                        var sortedGuilds = ['A','B','C'].sort(function(a,b){ 
+                            return result.probabilities[b] - result.probabilities[a]; 
+                        });
+                        sortedGuilds.forEach(function(g, idx){
+                            result.rank[g] = idx + 1;
+                        });
+                    }
+                }
+                
+                // 2. 投资概率修正
+                if (result.investPrediction && result.investPrediction.probs) {
+                    var iBig = result.investPrediction.probs.大 + adj.adjInvestBig * adjFactor;
+                    var iMid = result.investPrediction.probs.中 + adj.adjInvestMid * adjFactor;
+                    var iSmall = result.investPrediction.probs.小 + adj.adjInvestSmall * adjFactor;
+                    var isum = iBig + iMid + iSmall;
+                    if (isum > 0) {
+                        result.investPrediction.probs.大 = iBig / isum;
+                        result.investPrediction.probs.中 = iMid / isum;
+                        result.investPrediction.probs.小 = iSmall / isum;
+                        // 更新最可能的预测
+                        var bestI = '中', maxI = 0;
+                        ['大','中','小'].forEach(function(p){ if (result.investPrediction.probs[p] > maxI) { maxI = result.investPrediction.probs[p]; bestI = p; } });
+                        result.investPrediction.predicted = bestI;
+                    }
+                }
+                
+                // 3. 收益概率修正
+                if (result.profitPrediction && result.profitPrediction.probs) {
+                    var pBig = result.profitPrediction.probs.大 + adj.adjProfitBig * adjFactor;
+                    var pMid = result.profitPrediction.probs.中 + adj.adjProfitMid * adjFactor;
+                    var pSmall = result.profitPrediction.probs.小 + adj.adjProfitSmall * adjFactor;
+                    var psum2 = pBig + pMid + pSmall;
+                    if (psum2 > 0) {
+                        result.profitPrediction.probs.大 = pBig / psum2;
+                        result.profitPrediction.probs.中 = pMid / psum2;
+                        result.profitPrediction.probs.小 = pSmall / psum2;
+                        // 更新最可能的预测
+                        var bestP = '中', maxP = 0;
+                        ['大','中','小'].forEach(function(p){ if (result.profitPrediction.probs[p] > maxP) { maxP = result.profitPrediction.probs[p]; bestP = p; } });
+                        result.profitPrediction.predicted = bestP;
+                    }
+                }
+                
+                console.log('[AI修正] 已应用修正系数=' + adjFactor.toFixed(2));
+            }
+        } catch(e) { console.warn('[AI修正]失败:', e.message); }
+        
+        return result;
     }
     // ===== 多轮学习（含回滚保护）=====
     _snapshotWeights() {
@@ -5358,18 +5458,18 @@ class Predictor {
             if (pAll && pAll.models) {
                 var self = this;
                 modelNames.forEach(function(name) {
-                    // v41.0: AI模型特殊处理——从缓存读取预测结果
+                    // v43.0: AI修正裁判模式——不再作为投票模型追踪准确率
+                    // AI的效果通过整体预测准确率来间接体现
                     if (name === 'aiModel') {
-                        if (!self._aiCache || !self._aiCache.probs) return;
-                        var aiProbs = self._aiCache.probs;
-                        var aiPred = Object.keys(aiProbs).sort(function(a,b){return aiProbs[b]-aiProbs[a];})[0];
-                        var correct = (aiPred === actualWinner);
-                        if (!self.modelPerf[name]) self.modelPerf[name] = [];
-                        self.modelPerf[name].push(correct);
-                        if (self.modelPerf[name].length > 50) self.modelPerf[name].shift();
-                        if (correct) self.modelWeights[name] += lr * correctReward;
-                        else self.modelWeights[name] -= lr * errorPenalty;
-                        self.modelWeights[name] = Math.max(0.02, self.modelWeights[name]);
+                        // 旧格式兼容：如果还有probs就追踪，新格式跳过
+                        if (self._aiCache && self._aiCache.probs) {
+                            var aiProbs = self._aiCache.probs;
+                            var aiPred = Object.keys(aiProbs).sort(function(a,b){return aiProbs[b]-aiProbs[a];})[0];
+                            var correct = (aiPred === actualWinner);
+                            if (!self.modelPerf[name]) self.modelPerf[name] = [];
+                            self.modelPerf[name].push(correct);
+                            if (self.modelPerf[name].length > 50) self.modelPerf[name].shift();
+                        }
                         return;
                     }
                     var m = pAll.models[name];
@@ -5831,6 +5931,22 @@ if(curBrier > 0.3){
                     this.investAccuracy.push(investCorrect);
                     if (this.investAccuracy.length > 100000) this.investAccuracy.shift();
                     _lastPh.investCorrect = investCorrect; // v39.0
+                }
+                // v43.0: AI修正裁判模式——投资/收益AI准确率追踪兼容旧格式
+                if (this._aiCache && this._aiCache.time) {
+                    // 旧格式兼容：如果还有profit/invest字段就追踪
+                    if (this._aiCache.profit && actualProfit) {
+                        var aiProfitCorrect = (this._aiCache.profit === actualProfit);
+                        this.aiProfitAccuracy = this.aiProfitAccuracy || [];
+                        this.aiProfitAccuracy.push(aiProfitCorrect);
+                        if (this.aiProfitAccuracy.length > 100) this.aiProfitAccuracy.shift();
+                    }
+                    if (this._aiCache.invest && actualInvest) {
+                        var aiInvestCorrect = (this._aiCache.invest === actualInvest);
+                        this.aiInvestAccuracy = this.aiInvestAccuracy || [];
+                        this.aiInvestAccuracy.push(aiInvestCorrect);
+                        if (this.aiInvestAccuracy.length > 100) this.aiInvestAccuracy.shift();
+                    }
                 }
                 // v26.2：快速重建模式跳过学习和反思日志（重建只需要predHistory用于显示）
                 if (!this._fastRebuild) {
@@ -10079,8 +10195,8 @@ function autoOptimizeTick() {
                         showLearnTip && showLearnTip();
                     } catch(e) { console.warn('[autoOptimize] apply failed:', e.message); }
                 }
-                // v40.7: 调优完成后自动调用AI辅助分析
-                try { aiAnalyzeAndAdjust(function(){ debouncedSave(); renderAll(); }); aiPredictNext(); } catch(e) { console.warn('[AI联动]失败:', e.message); }
+                // v42.0: 调优完成后不再立即触发AI预测，统一由录入成功3秒后触发
+                try { aiAnalyzeAndAdjust(function(){ debouncedSave(); renderAll(); }); } catch(e) { console.warn('[AI联动]失败:', e.message); }
             }
         });
     }, {timeout: 5000});
@@ -10093,9 +10209,12 @@ try { var _ais = localStorage.getItem(_AI_CFG_KEY); if (_ais) Object.assign(_aiC
 function _aiSaveCfg() { try { localStorage.setItem(_AI_CFG_KEY, JSON.stringify(_aiCfg)); } catch(e) {} }
 
 // v41.0: AI预测下一局——后台调AI分析走势，缓存概率供融合预测使用
-function aiPredictNext() {
+function aiPredictNext(isRetry) {
     console.log('[AI预测] 开始三预测深度分析...');
     if (!_aiCfg.enabled) { console.log('[AI预测] AI未启用'); return; }
+    // v42.0: 防并发锁——上一次AI还没跑完就跳过，避免连续录入时API堆积
+    if (window._aiPredictRunning) { console.log('[AI预测] 上一次还在运行，跳过本次'); return; }
+    window._aiPredictRunning = true;
     var aiBar = document.getElementById('aiStatusBar');
     if (aiBar) { aiBar.style.display = 'block'; aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...'; }
     var cfg = getCloudConfig();
@@ -10121,8 +10240,13 @@ function aiPredictNext() {
     try {
         var last12 = P.history.slice(-12).map(function(r) { return getWinner(r); }).filter(function(x){return x;});
         similarData.push('当前走势（最近12局）：' + last12.join('→'));
+        // v43.4: ABC相似盘也从P.predict()结果里拿，和系统实际用的完全一致
+        var _savedAiCache3 = P._aiCache;
+        P._aiCache = null;
+        var predResultForSim = P.predict();
+        P._aiCache = _savedAiCache3; // 恢复
         // 相似盘预测谁赢——详细匹配列表
-        var simResult = predictFromSimilarPattern(P.history.slice(-8), P.history);
+        var simResult = predResultForSim ? predResultForSim.simInfo : null;
         if (simResult && simResult.useResults && simResult.useResults.length > 0) {
             similarData.push('');
             similarData.push('【相似盘预测谁赢】：');
@@ -10138,23 +10262,59 @@ function aiPredictNext() {
             similarData.push('相似盘投票：A=' + (simResult.winCount.A||0) + ' B=' + (simResult.winCount.B||0) + ' C=' + (simResult.winCount.C||0) + '票');
             similarData.push('加权概率：A=' + (simResult.weightedCount.A*100).toFixed(0) + '% B=' + (simResult.weightedCount.B*100).toFixed(0) + '% C=' + (simResult.weightedCount.C*100).toFixed(0) + '%');
         }
-        // 收益和投资相似盘
+        // 收益和投资相似盘——详细匹配列表（和ABC相似盘对称）
         try {
+            // v43.0: 临时清空AI缓存，拿到纯基础预测结果
+            var _savedAiCache2 = P._aiCache;
+            P._aiCache = null;
             var predResult = P.predict();
-            if (predResult && predResult.profitPrediction) {
-                var pp = predResult.profitPrediction;
-                if (pp.simProfit) {
+            P._aiCache = _savedAiCache2; // 恢复
+            if (predResult) {
+                // ===== 收益相似盘详细列表 =====
+                if (predResult.profitPrediction && predResult.profitPrediction.simProfit) {
+                    var simP = predResult.profitPrediction.simProfit;
                     similarData.push('');
-                    similarData.push('【收益相似盘】：');
-                    similarData.push('预测收益：' + pp.simProfit.predicted + '（大' + (pp.simProfit.probs.大*100).toFixed(0) + '% 中' + (pp.simProfit.probs.中*100).toFixed(0) + '% 小' + (pp.simProfit.probs.小*100).toFixed(0) + '%）');
+                    similarData.push('【收益相似盘预测（大/中/小收益）】：');
+                    // 最近10局收益序列
+                    var last10Profit = P.history.slice(-10).map(function(r){ return r.profitWinner || '?'; }).join('→');
+                    similarData.push('当前收益走势（最近10局）：' + last10Profit);
+                    // 详细匹配列表
+                    if (simP.matches && simP.matches.length > 0) {
+                        var topPMatches = simP.matches.slice(0, 6);
+                        topPMatches.forEach(function(r, idx) {
+                            var simPct = (r.similarity * 100).toFixed(0);
+                            var nextP = r.nextProfit || '?';
+                            var matchLen = r.matchLen || 6;
+                            similarData.push((idx+1) + '. 相似度' + simPct + '%（' + matchLen + '局匹配）→ 下一局收益【' + nextP + '】');
+                        });
+                    }
+                    similarData.push('');
+                    similarData.push('收益相似盘投票：大=' + (simP.winCount.大||0) + '票 中=' + (simP.winCount.中||0) + '票 小=' + (simP.winCount.小||0) + '票');
+                    similarData.push('加权概率：大=' + (simP.weightedCount.大*100).toFixed(1) + '% 中=' + (simP.weightedCount.中*100).toFixed(1) + '% 小=' + (simP.weightedCount.小*100).toFixed(1) + '%');
                 }
-                if (pp.simInvest) {
+                // ===== 投资相似盘详细列表 =====
+                if (predResult.investPrediction && predResult.investPrediction.simInvest) {
+                    var simI = predResult.investPrediction.simInvest;
                     similarData.push('');
-                    similarData.push('【投资相似盘】：');
-                    similarData.push('预测投资：' + pp.simInvest.predicted + '（大' + (pp.simInvest.probs.大*100).toFixed(0) + '% 中' + (pp.simInvest.probs.中*100).toFixed(0) + '% 小' + (pp.simInvest.probs.小*100).toFixed(0) + '%）');
+                    similarData.push('【投资相似盘预测（大/中/小投资）】：');
+                    // 最近10局投资序列
+                    var last10Invest = P.history.slice(-10).map(function(r){ return r.investWinner || '?'; }).join('→');
+                    similarData.push('当前投资走势（最近10局）：' + last10Invest);
+                    // 详细匹配列表
+                    if (simI.matches && simI.matches.length > 0) {
+                        var topIMatches = simI.matches.slice(0, 6);
+                        topIMatches.forEach(function(r, idx) {
+                            var simPct = (r.similarity * 100).toFixed(0);
+                            var nextI = r.nextInvest || '?';
+                            var matchLen = r.matchLen || 6;
+                            similarData.push((idx+1) + '. 相似度' + simPct + '%（' + matchLen + '局匹配）→ 下一局投资【' + nextI + '】');
+                        });
+                    }
+                    similarData.push('');
+                    similarData.push('投资相似盘匹配数：' + (simI.matchCount || 0) + '个');
                 }
             }
-        } catch(e) {}
+        } catch(e) { console.warn('[AI投资收益相似盘]提取失败:', e.message); }
     } catch(e) { console.warn('[AI相似盘]提取失败:', e.message); }
     // AI自己的历史表现
     var aiPerf = mp.aiModel || [];
@@ -10170,43 +10330,71 @@ function aiPredictNext() {
     var patternProbs = null;
     var patternConf = 0;
     try {
+        // v43.0: 临时清空AI缓存，拿到纯统计模型的基础概率（不带AI修正）
+        var _savedAiCache = P._aiCache;
+        P._aiCache = null;
         var predResult = P.predict();
+        P._aiCache = _savedAiCache; // 恢复
         if (predResult) {
             patternName = predResult.sourceName || predResult.patternName || '全局统计';
             patternProbs = predResult.probabilities;
             patternConf = predResult.patternConfidence || 0;
         }
     } catch(e) { console.warn('[AI规律信号]获取失败:', e.message); }
-    var prompt = '你是资深三竞预测专家，需要分别预测三个维度，每个维度参考对应的数据。\n\n' +
+    var prompt = '你是资深三竞预测专家，现在扮演【修正裁判】的角色。\n\n' +
+        '【铁律：禁止瞎编！所有分析必须基于上面给你的数据，不能自己发明任何数据！如果某个相似盘确实数据少，就如实说"该维度样本不足，修正幅度小"，不要说"无法预测"！】\n\n' +
+        '【你的定位】\n' +
+        '系统已经用11个统计算法算出了基础预测概率，你的任务是：\n' +
+        '1. 仔细核对相似盘数据，看看统计模型有没有忽略重要信号\n' +
+        '2. 结合走势规律，判断基础预测有没有偏差\n' +
+        '3. 给出修正建议：基础概率应该往哪个方向调整，调多少\n\n' +
         '【概念解释】\n' +
-        '- 相似盘：历史上和当前走势类似的局面，历史上出现过相同走势后下一局出什么。\n' +
+        '- 相似盘：历史上和当前走势类似的局面。注意：不是简单数次数！是【相似度平方加权】——90%相似度的匹配权重是80%的1.27倍，是60%的2.25倍！高相似度匹配权重指数级增长。\n' +
+        '- 完全匹配⭐：相似度≥90%的匹配，相当于历史完全重演，权重极高，要重点关注！\n' +
         '- 血本：某一方得0分（全输），连续输后下一局可能反弹。\n' +
         '- 连胜：连续同一方赢，超过2局后可能反转。\n\n' +
+        '【你的思考过程必须严格按以下模板写reason】\n\n' +
+        '【ABC获胜分析】\n' +
+        '第一步：相似盘加权概率——看【相似盘预测谁赢】里的"加权概率"是多少？（注意：不是简单数次数，是相似度平方加权后的结果，高相似度匹配权重更大！）\n' +
+        '第二步：对比基础预测——系统给的基础概率是A=??% B=??% C=??%，和相似盘加权概率一致吗？有没有明显偏差？\n' +
+        '第三步：高相似度信号——看匹配列表里有没有≥90%的【完全匹配⭐】？这些权重极高，要重点关注！它们预测的是什么？\n' +
+        '第四步：规律判断——最近10局获胜方序列是【???】，有没有连胜反转？有没有交替？有没有血本反弹信号？\n' +
+        '第五步：修正结论——综合以上，A应该调高还是调低？B呢？C呢？为什么？\n\n' +
+        '【投资预测分析】\n' +
+        '第一步：相似盘加权概率——看【投资相似盘预测】里的"加权概率"是多少？（注意：不是简单数次数，是相似度平方加权，高相似度权重更大！）\n' +
+        '第二步：对比基础预测——系统投资预测概率是多少？和相似盘加权概率一致吗？有没有偏差？\n' +
+        '第三步：高相似度信号——看匹配列表里有没有≥90%的高相似度匹配？它们预测的是什么？这些权重极高！\n' +
+        '第四步：规律判断——最近10局投资走势是【???】，有没有连胜或交替？\n' +
+        '第五步：修正结论——投资大/中/小应该怎么调整？为什么？\n\n' +
+        '【收益预测分析】\n' +
+        '第一步：相似盘加权概率——看【收益相似盘预测】里的"加权概率"是多少？（注意：不是简单数次数，是相似度平方加权，高相似度权重更大！）\n' +
+        '第二步：对比基础预测——系统收益预测概率是多少？和相似盘加权概率一致吗？有没有偏差？\n' +
+        '第三步：高相似度信号——看匹配列表里有没有≥90%的高相似度匹配？它们预测的是什么？这些权重极高！\n' +
+        '第四步：规律判断——最近10局收益走势是【???】，有没有连胜或交替？\n' +
+        '第五步：修正结论——收益大/中/小应该怎么调整？为什么？\n\n' +
         '【基础数据】\n' +
         '最近30局走势：' + recent.join(' ') + '\n' +
         '最近10局获胜方序列：' + winners + '\n' +
         '最近10局血本方序列：' + lossSide + '\n\n' +
         '【相似盘数据（按预测维度分类）】\n' + similarData.join('\n') + '\n\n' +
-        '【系统检测到的规律信号】\n' +
-        '当前主导规律：' + patternName + '\n' +
-        '规律预测概率：' + (patternProbs ? ('A='+(patternProbs.A*100).toFixed(0)+'% B='+(patternProbs.B*100).toFixed(0)+'% C='+(patternProbs.C*100).toFixed(0)+'%') : '无') + '\n' +
-        '规律置信度：' + (patternConf ? (patternConf*100).toFixed(0)+'%' : '0%') + '\n\n' +
-        '系统11个模型表现：\n' + modelStats.join('\n') + '\n\n' +
+        '【系统基础预测结果】\n' +
+        '当前系统融合概率：A=' + (patternProbs ? (patternProbs.A*100).toFixed(1) + '%' : '无') + 
+                            ' B=' + (patternProbs ? (patternProbs.B*100).toFixed(1) + '%' : '无') + 
+                            ' C=' + (patternProbs ? (patternProbs.C*100).toFixed(1) + '%' : '无') + '\n' +
+        '主导规律：' + patternName + '（置信度' + (patternConf ? (patternConf*100).toFixed(0) + '%' : '0%') + '）\n\n' +
+        '【系统11个模型表现】\n' + modelStats.join('\n') + '\n\n' +
         '【你的历史表现】\n' +
         '你之前预测了' + aiPerf.length + '局，命中率' + aiAcc + '%\n' +
         '最近10局预测：' + aiRecentStr + '\n\n' +
-        '【预测要求——每个维度分别参考对应的数据！】\n' +
-        '1. ABC获胜预测（A/B/C谁赢）：参考【相似盘预测（谁赢）】的结果，结合走势规律调整\n' +
-        '2. 投资预测（大/中/小）：参考【投资相似盘（大/中/小投资）】的结果\n' +
-        '3. 收益预测（大/中/小）：参考【收益相似盘（大/中/小收益）】的结果\n\n' +
-        '【重要】三个维度各参考各的相似盘，不要混在一起！谁赢的相似盘只管谁赢，投资相似盘只管投资，收益相似盘只管收益！\n\n' +
-        '【你必须按以下步骤分析】\n' +
-        '第一步：周期共振检测——有没有"3连→断开→回3连→开新盘"这种周期规律？有就优先用。\n' +
-        '第二步：相似盘检测——在全部历史局里，找和最近8局走势最像的片段，看历史上这些相似片段后下一局出了什么。匹配越长、次数越多，越可信。\n' +
-        '第三步：窗口规律检测——在近6局、近7局、近8局、近10局、全部历史里，找有没有明显的连胜、轮换、交替等规律。\n' +
-        '第四步：综合以上三个检测结果，得出你的预测概率。\n\n' +
-        '只返回JSON：{"A":你的概率,"B":你的概率,"C":你的概率,"invest":"大/中/小","profit":"大/中/小","reason":"详细分析（每个步骤分别写：周期共振检测到了什么？相似盘匹配到了什么？窗口规律检测到了什么？最后综合得出什么结论？）"}\n' +
-        '【重要】绝对不要总是返回固定值！必须根据实际数据分析，每次预测的概率都应该不一样！';
+        '【输出要求】\n' +
+        '1. reason字段里必须严格按上面给你的【思考模板】一步步写，每一步都要有！\n' +
+        '2. 每个分析步骤里提到的数据，必须能在上面给你的数据里找到！\n' +
+        '3. 调整值正数=升高，负数=降低，单位是小数（0.05=5%）\n' +
+        '4. 三个维度各参考各的相似盘，不要混在一起！\n' +
+        '5. 调整值幅度可以大胆一点，每个方向最多±0.15（±15%），有把握就大胆修！\n\n' +
+        '只返回JSON：{"adjA":调整值,"adjB":调整值,"adjC":调整值,"adjInvestBig":调整值,"adjInvestMid":调整值,"adjInvestSmall":调整值,"adjProfitBig":调整值,"adjProfitMid":调整值,"adjProfitSmall":调整值,"confidence":你的信心(0-1),"reason":"严格按思考模板写的详细分析"}\n' +
+        '【精度要求】调整值保留2位小数，例如+0.05、-0.03\n' +
+        '【信心说明】confidence是你对自己修正判断的信心，0=完全没把握，1=非常确定\n';
     console.log('[AI预测] 请求:', prompt);
     fetch(proxyUrl, {
         method: 'POST',
@@ -10215,39 +10403,90 @@ function aiPredictNext() {
     }).then(function(r){ return r.json(); }).then(function(data) {
         console.log('[AI预测] 响应:', data);
         var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-        if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } return; }
+        if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } window._aiPredictRunning = false; return; }
         var jm = text.match(/\{[\s\S]*\}/);
-        if (!jm) { if (aiBar) { aiBar.innerHTML = '❌ AI未返回JSON'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } return; }
+        if (!jm) { if (aiBar) { aiBar.innerHTML = '❌ AI未返回JSON'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } window._aiPredictRunning = false; return; }
         // 清理JSON里的控制字符（换行符、制表符等）
         var jsonStr = jm[0].replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ');
+        // v43.3: AI经常返回带正号的数字（如+0.05），这不是合法JSON，自动去掉正号
+        jsonStr = jsonStr.replace(/":\s*\+/g, '": ');
         var pred = JSON.parse(jsonStr);
-        if (pred.A !== undefined && pred.B !== undefined && pred.C !== undefined) {
-            // 自动归一化：如果AI返回的是百分比形式(32)，转成小数形式(0.32)
+        // v43.0: AI输出修正值格式（adjA/adjB/adjC），兼容旧概率格式
+        var aiAdj = null;
+        if (pred.adjA !== undefined && pred.adjB !== undefined && pred.adjC !== undefined) {
+            // 新格式：修正裁判模式
+            aiAdj = {
+                adjA: parseFloat(pred.adjA) || 0,
+                adjB: parseFloat(pred.adjB) || 0,
+                adjC: parseFloat(pred.adjC) || 0,
+                adjInvestBig: parseFloat(pred.adjInvestBig) || 0,
+                adjInvestMid: parseFloat(pred.adjInvestMid) || 0,
+                adjInvestSmall: parseFloat(pred.adjInvestSmall) || 0,
+                adjProfitBig: parseFloat(pred.adjProfitBig) || 0,
+                adjProfitMid: parseFloat(pred.adjProfitMid) || 0,
+                adjProfitSmall: parseFloat(pred.adjProfitSmall) || 0,
+                confidence: parseFloat(pred.confidence) || 0.5
+            };
+            // 钳制修正幅度：每个方向最多±0.15（15%），给AI足够发挥空间但不过度
+            ['adjA','adjB','adjC','adjInvestBig','adjInvestMid','adjInvestSmall','adjProfitBig','adjProfitMid','adjProfitSmall'].forEach(function(k) {
+                aiAdj[k] = Math.max(-0.15, Math.min(0.15, aiAdj[k]));
+            });
+            aiAdj.confidence = Math.max(0, Math.min(1, aiAdj.confidence));
+        } else if (pred.A !== undefined && pred.B !== undefined && pred.C !== undefined) {
+            // 旧格式兼容：把概率转成修正值（相对于0.333均匀分布）
             var a = pred.A > 1 ? pred.A / 100 : pred.A;
             var b = pred.B > 1 ? pred.B / 100 : pred.B;
             var c = pred.C > 1 ? pred.C / 100 : pred.C;
             var sum = a + b + c;
             if (sum > 0) { a = a/sum; b = b/sum; c = c/sum; }
+            aiAdj = {
+                adjA: (a - 0.333) * 0.3,  // 旧格式只给30%权重的修正
+                adjB: (b - 0.333) * 0.3,
+                adjC: (c - 0.333) * 0.3,
+                adjInvestBig: 0, adjInvestMid: 0, adjInvestSmall: 0,
+                adjProfitBig: 0, adjProfitMid: 0, adjProfitSmall: 0,
+                confidence: 0.3
+            };
+        }
+        
+        if (aiAdj) {
             P._aiCache = { 
-                probs: {A:a, B:b, C:c}, 
-                invest: pred.invest || '中',
-                profit: pred.profit || '中',
+                adjustment: aiAdj,  // v43.0: 修正值，不再是完整概率
                 reason: pred.reason||'', 
                 time: Date.now() 
             };
+            // v43.0: AI预测成功后，清除预测缓存并自动重新渲染三个模块
+            try {
+                window._predCache = null;
+                renderCards();
+                console.log('[AI修正] 三个预测模块已根据AI修正刷新');
+            } catch(e) { console.warn('[AI修正]刷新卡片失败:', e.message); }
             if (aiBar) {
                 var reasonText = pred.reason || '';
                 if (typeof reasonText !== 'string') reasonText = JSON.stringify(reasonText);
-                // 修复：AI可能返回百分比形式(32)或小数形式(0.32)，自动判断
-                var aPct = pred.A > 1 ? pred.A : (pred.A * 100);
-                var bPct = pred.B > 1 ? pred.B : (pred.B * 100);
-                var cPct = pred.C > 1 ? pred.C : (pred.C * 100);
-                aiBar.innerHTML = '🧠 AI预测：A='+aPct.toFixed(0)+'% B='+bPct.toFixed(0)+'% C='+cPct.toFixed(0)+'%<br>投资:'+pred.invest+' 收益:'+pred.profit+'<br><span style="font-size:12px;opacity:0.9;">'+reasonText+'</span>';
-                setTimeout(function(){ aiBar.style.display='none'; }, 15000);
+                var confPct = (aiAdj.confidence * 100).toFixed(0);
+                aiBar.innerHTML = '✅ AI修正已应用！（信心' + confPct + '%）<span style="float:right;cursor:pointer;margin-left:10px;" onclick="this.parentElement.style.display=\'none\';">✕</span><br>' +
+                    'A:' + (aiAdj.adjA >= 0 ? '+' : '') + (aiAdj.adjA*100).toFixed(1) + '% ' +
+                    'B:' + (aiAdj.adjB >= 0 ? '+' : '') + (aiAdj.adjB*100).toFixed(1) + '% ' +
+                    'C:' + (aiAdj.adjC >= 0 ? '+' : '') + (aiAdj.adjC*100).toFixed(1) + '%<br>' +
+                    '<span style="font-size:12px;opacity:0.9;">' + reasonText + '</span>';
+                setTimeout(function(){ aiBar.style.display='none'; }, 60000);
             }
-            console.log('[AI预测] 成功:', pred);
+            console.log('[AI修正] 成功:', aiAdj);
+            window._aiPredictRunning = false;
         }
-    }).catch(function(e) { console.warn('[AI预测]失败:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI预测失败：' + e.message; setTimeout(function(){ aiBar.style.display='none'; }, 5000); } });
+    }).catch(function(e) {
+        console.warn('[AI预测]失败:', e.message);
+        window._aiPredictRunning = false; // 释放并发锁
+        // v42.0: 失败自动重试1次（网络波动常见）
+        if (!isRetry) {
+            console.log('[AI预测] 准备1秒后自动重试...');
+            if (aiBar) { aiBar.innerHTML = '🔄 AI预测失败，1秒后自动重试...'; }
+            setTimeout(function() { aiPredictNext(true); }, 1000);
+            return;
+        }
+        if (aiBar) { aiBar.innerHTML = '❌ AI预测失败：' + e.message + '（已重试1次）'; setTimeout(function(){ aiBar.style.display='none'; }, 5000); }
+    });
 }
 
 function aiAnalyzeAndAdjust(callback) {
@@ -10284,11 +10523,13 @@ function aiAnalyzeAndAdjust(callback) {
             if (!jm) { if (aiBar) { aiBar.innerHTML = '❌ AI未返回JSON'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } callback && callback(null); return; }
             var advice = JSON.parse(jm[0]);
             var applied = [];
+            // v42.0: 英文key转中文显示
+            var _nameMap = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律',aiModel:'AI预测'};
             (advice.boost || []).forEach(function(k) {
-                if (mw[k] !== undefined) { mw[k] = Math.min(0.35, mw[k] * 1.15); applied.push('↑'+k); }
+                if (mw[k] !== undefined) { mw[k] = Math.min(0.35, mw[k] * 1.15); applied.push('↑'+(_nameMap[k]||k)); }
             });
             (advice.reduce || []).forEach(function(k) {
-                if (mw[k] !== undefined) { mw[k] = Math.max(0.01, mw[k] * 0.85); applied.push('↓'+k); }
+                if (mw[k] !== undefined) { mw[k] = Math.max(0.01, mw[k] * 0.85); applied.push('↓'+(_nameMap[k]||k)); }
             });
             var ws = Object.keys(mw).reduce(function(s,k){return s+mw[k];},0);
             if (ws > 0) Object.keys(mw).forEach(function(k){ mw[k] /= ws; });
@@ -13363,14 +13604,35 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
         try { showLearnTip(); } catch(e) {}
-        // v41.0: 每次录入后自动调用AI分析
-        try { setTimeout(function(){ aiPredictNext(); }, 500); } catch(e) { console.warn('[AI录入后]失败:', e.message); }
-        // v41.2: 录入后立即预测下一局（不等500ms）
-        try { aiPredictNext(); } catch(e) { console.warn('[AI录入后立即]失败:', e.message); }
+        // v43.3: 录入新一局后，清空旧的AI修正缓存——上一局的修正只对上一局有效
+        try {
+            P._aiCache = null;
+            window._predCache = null;
+            console.log('[录入] 旧AI修正缓存已清空');
+        } catch(e) {}
+        // v42.0: 录入成功3秒后自动调用AI预测下一局（不再立即触发，不重复调用）
+        try {
+            var aiBar = document.getElementById('aiStatusBar');
+            if (aiBar) {
+                var countdown = 3;
+                aiBar.style.display = 'block';
+                aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...';
+                var countdownTimer = setInterval(function() {
+                    countdown--;
+                    if (countdown <= 0) {
+                        clearInterval(countdownTimer);
+                        aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...';
+                    } else {
+                        aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...';
+                    }
+                }, 1000);
+            }
+            setTimeout(function(){ aiPredictNext(); }, 3000);
+        } catch(e) { console.warn('[AI录入后延迟3s]失败:', e.message); }
         // v26.5：录入成功弹窗
         var profitTxt = pW ? ('，获胜收益：' + pW) : '';
         var investTxt = iW ? ('，获胜投资：' + iW) : '';
-        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt + '\n\n⏱️ 停手5秒后自动上传云端（连续录入会重新计时）...');
+        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt + '\n\n🧠 AI预测将在3秒后自动开始分析下一局\n⏱️ 停手5秒后自动上传云端（连续录入会重新计时）...');
         // v35.2：记录录入时间（用于间隔限制）
         _lastRecordTime = Date.now();
         // v36.1：上传统一由 debouncedSave() 内的 5 秒定时器处理（带首次启动保护、测试模式拦截、
@@ -13612,8 +13874,7 @@ function fixFalseTies() {
 }
 P.loadLocal();
 fixFalseTies();
-// v41.2: 页面加载时自动先跑一次AI预测，确保第一局录入时就有AI预测记录
-try { setTimeout(function(){ aiPredictNext(); }, 2000); } catch(e) { console.warn('[启动AI预测]失败:', e.message); }
+// v42.0: 页面打开不再自动跑AI预测，改为录入成功3秒后才触发
 // v27.4：如果localStorage数据不完整（predHistory被截断），从IndexedDB加载完整数据
 if (P.predHistory && P.history && P.predHistory.length < P.history.length - 1) {
     console.log('[初始化] localStorage数据不完整，从IndexedDB加载完整数据...');
