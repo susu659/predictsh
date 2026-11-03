@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v43.5 · AI修正裁判版</title>
+<title>商会三竞预测系统 v43.8 · AI修正裁判版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -606,8 +606,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.5</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.5</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 相似盘深度分析 · 交叉验证+坐标下降 · 跨端权重对齐</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.8</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 相似盘+血本盘交叉验证 · 修正力度加倍</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1014,7 +1014,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v43.5';
+  var APP_VERSION = 'v43.8';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -5268,10 +5268,10 @@ class Predictor {
         try {
             if (this._aiCache && this._aiCache.adjustment) {
                 var adj = this._aiCache.adjustment;
-                // v43.3: 进一步加大AI修正力度——信心×1.0，让AI的深度思考真正体现在结果上
-                var adjFactor = adj.confidence * 1.0; 
+                // v43.8: 修正力度加倍——信心×2.0，让AI的深度思考真正体现在结果上
+                var adjFactor = adj.confidence * 2.0; 
                 
-                // v43.5: 修正值归一化——三个值加起来必须为0，这样概率总和还是1
+                // v43.2: 修正值归一化——三个值加起来必须为0，这样概率总和还是1
                 // 避免AI返回三个都加正数，导致归一化后结果偏差
                 var adjSumABC = adj.adjA + adj.adjB + adj.adjC;
                 adj.adjA -= adjSumABC / 3;
@@ -13628,7 +13628,7 @@ document.getElementById('btnAddRecord').addEventListener('click',function(){
         try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
         showLearningIndicator(false);
         try { showLearnTip(); } catch(e) {}
-        // v43.5: 录入新一局后，清空旧的AI修正缓存——上一局的修正只对上一局有效
+        // v43.2: 录入新一局后，清空旧的AI修正缓存——上一局的修正只对上一局有效
         try {
             P._aiCache = null;
             window._predCache = null;
