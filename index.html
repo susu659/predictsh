@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v43.8 · AI修正裁判版</title>
+<title>商会三竞预测系统 v43.10 · AI修正裁判版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -606,8 +606,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.8</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.8</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 相似盘+血本盘交叉验证 · 修正力度加倍</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.10</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.10</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 相似盘+血本盘交叉验证 · 打开不自动调优</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1014,7 +1014,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v43.8';
+  var APP_VERSION = 'v43.10';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -5268,7 +5268,7 @@ class Predictor {
         try {
             if (this._aiCache && this._aiCache.adjustment) {
                 var adj = this._aiCache.adjustment;
-                // v43.8: 修正力度加倍——信心×2.0，让AI的深度思考真正体现在结果上
+                // v43.7: 修正力度加倍——信心×2.0，让AI的深度思考真正体现在结果上
                 var adjFactor = adj.confidence * 2.0; 
                 
                 // v43.2: 修正值归一化——三个值加起来必须为0，这样概率总和还是1
@@ -10150,9 +10150,17 @@ function autoBacktestTick() {
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
 // v41.0: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
+// v43.10: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
 var _lastOptimizeCount = 0;
+var _optInitDone = false;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 100) return;
+    // v43.10: 第一次调用时初始化基线，避免打开页面就跑优化
+    if (!_optInitDone) {
+        _lastOptimizeCount = P.history.length;
+        _optInitDone = true;
+        return; // 第一次只初始化，不跑优化
+    }
     if (P.history.length - _lastOptimizeCount < 10) return;
     if (window._optRunning) return;
     _lastOptimizeCount = P.history.length;
@@ -10484,8 +10492,8 @@ function aiPredictNext(isRetry) {
                 var reasonText = pred.reason || '';
                 if (typeof reasonText !== 'string') reasonText = JSON.stringify(reasonText);
                 var confPct = (aiAdj.confidence * 100).toFixed(0);
-                // v43.6: 状态栏显示实际应用后的修正值，和页面上的实际变化一致
-                var actualFactor = aiAdj.confidence * 1.0;
+                // v43.8: 状态栏显示的修正值和predict()里的计算完全一致（都是confidence*2.0）
+                var actualFactor = aiAdj.confidence * 2.0;
                 var actualAdjA = (aiAdj.adjA * actualFactor * 100).toFixed(1);
                 var actualAdjB = (aiAdj.adjB * actualFactor * 100).toFixed(1);
                 var actualAdjC = (aiAdj.adjC * actualFactor * 100).toFixed(1);
