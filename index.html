@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v43.24 · AI修正裁判版</title>
+<title>商会三竞预测系统 v43.39 · AI修正裁判版</title>
 <script>
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
@@ -607,8 +607,8 @@ body.dark-mode .ds-table tr:hover td{background:#1e1e4a;}
 <div id="learnTip">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.24</span></h1>
-<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.24</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 血本盘完全对齐相似盘逻辑 · 败方序列硬过滤</span></p>
+<h1>🏆 商会三竞预测系统 <span style="font-size:14px;opacity:0.6;margin-left:8px;">v43.38</span></h1>
+<p class="subtitle">三盘独立规律 · 十模型融合 · AI深度分析 <span style="color:#ffd700;font-weight:700;">v43.38</span>　<span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span>　<span style="color:#e91e63;font-weight:600;">🧠 AI修正裁判 · 修正系数提到10.0 · 幅度达到10-15%</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -1015,7 +1015,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v43.24';
+  var APP_VERSION = 'v43.39';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg) {
@@ -2753,49 +2753,55 @@ function _profitSeqSimilarity(seq1, seq2) {
     return match / len;
 }
 // 查找历史中与当前获胜收益窗口相似的片段
+// v43.25: 照着相似盘逻辑重写——多窗口扫描 + 序列硬过滤 + 时间衰减加权
 function findSimilarProfitSegments(history, opts) {
     opts = opts || {};
-    var minSim = opts.minSim || 0.55;
-    var maxResults = opts.maxResults || 15;
-    var winLen = opts.winLen || 4;
+    var maxResults = opts.maxResults || 50;
     var results = [];
     var extracted = _extractWinnerProfitSeq(history);
     var seq = extracted.seq, idxs = extracted.idxs;
-    if (seq.length < winLen + 1) return results;
-    var curWindow = seq.slice(-winLen);
-    var currentStart = seq.length - winLen;
-    for (var start = 0; start <= seq.length - winLen; start++) {
-        if (start >= currentStart) continue; // 排除当前窗口
-        var histWindow = seq.slice(start, start + winLen);
-        var sim = _profitSeqSimilarity(curWindow, histWindow);
-        if (sim >= minSim) {
+    if (seq.length < 6) return results;
+    
+    // 多窗口扫描，和相似盘对齐
+    var windowLengths = [5,6,7,8,9,10,11,12];
+    
+    windowLengths.forEach(function(winLen){
+        if (seq.length < winLen + 1) return;
+        var curWindow = seq.slice(-winLen);
+        var currentStart = seq.length - winLen;
+        for (var start = 0; start <= seq.length - winLen; start++) {
+            if (start >= currentStart) continue; // 排除当前窗口
+            var histWindow = seq.slice(start, start + winLen);
+            // 硬过滤：序列必须完全一致才匹配（和相似盘胜方序列硬过滤一样）
+            var exactMatch = true;
+            for (var ei = 0; ei < winLen; ei++) {
+                if (curWindow[ei] !== histWindow[ei]) { exactMatch = false; break; }
+            }
+            if (!exactMatch) continue;
+            
             var nextIdx = start + winLen;
             if (nextIdx < seq.length) {
                 var nextProfit = seq[nextIdx];
                 var recIdx = idxs[nextIdx];
-                var recency = 0.7 + 0.3 * (start / Math.max(1, seq.length - winLen));
-                // 计算精确匹配度（只算完全相同的，类似相似盘的wsSim）
-                var exactMatch = 0;
-                for (var ei = 0; ei < winLen; ei++) {
-                    if (curWindow[ei] === histWindow[ei]) exactMatch++;
-                }
-                var exactSim = exactMatch / winLen;
+                // 时间衰减：越近的匹配权重越大
+                var recency = 0.5 + 0.5 * (start / Math.max(1, seq.length - winLen));
+                var exactSim = 1.0; // 完全匹配就是100%
                 results.push({
                     startIdx: idxs[start] + 1, // 转为1-indexed局号
-                    seqStart: start,
-                    similarity: sim,
-                    exactSim: exactSim,
-                    weightedSim: sim * recency,
                     matchLen: winLen,
+                    matchedWindow: histWindow.slice(),
                     nextProfit: nextProfit,
-                    nextRecIdx: recIdx,
-                    nextWinner: getWinner(history[recIdx]),  // v32: 同时记录下局赢家，供ABC综合投票
-                    matchedWindow: histWindow.slice()
+                    similarity: exactSim * recency,
+                    exactSim: exactSim,
+                    recencyFactor: recency,
+                    recIdx: recIdx
                 });
             }
         }
-    }
-    results.sort(function(a, b) { return b.similarity - a.similarity; });
+    });
+    
+    // 按相似度排序，取前maxResults个
+    results.sort(function(a,b){ return b.similarity - a.similarity; });
     return results.slice(0, maxResults);
 }
 // 基于相似收益盘预测下一局获胜收益（大/中/小）
@@ -4528,9 +4534,9 @@ class Predictor {
             }
         }
         if (invSeq.length < 4) return null;
-        // v34.3: 相似投资盘匹配——在历史投资序列中找相似片段
+        // v43.25: 照着相似盘逻辑重写——窗口档位对齐相似盘[5,6,7,8,9,10,11,12]
         var invMatches = [];
-        var _invWinLens = [3, 4, 5, 6];
+        var _invWinLens = [5, 6, 7, 8, 9, 10, 11, 12];
         for (var _iwl = 0; _iwl < _invWinLens.length; _iwl++) {
             var _wLen = _invWinLens[_iwl];
             if (invSeq.length < _wLen + 1) continue;
@@ -5271,9 +5277,11 @@ class Predictor {
                 var adj = this._aiCache.adjustment;
                 // v43.7: 修正力度加倍——信心×2.0，让AI的深度思考真正体现在结果上
                 // v43.18: 修正系数从2.0提到3.0，避免归一化稀释后修正幅度不明显
-                var adjFactor = adj.confidence * 3.0; 
+                // v43.34: 修正系数提到5.0
+                // v43.38: 修正系数提到10.0，让修正幅度真正明显，达到10-15%浮动
+                var adjFactor = adj.confidence * 10.0; 
                 
-                // v43.24: 去掉修正值归一化——之前做了两次归一化（先归一化修正值，再归一化概率），导致修正幅度被严重稀释
+                // v43.39: 去掉修正值归一化——之前做了两次归一化（先归一化修正值，再归一化概率），导致修正幅度被严重稀释
                 // 概率后面会自动归一化，修正值不需要先归一化
                 
                 // 1. ABC获胜概率修正
@@ -5305,6 +5313,8 @@ class Predictor {
                         sortedGuilds.forEach(function(g, idx){
                             result.rank[g] = idx + 1;
                         });
+                        // v43.35: 关键修复！更新sorted数组，否则renderCards用旧的sorted渲染，数字不会变
+                        result.sorted = sortedGuilds.map(function(g){ return [g, result.probabilities[g]]; });
                     }
                 }
                 
@@ -10057,9 +10067,23 @@ function renderLossSimPanel() {
             var recencyFactor = 0.5 + 0.5 * (j / Math.max(1, L - w));
             var weight = w * recencyFactor;
             votes[nextLoss] = (votes[nextLoss]||0) + weight;
-            matchRows.push({w: w, at: j, next: nextLoss});
+            matchRows.push({w: w, at: j, next: nextLoss, start: j-w});
         }
     });
+    // v43.26: 加上去重逻辑——重叠>50%视为同一段，保留最长窗口的匹配
+    matchRows.sort(function(a,b){ return b.w - a.w; }); // 先按窗口长度降序，长的优先保留
+    var _uniqRows = [];
+    for (var _mi = 0; _mi < matchRows.length; _mi++) {
+        var _mr = matchRows[_mi];
+        var _isDup = false;
+        for (var _ui = 0; _ui < _uniqRows.length; _ui++) {
+            var _ur = _uniqRows[_ui];
+            var _ov = Math.max(0, Math.min(_mr.start+_mr.w, _ur.start+_ur.w) - Math.max(_mr.start, _ur.start));
+            if (_ov / Math.min(_mr.w, _ur.w) > 0.5) { _isDup = true; break; }
+        }
+        if (!_isDup) _uniqRows.push(_mr);
+    }
+    matchRows = _uniqRows;
     var totalVotes = (votes.A||0)+(votes.B||0)+(votes.C||0);
     if (totalVotes === 0) { panel.style.display = 'none'; return; }
     var predicted = 'A';
@@ -10160,12 +10184,12 @@ function autoBacktestTick() {
 }
 // v30.22: 自动参数优化——每100局后台跑一次，提升>2%才自动应用
 // v41.0: 自动参数优化——每10局后台跑一次，交叉验证+坐标下降+AI辅助
-// v43.24: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
+// v43.39: 打开页面时不自动跑优化——第一次调用时把基线设为当前局数，之后新增10局才触发
 var _lastOptimizeCount = 0;
 var _optInitDone = false;
 function autoOptimizeTick() {
     if (!P.history || P.history.length < 100) return;
-    // v43.24: 第一次调用时初始化基线，避免打开页面就跑优化
+    // v43.39: 第一次调用时初始化基线，避免打开页面就跑优化
     if (!_optInitDone) {
         _lastOptimizeCount = P.history.length;
         _optInitDone = true;
@@ -10262,7 +10286,7 @@ function aiPredictNext(isRetry) {
         // v43.5: 一次性调用P.predict()，三个维度的相似盘数据都从这里拿
         var _savedAiCache = P._aiCache;
         P._aiCache = null;
-        window._predCache = null; // v43.24: 收集数据前清空预测缓存，避免用旧缓存
+        window._predCache = null; // v43.39: 收集数据前清空预测缓存，避免用旧缓存
         var fullPred = P.predict();
         P._aiCache = _savedAiCache; // 恢复
 
@@ -10271,13 +10295,13 @@ function aiPredictNext(isRetry) {
         if (simResult && simResult.matches && simResult.matches.length > 0) {
             similarData.push('');
             similarData.push('【相似盘预测谁赢】：');
-            var topResults = simResult.matches.slice(0, 8);
+            var topResults = simResult.matches.slice(0, 4);
             topResults.forEach(function(r, idx) {
                 var simPct = (r.similarity * 100).toFixed(0);
                 var nextW = r.nextWinner || '?';
                 var matchLen = r.matchLen || r.scanWindowLen || 6;
                 var isExact = simPct >= 90 ? '【完全匹配⭐】' : '';
-                similarData.push((idx+1) + '. ' + isExact + '相似度' + simPct + '%（' + matchLen + '局匹配）→ 下一局赢【' + nextW + '】');
+                similarData.push((idx+1) + '. ' + isExact + '相似度' + simPct + '%（' + matchLen + '局）→ 赢【' + nextW + '】');
             });
             similarData.push('');
             similarData.push('相似盘投票：A=' + (simResult.winCount.A||0) + ' B=' + (simResult.winCount.B||0) + ' C=' + (simResult.winCount.C||0) + '票');
@@ -10297,7 +10321,7 @@ function aiPredictNext(isRetry) {
             var lossSeq = P.history.map(getLossSide);
             var lossWindows = [5,6,7,8,9,10,11,12];
             var lossVotes = {A:0, B:0, C:0};
-            var lossMatchCount = 0;
+            var lossMatchRows = [];
             var L2 = lossSeq.length;
             lossWindows.forEach(function(w){
                 if (L2 < w + 1) return;
@@ -10316,9 +10340,23 @@ function aiPredictNext(isRetry) {
                     var recencyFactor = 0.5 + 0.5 * (j / Math.max(1, L2 - w));
                     var weight = w * recencyFactor;
                     lossVotes[nextLoss] = (lossVotes[nextLoss]||0) + weight;
-                    lossMatchCount++;
+                    lossMatchRows.push({w: w, start: j-w, next: nextLoss});
                 }
             });
+            // v43.26: 去重——重叠>50%视为同一段，保留最长窗口的匹配
+            lossMatchRows.sort(function(a,b){ return b.w - a.w; });
+            var _uniqLossRows = [];
+            for (var _lmi = 0; _lmi < lossMatchRows.length; _lmi++) {
+                var _lmr = lossMatchRows[_lmi];
+                var _isDup = false;
+                for (var _lui = 0; _lui < _uniqLossRows.length; _lui++) {
+                    var _lur = _uniqLossRows[_lui];
+                    var _lov = Math.max(0, Math.min(_lmr.start+_lmr.w, _lur.start+_lur.w) - Math.max(_lmr.start, _lur.start));
+                    if (_lov / Math.min(_lmr.w, _lur.w) > 0.5) { _isDup = true; break; }
+                }
+                if (!_isDup) _uniqLossRows.push(_lmr);
+            }
+            var lossMatchCount = _uniqLossRows.length;
             var lossTotal = lossVotes.A + lossVotes.B + lossVotes.C;
             similarData.push('血本投票：A=' + lossVotes.A + ' B=' + lossVotes.B + ' C=' + lossVotes.C + '票');
             if (lossTotal > 0) {
@@ -10341,45 +10379,30 @@ function aiPredictNext(isRetry) {
         }
 
         // ===== 收益相似盘 =====
+        // ===== 收益相似盘 =====
         if (fullPred && fullPred.profitPrediction && fullPred.profitPrediction.simProfit) {
             var simP = fullPred.profitPrediction.simProfit;
             similarData.push('');
-            similarData.push('【收益相似盘预测（大/中/小收益）】：');
-            var last10Profit = P.history.slice(-10).map(function(r){ return r.profitWinner || '?'; }).join('→');
-            similarData.push('当前收益走势（最近10局）：' + last10Profit);
+            similarData.push('【收益相似盘预测（大/中/小）】：');
             if (simP.matches && simP.matches.length > 0) {
-                var topPMatches = simP.matches.slice(0, 6);
-                topPMatches.forEach(function(r, idx) {
-                    var simPct = (r.similarity * 100).toFixed(0);
-                    var nextP = r.nextProfit || '?';
-                    var matchLen = r.matchLen || 6;
-                    similarData.push((idx+1) + '. 相似度' + simPct + '%（' + matchLen + '局匹配）→ 下一局收益【' + nextP + '】');
-                });
+                similarData.push('收益相似盘投票：大=' + (simP.winCount.大||0) + ' 中=' + (simP.winCount.中||0) + ' 小=' + (simP.winCount.小||0) + '票');
+                similarData.push('加权概率：大=' + (simP.weightedCount.大*100).toFixed(1) + '% 中=' + (simP.weightedCount.中*100).toFixed(1) + '% 小=' + (simP.weightedCount.小*100).toFixed(1) + '%');
+            } else {
+                similarData.push('收益相似盘：无足够匹配数据');
             }
-            similarData.push('');
-            similarData.push('收益相似盘投票：大=' + (simP.winCount.大||0) + '票 中=' + (simP.winCount.中||0) + '票 小=' + (simP.winCount.小||0) + '票');
-            similarData.push('加权概率：大=' + (simP.weightedCount.大*100).toFixed(1) + '% 中=' + (simP.weightedCount.中*100).toFixed(1) + '% 小=' + (simP.weightedCount.小*100).toFixed(1) + '%');
         }
 
         // ===== 投资相似盘 =====
         if (fullPred && fullPred.investPrediction && fullPred.investPrediction.simInvest) {
             var simI = fullPred.investPrediction.simInvest;
             similarData.push('');
-            similarData.push('【投资相似盘预测（大/中/小投资）】：');
-            var last10Invest = P.history.slice(-10).map(function(r){ return r.investWinner || '?'; }).join('→');
-            similarData.push('当前投资走势（最近10局）：' + last10Invest);
+            similarData.push('【投资相似盘预测（大/中/小）】：');
             if (simI.matches && simI.matches.length > 0) {
-                var topIMatches = simI.matches.slice(0, 6);
-                topIMatches.forEach(function(r, idx) {
-                    var simPct = (r.similarity * 100).toFixed(0);
-                    var nextI = r.nextInvest || '?';
-                    var matchLen = r.matchLen || 6;
-                    similarData.push((idx+1) + '. 相似度' + simPct + '%（' + matchLen + '局匹配）→ 下一局投资【' + nextI + '】');
-                });
+                similarData.push('投资相似盘投票：大=' + (simI.winCount.大||0) + ' 中=' + (simI.winCount.中||0) + ' 小=' + (simI.winCount.小||0) + '票');
+                similarData.push('加权概率：大=' + (simI.weightedCount.大*100).toFixed(1) + '% 中=' + (simI.weightedCount.中*100).toFixed(1) + '% 小=' + (simI.weightedCount.小*100).toFixed(1) + '%');
+            } else {
+                similarData.push('投资相似盘：无足够匹配数据');
             }
-            similarData.push('');
-            similarData.push('投资相似盘投票：大=' + (simI.winCount.大||0) + '票 中=' + (simI.winCount.中||0) + '票 小=' + (simI.winCount.小||0) + '票');
-            similarData.push('加权概率：大=' + (simI.weightedCount.大*100).toFixed(1) + '% 中=' + (simI.weightedCount.中*100).toFixed(1) + '% 小=' + (simI.weightedCount.小*100).toFixed(1) + '%');
         }
     } catch(e) { console.warn('[AI相似盘]提取失败:', e.message); }
     // AI自己的历史表现
@@ -10490,7 +10513,16 @@ function aiPredictNext(isRetry) {
         var jsonStr = jm[0].replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ');
         // v43.3: AI经常返回带正号的数字（如+0.05），这不是合法JSON，自动去掉正号
         jsonStr = jsonStr.replace(/":\s*\+/g, '": ');
-        var pred = JSON.parse(jsonStr);
+        console.log('[AI预测] 待解析JSON:', jsonStr.substring(0, 200) + '...');
+        var pred;
+        try {
+            pred = JSON.parse(jsonStr);
+        } catch(e) {
+            console.error('[AI预测] JSON解析失败:', e.message, '内容:', jsonStr);
+            if (aiBar) { aiBar.innerHTML = '❌ AI返回格式错误：' + e.message; setTimeout(function(){ aiBar.style.display='none'; }, 5000); }
+            window._aiPredictRunning = false;
+            return;
+        }
         // v43.0: AI输出修正值格式（adjA/adjB/adjC），兼容旧概率格式
         var aiAdj = null;
         if (pred.adjA !== undefined && pred.adjB !== undefined && pred.adjC !== undefined) {
@@ -10545,8 +10577,9 @@ function aiPredictNext(isRetry) {
                 var reasonText = pred.reason || '';
                 if (typeof reasonText !== 'string') reasonText = JSON.stringify(reasonText);
                 var confPct = (aiAdj.confidence * 100).toFixed(0);
-                // v43.18: 状态栏显示的修正值和predict()里的计算完全一致（都是confidence*3.0）
-                var actualFactor = aiAdj.confidence * 3.0;
+                // v43.18: 状态栏显示的修正值和predict()里的计算完全一致
+                // v43.38: 修正系数提到10.0
+                var actualFactor = aiAdj.confidence * 10.0;
                 var actualAdjA = (aiAdj.adjA * actualFactor * 100).toFixed(1);
                 var actualAdjB = (aiAdj.adjB * actualFactor * 100).toFixed(1);
                 var actualAdjC = (aiAdj.adjC * actualFactor * 100).toFixed(1);
@@ -10555,7 +10588,7 @@ function aiPredictNext(isRetry) {
                     'B:' + (actualAdjB >= 0 ? '+' : '') + actualAdjB + '% ' +
                     'C:' + (actualAdjC >= 0 ? '+' : '') + actualAdjC + '%<br>' +
                     '<span style="font-size:12px;opacity:0.9;">' + reasonText + '</span>';
-                // v43.24: 用id绑定关闭按钮，比inline onclick更可靠
+                // v43.39: 用id绑定关闭按钮，比inline onclick更可靠
                 setTimeout(function() {
                     var closeBtn = document.getElementById('aiCloseBtn');
                     if (closeBtn) closeBtn.onclick = function() { aiBar.style.display = 'none'; };
@@ -10568,14 +10601,17 @@ function aiPredictNext(isRetry) {
     }).catch(function(e) {
         console.warn('[AI预测]失败:', e.message);
         window._aiPredictRunning = false; // 释放并发锁
-        // v42.0: 失败自动重试1次（网络波动常见）
-        if (!isRetry) {
-            console.log('[AI预测] 准备1秒后自动重试...');
-            if (aiBar) { aiBar.innerHTML = '🔄 AI预测失败，1秒后自动重试...'; }
-            setTimeout(function() { aiPredictNext(true); }, 1000);
+        // v43.33: 限流错误不自动重试，避免疯狂触发限流；普通错误才重试，间隔3秒
+        var errMsg = e.message || '';
+        var isRateLimit = errMsg.indexOf('1302') >= 0 || errMsg.indexOf('1305') >= 0 || errMsg.indexOf('速率限制') >= 0 || errMsg.indexOf('访问量过大') >= 0;
+        if (!isRetry && !isRateLimit) {
+            console.log('[AI预测] 准备3秒后自动重试...');
+            if (aiBar) { aiBar.innerHTML = '🔄 AI预测失败，3秒后自动重试...'; }
+            setTimeout(function() { aiPredictNext(true); }, 3000);
             return;
         }
-        if (aiBar) { aiBar.innerHTML = '❌ AI预测失败：' + e.message + '（已重试1次）'; setTimeout(function(){ aiBar.style.display='none'; }, 5000); }
+        var showMsg = isRateLimit ? '❌ AI调用太频繁，请等1分钟再试' : '❌ AI预测失败：' + errMsg;
+        if (aiBar) { aiBar.innerHTML = showMsg; setTimeout(function(){ aiBar.style.display='none'; }, 5000); }
     });
 }
 
