@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v45.2 · 导航断层修复版</title>
+<title>商会三竞预测系统 v45.5 · 录入链路与18局窗口修复版</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -696,6 +697,52 @@ body.dark-mode .guild-input{background:#12213f}
   #cloudBar .cloud-btn{font-size:12px;min-height:34px}
   .watermark-topright{font-size:10px}
 }</style>
+<!-- v45.3: 预测卡片固定三列 + 随窗口等比缩放 ===============================
+     旧规则：>1080px 三列 / 720~1080px 变两列 / <720px 强制单列，
+     导致「把浏览器窗口拖窄」时 ABC 换行。本段只加规则、不改原 CSS：
+       1) 任何宽度固定 3 列（!important 覆盖 1080px 的 repeat(2,1fr) 与 720px 的 1fr）
+       2) 用容器查询单位 cqw 让字号/内边距/间距按容器宽度线性缩放，
+          视觉上等同于「按窗口百分比缩放」，而不是重排
+       3) 触屏设备(pointer:coarse)窄屏仍保留单列，避免手机上三列挤成一团
+     ==================================================================== -->
+<style id="v45_3_fluidCards">
+.prediction-cards{
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:clamp(6px,1.1vw,20px) !important;
+  container-type:inline-size;
+  align-items:stretch;
+}
+.pred-card{
+  min-width:0;
+  padding:clamp(10px,1.6cqw,24px) !important;
+  border-width:clamp(2px,0.2cqw,3px) !important;
+  border-radius:clamp(8px,1.1cqw,16px) !important;
+}
+.pred-card .card-header{margin-bottom:clamp(6px,1cqw,14px);gap:clamp(4px,0.6cqw,10px);}
+.pred-card .guild-name{font-size:clamp(12px,1.5cqw,22px) !important;}
+.pred-card .win-prob{font-size:clamp(18px,3cqw,38px) !important;line-height:1.15;}
+.pred-card .prob-detail{font-size:clamp(10px,1.05cqw,15px) !important;margin-bottom:clamp(4px,0.6cqw,8px);}
+.pred-card .rank-badge{font-size:clamp(10px,1cqw,14px) !important;
+  padding:clamp(2px,0.3cqw,4px) clamp(6px,0.9cqw,14px) !important;
+  margin-bottom:clamp(4px,0.7cqw,10px);}
+.pred-card .streak-info{gap:clamp(3px,0.5cqw,7px);margin-top:clamp(4px,0.6cqw,8px);}
+.pred-card .streak-badge{font-size:clamp(9px,0.85cqw,13px) !important;
+  padding:clamp(2px,0.25cqw,3px) clamp(4px,0.65cqw,10px);}
+.pred-card .prob-bar{height:clamp(4px,0.55cqw,8px);margin-top:clamp(5px,0.7cqw,10px);}
+.pred-card .model-tag,.pred-card .pattern-tag{font-size:clamp(9px,0.8cqw,11px);}
+.summary-box{padding:clamp(10px,1.4cqw,20px) !important;}
+/* 窄窗时关掉 rank-1 的 1.03 倍放大，避免三列相邻卡片重叠 */
+@container (max-width:760px){
+  .pred-card.rank-1{transform:none !important;}
+}
+/* 触屏窄屏保持单列可读（PC 拖小窗口不受影响，pointer 仍为 fine） */
+@media (max-width:720px) and (pointer:coarse){
+  .prediction-cards{grid-template-columns:1fr !important;gap:12px !important;}
+  .pred-card{padding:16px !important;}
+  .pred-card .win-prob{font-size:28px !important;}
+  .pred-card .guild-name{font-size:18px !important;}
+}
+</style>
 </head>
 <body>
 <!-- 访问控制遮罩层 -->
@@ -779,7 +826,7 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip">v45.2</span></h1>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip">v45.5</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · AI深度分析</span><span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
 </header>
 <div class="main-content">
@@ -1011,17 +1058,17 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 <div class="stats-section">
 <div class="stat-card"><div class="stat-title">已录入局数</div><div class="stat-value" id="totalGames">0</div></div>
-<div class="stat-card"><div class="stat-title">预测准确率</div><div class="stat-value" id="overallAccuracy">--</div></div>
-<div class="stat-card"><div class="stat-title">近8局准确率</div><div class="stat-value" id="recent8Acc">--</div></div>
+<div class="stat-card"><div class="stat-title">预测准确率</div><div class="stat-value" id="overallAccuracy">--</div><div id="accDetail" style="font-size:11px;color:#888;margin-top:4px;">—</div></div>
+<div class="stat-card"><div class="stat-title">近8局准确率</div><div class="stat-value" id="recent8Acc">--</div><div id="recent8Detail" style="font-size:11px;color:#888;margin-top:4px;">—</div></div>
 <div class="stat-card"><div class="stat-title">当前连胜</div><div class="stat-value" id="curStreak">0</div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#fce4ec,#f8bbd0);"><div class="stat-title" style="color:#880e4f;">当前不胜</div><div class="stat-value" id="curLoseStreak" style="color:#880e4f;font-size:clamp(18px,2.8vw,28px);">—</div></div>
 <div class="stat-card"><div class="stat-title">最大连胜</div><div class="stat-value" id="maxStreak" style="font-size:clamp(18px,2.8vw,28px);">—</div><div style="font-size:12px;font-weight:700;margin-top:4px;"><span style="color:#e53935;">A:<span id="maxWinA">0</span></span>　<span style="color:#1e88e5;">B:<span id="maxWinB">0</span></span>　<span style="color:#43a047;">C:<span id="maxWinC">0</span></span></div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#ffebee,#ffcdd2);"><div class="stat-title" style="color:#b71c1c;">😤 最长不胜</div><div class="stat-value" id="maxLossStreak" style="color:#b71c1c;font-size:clamp(18px,2.8vw,28px);">—</div><div style="font-size:12px;font-weight:700;margin-top:4px;"><span style="color:#e53935;">A:<span id="maxLoseA">0</span></span>　<span style="color:#1e88e5;">B:<span id="maxLoseB">0</span></span>　<span style="color:#43a047;">C:<span id="maxLoseC">0</span></span></div></div>
-<div class="stat-card"><div class="stat-title">Brier分数</div><div class="stat-value" id="brierScore">--</div></div>
-<div class="stat-card" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);"><div class="stat-title" style="color:#1565c0;">🎯 预测最低准确率</div><div class="stat-value" id="lowestAccuracy" style="color:#1565c0;">--</div><div style="font-size:11px;color:#666;margin-top:4px;">猜谁垫底准不准</div></div>
+<div class="stat-card"><div class="stat-title">Brier分数</div><div class="stat-value" id="brierScore">--</div><div id="brierDetail" style="font-size:11px;color:#888;margin-top:4px;">—</div></div>
+<div class="stat-card" style="background:linear-gradient(135deg,#e3f2fd,#bbdefb);"><div class="stat-title" style="color:#1565c0;">🎯 垫底方命中率</div><div class="stat-value" id="lowestAccuracy" style="color:#1565c0;">--</div><div id="lowestDetail" style="font-size:11px;color:#666;margin-top:4px;">猜谁得 0 分准不准</div></div>
 <div class="stat-card"><div class="stat-title">数据来源</div><div class="stat-value" id="dataSource" style="font-size:clamp(12px,1.8vw,16px);">—</div></div>
-<div class="stat-card" style="background:linear-gradient(135deg,#fff5f5,#ffe0e0);"><div class="stat-title" style="color:#c0392b;">🔥 最长未中预测商会</div><div class="stat-value" id="maxMissGuild" style="color:#c0392b;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissGuild">0</span> 局</div></div>
-<div class="stat-card" style="background:linear-gradient(135deg,#fff8f0,#ffe8cc);"><div class="stat-title" style="color:#d35400;">💰 最长未中预测收益</div><div class="stat-value" id="maxMissProfit" style="color:#d35400;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissProfit">0</span> 局</div></div>
+<div class="stat-card" style="background:linear-gradient(135deg,#fff5f5,#ffe0e0);"><div class="stat-title" style="color:#c0392b;">🔥 最长未中预测商会</div><div class="stat-value" id="maxMissGuild" style="color:#c0392b;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissGuild">0</span> 局 · <span id="missGuildDetail">—</span></div></div>
+<div class="stat-card" style="background:linear-gradient(135deg,#fff8f0,#ffe8cc);"><div class="stat-title" style="color:#d35400;">💰 最长未中预测收益</div><div class="stat-value" id="maxMissProfit" style="color:#d35400;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissProfit">0</span> 局 · <span id="missProfitDetail">—</span></div></div>
 </div>
 <!-- v44.20: 系统vs基线对照面板 -->
 <div id="baselinePanel" style="margin:10px 0;padding:12px 16px;border-radius:10px;background:#fff;border:1px solid #e9ecef;font-size:12px;line-height:1.6;"></div>
@@ -1578,7 +1625,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 </div>
 <!-- 录入结果提示模态框 -->
-<div class="import-modal-overlay" id="recordResultModal">
+<div class="import-modal-overlay" id="recordResultModal" style="z-index:100010;" onclick="if(event.target===this)closeRecordResultModal()">
 <div class="import-modal" style="max-width:380px;text-align:center;">
 <div id="recordResultIcon" style="font-size:48px;margin-bottom:12px;">✅</div>
 <h3 id="recordResultTitle" style="margin:0 0 8px;">录入成功</h3>
@@ -1587,6 +1634,21 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="btn-modal-confirm" onclick="closeRecordResultModal()">确定</button>
 </div>
 </div>
+</div>
+
+<!-- v45.5: 录入确认弹窗（替代原生 confirm）——浏览器勾选「阻止此页面创建更多对话框」后，
+     原生 confirm 会直接返回 false 且完全静默，用户点了录入没有任何反应，只能反复点；
+     恢复后又容易连着录多局。页面内弹窗不受该机制影响。 -->
+<div class="import-modal-overlay" id="recordConfirmModal" style="z-index:100010;" onclick="if(event.target===this)closeRecordConfirmModal(false)">
+  <div class="import-modal" style="max-width:400px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:10px;">❓</div>
+    <h3 id="recordConfirmTitle" style="margin:0 0 8px;">确认录入</h3>
+    <p id="recordConfirmMsg" class="modal-sub" style="margin-bottom:16px;white-space:pre-line;"></p>
+    <div class="import-modal-actions">
+      <button class="btn-modal-cancel" id="recordConfirmCancel" onclick="closeRecordConfirmModal(false)">取消</button>
+      <button class="btn-modal-confirm" id="recordConfirmOk" onclick="closeRecordConfirmModal(true)">确定录入</button>
+    </div>
+  </div>
 </div>
 
 <!-- ================= EXT v1.0 六模块扩展（独立 style 块，不改动原有 CSS） ================= -->
@@ -1633,6 +1695,12 @@ create policy "ac update" on access_control for update using (true);</textarea><
 .w2-row-title{font-size:12px;color:#888;margin:12px 0 4px;}
 #w2QuickDone{width:100%;padding:14px;border:none;border-radius:12px;background:#2ecc71;color:#fff;font-size:16px;font-weight:700;cursor:pointer;margin-top:14px;}
 #w2QuickDone:disabled{background:#ccc;cursor:not-allowed;}
+/* v45.3: 快速录入关闭按钮——移动端遮罩可点区域极小，必须有显式出口 */
+.w2-quick-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;}
+.w2-quick-head h4{margin:0;font-size:15px;color:#302b63;}
+.w2-quick-close{flex:0 0 auto;width:36px;height:36px;min-width:36px;padding:0;border-radius:50%;border:1px solid #e3e0f0;background:#f6f5fc;color:#302b63;font-size:18px;font-weight:700;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.w2-quick-close:hover{background:#e9e5fb;}
+.w2-quick-close:active{transform:scale(.94);}
 /* ===== w2 快照列表 ===== */
 .w2-snap-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px;border-bottom:1px solid #eee;flex-wrap:wrap;}
 .w2-snap-meta{flex:1;min-width:160px;line-height:1.5;}
@@ -1651,6 +1719,8 @@ create policy "ac update" on access_control for update using (true);</textarea><
   #cloudPullBtn,#cloudPushBtn,#btnAiPredictTop{flex:1 1 28%;min-height:44px;font-size:13px;}
   #w2QuickBtn{display:flex;}
   .w2-modal{padding:14px;}
+  /* v45.3: 关闭按钮满足 44px 触摸目标 */
+  .w2-quick-close{width:44px;height:44px;min-width:44px;font-size:20px;}
 }
 </style>
 <script>
@@ -1719,10 +1789,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v45.2';
+  var APP_VERSION = 'v45.5'; // v45.5: 录入链路加固 + 四相似盘 18 局窗口（仅展示/标记，未用作存储键）
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
-  function showRecordResult(success, title, msg) {
+  function showRecordResult(success, title, msg, autoCloseMs) {
     try {
       var iconEl = document.getElementById('recordResultIcon');
       var titleEl = document.getElementById('recordResultTitle');
@@ -1731,19 +1801,65 @@ create policy "ac update" on access_control for update using (true);</textarea><
       if (iconEl) iconEl.textContent = success ? '✅' : '❌';
       if (titleEl) { titleEl.textContent = title; titleEl.style.color = success ? '#27ae60' : '#e74c3c'; }
       if (msgEl) msgEl.textContent = msg;
-      if (modalEl) modalEl.classList.add('open');
+      if (modalEl) {
+        modalEl.classList.add('open');
+        // v45.5: z-index 提到 100010（高于 AI 状态栏 99999 / toast 99998），并支持自动关闭。
+        // 只有显式传 autoCloseMs 的调用（录入链路）才自动关；其余 100+ 处提示
+        // （云同步/授权/清空/回滚等需要细读的）保持手动关闭，避免功能退化。
+        if (window._recordResultTimer) clearTimeout(window._recordResultTimer);
+        if (autoCloseMs) {
+          window._recordResultTimer = setTimeout(function(){ modalEl.classList.remove('open'); }, autoCloseMs);
+        }
+      }
     } catch(e) {
-      // 降级：使用原生alert
       if (window._originalAlert) window._originalAlert(title + '\n' + msg);
     }
   }
   function closeRecordResultModal() {
     var m = document.getElementById('recordResultModal');
     if (m) m.classList.remove('open');
+    if (window._recordResultTimer) { clearTimeout(window._recordResultTimer); window._recordResultTimer = null; }
+  }
+  // v45.5: 页面内确认弹窗（非阻塞、可自定义按钮文案），彻底避开原生 confirm 被浏览器拦截
+  var _recordConfirmCb = null;
+  function showRecordConfirm(title, msg, onOk, onCancel, okText, cancelText) {
+    try {
+      var t = document.getElementById('recordConfirmTitle');
+      var m = document.getElementById('recordConfirmMsg');
+      var el = document.getElementById('recordConfirmModal');
+      var okBtn = document.getElementById('recordConfirmOk');
+      var cancelBtn = document.getElementById('recordConfirmCancel');
+      if (!el) { // DOM 缺失时降级到原生 confirm，但保证回调一定被调用
+        var ok = confirm(title + '\n\n' + msg);
+        if (ok && onOk) onOk(); else if (!ok && onCancel) onCancel();
+        return;
+      }
+      if (t) t.textContent = title;
+      if (m) m.textContent = msg;
+      if (okBtn && okText) okBtn.textContent = okText;
+      if (cancelBtn && cancelText) cancelBtn.textContent = cancelText;
+      _recordConfirmCb = { ok: onOk, cancel: onCancel };
+      el.classList.add('open');
+    } catch(e) {
+      console.warn('[录入确认]弹窗异常:', e.message);
+      if (onOk) onOk(); // 降级继续，绝不把录入卡死
+    }
+  }
+  function closeRecordConfirmModal(ok) {
+    var el = document.getElementById('recordConfirmModal');
+    if (el) el.classList.remove('open');
+    var cb = _recordConfirmCb;
+    _recordConfirmCb = null;
+    if (cb) {
+      var f = ok ? cb.ok : cb.cancel;
+      if (f) { try { f(); } catch(e) { console.error('[录入确认]回调异常:', e.message); } }
+    }
   }
   // v27.3：暴露到全局作用域，供IIFE外部的HTML onclick和其他script调用
   window.showRecordResult = showRecordResult;
   window.closeRecordResultModal = closeRecordResultModal;
+  window.showRecordConfirm = showRecordConfirm;
+  window.closeRecordConfirmModal = closeRecordConfirmModal;
 var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
 
   var deviceId = localStorage.getItem(DEVICE_KEY) || '';
@@ -2278,6 +2394,11 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
 //   ⑤ 自适应权重 + 逐局详细反思日志
 //   ⑥ 多模型融合计算透明化展示
 // ============================================================
+// v45.5: 四个相似盘统一窗口口径。旧版把 [5..12] 和 slice(-12) 散落在 6+ 处，
+// 改口径必漏改；收敛到这一处：当前走势参考最近 18 局，历史匹配片段 5~18 局（最大 18）。
+var SIM_CUR_WINDOW = 18;
+var SIM_MAX_LEN = 18;
+var SIM_WINDOW_LENS = [5,6,7,8,9,10,11,12,13,14,15,16,17,18]; // 14 档
 const GUILDS = ['A','B','C'];
 const VALID_VALUES = [0, 0.5, 1, 2, 3];
 const STORE_KEY = 'mm_v190'; // v19.0 近8局窗口·五窗口融合版
@@ -2562,6 +2683,45 @@ function getWinner(rec) {
 }
 // v29.8: 血本方——ABC中得0分的那一方（有效局只有一个0分）
 function _isZeroScore(v) { return v === 0 || v === '0'; } // 不把 null/undefined/'' 误判为 0
+// v45.3: 预测结果指纹——renderCards 展示缓存与 Predictor.predict() 结果复用共用同一份。
+// 含全历史 32 位滚动哈希（编辑/删除中间局、导入对齐、云合并都能感知）、全量模型权重、
+// CONFIG、窗口/高级模型命中率、AI 修正、校准 T、漂移态。3655 局实测约 0.3ms。
+var _predSigErrN = 0;
+function computePredSig() {
+    try {
+        var p = (typeof P !== 'undefined' && P) ? P : null;
+        if (!p) return 'none';
+        var h = p.history || [], last = h.length ? h[h.length - 1] : null;
+        var tail = last ? (String(last.a) + '_' + String(last.b) + '_' + String(last.c) + '_' +
+                           String(last.profitWinner || '') + '_' + String(last.investWinner || '')) : '';
+        var hHash = 2166136261;
+        for (var hi = 0; hi < h.length; hi++) {
+            var r = h[hi];
+            var pf = r.profitWinner ? String(r.profitWinner).charCodeAt(0) : 0;
+            var iv = r.investWinner ? String(r.investWinner).charCodeAt(0) : 0;
+            hHash = (Math.imul(hHash, 31) + (Number(r.a) || 0) * 7 + (Number(r.b) || 0) * 11 +
+                     (Number(r.c) || 0) * 13 + pf * 17 + iv * 19) | 0;
+        }
+        var mw = p.modelWeights || {};
+        var mwSig = Object.keys(mw).sort().map(function(k){ return k + ':' + Number(mw[k] || 0).toFixed(5); }).join(',');
+        var C = (typeof CONFIG !== 'undefined' && CONFIG) ? CONFIG : {};
+        var cfgSig = ['win6W','win7W','win8W','win10W','globalW','learnRate','learnDecay',
+                      'patternThreshold','streakDecayMax','coldBonusCap','minData','learnIters','rollbackWindow']
+            .map(function(k){ return Math.round((Number(C[k]) || 0) * 10000); }).join('-');
+        var ap = p.advancedModelPerf || {};
+        var apSig = ['similar','loss','profit','markov','bayes','trend','rebound']
+            .map(function(k){ var a = ap[k] || []; return a.length + ':' + a.reduce(function(s,v){ return s + (v ? 1 : 0); }, 0); }).join('|');
+        var wp = p.windowPerf || {};
+        var wpSig = ['win6','win7','win8','win10','global'].map(function(k){ return (wp[k] || []).length; }).join('-');
+        return [h.length, hHash, tail, (p.predHistory || []).length, (p.accuracy || []).length,
+                mwSig, cfgSig, apSig, wpSig,
+                p._aiCache ? (p._aiCache.time || 1) : 0,
+                Number(p._aiStrength || 0).toFixed(4),
+                Number(p._calibrationT || 1).toFixed(4),
+                (typeof p._driftState === 'string' ? p._driftState :
+                 (p._driftState && p._driftState.state) || '')].join('|');
+    } catch(e) { return 'err:' + (++_predSigErrN); } // 出错时每次都不同 → 安全降级为不复用
+}
 function getLossSide(rec) {
     if (!rec) return null;
     // v44.30-fix3: 兼容导入数据里 "0" 写成字符串的情况；旧版用严格 === 0，
@@ -2789,25 +2949,28 @@ function calcMaxStreak(history) {
 }
 // v25.9: 计算最长连续未中（错误）局数
 // 传入布尔数组，true=正确，false=错误，返回最长连续false的数量
+// v45.3: profitAccuracy / investAccuracy 是稀疏数组——只有填了该维度的局才有条目，
+// 空洞是 undefined。旧版把空洞当「非 false」直接清零，打断连续计数（实测 4 个连续错被算成 2）。
+// 空洞语义 = 该局没有此维度判定，跳过：既不计入也不打断。
 function calcMaxMissStreak(boolArr) {
     if (!boolArr || boolArr.length === 0) return 0;
     var maxMiss = 0, curMiss = 0;
     for (var i = 0; i < boolArr.length; i++) {
-        if (boolArr[i] === false) {
-            curMiss++;
-            if (curMiss > maxMiss) maxMiss = curMiss;
-        } else {
-            curMiss = 0;
-        }
+        var v = boolArr[i];
+        if (v === undefined || v === null) continue;
+        if (v === false) { curMiss++; if (curMiss > maxMiss) maxMiss = curMiss; }
+        else curMiss = 0;
     }
     return maxMiss;
 }
-// v25.9: 计算当前连续未中（错误）局数
+// v25.9: 计算当前连续未中（错误）局数（同样跳过稀疏空洞）
 function calcCurrentMissStreak(boolArr) {
     if (!boolArr || boolArr.length === 0) return 0;
     var curMiss = 0;
     for (var i = boolArr.length - 1; i >= 0; i--) {
-        if (boolArr[i] === false) curMiss++;
+        var v = boolArr[i];
+        if (v === undefined || v === null) continue;
+        if (v === false) curMiss++;
         else break;
     }
     return curMiss;
@@ -3523,7 +3686,7 @@ function findSimilarProfitSegments(history, opts) {
     if (seq.length < 6) return results;
     
     // 多窗口扫描，和相似盘对齐
-    var windowLengths = [5,6,7,8,9,10,11,12];
+    var windowLengths = SIM_WINDOW_LENS; // v45.5: 5~18 共 14 档，当前窗口取最近 18 局
     
     windowLengths.forEach(function(winLen){
         if (seq.length < winLen + 1) return;
@@ -3747,7 +3910,7 @@ function predictFromSimilarLossPattern(history) {
     if (history.length < 10) return null;
     var lossSeq = history.map(getLossSide);
     var L = lossSeq.length;
-    var windowLengths = [5, 6, 7, 8, 9, 10, 11, 12]; // v44.30-fix1: 与 UI 面板统一为 8 档，遍历全部档位
+    var windowLengths = SIM_WINDOW_LENS; // v45.5: 与 UI 面板统一为 5~18 共 14 档，当前窗口近 18 局
     var allResults = [];
 
     for (var wi = 0; wi < windowLengths.length; wi++) {
@@ -4293,14 +4456,16 @@ function _winnerSeqSimilarity(seq1, seq2) {
 }
 // v28.3: 窗口越长要求越严，避免长窗口低质量匹配混入（前提是匹配）
 function _minSimForLen(wLen) {
+    // v45.5: 窗口扩到 18 局，补上 13~18 档的门槛，避免长窗口低质量匹配混入
+    if (wLen >= 16) return 0.58;
+    if (wLen >= 14) return 0.57;
     if (wLen >= 12) return 0.55;
     if (wLen >= 10) return 0.52;
     if (wLen >= 8) return 0.50;
     if (wLen >= 7) return 0.48;
     return 0.45; // 5/6局
 }
-// v28.5: 匹配排序键——高质量匹配(相似度>=0.90)按长度优先（覆盖当前窗口更长的更有代表性）；
-// 弱匹配(<0.90)仍按相似度排序，避免带错配的长片段混上来。12局为上限。
+// v28.5: 匹配排序键——高质量匹配(相似度>=0.90)按长度优先；v45.5: 上限随窗口改到 18 局。
 function _matchSortKey(s, ml, isExact) {
     // v31.3：直接用isExact（获胜方序列是否完全对上）判断完全匹配
     // isExact=true → 完全匹配组；isExact=false → 不完全匹配组
@@ -4309,10 +4474,10 @@ function _matchSortKey(s, ml, isExact) {
     // 完全匹配组内：先按长度排，长的在前；长度相同时按相似度排
     // 不完全匹配组内：按相似度排，高的在前
     return perfect * 1000000
-        + (perfect ? Math.min(12, ml) * 100000 : 0)      // 完全匹配组：长度优先
-        + (perfect ? Math.round(s * 1000) : 0)            // 完全匹配组：长度相同时按相似度
-        + (perfect ? 0 : Math.round(s * 10000))           // 不完全匹配组：相似度排序
-        + (perfect ? 0 : Math.min(12, ml) * 100);         // 不完全匹配组：长度作为次要排序
+        + (perfect ? Math.min(SIM_MAX_LEN, ml) * 100000 : 0)   // v45.5: 上限跟到 18 局
+        + (perfect ? Math.round(s * 1000) : 0)
+        + (perfect ? 0 : Math.round(s * 10000))
+        + (perfect ? 0 : Math.min(SIM_MAX_LEN, ml) * 100);
 }
 // v44.30-fix1: 四个相似盘面板统一口径——完全匹配优先 / 完全匹配内长度降序 / 全量不截断 / 重叠只留最长
 // list: 匹配数组；opts.posKey: 历史段起始位置字段；opts.lenKey: 窗口长度字段；opts.exactFn: 完全匹配判定
@@ -4359,13 +4524,26 @@ function sortAndDedupeMatches(list, opts) {
 // v44.30-fix4: 只读扫描统计——面板口径自证用，绝不参与任何投票/概率计算。
 // 把"原始命中 / 去重后 / 近似段"三个数字摊开，避免再用全历史局数冒充扫描量。
 // seq: 有效序列（已跳过缺失局）；winLens: 窗口档位
-var _scanStatsCache = {key: null, val: null};
+// v45.3: 旧版是单值缓存 {key,val}，renderCards 依次对「投资/相似/收益」三个不同序列调用，
+// key 交替变化 → 缓存 100% 不命中，每次重跑 14 档×全历史扫描。改成按序列指纹缓存多份。
+var _scanStatsCache = { map: {}, lastHistLen: -1, lastHistTail: '' };
 function scanSimilarStats(seq, winLens) {
     var _cacheable = !winLens;
     var _ck = _cacheable ? ((seq ? seq.length : 0) + '|' +
         (seq ? seq.map(function(x){ return (x === null || x === undefined || x === '') ? '_' : x; }).join('') : '')) : null;
-    if (_cacheable && _scanStatsCache.key === _ck && _scanStatsCache.val) return _scanStatsCache.val;
-    winLens = winLens || [5,6,7,8,9,10,11,12];
+    // 历史变化（录入/删除/导入/回滚）时整体失效
+    try {
+        var _h = (typeof P !== 'undefined' && P && P.history) ? P.history : null;
+        var _hLen = _h ? _h.length : -1;
+        var _hTail = _h && _h.length ? String(_h[_h.length-1].a)+'_'+String(_h[_h.length-1].b)+'_'+String(_h[_h.length-1].c) : '';
+        if (_hLen !== _scanStatsCache.lastHistLen || _hTail !== _scanStatsCache.lastHistTail) {
+            _scanStatsCache.map = {};
+            _scanStatsCache.lastHistLen = _hLen;
+            _scanStatsCache.lastHistTail = _hTail;
+        }
+    } catch(e) {}
+    if (_cacheable && _scanStatsCache.map[_ck]) return _scanStatsCache.map[_ck];
+    winLens = winLens || SIM_WINDOW_LENS; // v45.5: 与四个面板同源
     var L = seq ? seq.length : 0;
     var exact = [], near1 = 0;
     if (L < 6) return {raw:0, kept:0, near1:0, maxLen:0, seqLen:L};
@@ -4392,7 +4570,11 @@ function scanSimilarStats(seq, winLens) {
     var maxLen = 0;
     kept.forEach(function(r){ if (r.matchLen > maxLen) maxLen = r.matchLen; });
     var _ret = {raw: exact.length, kept: kept.length, near1: near1, maxLen: maxLen, seqLen: L};
-    if (_cacheable) { _scanStatsCache.key = _ck; _scanStatsCache.val = _ret; }
+    if (_cacheable) {
+        _scanStatsCache.map[_ck] = _ret;
+        var _keys = Object.keys(_scanStatsCache.map);
+        if (_keys.length > 40) delete _scanStatsCache.map[_keys[0]];
+    }
     return _ret;
 }
 // 供面板复用的有效序列提取
@@ -4404,13 +4586,13 @@ function _effectiveSeq(history, field) {
     });
     return out;
 }
-// v31: 相似盘体检——扫描当前走势在历史中有没有 8/10/12 局的强相似段
+// v31: 相似盘体检——v45.5: 档位扩到 8/10/12/14/16/18 局
 function scanSimilarDepth() {
     var h = P.history;
-    if (!h || h.length < 13) { alert('历史不足13局，无法扫描8局以上相似盘。请先积累更多数据。'); return; }
+    if (!h || h.length < 13) { alert('历史不足13局，无法扫描8局以上相似盘；18局档需至少19局历史。请先积累更多数据。'); return; }
     var lines = [];
     var best = {len: 0, sim: 0, start: -1};
-    [8, 10, 12].forEach(function(wLen){
+    [8, 10, 12, 14, 16, 18].forEach(function(wLen){
         if (h.length < wLen + 1) { lines.push(wLen + '局档：历史不足，跳过'); return; }
         var cur = h.slice(-wLen);
         var res = findSimilarSegments(cur, h, {minSim: 0.90, maxResults: 5});
@@ -4431,11 +4613,11 @@ function scanSimilarDepth() {
     if (best.len > 0) {
         head = '🎯 当前走势最深相似段：' + best.len + '局（相似度' + (best.sim*100).toFixed(0) + '%，历史第' + (best.start+1) + '局起' + (best.exact?'，胜方序列完全一致':'') + '）';
     } else {
-        head = '⚠️ 当前走势没有8局以上的相似历史段（最长只命中5-7局档，长程走势独一无二）';
+        head = '⚠️ 当前走势没有 8 局以上的强相似历史段（长程走势独一无二）';
     }
     alert(head + '\n\n' + lines.join('\n') +
         '\n\n说明：仅列出综合相似度≥90%的高置信匹配（基本对应胜方序列完全一致）；' +
-        '8局以上相似意味着长程走势高度复刻历史，该段参考权重应显著提高，下一局可信度最高。');
+        '8 局以上相似意味着长程走势高度复刻历史，该段参考权重应显著提高，下一局可信度最高。');
 }
 // 查找历史中与当前窗口"结构相似"的片段
 // window: 当前最近N局的记录数组
@@ -4559,8 +4741,8 @@ function predictFromSimilarPattern(window, history) {
     // 时间衰减基线：准→0.35（近期权重最高1.0，最早0.35）；不准→0.65（平缓）
     var _recencyBase = 0.65 - Math.max(0, Math.min(1, (_simAcc - 0.30) / 0.30)) * 0.30;
     // v44.30-fix3: 动态投票阈值已随"投票池=全量去重集合"一并移除，此处不再保留死变量。
-    // v34.3: 窗口档位补全为[5,6,7,8,9,10,11,12]八档，全部显示
-    var windowLengths = [5, 6, 7, 8, 9, 10, 11, 12];
+    // v45.5: 窗口档位统一走 SIM_WINDOW_LENS（5~18 共 14 档），全部显示
+    var windowLengths = SIM_WINDOW_LENS; // v45.5: 5~18 共 14 档
     
     // v39.1性能优化：预计算全历史胜方序列和指纹，8个窗口档位复用，不重复算
     var _histWinnerSeq = _toWinnerSeq(history);
@@ -5350,9 +5532,9 @@ class Predictor {
             }
         }
         if (invSeq.length < 4) return null;
-        // v43.25: 照着相似盘逻辑重写——窗口档位对齐相似盘[5,6,7,8,9,10,11,12]
+        // v43.25: 照着相似盘逻辑重写；v45.5: 窗口档位统一走 SIM_WINDOW_LENS（5~18 共 14 档）
         var invMatches = [];
-        var _invWinLens = [5, 6, 7, 8, 9, 10, 11, 12];
+        var _invWinLens = SIM_WINDOW_LENS; // v45.5: 5~18 共 14 档
         for (var _iwl = 0; _iwl < _invWinLens.length; _iwl++) {
             var _wLen = _invWinLens[_iwl];
             if (invSeq.length < _wLen + 1) continue;
@@ -5381,7 +5563,7 @@ class Predictor {
                 }
             }
         }
-        // v44.30-fix1: 全部 8 档扫描完后统一排序 + 去重——完全匹配优先、长度降序、重叠只留最长。
+        // v44.30-fix1: 全部 14 档扫描完后统一排序 + 去重——完全匹配优先、长度降序、重叠只留最长。
         // 旧版按 similarity 排序（全是 1.0）等于保持"短窗口先入"，把覆盖同段的长窗口当重复删掉，只剩 2 条。
         invMatches = sortAndDedupeMatches(invMatches, {posKey: 'seqStart', lenKey: 'matchLen'});
         // 频率统计（基础概率）
@@ -5495,23 +5677,23 @@ class Predictor {
             aiModel: this._modelAIPrediction()  // v41.0: AI预测模型
         };
         var mw = this.modelWeights;
-        // v25.8修复：防御性检查，确保所有权重都是有效数字
-        ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','stateTransition','aiModel'].forEach(function(k) {
-            if (mw[k] === undefined || mw[k] === null || isNaN(mw[k])) mw[k] = 0.08;
-        });
+        // v45.3: 旧版在这里把缺失/NaN 权重写回 mw[k]=0.08 —— 预测函数改了模型状态。
+        // 实测仅仅打开页面渲染一次，权重和就从 1.17 变 1.25，还会让预测指纹前后不一致。
+        // 改为局部读取兜底：预测时同样用 0.08，但绝不写回 this.modelWeights。
+        var _gw = function(k){ var v = mw[k]; return (v === undefined || v === null || isNaN(v)) ? 0.08 : v; };
         var w = {
-            global: mw.global,
-            multiWindow: models.multiWindow ? mw.multiWindow : 0,
-            score: models.score ? mw.score : 0, // v30.22修复:score模型返回null时权重置0
-            streak: models.streak ? mw.streak : 0,
-            rotation: models.rotation ? mw.rotation : 0,
-            alternation: models.alternation ? mw.alternation : 0,
-            trend: models.trend ? mw.trend : 0,
-            regression: models.regression ? mw.regression : 0,
-            similarPattern: models.similarPattern ? (mw.similarPattern * this._simWeightFactor()) : 0,
-            profitPattern: models.profitPattern ? mw.profitPattern : 0,
-            stateTransition: models.stateTransition ? mw.stateTransition : 0, // v44.1
-            aiModel: models.aiModel ? mw.aiModel : 0,  // v41.0: AI模型权重
+            global: _gw('global'),
+            multiWindow: models.multiWindow ? _gw('multiWindow') : 0,
+            score: models.score ? _gw('score') : 0, // v30.22修复:score模型返回null时权重置0
+            streak: models.streak ? _gw('streak') : 0,
+            rotation: models.rotation ? _gw('rotation') : 0,
+            alternation: models.alternation ? _gw('alternation') : 0,
+            trend: models.trend ? _gw('trend') : 0,
+            regression: models.regression ? _gw('regression') : 0,
+            similarPattern: models.similarPattern ? (_gw('similarPattern') * this._simWeightFactor()) : 0,
+            profitPattern: models.profitPattern ? _gw('profitPattern') : 0,
+            stateTransition: models.stateTransition ? _gw('stateTransition') : 0, // v44.1
+            aiModel: models.aiModel ? _gw('aiModel') : 0,  // v41.0: AI模型权重
             ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
         // v38.2: 动态权重裁判——根据每个子模型最近20局实际命中率，实时缩放本次投票权重。
@@ -5578,6 +5760,15 @@ class Predictor {
     // ===== 主预测：五级窗口优先级 =====
     // v43.42: 包装predict()——不管原来的predict从哪个分支return，都统一在这里应用AI修正
     predict() {
+        // v45.3: 一次 renderAll 里 predict() 会被调用 5 次（renderCards / _shouldSkipBet /
+        // _bettingAdvice / updateStats 取 source / 扩展 renderVote），3655 局实测累计 683ms。
+        // 按「状态指纹」复用：状态没变直接返回，状态一变自动重算。
+        var _sig = (typeof computePredSig === 'function') ? computePredSig() : null;
+        // v45.3: 按指纹缓存最近 4 份结果。renderVote 会临时清空 AI 缓存做「有AI/无AI」对比，
+        // 单份 memo 会来回失效重算；多份后两种状态各算一次，后续切换直接命中。
+        if (_sig && this._predMemoMap && this._predMemoMap[_sig]) {
+            return this._predMemoMap[_sig];
+        }
         var result = this._predictOriginal();
         if (!result) return result;
         
@@ -5740,6 +5931,12 @@ class Predictor {
             }
         } catch(e) { console.warn('[证据表快照]失败:', e.message); }
 
+        if (_sig) {
+            if (!this._predMemoMap) this._predMemoMap = {};
+            this._predMemoMap[_sig] = result;
+            var _mk = Object.keys(this._predMemoMap);
+            if (_mk.length > 4) delete this._predMemoMap[_mk[0]];
+        }
         return result;
     }
     
@@ -7291,6 +7488,7 @@ class Predictor {
         }
     }
     clearAll() {
+        this._predMemoMap = {}; // v45.3: 清空数据后旧预测结果必须立即失效
         this.history = []; this.predHistory = []; this.accuracy = []; this.profitAccuracy = []; this.lastPrediction = null; this.maxStreakEver = 0;
         // v37.0修复: 补全遗漏的稀疏数组重置
         this.profitBrierHistory = [];
@@ -10988,7 +11186,11 @@ function deleteBackup(backupId) {
 var P = new Predictor();
 function rankLabel(r) { return r===1?'🥇最高':r===2?'🥈第二':'🥉最低'; }
 function rankClass(r) { return r===1?'tag-rank1':r===2?'tag-rank2':'tag-rank3'; }
-function rankSnapshot(sorted) { return sorted.map(function(s,i){return ['🥇','🥈','🥉'][i]+s[0];}).join(' > '); }
+// v45.3: 导入/旧数据/云合并后 predHistory 条目可能缺 sorted，旧版直接 .map 会让整表崩掉
+function rankSnapshot(sorted) {
+    if (!Array.isArray(sorted) || sorted.length === 0) return '—';
+    return sorted.slice(0,3).map(function(s,i){ return ['🥇','🥈','🥉'][i] + (Array.isArray(s) ? s[0] : (s && s.g) || '?'); }).join(' > ');
+}
 function sourceBadge(source) {
     if (source==='similar') return '<span class="win-source-badge" style="background:#f3e5f5;color:#7b1fa2;">🔍相似盘</span>';
     if (source==='win6') return '<span class="win-source-badge source-6">近6局</span>';
@@ -11292,7 +11494,7 @@ function renderLossSimPanel(force) {
     if (!force && _lossSimCacheKey === _ck) return;
     _lossSimCacheKey = _ck;
     // v44.30-fix2: 压缩成"有效血本序列"——跳过没有 0 分方的局（平局 / 缺数据）。
-    // 旧版直接用原始序列：只要最近12局里有1局缺0分方，8个档位的当前窗口全部含 null →
+    // 旧版直接用原始序列：只要最近18局里有1局缺0分方，14个档位的当前窗口全部含 null →
     // 全档跳过 → 0票 → 面板整块 display:none，这就是"血本盘直接消失"的根因。
     var rawLoss = P.history.map(getLossSide);
     var seq = [], idxs = [];
@@ -11300,7 +11502,7 @@ function renderLossSimPanel(force) {
         if (rawLoss[_li]) { seq.push(rawLoss[_li]); idxs.push(_li); }
     }
     var L = seq.length;
-    var windows = [5,6,7,8,9,10,11,12];
+    var windows = SIM_WINDOW_LENS; // v45.5: 5~18 共 14 档
     var votes = {A:0, B:0, C:0};
     var matchRows = [];
     windows.forEach(function(w){
@@ -11347,17 +11549,17 @@ function renderLossSimPanel(force) {
     }
     var lines = [];
     // 当前血本窗口
-    lines.push('<div style="margin-bottom:6px;"><strong style="color:#ad1457;">📌 当前血本窗口（近12局0分方）：</strong>');
-    lines.push(rawLoss.slice(-12).map(lossTag).join(' → ') + '</div>');
-    var _nullCnt = rawLoss.slice(-12).filter(function(x){ return !x; }).length;
-    if (_nullCnt > 0) lines.push('<div style="font-size:11px;color:#888;">近12局有 '+_nullCnt+' 局无 0 分方（平局/缺数据），已从匹配序列中跳过；有效血本记录共 '+L+' 条。</div>');
+    lines.push('<div style="margin-bottom:6px;"><strong style="color:#ad1457;">📌 当前血本窗口（近18局0分方）：</strong>');
+    lines.push(rawLoss.slice(-SIM_CUR_WINDOW).map(lossTag).join(' → ') + '</div>');
+    var _nullCnt = rawLoss.slice(-SIM_CUR_WINDOW).filter(function(x){ return !x; }).length;
+    if (_nullCnt > 0) lines.push('<div style="font-size:11px;color:#888;">近18局有 '+_nullCnt+' 局无 0 分方（平局/缺数据），已从匹配序列中跳过；有效血本记录共 '+L+' 条。</div>');
     // v44.30-fix4: 口径自证——把原始命中/去重后/近似段摆出来，不再用"扫了3621局"糊弄
     var _lSt = scanSimilarStats(seq);
     lines.push('<div style="font-size:11px;color:#ad1457;margin-bottom:6px;line-height:1.8;">'+
-        '全历史 <strong>'+P.history.length+'</strong> 局，有效血本记录 <strong>'+L+'</strong> 条（跳过 '+(P.history.length-L)+' 局无 0 分方）× 5~12 局共 8 档；'+
+        '全历史 <strong>'+P.history.length+'</strong> 局，有效血本记录 <strong>'+L+'</strong> 条（跳过 '+(P.history.length-L)+' 局无 0 分方）× 5~18 局共 14 档；'+
         '逐位完全一致原始命中 <strong>'+_lSt.raw+'</strong> 条，重叠只留最长后 <strong>'+_lSt.kept+'</strong> 条（最长 '+_lSt.maxLen+' 局）；'+
         '另有 <strong>'+_lSt.near1+'</strong> 条「仅差 1 位」近似段（当前口径不收、不参与投票）。</div>');
-    if (noMatch) lines.push('<div style="margin:6px 0;padding:8px 10px;background:#fff3cd;border-radius:6px;font-size:12px;color:#856404;">⚠️ 当前走势在历史中没有 5 局以上的逐位完全一致血本片段（已扫描 '+L+' 条有效血本记录 × 5~12 局共 8 档）；本局血本预测不可用。</div>');
+    if (noMatch) lines.push('<div style="margin:6px 0;padding:8px 10px;background:#fff3cd;border-radius:6px;font-size:12px;color:#856404;">⚠️ 当前走势在历史中没有 5 局以上的逐位完全一致血本片段（已扫描 '+L+' 条有效血本记录 × 5~18 局共 14 档）；本局血本预测不可用。</div>');
     if (!noMatch) {
         // 简单投票（去重后按"窗口长度×时间衰减"加权）
         lines.push('<div style="margin-bottom:6px;"><strong style="color:#ad1457;">📊 历史匹配投票（去重后按窗口长度加权，重叠段只计最长）：</strong>');
@@ -11431,9 +11633,18 @@ function renderLossSimPanel(force) {
 // v34.3性能优化：用 requestIdleCallback 调度，避开用户刚录入/滚动的繁忙期
 var _lastBacktest = null;
 var _lastBacktestCount = 0;
+// v45.3: 旧版 _lastBacktestCount 初值 0，3655 局时 3655-0>=15 恒成立 →
+// 打开页面就跑一次全历史回测（逐局重算预测），首屏卡顿。与 autoOptimizeTick 的
+// v43.42 保护对齐：首次调用只设基线，之后真的新增 15 局才跑。手动回测按钮不受影响。
+var _backtestInitDone = false;
 var _idleCtl = (window.requestIdleCallback || function(cb, opts){ return setTimeout(cb, (opts && opts.timeout) || 200); });
 function autoBacktestTick() {
     if (!P.history || P.history.length < 50) return;
+    if (!_backtestInitDone) {
+        _lastBacktestCount = P.history.length;
+        _backtestInitDone = true;
+        return;
+    }
     if (P.history.length - _lastBacktestCount < 15) return; // 每15局跑一次
     _lastBacktestCount = P.history.length;
     _idleCtl(function(){
@@ -11524,8 +11735,39 @@ try { var _ais = localStorage.getItem(_AI_CFG_KEY); if (_ais) Object.assign(_aiC
 function _aiSaveCfg() { try { localStorage.setItem(_AI_CFG_KEY, JSON.stringify(_aiCfg)); } catch(e) {} }
 
 // v41.0: AI预测下一局——后台调AI分析走势，缓存概率供融合预测使用
+// v45.5: AI 代理请求统一封装——检查 HTTP 状态、超时、把 AbortError/DOMException
+// 「signal is aborted without reason」归一化成中文，避免控制台出现吓人的英文报错。
+function aiProxyFetch(url, hdrs, bodyObj, timeoutMs) {
+    var ms = timeoutMs || 25000;
+    var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var tid = ctl ? setTimeout(function(){ try { ctl.abort(); } catch(e){} }, ms) : null;
+    var done = function(){ if (tid) { clearTimeout(tid); tid = null; } };
+    return fetch(url, {
+        method: 'POST', headers: hdrs,
+        signal: ctl ? ctl.signal : undefined,
+        body: JSON.stringify(bodyObj)
+    }).then(function(r){
+        done();
+        if (!r.ok) {
+            return r.text().then(function(t){
+                var detail = (t || '').substring(0, 200);
+                try { var ed = JSON.parse(t); if (ed && ed.error) detail = (ed.error.code||'')+' '+(ed.error.message||detail); } catch(e){}
+                throw new Error('HTTP ' + r.status + ': ' + detail);
+            });
+        }
+        return r.json();
+    }, function(e){
+        done();
+        var raw = (e && e.message) ? e.message : String(e);
+        var aborted = (e && e.name === 'AbortError') || /abort/i.test(raw);
+        throw new Error(aborted ? ('请求超时(' + Math.round(ms/1000) + '秒无响应)') : raw);
+    });
+}
 function aiPredictNext(isRetry) {
     console.log('[AI预测] 开始三预测深度分析...');
+    // v45.5: aiBar 提前声明——旧版在并发锁之后才赋值，而下面"本局已分析过"分支在赋值前
+    // 引用它（var 提升得到 undefined），提示永远不显示。
+    var aiBar = document.getElementById('aiStatusBar');
     if (!_aiCfg.enabled) { console.log('[AI预测] AI未启用'); return; }
     // v43.40: 一局只AI预测一次——已经分析过就不再重复调，避免越调越离谱
     if (P._aiCache && P._aiCache.time && !isRetry) {
@@ -11533,10 +11775,13 @@ function aiPredictNext(isRetry) {
         if (aiBar) { aiBar.innerHTML = '✅ 本局已AI分析过了，录入新局后可再次预测'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); }
         return;
     }
-    // v42.0: 防并发锁——上一次AI还没跑完就跳过，避免连续录入时API堆积
-    if (window._aiPredictRunning) { console.log('[AI预测] 上一次还在运行，跳过本次'); return; }
+    // v42.0 防并发锁；v45.5 加时间戳自愈：旧版任何同步异常、或 AI 返回内容但缺修正字段时，
+    // _aiPredictRunning 会永久为 true，之后所有 AI 调用都被"上一次还在运行"跳过。
+    if (window._aiPredictRunning && (Date.now() - (window._aiPredictAt || 0)) < 30000) {
+        console.log('[AI预测] 上一次还在运行，跳过本次'); return;
+    }
     window._aiPredictRunning = true;
-    var aiBar = document.getElementById('aiStatusBar');
+    window._aiPredictAt = Date.now();
     if (aiBar) { aiBar.style.display = 'block'; aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...'; }
     var cfg = getCloudConfig();
     var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
@@ -11559,8 +11804,8 @@ function aiPredictNext(isRetry) {
     // 相似盘数据——详细匹配列表
     var similarData = [];
     try {
-        var last12 = P.history.slice(-12).map(function(r) { return getWinner(r); }).filter(function(x){return x;});
-        similarData.push('当前走势（最近12局）：' + last12.join('→'));
+        var last12 = P.history.slice(-SIM_CUR_WINDOW).map(function(r) { return getWinner(r); }).filter(function(x){return x;});
+        similarData.push('当前走势（最近18局）：' + last12.join('→'));
         
         // v43.5: 一次性调用P.predict()，三个维度的相似盘数据都从这里拿
         var _savedAiCache = P._aiCache;
@@ -11598,7 +11843,7 @@ function aiPredictNext(isRetry) {
             similarData.push('【血本相似盘详细数据（推谁输）】：');
             // v43.24: 照着相似盘逻辑重写血本匹配——窗口档位对齐，败方序列完全一致才匹配
             var lossSeq = P.history.map(getLossSide);
-            var lossWindows = [5,6,7,8,9,10,11,12];
+            var lossWindows = SIM_WINDOW_LENS; // v45.5: 5~18 共 14 档
             var lossVotes = {A:0, B:0, C:0};
             var lossMatchRows = [];
             var L2 = lossSeq.length;
@@ -11803,28 +12048,11 @@ function aiPredictNext(isRetry) {
             '· 输入' + (_inputSame ? '未变（同一局数据，输出差异来自temperature=0.3随机性）' : '已变化（重试前数据被更新）'),
             '· prompt长度:', window._aiRetryInfo.promptLen, '→', _snap.promptLen);
     }
-    // v44.33修复: 增加45秒超时——旧版无超时，请求挂起会永久占用_aiPredictRunning锁，
-    // 后续所有AI调用都被"上一次还在运行，跳过本次"卡死
-    var _ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var _timeoutId = _ctl ? setTimeout(function() { try { _ctl.abort(); } catch(e) {} }, 45000) : null;
-    fetch(proxyUrl, {
-        method: 'POST',
-        headers: hdrs,
-        signal: _ctl ? _ctl.signal : undefined,
-        body: JSON.stringify({ model: _aiCfg.model, messages: [{role:'user',content:prompt}], temperature: 0.3 })
-    }).then(function(r){
-        // v44.33修复: 检查HTTP状态码——旧版不检查r.ok，API的JSON错误体（如HTTP 429+{"error":{"code":"1302"}}）
-        // 会因取不到choices而落入"AI返回为空"分支直接放弃，catch里的限流检测成为死代码
-        if (!r.ok) {
-            return r.text().then(function(t){
-                var detail = (t || '').substring(0, 200);
-                try { var _ed = JSON.parse(t); if (_ed && _ed.error) detail = (_ed.error.code || '') + ' ' + (_ed.error.message || detail); } catch(e) {}
-                throw new Error('HTTP ' + r.status + ': ' + detail);
-            });
-        }
-        return r.json();
-    }).then(function(data) {
-        if (_timeoutId) clearTimeout(_timeoutId); // v44.33: 成功路径也要清理超时定时器
+    // v45.5: 统一走 aiProxyFetch（HTTP 状态检查 + 25 秒超时 + 错误归一化），
+    // 旧版 45 秒超时后还会自动重试一次，等于连挂 90 秒并占用并发锁。
+    aiProxyFetch(proxyUrl, hdrs,
+        { model: _aiCfg.model, messages: [{role:'user',content:prompt}], temperature: 0.3 }, 25000
+    ).then(function(data) {
         console.log('[AI预测] 响应:', data);
         var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
         // v44.33修复: 空响应/无JSON/解析失败改为throw进入统一catch——旧版这三类失败直接return，
@@ -11943,25 +12171,27 @@ function aiPredictNext(isRetry) {
                 setTimeout(function(){ aiBar.style.display='none'; }, 60000);
             }
             console.log('[AI修正] 成功:', aiAdj);
-            window._aiPredictRunning = false;
+        } else {
+            // v45.5: AI 返回了内容但既无 adjA/B/C 也无 A/B/C 时，旧版既不进 catch 也不释放锁。
+            console.info('[AI预测] 返回内容缺少修正字段，本次不应用');
+            if (aiBar) { aiBar.innerHTML = '⏸️ AI 返回格式不符，本次已跳过（基础预测不受影响）'; setTimeout(function(){ aiBar.style.display='none'; }, 5000); }
         }
+        window._aiPredictRunning = false; // v45.5: 无条件释放并发锁
     }).catch(function(e) {
-        if (_timeoutId) clearTimeout(_timeoutId); // v44.33: 清理超时定时器
+        window._aiPredictRunning = false; // v45.5: 无条件释放并发锁
+        var errMsg = (e && e.message) ? e.message : String(e);
+        // v45.5: AbortController 超时抛的是 DOMException「signal is aborted without reason」，
+        // 旧版把它原样打进 console.warn，正是截图里那条吓人的英文报错；而且超时后还自动重试，
+        // 再挂 25 秒。现在统一归一化成中文，并且超时/被取消直接放弃重试（重试大概率同样超时）。
+        var isAbort = /请求超时|abort/i.test(errMsg);
         var attemptNo = isRetry ? 2 : 1;
-        console.warn('[AI预测]失败(第' + attemptNo + '次尝试):', e.message);
-        window._aiPredictRunning = false; // 释放并发锁
-        // v43.33: 限流错误不自动重试，避免疯狂触发限流；普通错误才重试，间隔3秒
-        // v44.33修复: 补全限流识别——旧版只匹配e.message里的4种中文关键词，而真实限流
-        // 以HTTP 429/JSON error body返回，现在HTTP状态检查会把它变成"HTTP 429: 1302 ..."进入这里
-        var errMsg = e.message || '';
-        if (errMsg.indexOf('abort') >= 0) errMsg = '请求超时(45秒无响应)'; // v44.33: 超时按普通失败重试
+        console.info('[AI预测] 第' + attemptNo + '次尝试结束：' + errMsg + '（已跳过 AI 修正，基础预测不受影响）');
         var _em = errMsg.toLowerCase();
         var isRateLimit = errMsg.indexOf('1302') >= 0 || errMsg.indexOf('1305') >= 0
             || errMsg.indexOf('429') >= 0 || _em.indexOf('too many') >= 0
             || errMsg.indexOf('速率限制') >= 0 || errMsg.indexOf('访问量过大') >= 0
             || _em.indexOf('quota') >= 0 || errMsg.indexOf('配额') >= 0;
-        if (!isRetry && !isRateLimit) {
-            // v44.33: 记录首次失败快照，供重试时做输入/输出前后比对
+        if (!isRetry && !isRateLimit && !isAbort) {
             var _snap = window._aiInputSnap || {};
             window._aiRetryInfo = { firstFail: errMsg, historyLen: _snap.historyLen, lastRec: _snap.lastRec, promptLen: _snap.promptLen, at: Date.now() };
             console.log('[AI预测] 准备3秒后自动重试(第2次尝试)...');
@@ -11969,7 +12199,9 @@ function aiPredictNext(isRetry) {
             setTimeout(function() { aiPredictNext(true); }, 3000);
             return;
         }
-        var showMsg = isRateLimit ? '❌ AI调用太频繁，请等1分钟再试' : '❌ AI预测失败：' + errMsg;
+        var showMsg = isRateLimit ? '❌ AI调用太频繁，请等1分钟再试'
+            : isAbort ? '⏸️ AI 服务响应超时，本次已跳过（基础预测不受影响）'
+            : '❌ AI预测失败：' + errMsg;
         if (aiBar) { aiBar.innerHTML = showMsg; setTimeout(function(){ aiBar.style.display='none'; }, 5000); }
     });
 }
@@ -11997,11 +12229,9 @@ function aiAnalyzeAndAdjust(callback) {
         var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
         var hdrs = { 'Content-Type': 'application/json' };
         if (cfg.key) { hdrs['Authorization'] = 'Bearer ' + cfg.key; hdrs['apikey'] = cfg.key; }
-        fetch(proxyUrl, {
-            method: 'POST',
-            headers: hdrs,
-            body: JSON.stringify({ model: (_aiCfg && _aiCfg.model) || 'glm-5.3-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 })
-        }).then(function(r){ return r.json(); }).then(function(data) {
+        aiProxyFetch(proxyUrl, hdrs,
+            { model: (_aiCfg && _aiCfg.model) || 'glm-5.3-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 }, 25000
+        ).then(function(data) {
             var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
             if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } callback && callback(null); return; }
             var jm = text.match(/\{[\s\S]*\}/);
@@ -12113,33 +12343,11 @@ function renderAll() {
 }
 function renderCards() {
     try { updateDriftBadge(); } catch(e) {}
-    // v34.2性能优化：改进预测缓存键——加入predHistory/accuracy/modelWeights关键指纹，避免权重更新后用到旧结果
-    // v41: 指纹再纳入 CONFIG 关键参数、窗口命中率、高级模型命中率，避免参数/模型状态变化后复用旧预测结果
-    var _mw = P.modelWeights || {};
-    var _cfgArr = [CONFIG.win6W,CONFIG.win7W,CONFIG.win8W,CONFIG.win10W,CONFIG.globalW,CONFIG.learnRate,CONFIG.learnDecay,CONFIG.patternThreshold,CONFIG.streakDecayMax,CONFIG.coldBonusCap,CONFIG.minData,CONFIG.learnIters,CONFIG.rollbackWindow];
-    var _cfgSig = _cfgArr.map(function(x){ return Math.round((Number(x)||0)*10000); }).join('-');
-    var _ap = P.advancedModelPerf || {};
-    var _apSig = ['similar','loss','profit','markov','bayes','trend','rebound'].map(function(k){ var a=_ap[k]||[]; return a.length+':'+a.reduce(function(s,v){return s+(v?1:0);},0); }).join('|');
-    var _wp = P.windowPerf || {};
-    var _wpSig = ['win6','win7','win8','win10','global'].map(function(k){ var a=_wp[k]||[]; return a.length; }).join('-');
-    var histSig = P.history.length + '_' + (P.history.length > 0 ? P.history[P.history.length-1].a + '_' + P.history[P.history.length-1].b + '_' + P.history[P.history.length-1].c : 'empty')
-        + '_ph' + P.predHistory.length + '_acc' + P.accuracy.length
-        + '_mw' + Math.round(((_mw.global||0)+(_mw.streak||0)+(_mw.score||0))*1000)
-        + '_cfg' + _cfgSig + '_ap' + _apSig + '_wp' + _wpSig
-        // v44.32修复: 指纹补上AI链路状态——AI修正缓存时间、裁判强度、温度校准、漂移状态。
-        // 原指纹不含这些，任何只改AI状态不清_predCache的调用路径都会复用修正前/后的旧结果。
-        + '_ait' + (P._aiCache ? P._aiCache.time : 0)
-        + '_as' + Math.round(((typeof P._aiStrength === 'number' ? P._aiStrength : 0.6)) * 100)
-        + '_ct' + Math.round(((P._calibrationT || 1)) * 100)
-        + '_dr' + (P._driftState || '');
-    // v44.35修复: 指纹补上收益/投资填充数——补录旧局的收益/投资不改变局数和最后一局比分，
-    // 旧指纹下相似盘匹配列表会一直用补录前的旧缓存，而面板统计行是现算的，出现"统计14条/列表1条"的口径分裂
-    var _pfFill = 0, _ivFill = 0;
-    for (var _fi = 0; _fi < P.history.length; _fi++) {
-        if (P.history[_fi].profitWinner === '大' || P.history[_fi].profitWinner === '中' || P.history[_fi].profitWinner === '小') _pfFill++;
-        if (P.history[_fi].investWinner === '大' || P.history[_fi].investWinner === '中' || P.history[_fi].investWinner === '小') _ivFill++;
-    }
-    histSig += '_pf' + _pfFill + '_iv' + _ivFill;
+    // v45.3: 指纹统一走 computePredSig()，与 Predictor.predict() 的复用缓存同源。
+    // 旧指纹只看「局数 + 末局 + 3个权重之和 + 收益/投资填充数」：编辑中间局、
+    // 导入对齐、云合并替换历史时长度和末局可能都不变 → 会错误复用旧预测。
+    // 新指纹含全历史滚动哈希 + 全量权重 + AI/校准/漂移状态。
+    var histSig = computePredSig();
     var result;
     if (window._predCache && window._predCache.sig === histSig) {
         result = window._predCache.result;
@@ -12315,8 +12523,8 @@ function renderCards() {
             if (lr) {
                 var ilines = [];
                 // 当前投资窗口
-                var curInvSeq = P.history.slice(-12).map(function(r){return r.investWinner || '?';}).join(' → ');
-                ilines.push('<div style="margin-bottom:8px;"><strong>📌 当前投资窗口（近12局）：</strong>' + curInvSeq + '</div>');
+                var curInvSeq = P.history.slice(-SIM_CUR_WINDOW).map(function(r){return r.investWinner || '?';}).join(' → ');
+                ilines.push('<div style="margin-bottom:8px;"><strong>📌 当前投资窗口（近18局）：</strong>' + curInvSeq + '</div>');
                 // 预测结果
                 ilines.push('<div style="margin-bottom:8px;"><strong>🎯 投资预测：</strong>' +
                     '<span style="font-weight:700;color:#9c27b0;">' + investPred.predicted + '</span>' +
@@ -12361,7 +12569,7 @@ function renderCards() {
                         '全历史 <strong>'+(P.history?P.history.length:0)+'</strong> 局，其中填了获胜投资的只有 <strong>'+_iEff.length+'</strong> 条（填充率 '+_iFill+'%）——匹配在这 '+_iEff.length+' 条压缩序列上进行。'+
                         '逐位完全一致原始命中 <strong>'+_iSt.raw+'</strong> 条，重叠只留最长后 <strong>'+_iSt.kept+'</strong> 条（最长 '+_iSt.maxLen+' 局）；'+
                         '另有 <strong>'+_iSt.near1+'</strong> 条「仅差 1 位」近似段（当前口径不收、不参与投票）。'+
-                        '<br><span style="color:#888;">三值序列 5 连逐位全中概率 1/243；'+_iEff.length+' 条序列里单模式约 '+(Math.round(_iEff.length/243*10)/10)+' 次，8 档合计即个位数。</span></div>');
+                        '<br><span style="color:#888;">三值序列 5 连逐位全中概率 1/243；'+_iEff.length+' 条序列里单模式约 '+(Math.round(_iEff.length/243*10)/10)+' 次，14 档合计多为个位数到十几条。</span></div>');
                     ilines.push('<div class="match-history-list" style="max-height:250px;overflow-y:auto;border:1px solid #f8bbd0;border-radius:6px;padding:6px;background:#fff;">');
                     topInv.forEach(function(g){
                         var m = g.best;
@@ -12794,8 +13002,8 @@ function renderCards() {
         if (siProbs.C > siProbs[simBestG2]) simBestG2 = 'C';
         // 构建推理链文字
         var lines = [];
-        lines.push('<div style="margin-bottom:6px;"><strong>📌 当前窗口（近12局）：</strong>');
-        var curWindow = P.history.slice(-12);
+        lines.push('<div style="margin-bottom:6px;"><strong>📌 当前窗口（近18局）：</strong>');
+        var curWindow = P.history.slice(-SIM_CUR_WINDOW);
         var curSeq = curWindow.map(function(r){var w=getWinner(r);return w?'<span style="color:'+(w==='A'?'#e74c3c':w==='B'?'#3498db':'#2ecc71')+'">'+w+'</span>':'平';}).join(' → ');
         lines.push(curSeq + '</div>');
         lines.push('<div style="margin-bottom:6px;"><strong>📊 相似盘投票（简单计数）：</strong>');
@@ -12885,14 +13093,14 @@ function renderCards() {
             var totalMatches = (si.matches || []).length;
             lines.push('<div style="margin-top:6px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;"><strong>🎯 匹配的历史片段（相同模式已分组）</strong>');
             lines.push('<span style="font-size:11px;color:#888;">共'+matches.length+'组 / '+totalMatches+'个匹配</span></div>');
-            // v44.30-fix2: 口径自证——全历史 8 档扫描 / 完全匹配 / 重叠只留最长 / 当前最长档位
+            // v44.30-fix2: 口径自证——全历史 14 档扫描 / 完全匹配 / 重叠只留最长 / 当前最长档位
             var _maxLen = 0;
             matches.forEach(function(_m){ if((_m.matchLen||0) > _maxLen) _maxLen = _m.matchLen||0; });
             // v44.30-fix4: 补原始命中/去重/近似段，让"匹配少"可核对
         var _sEff = (typeof _toWinnerSeq === 'function') ? _toWinnerSeq(P.history) : P.history.map(getWinner);
         var _sSt = scanSimilarStats(_sEff);
-        lines.push('<div style="font-size:11px;color:#6a1b9a;margin-bottom:4px;line-height:1.8;">已扫描全部 '+P.history.length+' 局历史 × 5~12 局共 8 档；完全匹配优先、长度降序、重叠>50%只留最长。'+
-            '胜方序列逐位一致原始命中 <strong>'+_sSt.raw+'</strong> 条，去重后 <strong>'+_sSt.kept+'</strong> 条；当前最长完全匹配：<strong>'+_maxLen+' 局</strong>'+(_maxLen<8?'（历史中无 8 局以上逐位复刻，可点右上「体检」复核）':'')+'；'+
+        lines.push('<div style="font-size:11px;color:#6a1b9a;margin-bottom:4px;line-height:1.8;">已扫描全部 '+P.history.length+' 局历史 × 5~18 局共 14 档；完全匹配优先、长度降序、重叠>50%只留最长。'+
+            '胜方序列逐位一致原始命中 <strong>'+_sSt.raw+'</strong> 条，去重后 <strong>'+_sSt.kept+'</strong> 条；当前最长完全匹配：<strong>'+_maxLen+' 局</strong>'+(_maxLen < SIM_MAX_LEN ? '（当前最长 '+_maxLen+' 局，未达 18 局上限）' : '')+'；'+
             '另有 <strong>'+_sSt.near1+'</strong> 条「仅差 1 位」近似段（当前口径不收、不参与投票）。</div>');
             lines.push('<div class="match-history-list" style="max-height:260px;overflow-y:auto;border:1px solid #e1bee7;border-radius:6px;padding:6px;background:#faf5fc;">');
             var mColors = {A:'#e74c3c',B:'#3498db',C:'#2ecc71'};
@@ -12996,8 +13204,8 @@ function renderCards() {
         simProfitPanel.style.display = 'block';
         var pfLines = [];
         // 当前收益窗口
-        var curProfitSeq = P.history.slice(-12).map(function(r){return r.profitWinner ? profitTag(r.profitWinner) : '?';}).join(' → ');
-        pfLines.push('<div style="margin-bottom:8px;"><strong>📌 当前获胜收益窗口（近12局）：</strong>' + curProfitSeq + '</div>');
+        var curProfitSeq = P.history.slice(-SIM_CUR_WINDOW).map(function(r){return r.profitWinner ? profitTag(r.profitWinner) : '?';}).join(' → ');
+        pfLines.push('<div style="margin-bottom:8px;"><strong>📌 当前获胜收益窗口（近18局）：</strong>' + curProfitSeq + '</div>');
         // 预测结果
         pfLines.push('<div style="margin-bottom:8px;"><strong>🎯 收益预测：</strong>' +
             profitTag(simProfitInfo.predicted) +
@@ -13040,7 +13248,7 @@ function renderCards() {
             '全历史 <strong>'+P.history.length+'</strong> 局，但填了获胜收益的只有 <strong>'+_pEff.length+'</strong> 条（填充率 '+_pFill+'%）——匹配是在这 '+_pEff.length+' 条压缩序列上做的，不是 '+P.history.length+' 局。'+
             '逐位完全一致原始命中 <strong>'+_pSt.raw+'</strong> 条，重叠只留最长后 <strong>'+_pSt.kept+'</strong> 条（最长 '+_pSt.maxLen+' 局）；'+
             '另有 <strong>'+_pSt.near1+'</strong> 条「仅差 1 位」近似段（当前口径不收、不参与投票）。'+
-            '<br><span style="color:#888;">数学期望：三值序列 5 局模式共 3⁵=243 种，'+_pEff.length+' 条序列里单个 5 局模式约出现 '+(Math.round(_pEff.length/243*10)/10)+' 次；8 档合计本就是个位数到十几条。</span></div>');
+            '<br><span style="color:#888;">数学期望：三值序列 5 局模式共 3⁵=243 种，'+_pEff.length+' 条序列里单个 5 局模式约出现 '+(Math.round(_pEff.length/243*10)/10)+' 次；14 档合计多为个位数到十几条。</span></div>');
         pfLines.push('<div class="match-history-list" style="max-height:300px;overflow-y:auto;border:1px solid #fde68a;border-radius:6px;padding:6px;background:#fff;">');
         topPf.forEach(function(g){
             var m = g.best;
@@ -13049,7 +13257,7 @@ function renderCards() {
             var matchSeq = m.matchedWindow ? m.matchedWindow.map(function(p){ return '<span style="font-weight:600;">'+profitTag(p)+'</span>'; }).join(' → ') : '';
             var isGrouped = g.count > 1;
             var exactBadge = g.exact ? '<span style="display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:700;margin-left:4px;background:#ffd700;color:#333;">100%</span>' : '';
-            var lenBg = m.matchLen >= 12 ? '#c62828' : m.matchLen >= 10 ? '#e53935' : m.matchLen >= 8 ? '#ff7043' : m.matchLen >= 6 ? '#ff9800' : '#e0e0e0';
+            var lenBg = m.matchLen >= 16 ? '#b71c1c' : m.matchLen >= 14 ? '#c62828' : m.matchLen >= 12 ? '#e53935' : m.matchLen >= 10 ? '#ff7043' : m.matchLen >= 8 ? '#ff9800' : m.matchLen >= 6 ? '#ffb74d' : '#e0e0e0';
             var lenFg = m.matchLen >= 6 ? '#fff' : '#666';
             if (isGrouped) {
                 pfLines.push('<div style="border:2px solid #fde68a;border-radius:8px;margin:4px 0;padding:6px 8px;background:#fff;">'
@@ -13089,29 +13297,53 @@ function renderCards() {
 }
 function updateStats() {
     document.getElementById('totalGames').textContent=P.history.length;
-    document.getElementById('overallAccuracy').textContent=P.accuracy.length>0?(P.accuracy.filter(function(x){return x;}).length/P.accuracy.length*100).toFixed(1)+'%':'--';
-    var r8=P.accuracy.slice(-8);
-    document.getElementById('recent8Acc').textContent=r8.length>0?(r8.filter(function(x){return x;}).length/r8.length*100).toFixed(0)+'%':'--';
+    // v45.3: 旧版 filter(x=>x) 把 null/undefined 脏数据当「猜错」，分母却仍包含它们，
+    // 命中率被系统性低估（8真+2脏 → 显示 80%，实际 100%）。先剔除非布尔脏数据，
+    // 并把「命中 / 有效局」显示出来供核对。
+    var _validAcc = P.accuracy.filter(function(x){ return x === true || x === false; });
+    var _accHits = _validAcc.filter(function(x){ return x; }).length;
+    document.getElementById('overallAccuracy').textContent = _validAcc.length>0
+        ? (_accHits/_validAcc.length*100).toFixed(1)+'%' : '--';
+    var _accDetail = document.getElementById('accDetail');
+    if (_accDetail) _accDetail.textContent = _validAcc.length>0
+        ? '命中 '+_accHits+' / 有效 '+_validAcc.length+' 局'+
+          (P.accuracy.length !== _validAcc.length ? '（剔除 '+(P.accuracy.length-_validAcc.length)+' 条无效）' : '')
+        : '暂无预测记录';
+    var r8=_validAcc.slice(-8);
+    var _r8h = r8.filter(function(x){ return x; }).length;
+    document.getElementById('recent8Acc').textContent=r8.length>0?(_r8h/r8.length*100).toFixed(0)+'%':'--';
+    // v45.3: 38% 其实是 3/8=37.5%，不显示分子分母会被当成怪数字
+    var _r8Detail = document.getElementById('recent8Detail');
+    if (_r8Detail) _r8Detail.textContent = r8.length>0 ? '命中 '+_r8h+' / '+r8.length+' 局' : '—';
     var ts=getTailStreak(P.history);
     document.getElementById('curStreak').textContent=ts.count>0?ts.guild+':'+ts.count:'0';
-    document.getElementById('maxStreak').textContent=P.maxStreakEver;
-    if (P.predHistory.length>=3) {
-        var bs=0,cnt=0; var rec=P.predHistory.slice(-10);
-        for (var i=0;i<rec.length;i++) {
-            var ai=P.predHistory.length-rec.length+i+1;
-            if (ai<P.history.length) {
-                var act=getWinner(P.history[ai]);
-                if (act) { GUILDS.forEach(function(g){var o=(g===act)?1:0;bs+=(rec[i].probs[g]-o)*(rec[i].probs[g]-o);}); cnt++; }
-            }
-        }
-        if (cnt>0) document.getElementById('brierScore').textContent=(bs/(cnt*2)).toFixed(3);
-    } else document.getElementById('brierScore').textContent='--';
-    // v30.22：统计预测最低准确率
-    // v34.3性能优化：只遍历最近300条，避免predHistory几千条时每次渲染都全量O(n)
+    // v45.3: 删掉旧版这行 document.getElementById('maxStreak').textContent=P.maxStreakEver;
+    // 它先把卡片写成纯数字，几行后又被「C:7」覆盖，中间态无意义且口径不一致。
+    // v45.3: 旧版只算 predHistory.slice(-10)（近10局），但同排其它卡片全是全历史口径、
+    // UI 无任何标注 → 数字被误读为全历史 Brier。实测 3655 条全量遍历仅 3ms，没有截断必要。
+    var bs=0,cnt=0;
+    for (var bi=0; bi<P.predHistory.length; bi++) {
+        var bph=P.predHistory[bi];
+        if (!bph || bph.isTie || !bph.probs) continue;
+        var bRec=P.history[bi+1];
+        if (!bRec) continue;
+        var bAct=getWinner(bRec);
+        if (!bAct) continue;
+        ['A','B','C'].forEach(function(g){
+            var o=(g===bAct)?1:0;
+            bs+=(bph.probs[g]-o)*(bph.probs[g]-o);
+        });
+        cnt++;
+    }
+    document.getElementById('brierScore').textContent = cnt>0 ? (bs/(cnt*2)).toFixed(3) : '--';
+    var _brierDetail = document.getElementById('brierDetail');
+    if (_brierDetail) _brierDetail.textContent = cnt>0 ? '全历史 '+cnt+' 局（↓越小越准）' : '暂无预测记录';
+    // v45.3: 旧版 v34.3「性能优化」只遍历最近 300 条 predHistory，标题却看不出窗口，
+    // 3655 局会把 0.3% 当成全历史命中率（实测 600 局构造：旧 0.3% / 全历史 50.1%）。
+    // 另外它算的是「猜谁得 0 分（垫底方）的命中率」，标题已改为「垫底方命中率」。
     try {
         var lowCorrect = 0, lowTotal = 0;
-        var _lowStart = Math.max(0, P.predHistory.length - 300);
-        for (var li = _lowStart; li < P.predHistory.length; li++) {
+        for (var li = 0; li < P.predHistory.length; li++) {
             var ph = P.predHistory[li];
             if (!ph) continue;
             var probs = ph.probs || ph.probabilities;
@@ -13127,12 +13359,11 @@ function updateStats() {
             if (predLow === actualLow) lowCorrect++;
         }
         var lowEl = document.getElementById('lowestAccuracy');
-        if (lowEl && lowTotal > 0) {
-            lowEl.textContent = (lowCorrect / lowTotal * 100).toFixed(1) + '%';
-        } else {
-            if (lowEl) lowEl.textContent = '0%';
-        }
-    } catch(e) { console.warn('[预测最低统计]失败:', e.message); }
+        if (lowEl) lowEl.textContent = lowTotal > 0 ? (lowCorrect / lowTotal * 100).toFixed(1) + '%' : '--';
+        var _lowDetail = document.getElementById('lowestDetail');
+        if (_lowDetail) _lowDetail.textContent = lowTotal > 0
+            ? '全历史 '+lowTotal+' 局 · 猜谁得 0 分' : '暂无可比局';
+    } catch(e) { console.warn('[垫底方命中率]失败:', e.message); }
     var r=P.predict();
     document.getElementById('dataSource').textContent=r?r.source:'—';
     // v25.9: 最长未中统计（预测商会 + 预测收益）
@@ -13140,36 +13371,43 @@ function updateStats() {
     var curMissG = calcCurrentMissStreak(P.accuracy);
     document.getElementById('maxMissGuild').textContent = maxMissG;
     document.getElementById('curMissGuild').textContent = curMissG;
+    // v45.3: 标出有效样本数，避免把「只统计有判定的局」误读为全历史
+    var _mgDetail = document.getElementById('missGuildDetail');
+    if (_mgDetail) {
+        var _mgValid = (P.accuracy||[]).filter(function(x){ return x===true||x===false; }).length;
+        _mgDetail.textContent = '有判定 '+_mgValid+' 局';
+    }
     // v35.6: 按 A/B/C 分别统计连胜和不胜
     var _streaks = calcStreaksByGuild(P.history || []);
-    // 最大连胜卡片：显示三者中最大值，下方小字分别列出
-    var _maxWinVal = Math.max(_streaks.A.winMax, _streaks.B.winMax, _streaks.C.winMax);
-    var _maxWinGuild = 'A';
-    if (_streaks.B.winMax === _maxWinVal) _maxWinGuild = 'B';
-    if (_streaks.C.winMax === _maxWinVal) _maxWinGuild = 'C';
-    document.getElementById('maxStreak').textContent = _maxWinGuild + ':' + _maxWinVal;
+    // v45.3: 旧版连续 if 覆盖取「最后一个」并列最大值，A:6 B:7 C:7 只显示 C:7。
+    // 改成列出所有并列者：B/C:7。三处（最大连胜/最长不胜/当前不胜）统一。
+    function _pickMaxStreak(vals) {
+        var mx = Math.max(vals.A, vals.B, vals.C);
+        var gs = ['A','B','C'].filter(function(k){ return vals[k] === mx; });
+        return gs.join('/') + ':' + mx;
+    }
+    document.getElementById('maxStreak').textContent = _pickMaxStreak({
+        A:_streaks.A.winMax, B:_streaks.B.winMax, C:_streaks.C.winMax });
     document.getElementById('maxWinA').textContent = _streaks.A.winMax;
     document.getElementById('maxWinB').textContent = _streaks.B.winMax;
     document.getElementById('maxWinC').textContent = _streaks.C.winMax;
-    // 最长不胜卡片：显示三者中最大值
-    var _maxLoseVal = Math.max(_streaks.A.loseMax, _streaks.B.loseMax, _streaks.C.loseMax);
-    var _maxLoseGuild = 'A';
-    if (_streaks.B.loseMax === _maxLoseVal) _maxLoseGuild = 'B';
-    if (_streaks.C.loseMax === _maxLoseVal) _maxLoseGuild = 'C';
-    document.getElementById('maxLossStreak').textContent = _maxLoseGuild + ':' + _maxLoseVal;
+    document.getElementById('maxLossStreak').textContent = _pickMaxStreak({
+        A:_streaks.A.loseMax, B:_streaks.B.loseMax, C:_streaks.C.loseMax });
     document.getElementById('maxLoseA').textContent = _streaks.A.loseMax;
     document.getElementById('maxLoseB').textContent = _streaks.B.loseMax;
     document.getElementById('maxLoseC').textContent = _streaks.C.loseMax;
-    // 当前不胜卡片
-    var _curLoseMax = Math.max(_streaks.A.loseCur, _streaks.B.loseCur, _streaks.C.loseCur);
-    var _curLoseGuild = 'A';
-    if (_streaks.B.loseCur === _curLoseMax) _curLoseGuild = 'B';
-    if (_streaks.C.loseCur === _curLoseMax) _curLoseGuild = 'C';
-    document.getElementById('curLoseStreak').textContent = _curLoseGuild + ':' + _curLoseMax;
+    document.getElementById('curLoseStreak').textContent = _pickMaxStreak({
+        A:_streaks.A.loseCur, B:_streaks.B.loseCur, C:_streaks.C.loseCur });
     var maxMissP = calcMaxMissStreak(P.profitAccuracy);
     var curMissP = calcCurrentMissStreak(P.profitAccuracy);
     document.getElementById('maxMissProfit').textContent = maxMissP;
     document.getElementById('curMissProfit').textContent = curMissP;
+    // v45.3: profitAccuracy 是稀疏数组，明确标出「有收益数据的局数」
+    var _mpDetail = document.getElementById('missProfitDetail');
+    if (_mpDetail) {
+        var _mpValid = (P.profitAccuracy||[]).filter(function(x){ return x===true||x===false; }).length;
+        _mpDetail.textContent = '有收益数据 '+_mpValid+' 局';
+    }
     // v31.5: 智能诊断——自动分析数据给结论
     try {
         var diag = [];
@@ -13454,23 +13692,28 @@ function applyTimeEdit(idx, field, value) {
 }
 function renderPredHistory() {
     var tb=document.getElementById('predHistoryBody');
+    if (!tb) return; // v45.3: 面板被移除/未加载时不再抛错
     var start=Math.max(0,P.predHistory.length-50);
     // v27.4: 修复predHistory被截断后的索引偏移，改用字符串拼接+一次性innerHTML提升性能
     var _phOff = P.history.length - P.predHistory.length;
     var html = '';
     for (var i=start;i<P.predHistory.length;i++) {
         var ph=P.predHistory[i];
+        if (!ph) continue; // 稀疏空洞
         var histIdx = i + _phOff;
         var gameIdx = histIdx + 1;
-        var actual=(histIdx<P.history.length)?getWinner(P.history[histIdx]):null;
-        var isTie = ph.isTie || (actual===null && histIdx<P.history.length);
+        var actual=(histIdx>=0 && histIdx<P.history.length)?getWinner(P.history[histIdx]):null;
+        var isTie = ph.isTie || (actual===null && histIdx>=0 && histIdx<P.history.length);
         var corr=(actual!==null)&&(actual===ph.guild);
         var actualRDisp='待定';
         if (actual!==null && ph.rank && ph.rank[actual]!==undefined) { var ar=ph.rank[actual]; actualRDisp=ar===1?'🥇':ar===2?'🥈':'🥉'; }
         var rowCls=isTie?'tie-bg':(corr?'correct-bg':'wrong-bg');
-        html += '<tr class="'+rowCls+'"><td>'+gameIdx+'</td><td>'+ph.guild+'</td><td style="font-size:11px;">'+rankSnapshot(ph.sorted)+'</td>'+
+        // v45.3: 兼容缺 probs / probabilities / guild 的旧条目，避免整表崩掉
+        var _pb = ph.probs || ph.probabilities || {A:1/3,B:1/3,C:1/3};
+        var _pct = function(v){ var n=Number(v); return isFinite(n)?(n*100).toFixed(0)+'%':'—'; };
+        html += '<tr class="'+rowCls+'"><td>'+gameIdx+'</td><td>'+(ph.guild||'—')+'</td><td style="font-size:11px;">'+rankSnapshot(ph.sorted)+'</td>'+
             '<td>'+(actual||(isTie?'平局':'待定'))+'</td><td>'+actualRDisp+'</td>'+
-            '<td>'+(ph.probs.A*100).toFixed(0)+'%</td><td>'+(ph.probs.B*100).toFixed(0)+'%</td><td>'+(ph.probs.C*100).toFixed(0)+'%</td>'+
+            '<td>'+_pct(_pb.A)+'</td><td>'+_pct(_pb.B)+'</td><td>'+_pct(_pb.C)+'</td>'+
             '<td>'+sourceBadge(ph.source)+'</td><td>'+(isTie?'🤝':(corr?'✅':'❌'))+'</td></tr>';
     }
     tb.innerHTML = html;
@@ -14657,6 +14900,8 @@ function alignByTail(newRecs, history) {
 }
 // v31-5: 三态对账表——灰=系统已有跳过，中绿=锚点对齐段，亮绿加粗=将新增导入
 function renderImportReconcile(align, recs) {
+    // v45.3: 缺参数时返回空串而不是抛错（模块单独渲染/异常调用不应拖垮整页）
+    if (!align || !Array.isArray(recs)) return '';
     var maxRows = 60;
     var showN = Math.min(recs.length, maxRows);
     var html = '<div style="font-weight:700;margin:6px 0 4px;">📋 Excel 对账表（亮绿=将导入，中绿=锚点对齐，灰=系统已有跳过）</div>';
@@ -15261,141 +15506,165 @@ function _autoSetProfitOnScore3() {
 document.getElementById("inputA").addEventListener("input", _autoSetProfitOnScore3);
 document.getElementById("inputB").addEventListener("input", _autoSetProfitOnScore3);
 document.getElementById("inputC").addEventListener("input", _autoSetProfitOnScore3);
-document.getElementById('btnAddRecord').addEventListener('click',function(){
-    // v35.2：普通用户录入间隔限制（10秒），管理员不受限
-    if (!_isAdmin && _lastRecordTime > 0) {
-        var _elapsed = Date.now() - _lastRecordTime;
-        var _remain = _RECORD_INTERVAL_MS - _elapsed;
-        if (_remain > 0) {
-            var _remainSec = Math.ceil(_remain / 1000);
-            showRecordResult(false, '录入过于频繁', '普通用户两次录入需间隔10秒\n请等待 ' + _remainSec + ' 秒后再试\n\n（管理员模式不受此限制）');
-            return;
-        }
+// ============================================================
+// v45.5: 录入链路整体加固（四个真问题一起修）
+//  ① 两个原生 confirm() 被浏览器勾选「阻止此页面创建更多对话框」后会直接返回 false
+//     且完全静默 → 点了录入没任何反应，只能反复点；恢复后又容易连着录多局。
+//  ② 按钮锁只在两个 confirm 之后才设置，且 showLearningIndicator(true) 无异常保护；
+//     只要它抛错，setTimeout 永远不注册，按钮永久 disabled →「点不动按钮」。
+//  ③ 结果弹窗是全屏遮罩、必须手动点确定、z-index 还低于 AI 状态栏 → 挡住录入按钮。
+//  ④ addRecord 已入库后，后续任何展示异常都弹「录入出错，请再点一次」→ 用户重复点
+//     → 同一局被录多次。现在成功反馈最先给，且后续异常绝不把成功改写成「请再点一次」。
+// ============================================================
+var _addBusy = false, _addBusyAt = 0;
+var _addLastKey = '', _addLastAt = 0;
+function _releaseAddBtn(btn) {
+    _addBusy = false;
+    if (btn) { try { btn.disabled = false; btn.style.opacity = ''; } catch(e) {} }
+}
+function _doAddRecord(_btn, a, b, c, pW, iW, _guard) {
+    var _finish = function(){ _releaseAddBtn(_btn); if (_guard) { try { clearTimeout(_guard); } catch(e) {} } };
+    // 同一份数据 3 秒内重复提交直接拦截（连点 / 快捷录入与主表单同时触发都挡得住）
+    var _key = a + '|' + b + '|' + c + '|' + pW + '|' + iW;
+    var _now = Date.now();
+    if (_addLastKey === _key && (_now - _addLastAt) < 3000) {
+        showRecordResult(false, '已拦截重复录入', '同一份数据在 3 秒内已经录入过，本次未重复添加。', 4000);
+        _finish(); return;
     }
-    var a=parseFloat(document.getElementById('inputA').value);
-    var b=parseFloat(document.getElementById('inputB').value);
-    var c=parseFloat(document.getElementById('inputC').value);
-    // v37.0修复: 输入空值时parseFloat返回NaN，提前提示避免后续校验显示"NaN分"
-    if (isNaN(a) || isNaN(b) || isNaN(c)) {
-        showRecordResult(false, '录入失败', '请先填写A、B、C三个商会的得分！\n不能留空或输入非数字内容。');
-        return;
-    }
-    // 录入校验：ABC得分不能重复，不能有两个0，不能同时出现2和3
-    var scores=[a,b,c];
-    var guilds=['A','B','C'];
-    // 检查重复得分
-    var seen={};
-    var dupGuilds=[];
-    for(var vi=0;vi<3;vi++){
-        if(seen[scores[vi]]!==undefined){
-            dupGuilds.push(guilds[seen[scores[vi]]]+'和'+guilds[vi]+'都是'+scores[vi]+'分');
-        }
-        seen[scores[vi]]=vi;
-    }
-    if(dupGuilds.length>0){
-        showRecordResult(false, '录入失败', 'ABC每个得分只能出现一次，不能重复！\n\n' + dupGuilds.join('\n'));
-        return;
-    }
-    // 检查不能同时出现2和3
-    var has2=scores.indexOf(2)>=0, has3=scores.indexOf(3)>=0;
-    if(has2 && has3){
-        showRecordResult(false, '录入失败', '2分和3分不能同时出现！请修改后重新录入。');
-        return;
-    }
-    // v38.2：录入前检测完全重复（同时段+同ABC+同收益+同投资）——避免两家并发录完全相同局时重复入库
-    var _pendingSlot = getTimeSlot();
-    var _pendingNow = new Date();
-    var _pendingDate = _pendingNow.getFullYear() + '-' + String(_pendingNow.getMonth()+1).padStart(2,'0') + '-' + String(_pendingNow.getDate()).padStart(2,'0');
-    var _pendingPW = document.getElementById('inputProfitWinner').value || '';
-    var _pendingIW = document.getElementById('inputInvestWinner').value || '';
-    var _pendingRec = {date:_pendingDate, timeSlot:_pendingSlot, a:a, b:b, c:c, profitWinner:_pendingPW, investWinner:_pendingIW};
-    var _pendingKey = _recKey(_pendingRec);
-    var _dupIdx = -1;
-    for (var _di = (P.history||[]).length - 1; _di >= 0; _di--) {
-        if (_recKey(P.history[_di]) === _pendingKey) { _dupIdx = _di; break; }
-    }
-    if (_dupIdx >= 0) {
-        var _dupRec = P.history[_dupIdx];
-        var _dupAct = confirm('⚠️ 完全重复提示\n\n即将录入：' + _pendingSlot + '\nA' + a + ' B' + b + ' C' + c + (_pendingPW ? ' 收益'+_pendingPW : '') + (_pendingIW ? ' 投资'+_pendingIW : '') + '\n\n与本地第' + (_dupIdx+1) + '局完全相同（时段+比分+收益+投资）。\n\n点「确定」= 取消录入（该条已存在）\n点「取消」= 仍要追加一条');
-        if (_dupAct) return; // 用户选"确定"=不录
-    }
-    // v26.4：录入二次确认
-    var pWConfirm = document.getElementById('inputProfitWinner').value;
-    var iWConfirm = document.getElementById('inputInvestWinner').value;
-    var profitText = pWConfirm ? ('获胜商会收益：' + pWConfirm) : '获胜商会收益：未选';
-    var investText = iWConfirm ? ('\n获胜商会投资：' + iWConfirm) : '';
-    if(!confirm('确认录入本局数据？\n\nA：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' + profitText + investText + '\n\n点「确定」录入，点「取消」返回修改。')) return;
-    // v30.22：防重复点击——录入过程中禁用按钮，防止 setTimeout 期间重复拍快照
-    var _btn = document.getElementById('btnAddRecord');
-    if (_btn && _btn.disabled) return;
-    if (_btn) { _btn.disabled = true; _btn.style.opacity = '0.6'; }
-    try { createSnapshot('录入：A' + a + ' B' + b + ' C' + c); } catch(e) { console.warn('[录入]快照失败，继续:', e.message); } // v29.12
-    showLearningIndicator(true);
+    if (_btn) { try { _btn.disabled = true; _btn.style.opacity = '0.6'; } catch(e) {} }
+    try { createSnapshot('录入：A' + a + ' B' + b + ' C' + c); } catch(e) { console.warn('[录入]快照失败，继续:', e.message); }
+    try { showLearningIndicator(true); } catch(e) { console.warn('[录入]学习指示器异常，继续:', e.message); }
     setTimeout(function(){
+        var _committed = false;
         try {
-        // v26.0: 直接录入获胜收益（大/中/小）
-        var pW = document.getElementById('inputProfitWinner').value;
-        var iW = document.getElementById('inputInvestWinner').value;
-        var _lenBefore = P.history.length, _addErr = null;
-        try { P.addRecord(a,b,c,null,pW,'','','',iW); } catch(e) { _addErr = e; console.error('[录入]addRecord失败:', e.message); }
-        // v30.22：验证记录真的入库，否则报失败而非假成功
-        if (_addErr || P.history.length !== _lenBefore + 1) {
-            showLearningIndicator(false);
-            if (_btn) { _btn.disabled = false; _btn.style.opacity = ''; }
-            showRecordResult(false, '录入失败', '本局未能保存（'+(_addErr?_addErr.message:'记录未写入')+'），请再点一次录入。');
-            return;
-        }
-        // 录入后重置收益选择
-        document.getElementById('inputProfitWinner').value='';
-        document.getElementById('inputInvestWinner').value='';
-        // 录入新记录后自动跳到最后一页（最新记录）
-        var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
-        if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 100)); _hc.setAttribute('data-page', _tp); }
-        try { renderAll(); } catch(e) { console.error('[录入]renderAll失败:', e.message); }
-        try { _finalizeLastSnapCount(); } catch(e) {} // v38.x: 修正快照count为录入后局数
-        try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); } // v29.12
-        showLearningIndicator(false);
-        try { showLearnTip(); } catch(e) {}
-        // v43.2: 录入新一局后，清空旧的AI修正缓存——上一局的修正只对上一局有效
-        try {
-            P._aiCache = null;
-            window._predCache = null;
-            console.log('[录入] 旧AI修正缓存已清空');
-        } catch(e) {}
-        // v42.0: 录入成功3秒后自动调用AI预测下一局（不再立即触发，不重复调用）
-        try {
-            var aiBar = document.getElementById('aiStatusBar');
-            if (aiBar) {
-                var countdown = 3;
-                aiBar.style.display = 'block';
-                aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...';
-                var countdownTimer = setInterval(function() {
-                    countdown--;
-                    if (countdown <= 0) {
-                        clearInterval(countdownTimer);
-                        aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...';
-                    } else {
-                        aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...';
-                    }
-                }, 1000);
+            var _lenBefore = P.history.length, _addErr = null;
+            try { P.addRecord(a, b, c, null, pW, '', '', '', iW); }
+            catch(e) { _addErr = e; console.error('[录入]addRecord失败:', e.message); }
+            if (_addErr || P.history.length !== _lenBefore + 1) {
+                showRecordResult(false, '录入失败', '本局未能保存（' + (_addErr ? _addErr.message : '记录未写入') + '），请再点一次录入。', 4000);
+                _finish(); return;
             }
-            setTimeout(function(){ aiPredictNext(); }, 3000);
-        } catch(e) { console.warn('[AI录入后延迟3s]失败:', e.message); }
-        // v26.5：录入成功弹窗
-        var profitTxt = pW ? ('，获胜收益：' + pW) : '';
-        var investTxt = iW ? ('，获胜投资：' + iW) : '';
-        showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt + '\n\n🧠 AI预测将在3秒后自动开始分析下一局\n⏱️ 停手5秒后自动上传云端（连续录入会重新计时）...');
-        // v35.2：记录录入时间（用于间隔限制）
-        _lastRecordTime = Date.now();
-        // v36.1：上传统一由 debouncedSave() 内的 5 秒定时器处理（带首次启动保护、测试模式拦截、
-        //        连续录入重新计时），此处不再单独 setTimeout cloudSave()，避免重复上传两次。
-    } catch(e) {
-        console.error('[录入] 出错:', e);
-        showRecordResult(false, '录入出错', '出错了: ' + e.message + '\n\n请再点一次录入按钮重试。');
-    } finally {
-            if (_btn) { _btn.disabled = false; _btn.style.opacity = ''; }
+            _committed = true;
+            _addLastKey = _key; _addLastAt = _now;
+            // ★ 成功反馈最先给。后续每一项独立 try，任何异常都不得把「成功」改写成「请再点一次」
+            var profitTxt = pW ? ('，获胜收益：' + pW) : '';
+            var investTxt = iW ? ('，获胜投资：' + iW) : '';
+            showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt +
+                '\n\n🧠 AI预测将在3秒后自动开始分析下一局\n⏱️ 停手5秒后自动上传云端（连续录入会重新计时）...', 4000);
+            _lastRecordTime = Date.now();
+            try {
+                var _ipw = document.getElementById('inputProfitWinner'); if (_ipw) _ipw.value = '';
+                var _iiw = document.getElementById('inputInvestWinner'); if (_iiw) _iiw.value = '';
+            } catch(e) { console.warn('[录入]重置输入异常:', e.message); }
+            try {
+                var _hc = document.getElementById('historyContainer') || document.querySelector('.history-table-container');
+                if (_hc) { var _tp = Math.max(1, Math.ceil(P.history.length / 100)); _hc.setAttribute('data-page', _tp); }
+            } catch(e) {}
+            try { renderAll(); } catch(e) { console.error('[录入]renderAll失败:', e.message); }
+            try { _finalizeLastSnapCount(); } catch(e) {}
+            try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); }
+            try { showLearningIndicator(false); } catch(e) {}
+            try { showLearnTip(); } catch(e) {}
+            try { P._aiCache = null; window._predCache = null; } catch(e) {}
+            try {
+                var aiBar = document.getElementById('aiStatusBar');
+                if (aiBar) {
+                    var countdown = 3;
+                    aiBar.style.display = 'block';
+                    aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...';
+                    var countdownTimer = setInterval(function() {
+                        countdown--;
+                        if (countdown <= 0) { clearInterval(countdownTimer); aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...'; }
+                        else { aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...'; }
+                    }, 1000);
+                }
+                setTimeout(function(){ aiPredictNext(); }, 3000);
+            } catch(e) { console.warn('[AI录入后延迟3s]失败:', e.message); }
+        } catch(e) {
+            console.error('[录入] 后续处理异常:', e);
+            if (_committed) {
+                // ★ 已入库：绝不能提示「请再点一次」，否则用户会重复录入
+                showRecordResult(true, '录入成功（界面刷新异常）',
+                    '第' + P.history.length + '局已保存，请勿重复录入。\n\n界面刷新时出错：' + e.message + '\n刷新页面即可查看。', 4000);
+            } else {
+                showRecordResult(false, '录入失败', '出错了: ' + e.message + '\n\n请再点一次录入按钮重试。', 4000);
+            }
+        } finally {
+            try { showLearningIndicator(false); } catch(e) {}
+            _finish();
         }
     }, 10);
+}
+document.getElementById('btnAddRecord').addEventListener('click', function(){
+    var _btn = document.getElementById('btnAddRecord');
+    // 锁带时间戳自愈：超过 8 秒视为上次异常卡死，自动放行（重复检测仍会拦重复数据）
+    if (_addBusy && (Date.now() - _addBusyAt) < 8000) {
+        showRecordResult(false, '正在录入', '上一次录入还在处理中，请稍候…', 4000);
+        return;
+    }
+    _addBusy = true; _addBusyAt = Date.now();
+    // 兜底：只恢复按钮 UI，不动 _addBusy；即使确认弹窗一直不点，也绝不会让按钮永久 disabled
+    var _guard = setTimeout(function(){
+        if (_btn) { try { _btn.disabled = false; _btn.style.opacity = ''; } catch(e) {} }
+    }, 8000);
+    try {
+        // 1) 录入间隔限制（普通用户 10 秒）
+        if (!_isAdmin && _lastRecordTime > 0) {
+            var _remain = _RECORD_INTERVAL_MS - (Date.now() - _lastRecordTime);
+            if (_remain > 0) {
+                showRecordResult(false, '录入过于频繁', '普通用户两次录入需间隔10秒\n请等待 ' + Math.ceil(_remain/1000) + ' 秒后再试\n\n（管理员模式不受此限制）', 4000);
+                _releaseAddBtn(_btn); clearTimeout(_guard); return;
+            }
+        }
+        // 2) 输入快照：后面统一用局部变量，不再在 setTimeout 里二次读 DOM（避免 10ms 内被改）
+        var a = parseFloat(document.getElementById('inputA').value);
+        var b = parseFloat(document.getElementById('inputB').value);
+        var c = parseFloat(document.getElementById('inputC').value);
+        var pW = (document.getElementById('inputProfitWinner') || {}).value || '';
+        var iW = (document.getElementById('inputInvestWinner') || {}).value || '';
+        // 3) 校验（沿用原有规则）
+        if (isNaN(a) || isNaN(b) || isNaN(c)) {
+            showRecordResult(false, '录入失败', '请先填写A、B、C三个商会的得分！\n不能留空或输入非数字内容。', 4000);
+            _releaseAddBtn(_btn); clearTimeout(_guard); return;
+        }
+        var scores = [a,b,c], guilds = ['A','B','C'], seen = {}, dupGuilds = [];
+        for (var vi = 0; vi < 3; vi++) {
+            if (seen[scores[vi]] !== undefined) dupGuilds.push(guilds[seen[scores[vi]]] + '和' + guilds[vi] + '都是' + scores[vi] + '分');
+            seen[scores[vi]] = vi;
+        }
+        if (dupGuilds.length > 0) {
+            showRecordResult(false, '录入失败', 'ABC每个得分只能出现一次，不能重复！\n\n' + dupGuilds.join('\n'), 4000);
+            _releaseAddBtn(_btn); clearTimeout(_guard); return;
+        }
+        if (scores.indexOf(2) >= 0 && scores.indexOf(3) >= 0) {
+            showRecordResult(false, '录入失败', '2分和3分不能同时出现！请修改后重新录入。', 4000);
+            _releaseAddBtn(_btn); clearTimeout(_guard); return;
+        }
+        // 4) 完全重复检测：不再单独弹原生 confirm，合并进下面那一个自定义确认弹窗
+        var _pendingSlot = getTimeSlot();
+        var _pn = new Date();
+        var _pendingDate = _pn.getFullYear() + '-' + String(_pn.getMonth()+1).padStart(2,'0') + '-' + String(_pn.getDate()).padStart(2,'0');
+        var _pendingKey = _recKey({date:_pendingDate, timeSlot:_pendingSlot, a:a, b:b, c:c, profitWinner:pW, investWinner:iW});
+        var _dupIdx = -1;
+        for (var _di = (P.history||[]).length - 1; _di >= 0; _di--) {
+            if (_recKey(P.history[_di]) === _pendingKey) { _dupIdx = _di; break; }
+        }
+        var _baseMsg = 'A：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' +
+            (pW ? '获胜商会收益：' + pW : '获胜商会收益：未选') + (iW ? '\n获胜商会投资：' + iW : '');
+        var _cTitle = _dupIdx >= 0 ? '⚠️ 完全重复提示' : '确认录入本局数据？';
+        var _cMsg = _dupIdx >= 0
+            ? _baseMsg + '\n\n与本地第' + (_dupIdx+1) + '局完全相同（时段+比分+收益+投资）。\n\n点「仍要录入」会追加一条，点「取消」放弃本次。'
+            : _baseMsg + '\n\n点「确定录入」保存，点「取消」返回修改。';
+        // 5) 一个页面内确认弹窗：非原生 confirm，不会被浏览器拦截、不会静默吞掉点击
+        showRecordConfirm(_cTitle, _cMsg,
+            function(){ _doAddRecord(_btn, a, b, c, pW, iW, _guard); },
+            function(){ _releaseAddBtn(_btn); clearTimeout(_guard); },
+            _dupIdx >= 0 ? '仍要录入' : '确定录入', '取消');
+    } catch(e) {
+        console.error('[录入] 前置检查异常:', e);
+        showRecordResult(false, '录入失败', '录入前检查出错：' + e.message, 4000);
+        _releaseAddBtn(_btn); clearTimeout(_guard);
+    }
 });
 document.getElementById('btnUndo').addEventListener('click',function(){
     if(!P.history || P.history.length === 0){ showRecordResult(false, '撤销失败', '没有可撤销的记录'); return; }
@@ -16779,8 +17048,8 @@ function w2AiChat(prompt, cb){
     var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
     var hdrs = {'Content-Type':'application/json'};
     if(cfg.key){ hdrs['Authorization']='Bearer '+cfg.key; hdrs['apikey']=cfg.key; }
-    fetch(proxyUrl, {method:'POST', headers:hdrs, body:JSON.stringify({model:'glm-4.7-flash', messages:[{role:'user',content:prompt}], temperature:0.3})})
-      .then(function(r){ return r.json(); })
+    aiProxyFetch(proxyUrl, hdrs,
+        {model:'glm-4.7-flash', messages:[{role:'user',content:prompt}], temperature:0.3}, 25000)
       .then(function(data){
         var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
         cb(text || null);
@@ -16891,11 +17160,12 @@ function buildQuickEntry(){
     mask.className = 'w2-mask'; mask.id = 'w2QuickModal';
     mask.innerHTML =
       '<div class="w2-modal">'+
-      '<h4>⚡ 快速录入本局</h4>'+
+      '<div class="w2-quick-head"><h4>⚡ 快速录入本局</h4>'+
+      '<button type="button" id="w2QuickClose" class="w2-quick-close" aria-label="关闭快速录入">✕</button></div>'+
       '<div class="w2-row-title">商会得分（0 / 0.5 / 1 / 2 / 3）</div>'+
-      '<div class="w2-score-row"><span class="w2-glabel" style="color:#e74c3c;">A</span></div>'+
-      '<div class="w2-score-row"><span class="w2-glabel" style="color:#3498db;">B</span></div>'+
-      '<div class="w2-score-row"><span class="w2-glabel" style="color:#2ecc71;">C</span></div>'+
+      '<div class="w2-score-row w2-row-a"><span class="w2-glabel" style="color:#e74c3c;">A</span></div>'+
+      '<div class="w2-score-row w2-row-b"><span class="w2-glabel" style="color:#3498db;">B</span></div>'+
+      '<div class="w2-score-row w2-row-c"><span class="w2-glabel" style="color:#2ecc71;">C</span></div>'+
       '<div class="w2-row-title">获胜收益</div>'+
       '<div class="w2-score-row w2-pw"></div>'+
       '<div class="w2-row-title">获胜投资</div>'+
@@ -16904,10 +17174,19 @@ function buildQuickEntry(){
       '</div>';
     document.body.appendChild(mask);
 
+    // v45.3: 统一关闭入口（关闭按钮 / 点遮罩 / ESC），关闭后重置选择，避免残留
+    function closeQuickModal(){
+      try{ mask.classList.remove('w2-show'); }catch(e){}
+      qSel = {a:null,b:null,c:null,pw:null,iw:null};
+      try{ mask.querySelectorAll('.w2-sel').forEach(function(b){ b.classList.remove('w2-sel'); }); }catch(e){}
+      try{ w2RefreshQuickDone(); }catch(e){}
+    }
     var scores = [0,0.5,1,2,3];
-    var rows = {a: mask.querySelector('.w2-score-row:nth-of-type(2)'),
-                b: mask.querySelector('.w2-score-row:nth-of-type(3)'),
-                c: mask.querySelector('.w2-score-row:nth-of-type(4)')};
+    // v45.3: 原用 :nth-of-type(2/3/4) 依赖 div 顺序，头部改成 flex 容器后会整体错位；
+    // 改用显式 class，之后增删行都不会把分数按钮塞到标题行里。
+    var rows = {a: mask.querySelector('.w2-row-a'),
+                b: mask.querySelector('.w2-row-b'),
+                c: mask.querySelector('.w2-row-c')};
     ['a','b','c'].forEach(function(k){
       var row = rows[k]; if(!row) return;
       scores.forEach(function(v){
@@ -16932,7 +17211,13 @@ function buildQuickEntry(){
       w2RefreshQuickDone();
       mask.classList.add('w2-show');
     });
-    mask.addEventListener('click', function(e){ if(e.target === mask) mask.classList.remove('w2-show'); });
+    try{ $('w2QuickClose').addEventListener('click', closeQuickModal); }catch(e){}
+    mask.addEventListener('click', function(e){ if(e.target === mask) closeQuickModal(); });
+    try{
+      document.addEventListener('keydown', function(e){
+        if(e.key === 'Escape' && mask.classList.contains('w2-show')) closeQuickModal();
+      });
+    }catch(e){}
     $('w2QuickDone').addEventListener('click', function(){
       try{
         var iA=$('inputA'), iB=$('inputB'), iC=$('inputC');
@@ -16941,7 +17226,7 @@ function buildQuickEntry(){
         iA.value = String(qSel.a); iB.value = String(qSel.b); iC.value = String(qSel.c);
         iPW.value = qSel.pw; iIW.value = qSel.iw;
         [iA,iB,iC].forEach(function(el){ el.dispatchEvent(new Event('input')); });
-        mask.classList.remove('w2-show');
+        closeQuickModal();
         setTimeout(function(){ try{ $('btnAddRecord').click(); }catch(e){ w2Toast('请用主表单录入'); } }, 80);
       }catch(e){ w2Toast('录入失败：'+e.message); }
     });
