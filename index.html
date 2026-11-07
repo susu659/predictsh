@@ -5,7 +5,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v47.1 · 增量同步与流量可视版</title>
+<title>商会三竞预测系统 v47.2 · 增量同步与流量可视版</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -839,7 +839,7 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip">v47.1</span></h1>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip">v47.2</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
 </header>
 <div class="main-content">
@@ -1804,7 +1804,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v47.1'; // v47.1: 启动补拉修复 + 上传/拉取成功弹窗（仅展示/标记，未用作存储键）
+  var APP_VERSION = 'v47.2'; // v47.2: 启动补拉修复 + 上传/拉取成功弹窗（仅展示/标记，未用作存储键）
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg, autoCloseMs) {
@@ -2353,6 +2353,11 @@ var CLOUD_CONFIG_VERSION = 2; // v46.7: 配置版本号——服务器更换时+
     }
     document.getElementById('accessCloudUrl').value = sbUrl;
     document.getElementById('accessCloudKey').value = sbKey;
+    // v47.1：管理员登录态持久化——管理员已登录则直接进入，不要求重新输密码
+    // （此前登录类型/管理员模式标记虽已缓存，但登录界面 init() 未读取，导致每次刷新都要重新登录）
+    var _adminLoginCached = false;
+    try { _adminLoginCached = localStorage.getItem(LOGIN_TYPE_KEY) === 'admin' || localStorage.getItem(ADMIN_MODE_KEY) === '1'; } catch(e) {}
+    if (_adminLoginCached) return; // 遮罩已被 hide() 隐藏，直接进入系统；_isAdmin 由 initCloud 自动恢复
     // v27.4：本地授权缓存优先——已授权设备即使网络波动也能直接进入，后台异步验证云端
     var _localAuthed = localStorage.getItem(AUTH_CACHE_KEY) === '1';
     if (deviceId && _localAuthed) {
@@ -9497,7 +9502,7 @@ async function cloudLoad(silent) {
                     _applyTombstonesToLocal(); // v46.6: 防删除记录被快照复活
                     await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                     updateCloudStatus('online', '✅ 云端已同步 · 本地' + P.history.length + '局（云端快照' + cloudHistLen + '局+增量行）' + (_sweptN > 0 ? ' · 本次补拉' + _sweptN + '条' : '') + ' · ' + cloudLastSync.toLocaleTimeString());
-                    // v47.1: 拉取成功弹窗
+                    // v47.2: 拉取成功弹窗
                     try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + (_sweptN > 0 ? '（含其他端增量 ' + _sweptN + ' 条）' : '') + '\n云端快照 ' + cloudHistLen + ' 局 + 增量行，各端数据一致'); } catch(e) {}
                     return true;
                 }
@@ -9546,7 +9551,7 @@ async function cloudLoad(silent) {
                 _applyTombstonesToLocal(); // v46.6: 防删除记录被快照复活
                 await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                 updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局（含增量补拉+对账）');
-                // v47.1: 拉取成功弹窗
+                // v47.2: 拉取成功弹窗
                 try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + (_sweptN2 > 0 ? '（含其他端增量 ' + _sweptN2 + ' 条）' : '')); } catch(e) {}
                 return true;
             }
@@ -9614,7 +9619,7 @@ async function cloudLoad(silent) {
             // v36.1：首次拉取完成提示——告诉用户"只拉取"阶段结束，后续录入会自动上传
             var _pullCount = data.data.history ? data.data.history.length : 0;
             updateCloudStatus('online', '✅ 已拉取云端 ' + P.history.length + ' 局+增量 · 后续录入新数据停手5秒后将自动上传');
-            // v47.1: 拉取成功弹窗（首次打开/覆盖恢复）
+            // v47.2: 拉取成功弹窗（首次打开/覆盖恢复）
             try { showRecordResult(true, '拉取成功', '已从云端加载 ' + P.history.length + ' 局' + (_sweptN3 > 0 ? '（含其他端增量 ' + _sweptN3 + ' 条）' : '') + '\n后续录入新数据停手5秒后自动上传'); } catch(e) {}
             return true;
         } else {
@@ -9930,7 +9935,7 @@ async function cloudSaveIncremental(manual) {
             cloudLastSync = new Date();
             setAutoSync(true);
             updateCloudStatus('online', '✅ 增量上传 ' + sent + ' 条（' + fmtBytes(totalBytes) + '）· 共' + P.history.length + '局 · ' + cloudLastSync.toLocaleTimeString());
-            // v47.1: 上传成功弹窗（用户要求）
+            // v47.2: 上传成功弹窗（用户要求）
             try { showRecordResult(true, '上传成功', '已增量上传 ' + sent + ' 条（' + fmtBytes(totalBytes) + '）到云端\n当前共 ' + P.history.length + ' 局\n其他设备会自动收到新数据'); } catch(e) {}
         } else if (okAll) {
             updateCloudStatus('online', '✅ 云端已同步 · 共' + P.history.length + '局');
@@ -10038,7 +10043,7 @@ function mergeRemoteRecRows(rows) {
 // v46.4修复时钟偏差漏单：无新数据时游标回退30分钟（旧版只回退15秒——
 // 各设备时钟与服务器有偏差，15秒窗口会永久漏掉其他端上传的记录）。
 async function cloudSweepRecRows(full) {
-    // v47.1: 去掉 cloudOnline 守卫——启动首次拉取时 cloudOnline 还是 false，
+    // v47.2: 去掉 cloudOnline 守卫——启动首次拉取时 cloudOnline 还是 false，
     // 旧守卫导致启动时的增量补拉被静默跳过，新数据要等20秒轮询才出现（"过1分钟才显示"的根因）。
     // 调用方（cloudLoad/轮询）已各自判断连接状态，这里只挡未初始化和测试模式。
     if (!supabaseClient || _testMode) return 0;
@@ -10120,7 +10125,7 @@ function _applyTombstonesToLocal() {
     return removed;
 }
 async function cloudReconcileRecIds() {
-    // v47.1: 同 cloudSweepRecRows——去掉 cloudOnline 守卫，保证启动首次拉取时的对账能执行
+    // v47.2: 同 cloudSweepRecRows——去掉 cloudOnline 守卫，保证启动首次拉取时的对账能执行
     if (!supabaseClient || _testMode) return;
     if (_reconcileRunning || _cloudSaving || _syncIncrRunning || _pollIncrRunning) return;
     _reconcileRunning = true;
@@ -16715,7 +16720,7 @@ if (window._cfgChanged) {
 }
 try { _loadDirtyRids(); } catch(e) {}
 try { renderCloudQuota(); } catch(e) {}
-// v47.1: 启动8秒后再补拉一次增量行（双保险：即使首次拉取时序有偏差，其他端新数据也能尽快出现）
+// v47.2: 启动8秒后再补拉一次增量行（双保险：即使首次拉取时序有偏差，其他端新数据也能尽快出现）
 setTimeout(function() { try { if (supabaseClient && !_testMode) cloudSweepRecRows(false); } catch(e) {} }, 8000);
 // v46.0: AI已移除——清除旧版本残留在本地数据里的AI修正缓存，确保不再应用任何AI修正
 try { if (P && P._aiCache) { P._aiCache = null; P.saveLocal(); } } catch(e) {}
