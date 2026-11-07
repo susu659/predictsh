@@ -1,10 +1,11 @@
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>商会三竞预测系统 v45.5 · 录入链路与18局窗口修复版</title>
+<title>商会三竞预测系统 v46.6 · 增量同步与流量可视版</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -113,42 +114,54 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
     overflow-x:auto;
     overflow-y:auto;
     max-height:70vh;
-    margin-top:18px;
+    margin-top:14px;
     border-radius:14px;
     box-shadow:0 6px 20px rgba(0,0,0,.06);
     border:1px solid #e8ecf0;
 }
+/* v46.0: 历史记录筛选工具栏 */
+.history-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 14px;margin-top:10px}
+.history-toolbar input[type=text],.history-toolbar select{padding:8px 12px;border:1px solid #dde2e8;border-radius:8px;font-size:13px;background:#fff;transition:border-color .15s,box-shadow .15s}
+.history-toolbar input[type=text]:focus,.history-toolbar select:focus{outline:none;border-color:#667eea;box-shadow:0 0 0 3px rgba(102,126,234,.15)}
+.history-toolbar .ht-sep{width:1px;height:24px;background:#dde2e8;margin:0 2px}
+/* v46.0: 云端流量/存储用量展示 */
+.cloud-quota{flex:1 1 100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px 14px;background:rgba(255,255,255,.65);border:1px solid rgba(48,43,99,.12);border-radius:10px;padding:8px 12px;margin-top:2px}
+.cq-item{display:flex;align-items:center;gap:8px;font-size:12px;color:#302b63;min-width:0}
+.cq-label{font-weight:700;flex:0 0 auto;color:#4b4470}
+.cq-bar{flex:1 1 auto;height:6px;background:#e3e6ef;border-radius:3px;overflow:hidden;min-width:40px}
+.cq-bar i{display:block;height:100%;border-radius:3px;transition:width .3s}
+.cq-val{flex:0 0 auto;font-variant-numeric:tabular-nums;color:#333}
 .history-table{
     width:100%;
     border-collapse:separate;
     border-spacing:0;
     background:#fff;
-    min-width:1680px;
+    min-width:1500px;
 }
 .history-table th,
 .history-table td{
-    padding:22px 26px;
+    padding:10px 14px;
     text-align:center;
     border-bottom:1px solid #eef1f4;
-    font-size:clamp(15px,1.6vw,17px);
-    line-height:2;
+    font-size:clamp(13px,1.4vw,15px);
+    line-height:1.5;
     white-space:nowrap;
 }
 .history-table th{
     background:linear-gradient(180deg,#302b63,#1e1a4a);
     color:#fff;
     font-weight:700;
-    font-size:clamp(15px,1.7vw,17px);
+    font-size:clamp(13px,1.5vw,15px);
     letter-spacing:1px;
-    padding:22px 26px;
-    height:56px;
+    padding:12px 14px;
+    height:44px;
     position:sticky;
     top:0;
     z-index:10;
     box-shadow:0 2px 8px rgba(0,0,0,0.15);
 }
 .history-table td{
-    height:52px;
+    height:40px;
 }
 .history-table tr:last-child td{border-bottom:none}
 .history-table tr:hover td{background:#f5f3ff;transition:background .15s}
@@ -826,8 +839,8 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip">v45.5</span></h1>
-<p class="subtitle"><span>三盘独立规律 · 十模型融合 · AI深度分析</span><span style="color:#4caf50;font-weight:600;">☁️ 多设备实时同步</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip">v46.6</span></h1>
+<p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -871,8 +884,8 @@ create policy "ac read" on access_control for select using (true);
 create policy "ac insert" on access_control for insert with check (true);
 create policy "ac update" on access_control for update using (true);</textarea><br>
 <b>第3步（填配置）</b>：左侧菜单点 <b>Project Settings</b>（齿轮图标）→ <b>API</b> → 复制 <b>Project URL</b> 和 <b>anon public</b> key → 粘贴到上方输入框 → 点保存配置并连接。<br>
-⚠️ 免费版 500MB 数据库、无限 API 调用，足够多人使用；7天无活动会自动暂停，任何人打开页面点一下"拉取最新"即可恢复。<br>
-⚠️ 多人使用约定：录入新数据前，先点 <b>🔄 拉取最新</b> 获取别人刚录的数据，再录入自己的，避免覆盖。
+⚠️ 免费版 500MB 数据库、每月 5GB 出口流量，足够多人使用；7天无活动会自动暂停，任何人打开页面即可自动恢复。<br>
+✅ <b>v46.0 增量同步</b>：录入/修改/删除后 5 秒自动<b>只上传变化的记录</b>（每次约几KB），不再全量上传耗流量；全量备份默认每 6 小时一次、仅保留最近 2 份，全量上传按钮仅管理员可见。
 </div>
 </div>
 <!-- ========== 云同步状态栏 ========== -->
@@ -882,12 +895,14 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <span id="cloudStatusText">未连接云端</span>
 </div>
 <div class="cloud-info" id="cloudInfoText">配置 Supabase 后启用多人实时同步</div>
+<div class="cloud-quota" id="cloudQuotaBox" title="Supabase 免费版配额（估算值）：出口流量 5GB/月，数据库 500MB"></div>
 <button class="cloud-btn cloud-btn-pull" id="cloudPullBtn">🔄 拉取最新</button>
-<button class="cloud-btn cloud-btn-push" id="cloudPushBtn">☁️ 上传云端</button>
+<button class="cloud-btn" id="cloudIncrBtn" style="background:#00897b;color:#fff;" title="把本地新增/修改/删除的记录增量上传到云端（自动上传失败时可手动重试）">⬆️ 增量上传</button>
+<button class="cloud-btn cloud-btn-push" id="cloudPushBtn" style="display:none;">☁️ 全量上传（管理员）</button>
 <button class="cloud-btn" id="forceSyncBtn" style="display:none;background:#c62828;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;font-weight:bold;">👑 强制同步到所有端</button>
-<button class="cloud-btn" id="cloudReconfigBtn" style="background:#ff9800;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">⚙️ 重新配置</button>
-<button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔐 设备管理</button>
-<button class="cloud-btn" id="backupRestoreBtn" style="background:#00bcd4;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">💾 备份/恢复</button>
+<button class="cloud-btn" id="cloudReconfigBtn" style="background:#ff9800;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;display:none;">⚙️ 重新配置</button>
+<button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;display:none;">🔐 设备管理</button>
+<button class="cloud-btn" id="backupRestoreBtn" style="background:#00bcd4;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;display:none;">💾 备份/恢复</button>
 <button class="cloud-btn" id="adminModeBtn" style="background:#795548;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">👑 管理员模式</button>
 <button class="cloud-btn" id="snapshotBtn" style="display:none;background:#607d8b;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 操作日志</button>
 <button class="cloud-btn" id="onlineBtn" style="display:none;background:#009688;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">👥 在线用户</button>
@@ -896,7 +911,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn" id="ghPublishBtn" style="display:none;background:#24292e;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🚀 发布到GitHub</button>
 <button class="cloud-btn" id="ghHistoryBtn" style="display:none;background:#e65100;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 版本回滚</button>
 <button class="cloud-btn" id="ghCheckBtn" style="background:#6f42c1;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔍 检查更新</button>
-<button class="cloud-btn" id="btnAiPredictTop" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">🔮 手动AI预测下一局</button>
+<button class="cloud-btn" id="btnAiPredictTop" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;display:none;">🔮 手动AI预测下一局</button>
 </div>
 <div class="tab-bar">
 <button class="tab-btn active" data-tab="main">📊 预测主界面</button>
@@ -926,7 +941,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 <button class="btn-primary" id="applyConfigBtn">✅ 应用参数</button>
 <button class="btn-primary" id="smartFixBtn" style="margin-left:8px;background:linear-gradient(135deg,#667eea,#764ba2);">🧠 一键智能修正</button>
-<div style="margin-top:16px;padding-top:14px;border-top:2px solid #e9ecef;">
+<div style="margin-top:16px;padding-top:14px;border-top:2px solid #e9ecef;display:none;">
 <h3 style="font-size:14px;margin-bottom:8px;">🤖 AI辅助调优（可选）</h3>
 <div class="config-grid">
 <div class="config-item"><label>API地址</label><input type="text" id="aiUrl" placeholder="https://api.openai.com/v1/chat/completions" style="font-size:12px;"></div>
@@ -1070,24 +1085,23 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="stat-card" style="background:linear-gradient(135deg,#fff5f5,#ffe0e0);"><div class="stat-title" style="color:#c0392b;">🔥 最长未中预测商会</div><div class="stat-value" id="maxMissGuild" style="color:#c0392b;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissGuild">0</span> 局 · <span id="missGuildDetail">—</span></div></div>
 <div class="stat-card" style="background:linear-gradient(135deg,#fff8f0,#ffe8cc);"><div class="stat-title" style="color:#d35400;">💰 最长未中预测收益</div><div class="stat-value" id="maxMissProfit" style="color:#d35400;">0</div><div style="font-size:11px;color:#999;margin-top:4px;">当前连错 <span id="curMissProfit">0</span> 局 · <span id="missProfitDetail">—</span></div></div>
 </div>
-<!-- v44.20: 系统vs基线对照面板 -->
-<div id="baselinePanel" style="margin:10px 0;padding:12px 16px;border-radius:10px;background:#fff;border:1px solid #e9ecef;font-size:12px;line-height:1.6;"></div>
+<!-- v46.3: 系统vs基线对照面板已移除 -->
 <!-- v31.5: 智能诊断条 -->
 <div id="diagBar" style="margin:10px 0;padding:12px 16px;border-radius:10px;background:linear-gradient(90deg,#e8f5e9,#f1f8e9);border:1px solid #a5d6a7;font-size:13px;line-height:1.7;"></div>
 <div class="history-section">
-<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
 <h2 class="section-title" style="margin:0;">📜 历史记录</h2>
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-<input type="text" id="historySearch" placeholder="🔍 搜索局号/日期..." style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;width:160px;">
-<select id="filterWinner" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+<div class="history-toolbar">
+<input type="text" id="historySearch" placeholder="🔍 搜索局号/日期..." style="width:180px;">
+<select id="filterWinner" style="min-width:130px;">
 <option value="">全部获胜方</option><option value="A">A获胜</option><option value="B">B获胜</option><option value="C">C获胜</option>
 </select>
-<select id="filterProfit" style="padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+<select id="filterProfit" style="min-width:130px;">
 <option value="">全部收益</option><option value="大">大收益</option><option value="中">中收益</option><option value="小">小收益</option>
 </select>
-<button class="btn-secondary" id="btnClearFilter" style="flex:0 0 auto;min-width:auto;padding:6px 12px;font-size:13px;">清除筛选</button>
+<button class="btn-secondary" id="btnClearFilter" style="flex:0 0 auto;min-width:auto;padding:8px 14px;font-size:13px;">清除筛选</button>
+<span class="ht-sep"></span>
 <button class="btn-secondary" id="btnRecalcSnap" style="flex:0 0 auto;min-width:auto;padding:8px 14px;font-size:13px;" onclick="recalcPredSnapshots()">🔄 重新计算</button>
-</div>
+<button class="btn-secondary" style="flex:0 0 auto;min-width:auto;padding:8px 14px;font-size:13px;" onclick="backfillPredFields(false)" title="为旧数据补齐缺失的预测收益/预测投资字段">🩹 回填预测字段</button>
 </div>
 <div class="history-table-container" id="historyContainer">
 <table class="history-table">
@@ -1212,8 +1226,8 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="optimize-result" id="optimizeResult"></div>
 <button class="btn-optimize" id="btnStartOptimize" style="margin-top:12px;">🤖 开始调优</button>
 <button class="btn-primary" id="btnApplyOptimal" style="margin-top:12px;margin-left:12px;display:none;" disabled>✅ 应用最优参数</button>
-<button class="btn-secondary" id="btnAiAnalyze" style="margin-top:12px;margin-left:12px;">🧠 AI分析模型</button>
-<button class="btn-secondary" id="btnAiPredict" style="margin-top:12px;margin-left:12px;">🔮 AI预测下一局</button>
+<button class="btn-secondary" id="btnAiAnalyze" style="margin-top:12px;margin-left:12px;display:none;">🧠 AI分析模型</button>
+<button class="btn-secondary" id="btnAiPredict" style="margin-top:12px;margin-left:12px;display:none;">🔮 AI预测下一局</button>
 <h3 style="margin-top:18px;font-size:15px;">📊 搜索历史（按得分排序）</h3>
 <div style="max-height:250px;overflow-y:auto;border:1px solid #e9ecef;border-radius:8px;margin-top:8px;">
 <table class="pred-history-table" id="optHistoryTable"><thead><tr><th>#</th><th>6局W</th><th>8局W</th><th>10局W</th><th>全局W</th><th>衰减</th><th>冷门</th><th>学习率</th><th>准确率</th><th>Brier</th></tr></thead><tbody id="optHistoryBody"></tbody></table>
@@ -1789,7 +1803,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v45.5'; // v45.5: 录入链路加固 + 四相似盘 18 局窗口（仅展示/标记，未用作存储键）
+  var APP_VERSION = 'v46.6'; // v46.6: 增量同步 + 流量可视 + 面板精简（仅展示/标记，未用作存储键）
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg, autoCloseMs) {
@@ -1865,8 +1879,8 @@ var CLOUD_CFG_KEY = 'mm_cloud_config_v1';
   var deviceId = localStorage.getItem(DEVICE_KEY) || '';
   var _loginType = 'user'; // v26.4：登录类型，user=用户登录（需授权），admin=管理员登录（无需授权）
   // v26.5：直接用内置默认配置作为初始值，不依赖localStorage，避免读取失败时显示配置页
-  var sbUrl = 'https://mcwtejcjyrxlcksnvpjg.supabase.co';
-  var sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd3RlamNqeXJ4bGNrc252cGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjE2OTYsImV4cCI6MjEwNDE5NzY5Nn0.E0YGlEt_ZQXZVGBjo2gP4hFX52KK6GDPTN_9Y2W4AJA';
+  var sbUrl = 'https://fumacbyllkdpjejrgiag.supabase.co';
+  var sbKey = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
 
   function loadSbCfg() {
     try {
@@ -2799,7 +2813,9 @@ function debouncedSave() {
                     return;
                 }
                 _pendingCloudSave = false;
-                if (_autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) cloudSave();
+                // v46.0: 录入/修改后自动增量上传（只传变化的记录，不再全量上传）
+                // 上传本地权威数据始终安全，不受覆盖导入保护限制；拉取合并才需要 _autoSyncEnabled
+                if (supabaseClient && cloudOnline && !_testMode) cloudSaveIncremental();
             }, 5000);
         }
     }, 300);
@@ -5202,7 +5218,7 @@ class Predictor {
     similarPattern: 0.25,
     profitPattern: 0.09,  // v25.5: 新增收益规律模型
     stateTransition: 0.08, // v44.1: 盘面状态转移（第12信号）
-    aiModel: 0.10  // v44.31: 初始权重 0.25→0.10——样本外诊断表明胜方序列接近随机，AI修正主要是降噪，低起步靠学习动态调上来
+    aiModel: 0.0  // v45.7: AI功能已禁用，权重设为0
 };
         this.modelPerf = {};
         // v30.22.2修复：构造函数必须初始化高级模型命中率表，否则新用户_scoreAdvancedModels直接return、_advAcc永远0.5
@@ -7386,6 +7402,20 @@ class Predictor {
         // 不再push录入后的result，下一局录入时会重新计算prevPrediction
         this.lastPrediction = prevPrediction ? prevPrediction.predictedGuild : null;
         this.maxStreakEver = calcMaxStreak(this.history);
+        // v46.3诊断：有收益/投资数据但预测字段缺失时打印告警，便于远程定位横杠根因
+        try {
+            if (prevPrediction && (!prevPrediction.profitPrediction || !prevPrediction.investPrediction) && this.history.length > 10) {
+                var _pc = 0, _ic = 0;
+                for (var _di = 0; _di < this.history.length; _di++) {
+                    var _pr = this.history[_di].profitWinner; if (_pr === '大' || _pr === '中' || _pr === '小') _pc++;
+                    var _ir = this.history[_di].investWinner; if (_ir === '大' || _ir === '中' || _ir === '小') _ic++;
+                }
+                if (_pc >= 4 && _ic >= 4) console.warn('[录入诊断] 数据充足但收益/投资预测为空（profit样本:' + _pc + ' invest样本:' + _ic + '），请截图控制台此条反馈');
+            }
+        } catch(e) {}
+        // v46.0: 直接对全局P调用addRecord（录入/批量导入）时，标记该局待增量上传。
+        // 重建/重算用的是独立Predictor实例（this !== P），不会误标。
+        try { if (typeof P !== 'undefined' && this === P && rec._rid) markDirtyRid(rec._rid); } catch(e) {}
     }
     undoLast() {
         if (this.history.length === 0) return;
@@ -7402,6 +7432,8 @@ class Predictor {
         }
         // v39.0: 从predHistory重建统计数组，保证对齐
         this._rebuildStatsFromPred();
+        // v46.0: 撤销录入也要同步删除到其他端
+        try { if (typeof P !== 'undefined' && this === P && rid) markDirtyRid(rid); } catch(e) {}
         if (this.reflectionLog.length > 0 && this.reflectionLog[0].gameIdx === this.history.length + 1) this.reflectionLog.shift();
         this.lastPrediction = this.predHistory.length > 0 ? this.predHistory[this.predHistory.length-1].guild : null;
     }
@@ -8767,7 +8799,8 @@ function flushPendingOlog() {
 function pruneOldOlogRows(maxKeep) {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
     // v34.5：limit 从200提到 maxKeep+200，确保能查到要保留的边界
-    supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'olog_%').order('id', {ascending: false}).limit(maxKeep + 200).then(function(res){
+    // v46.1：like 'olog_%' 改为主键范围 [olog_, olog~)，避免全表扫描语句超时
+    supabaseClient.from(CLOUD_TABLE).select('id').gte('id', 'olog_').lt('id', 'olog~').order('id', {ascending: false}).limit(maxKeep + 200).then(function(res){
         var rows = (res && res.data) ? res.data : [];
         if (rows.length <= maxKeep) return;
         var oldRows = rows.slice(maxKeep);
@@ -8790,7 +8823,9 @@ function fetchOlogFromCloud(cb, append) {
     // 注意：select里的逗号不能URL编码，否则PostgREST把整个串当一个字段
     var sbUrl = 'https://mcwtejcjyrxlcksnvpjg.supabase.co';
     var sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd3RlamNqeXJ4bGNrc252cGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjE2OTYsImV4cCI6MjEwNDE5NzY5Nn0.E0YGlEt_ZQXZVGBjo2gP4hFX52KK6GDPTN_9Y2W4AJA';
-    var url = sbUrl + '/rest/v1/prediction_data?select=id,data->>time,data->>reason,data->>device,data->>count&id=like.olog_%25&order=id.desc&limit=' + _ologPageSize + '&offset=' + offset;
+    // v46.1修复：id=like.olog_% 会触发全表顺序扫描，大jsonb行导致 Postgres 语句超时(HTTP 500 / 57014)。
+    // 改为主键范围扫描：olog_ 前缀的行 = [olog_, olog~)，命中主键索引，毫秒级返回。
+    var url = sbUrl + '/rest/v1/prediction_data?select=id,data->>time,data->>reason,data->>device,data->>count&id=gte.olog_&id=lt.olog~&order=id.desc&limit=' + _ologPageSize + '&offset=' + offset;
     fetch(url, {
         headers: { 'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey }
     }).then(function(r) {
@@ -8869,7 +8904,8 @@ function clearAllSnapshots() {
     _snapshots = []; _cloudSnaps = [];
     try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-        supabaseClient.from(CLOUD_TABLE).delete().like('id', 'olog_%').then(function(){}, function(){});
+        // v46.1：like 改为主键范围，避免全表扫描超时
+        supabaseClient.from(CLOUD_TABLE).delete().gte('id', 'olog_').lt('id', 'olog~').then(function(){}, function(){});
         supabaseClient.from(CLOUD_TABLE).delete().eq('id', OLOG_ID).then(function(){}, function(){});
     }
     renderSnapshotList();
@@ -9023,6 +9059,8 @@ function restoreSnapshotObject(s) {
         P._rebuildStatsFromPred(); // v39.0: 重建统计数组保证对齐
         // v38.2: 恢复快照后标记，下次上传跳过合并，直接覆盖云端
         window._skipNextMerge = true;
+        // v46.0: 快照恢复的数据全部标记待增量上传（rid幂等，不会翻倍）
+        try { if (typeof _dirtyRids !== 'undefined') { (P.history || []).forEach(function(r) { if (r && r._rid) _dirtyRids[r._rid] = 1; }); _saveDirtyRids(); } } catch(e) {}
         renderAll();
         debouncedSave();
         return true;
@@ -9030,8 +9068,8 @@ function restoreSnapshotObject(s) {
 }
 
 // v26.4：内置默认云同步配置（无需每次手动配置）
-var DEFAULT_CLOUD_URL = 'https://mcwtejcjyrxlcksnvpjg.supabase.co';
-var DEFAULT_CLOUD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jd3RlamNqeXJ4bGNrc252cGpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2MjE2OTYsImV4cCI6MjEwNDE5NzY5Nn0.E0YGlEt_ZQXZVGBjo2gP4hFX52KK6GDPTN_9Y2W4AJA';
+var DEFAULT_CLOUD_URL = 'https://fumacbyllkdpjejrgiag.supabase.co';
+var DEFAULT_CLOUD_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
 function getCloudConfig() {
     try {
         var raw = localStorage.getItem(CLOUD_CONFIG_KEY);
@@ -9084,6 +9122,12 @@ function _enterAdminMode() {
     var gpb = document.getElementById('ghPublishBtn'); if (gpb) gpb.style.display = '';
     var ghb = document.getElementById('ghHistoryBtn'); if (ghb) ghb.style.display = '';
     var fs = document.getElementById('forceSyncBtn'); if (fs) fs.style.display = '';
+    // v46.0: 全量上传按钮仅管理员可见
+    var pb = document.getElementById('cloudPushBtn'); if (pb) pb.style.display = '';
+    // v46.2: 管理类按钮仅管理员模式显示（设备管理/备份恢复/重新配置）
+    var _ab1 = document.getElementById('accessAdminBtn'); if (_ab1) _ab1.style.display = '';
+    var _ab2 = document.getElementById('backupRestoreBtn'); if (_ab2) _ab2.style.display = '';
+    var _ab3 = document.getElementById('cloudReconfigBtn'); if (_ab3) _ab3.style.display = '';
 }
 function _exitAdminMode() {
     _isAdmin = false;
@@ -9095,6 +9139,12 @@ function _exitAdminMode() {
     var gpb = document.getElementById('ghPublishBtn'); if (gpb) gpb.style.display = 'none';
     var ghb = document.getElementById('ghHistoryBtn'); if (ghb) ghb.style.display = 'none';
     var fs = document.getElementById('forceSyncBtn'); if (fs) fs.style.display = 'none';
+    // v46.0: 退出管理员模式隐藏全量上传按钮
+    var pb = document.getElementById('cloudPushBtn'); if (pb) pb.style.display = 'none';
+    // v46.2: 管理类按钮仅管理员模式显示
+    var _ab1 = document.getElementById('accessAdminBtn'); if (_ab1) _ab1.style.display = 'none';
+    var _ab2 = document.getElementById('backupRestoreBtn'); if (_ab2) _ab2.style.display = 'none';
+    var _ab3 = document.getElementById('cloudReconfigBtn'); if (_ab3) _ab3.style.display = 'none';
 }
 function toggleAdminMode() {
     if (_isAdmin) {
@@ -9142,13 +9192,42 @@ function initCloud() {
     try {
         if (window.supabase && window.supabase.createClient) {
             // v31.4：智能超时——GET拉取用短超时快速失败，POST/PUT上传用长超时
+            // v46.1修复：超时主动抛出友好中文错误（原版abort后supabase-js抛
+            // 「AbortError: signal is aborted without reason」，用户看不懂且无法分类重试）；
+            // 拉取main主快照（几MB）放宽到60秒，避免弱网下载中途被25秒超时误杀。
 var _cloudFetchWithTimeout = function(url, opts) {
     var method = (opts && opts.method) || 'GET';
-    // 读请求（GET）用短超时快速失败快速重试；写请求（POST/PUT/PATCH/DELETE）用长超时
-    var timeoutMs = (method === 'GET' || method === 'get') ? CLOUD_PULL_TIMEOUT_MS : CLOUD_TIMEOUT_MS;
+    var isGet = (method === 'GET' || method === 'get');
+    // main主快照行数据量大（全量历史），给足下载时间；其余请求保持短超时快速失败
+    var isMainRow = isGet && String(url).indexOf('id=eq.main') >= 0;
+    var timeoutMs = isGet ? (isMainRow ? 60000 : CLOUD_PULL_TIMEOUT_MS) : CLOUD_TIMEOUT_MS;
     var controller = new AbortController();
-    var timeoutId = setTimeout(function() { controller.abort(); }, timeoutMs);
-    return fetch(url, Object.assign({}, opts, { signal: controller.signal })).finally(function() { clearTimeout(timeoutId); });
+    var settled = false;
+    return new Promise(function(resolve, reject) {
+        var timeoutId = setTimeout(function() {
+            if (settled) return;
+            settled = true;
+            try { controller.abort(); } catch(e) {}
+            reject(new Error('网络请求超时（' + Math.round(timeoutMs/1000) + '秒无响应，网络不稳定）'));
+        }, timeoutMs);
+        fetch(url, Object.assign({}, opts, { signal: controller.signal })).then(function(res) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            resolve(res);
+        }, function(e) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            // 归一化abort类错误信息
+            var raw = (e && e.message) ? e.message : String(e);
+            if (/abort/i.test(raw) || (e && e.name === 'AbortError')) {
+                reject(new Error('网络请求超时（弱网或跨网段不稳，请稍后重试）'));
+            } else {
+                reject(e);
+            }
+        });
+    });
 };
 supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
             // v26.4：客户端创建成功即置为在线，允许上传；首次拉取失败不影响上传能力
@@ -9199,88 +9278,47 @@ supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetc
                         console.log('[启动] 首次云端拉取已结束，恢复正常上传节奏');
                         // v36.1：如果等待期间录了新局（debouncedSave 的5秒定时器到点时首拉取还没好，
                         //   挂起在 _pendingCloudSave=true），现在补传。
-                        if (_pendingCloudSave && _autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) {
+                        if (_pendingCloudSave && supabaseClient && cloudOnline && !_testMode) {
                             console.log('[启动] 补传等待期间录入的新局…');
                             setTimeout(function() {
                                 if (_pendingCloudSave) {
                                     _pendingCloudSave = false;
                                     if (_cloudThrottleTimer) { clearTimeout(_cloudThrottleTimer); _cloudThrottleTimer = null; }
-                                    if (_autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) cloudSave();
+                                    if (_autoSyncEnabled && supabaseClient && cloudOnline && !_testMode) cloudSaveIncremental();
                                 }
                             }, 1000);
                         }
                     });
                 }, 5000);
             }
-            // v35.8：纯全量轮询——每20秒检查main长度，比本地长就拉完整数据合并
+            // v46.0：轻量轮询——增量行30秒一次（只拉 rec_ 增量行，通常<1KB）；
+            // main主快照每15分钟检查一次 updated_at，有变化才全量刷新（管理员强制同步/全量上传感知）。
             if (_autoPullTimer) { clearInterval(_autoPullTimer); _autoPullTimer = null; }
             if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
             if (!_testMode) {
                 _autoPullTimer = setInterval(async function() {
                     if (Date.now() - _lastLocalChange < 30000) return;
                     if (!supabaseClient || !cloudOnline || _testMode) return;
-                    if (_cloudSaving) return;
-                    if (!_autoSyncEnabled) return; // v38.2: 覆盖导入后禁止自动拉取合并，避免云端旧数据被append回来
-                    try {
-                        // 只拉main的history长度，轻量
-                        var r = await supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle();
-                        if (!r || !r.data || !r.data.data || !r.data.data.history) return;
-                        var cloudHist = r.data.data.history;
-                        var localLen = P.history ? P.history.length : 0;
-                        // v36.1：检测管理员强制同步——纪元更新或管理员标记更新时，无条件完整覆盖本地（即使云端数据更短）
-                        var _cloudEpoch = r.data.data._syncEpoch || 0;
-                        var _localEpoch = P._syncEpoch || 0;
-                        var _cloudAdmin = r.data.data._adminOverride || null;
-                        var _localAdmin = P._adminOverride || null;
-                        var _epochForce = _cloudEpoch > _localEpoch;
-                        var _adminForce = _cloudAdmin && (!_localAdmin || _cloudAdmin.at > _localAdmin.at);
-                        if (_epochForce || _adminForce) {
-                            console.log('[轮询] 检测到管理员强制同步（纪元 ' + _localEpoch + '→' + _cloudEpoch + '），完整覆盖本地');
-                            updateCloudStatus('syncing', '👑 检测到管理员强制同步，正在覆盖本地数据...');
-                            await cloudLoad(true);
-                            return;
-                        }
-                        // 云端比本地长，有其他端的新记录
-                        if (cloudHist.length <= localLen) return;
-                        // 检查本地有没有云端没有的key（本地可能有未上传的新记录）
-                        var fresh = _filterNewIndexes(P.history || [], cloudHist);
-                        if (fresh.length === 0) return; // 云端没有本地没有的（本地更长但key重复）
-                        // 合并云端多出的记录
-                        var newHist = _pickByIndexes(cloudHist, fresh);
-                        // v37.1修复: predHistory索引映射应该是i-1（predHistory[i-1]对应cloudHist[i]），之前写i+1完全错位
-                        // v39.3: predHistory按rid匹配，不再用i-1硬映射
-                        var newPred = _pickPredByRid(r.data.data.predHistory, newHist);
-                        P.history = (P.history || []).concat(newHist);
-                        P.predHistory = (P.predHistory || []).concat(newPred);
-                        // v39.3: 统计数组从predHistory重建，不再硬拼索引
-                        P._rebuildStatsFromPred();
-                        P._migrateRids();
-                        // v35.8: 兜底去重，防止任何路径产生重复
+                    if (_cloudSaving || _syncIncrRunning) return;
+                    if (!_autoSyncEnabled) return; // v38.2: 覆盖导入后禁止自动拉取合并
+                    // 每15分钟做一次 main 主快照检查（管理员强制同步/他人全量上传感知）
+                    var _now = Date.now();
+                    if (!_pollIncrRunning && _now - (window._lastMainCheck || 0) > 15 * 60000) {
+                        window._lastMainCheck = _now;
                         try {
-                            var _ds = { history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy,
-                                profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy };
-                            _dedupeDataset(_ds);
-                            P.history = _ds.history;
-                            P.predHistory = _ds.predHistory;
-                            P.accuracy = _ds.accuracy;
-                            P.profitAccuracy = _ds.profitAccuracy;
-                            // v37.1修复: 同步恢复稀疏数组
-                            if (_ds.profitBrierHistory) P.profitBrierHistory = _ds.profitBrierHistory;
-                            if (_ds.investAccuracy) P.investAccuracy = _ds.investAccuracy;
+                            var _mr = await supabaseClient.from(CLOUD_TABLE).select('updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
+                            var _cloudMainUa = (_mr && _mr.data && _mr.data.updated_at) ? _mr.data.updated_at : null;
+                            if (_cloudMainUa && window._knownMainUa && _cloudMainUa !== window._knownMainUa) {
+                                console.log('[轮询] 检测到主快照更新，全量刷新...');
+                                await cloudLoad(true);
+                                window._knownMainUa = _cloudMainUa;
+                                return;
+                            }
+                            if (_cloudMainUa) window._knownMainUa = _cloudMainUa;
                         } catch(e) {}
-                        P._migrateRids(); P._rebuildStatsFromPred(); // v39.0: 云合并后按rid对齐
-                        // v40.6修复: 轮询合并后必须对齐云端模型权重/配置，否则两台电脑历史相同但学习状态分叉→预测不一致
-                        try { _alignRemoteModels(r.data.data); } catch(_e) { console.warn('[轮询] 模型对齐失败:', _e && _e.message); }
-                        P.maxStreakEver = calcMaxStreak(P.history);
-                        _lastIncrSyncCount = P.history.length;
-                        _lastFullSyncCount = P.history.length;
-                        _saveSyncCounts();
-                        try { P.saveLocal(); } catch(e) {}
-                        renderAll();
-                        cloudLastSync = new Date();
-                        updateCloudStatus('online', '📥 同步其他端 ' + fresh.length + ' 条（共' + P.history.length + '局）');
-                        console.log('[轮询] 合并其他端新记录 ' + fresh.length + ' 条，模型状态已对齐云端');
-                    } catch(e) { /* 网络错静默 */ }
+                    }
+                    // 增量拉取其他端的新记录/修改/删除（rid幂等，不会重复）
+                    await cloudPollIncremental();
                 }, 20000);
             }
         } else {
@@ -9309,8 +9347,10 @@ async function cloudLoad(silent) {
                 _cloudPullRetryCount = 0;
             } else {
                 // v31.4：拉取失败自动重试（网络错误/超时类）
+                // v46.1：兼容新超时文案「网络请求超时」
                 var _isNetErr = (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0 ||
                                 msg.indexOf('aborted') >= 0 || msg.indexOf('timeout') >= 0 ||
+                                msg.indexOf('超时') >= 0 || msg.indexOf('网络') >= 0 ||
                                 msg.indexOf('Load failed') >= 0 || msg.indexOf('network') >= 0);
                 if (_isNetErr && _cloudPullRetryCount < CLOUD_PULL_MAX_RETRY) {
                     _cloudPullRetryCount++;
@@ -9336,6 +9376,21 @@ async function cloudLoad(silent) {
         }
         // 成功拉到数据，重置重试计数
         _cloudPullRetryCount = 0;
+        // v46.0: 流量统计（下行）+ 存储估算 + 重置增量轮询游标
+        // 游标回退1小时：全量快照覆盖窗口内的增量行会被重复拉取，但按rid幂等合并，不会重复
+        try {
+            var _dlLen = 0; try { _dlLen = JSON.stringify(data.data).length; } catch(e) {}
+            trackTraffic('in', _dlLen);
+            var _est2 = {}; try { _est2 = JSON.parse(localStorage.getItem('mm_est_cloud_v1') || '{}'); } catch(e) {}
+            _est2.mainBytes = _dlLen;
+            localStorage.setItem('mm_est_cloud_v1', JSON.stringify(_est2));
+        } catch(e) {}
+        try {
+            var _mainUa = data.updated_at ? new Date(data.updated_at).toISOString() : new Date().toISOString();
+            _lastPollIso = new Date(new Date(_mainUa).getTime() - 3600000).toISOString();
+            window._knownMainUa = _mainUa;
+            localStorage.setItem(LAST_POLL_KEY, _lastPollIso);
+        } catch(e) {}
         if (data && data.data && data.data.history) {
             // v26.4：同步权威纪元检查——云端epoch更大时强制覆盖
             var cloudEpoch = data.data._syncEpoch || 0;
@@ -9361,7 +9416,10 @@ async function cloudLoad(silent) {
                 var _remoteMissing = _remoteHist.filter(function(r){ var k = _recKey(r); return k && !_localSeen[k]; });
                 if (_remoteMissing.length === 0) {
                     cloudLastSync = new Date();
-                    updateCloudStatus('online', '本地有新数据（本地' + localHistLen + '局/云端' + cloudHistLen + '局），已保留本地，点「上传云端」同步');
+                    // v46.4: 增量同步语义下，云端快照局数≠云端全部数据（增量行还在快照之外），
+                    // 先补拉增量行，再按合并后的真实局数提示，不再误导用户去点全量上传
+                    var _sweptN = await cloudSweepRecRows(false);
+                    updateCloudStatus('online', '✅ 云端已同步 · 本地' + P.history.length + '局（云端快照' + cloudHistLen + '局+增量行）' + (_sweptN > 0 ? ' · 本次补拉' + _sweptN + '条' : '') + ' · ' + cloudLastSync.toLocaleTimeString());
                     return true;
                 }
                 // 云端有本地缺的记录，走合并逻辑（不 return）
@@ -9404,7 +9462,9 @@ async function cloudLoad(silent) {
                 } else {
                     updateStats();
                 }
-                updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局');
+                // v46.4: 快照合并后立即补拉其他端的增量行（手动「拉取最新」也能拿到增量数据）
+                await cloudSweepRecRows(false);
+                updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局（含增量补拉）');
                 return true;
             }
             // v35.6关键防护：本地有未上传的新记录时（刚录入还没上传），
@@ -9464,14 +9524,20 @@ async function cloudLoad(silent) {
             }
             cloudLastSync = new Date();
             _lastCloudLoadTime = Date.now(); // v26.5：防重复保护
+            // v46.4: 覆盖恢复后立即补拉其他端的增量行
+            await cloudSweepRecRows(false);
             // v36.1：首次拉取完成提示——告诉用户"只拉取"阶段结束，后续录入会自动上传
             var _pullCount = data.data.history ? data.data.history.length : 0;
-            updateCloudStatus('online', '✅ 已拉取云端 ' + _pullCount + ' 局 · 首次加载完成，后续录入新数据停手5秒后将自动上传');
+            updateCloudStatus('online', '✅ 已拉取云端 ' + _pullCount + ' 局+增量 · 后续录入新数据停手5秒后将自动上传');
             return true;
         } else {
             cloudLastSync = new Date();
+            // v46.2修复：main为空（云端空库）时，其他端录入的数据以增量行形式存在，
+            // 必须全量补拉增量行并合并，否则新设备永远拿不到已录入的记录。
+            // v46.4: 统一走 cloudSweepRecRows(true) 全量扫描
+            try { await cloudSweepRecRows(true); } catch(e) { console.warn('[空库补拉] 异常:', e && e.message); }
             // v36.1：云端空库提示
-            updateCloudStatus('online', '☁️ 云端暂无数据 · 首次拉取完成，你录入的第一条新数据将在停手5秒后自动上传');
+            updateCloudStatus('online', '☁️ 云端暂无全量快照 · 已同步增量记录 ' + P.history.length + ' 局，你录入的新数据将在停手5秒后自动上传');
             return true;
         }
     } catch(e) {
@@ -9479,6 +9545,7 @@ async function cloudLoad(silent) {
         var _emsg = e.message || String(e);
         var _isNetErr2 = (_emsg.indexOf('Failed to fetch') >= 0 || _emsg.indexOf('NetworkError') >= 0 ||
                           _emsg.indexOf('aborted') >= 0 || _emsg.indexOf('timeout') >= 0 ||
+                          _emsg.indexOf('超时') >= 0 || _emsg.indexOf('网络') >= 0 ||
                           _emsg.indexOf('Load failed') >= 0 || _emsg.indexOf('network') >= 0);
         if (_isNetErr2 && _cloudPullRetryCount < CLOUD_PULL_MAX_RETRY) {
             _cloudPullRetryCount++;
@@ -9521,14 +9588,17 @@ window.addEventListener('offline', function() {
     updateCloudStatus('online', '📵 网络已断开，数据将暂存本地，恢复后自动同步');
 });
 
-// v27.5：定期自动备份——每小时一次，只保留最近24个备份
+// v27.5：定期自动备份 —— v46.0: 改为每6小时一次（覆盖式，同一时段重复上传幂等）、只保留最近2份。
+// 频率评估：录入频率低（每天几十局），6小时备份窗口最多丢6小时数据，且本地+增量行仍有保护，
+// 流量成本=每天4次×主快照大小（约几MB），可接受。不建议每小时备份（流量×6、存储×6，收益极小）。
 var _lastAutoBackupDate = '';
 var _autoBackupTimer = null;
-var AUTO_BACKUP_KEEP_COUNT = 6; // v36.1: 自动备份保留最近6个（与本地一致，避免云端膨胀）
+var AUTO_BACKUP_KEEP_COUNT = 2; // v46.0: 保留最近2个（覆盖策略，存储占用≈主数据×2）
+var AUTO_BACKUP_INTERVAL_H = 6; // v46.0: 每6小时一次
 function checkAutoBackup() {
     var now = new Date();
     var dateStr = now.toISOString().slice(0,10);
-    var hourKey = String(now.getHours()).padStart(2, '0');
+    var hourKey = String(Math.floor(now.getHours() / AUTO_BACKUP_INTERVAL_H) * AUTO_BACKUP_INTERVAL_H).padStart(2, '0');
     var backupKey = dateStr + '_' + hourKey;
     if (_lastAutoBackupDate === backupKey) return;
     _lastAutoBackupDate = backupKey;
@@ -9556,13 +9626,19 @@ function checkAutoBackup() {
         console.log('[自动备份] 云端备份，时间:', hourKey + '时');
         try {
             var backupId = 'backup_autohour_' + dateStr.replace(/-/g,'') + '_' + hourKey;
-            supabaseClient.from(CLOUD_TABLE).upsert(
-                { id: backupId, data: saveData, updated_at: now.toISOString() },
-                { onConflict: 'id' }
-            ).then(function(res) {
-                if (res.error) console.error('[自动备份] 云端失败:', res.error.message);
-                else { console.log('[自动备份] 云端成功:', backupId); cleanupOldAutoBackups(); }
-            }).catch(function(e) { console.error('[自动备份] 云端异常:', e.message); });
+            // v46.2省流量：先查该时段备份是否已存在（任一设备传过即跳过），
+            // 避免2-3台设备在同一时段各自重复上传一份几MB的全量快照。
+            supabaseClient.from(CLOUD_TABLE).select('id').eq('id', backupId).maybeSingle().then(function(ex) {
+                if (ex && ex.data && ex.data.id) { console.log('[自动备份] 该时段备份已存在，跳过上传'); return; }
+                var _bakLen = 0; try { _bakLen = JSON.stringify(saveData).length; } catch(e) {}
+                supabaseClient.from(CLOUD_TABLE).upsert(
+                    { id: backupId, data: saveData, updated_at: now.toISOString() },
+                    { onConflict: 'id' }
+                ).then(function(res) {
+                    if (res.error) console.error('[自动备份] 云端失败:', res.error.message);
+                    else { console.log('[自动备份] 云端成功:', backupId); trackTraffic('out', _bakLen); cleanupOldAutoBackups(); }
+                }).catch(function(e) { console.error('[自动备份] 云端异常:', e.message); });
+            }).catch(function(e) { console.error('[自动备份] 预检异常:', e.message); });
         } catch(e) { console.error('[自动备份] 云端异常:', e.message); }
     } else {
         console.log('[自动备份] 本地备份，时间:', hourKey + '时');
@@ -9583,9 +9659,10 @@ async function cleanupOldAutoBackups() {
     if (!supabaseClient) return;
     try {
         // 查询所有自动备份（新格式autohour + 旧格式autodaily）
+        // v46.1：like 改为主键范围 [backup_, backup~)，避免全表扫描语句超时
         var res = await supabaseClient.from(CLOUD_TABLE)
             .select('id, updated_at')
-            .or('id.like.backup_autohour_%,id.like.backup_autodaily_%')
+            .gte('id', 'backup_').lt('id', 'backup~')
             .order('updated_at', {ascending: false});
         if (res.error || !res.data) return;
         // 前24个保留，其余删除
@@ -9612,6 +9689,371 @@ async function autoSyncCompare() {
     // v27.3：禁用定时自动对比，避免多设备同步冲突
     return;
 }
+
+// ============================================================
+// v46.0 增量同步模块
+// 设计目标：每次录入/修改/删除只上传变化的记录（单条约1-3KB），
+// 不再全量上传耗流量；拉取轮询只取增量行；全量快照(main行)仅由
+// 管理员手动全量上传 + 每6小时自动覆盖式备份维护。
+// 去重三重保障：行级rid唯一键(upsert幂等) + _recKey业务键查重 + 落库前兜底去重。
+// ============================================================
+var DIRTY_RIDS_KEY = 'mm_dirty_rids_v1';
+var LAST_POLL_KEY = 'mm_last_poll_v1';
+var TRAFFIC_KEY = 'mm_traffic_stat_v2';
+var CLOUD_EGRESS_LIMIT = 5 * 1024 * 1024 * 1024;  // Supabase 免费版出口流量 5GB/月
+var CLOUD_DB_LIMIT = 500 * 1024 * 1024;           // 数据库 500MB
+var _dirtyRids = {};
+var _lastPollIso = '';
+var _syncIncrRunning = false;
+var _pollIncrRunning = false;
+
+function _loadDirtyRids() {
+    try {
+        var raw = localStorage.getItem(DIRTY_RIDS_KEY);
+        if (raw) { var arr = JSON.parse(raw); if (Array.isArray(arr)) { _dirtyRids = {}; arr.forEach(function(r){ if(r) _dirtyRids[r]=1; }); } }
+    } catch(e) { _dirtyRids = {}; }
+    try { var p = localStorage.getItem(LAST_POLL_KEY); if (p) _lastPollIso = p; } catch(e) {}
+}
+function _saveDirtyRids() {
+    try { localStorage.setItem(DIRTY_RIDS_KEY, JSON.stringify(Object.keys(_dirtyRids).slice(-5000))); } catch(e) {}
+}
+function markDirtyRid(rid) {
+    if (!rid) return;
+    _dirtyRids[rid] = 1;
+    _saveDirtyRids();
+}
+function markAllClean() { _dirtyRids = {}; _saveDirtyRids(); }
+
+// ---- 流量/存储用量统计（估算值，对照 Supabase 免费版配额）----
+function _trafficStore() {
+    var ym = new Date().toISOString().slice(0,7);
+    var st = { ym: ym, out: 0, in: 0 };
+    try {
+        var raw = localStorage.getItem(TRAFFIC_KEY);
+        if (raw) { var d = JSON.parse(raw); if (d && d.ym === ym) { st.out = d.out||0; st.in = d.in||0; } }
+    } catch(e) {}
+    return st;
+}
+function trackTraffic(dir, bytes) {
+    try {
+        var st = _trafficStore();
+        if (dir === 'out') st.out += bytes; else st.in += bytes;
+        localStorage.setItem(TRAFFIC_KEY, JSON.stringify(st));
+    } catch(e) {}
+    try { renderCloudQuota(); } catch(e) {}
+}
+function _estStorageBytes() {
+    // 存储估算 = main快照×(1+备份数) + 增量行数×平均行大小
+    try {
+        var d = JSON.parse(localStorage.getItem('mm_est_cloud_v1') || '{}');
+        var mainB = d.mainBytes || 0, recN = d.recCount || 0, recAvg = d.recAvg || 2048;
+        return mainB * (1 + AUTO_BACKUP_KEEP_COUNT) + recN * recAvg;
+    } catch(e) { return 0; }
+}
+function fmtBytes(b) {
+    if (!b || b < 0) b = 0;
+    if (b < 1024) return b + 'B';
+    if (b < 1024*1024) return (b/1024).toFixed(1) + 'KB';
+    if (b < 1024*1024*1024) return (b/1024/1024).toFixed(1) + 'MB';
+    return (b/1024/1024/1024).toFixed(2) + 'GB';
+}
+function renderCloudQuota() {
+    var box = document.getElementById('cloudQuotaBox');
+    if (!box) return;
+    var st = _trafficStore();
+    var used = st.out + st.in;
+    var ePct = Math.min(100, used / CLOUD_EGRESS_LIMIT * 100);
+    var sBytes = _estStorageBytes();
+    var sPct = Math.min(100, sBytes / CLOUD_DB_LIMIT * 100);
+    var eColor = ePct > 85 ? '#e74c3c' : (ePct > 60 ? '#f39c12' : '#27ae60');
+    var sColor = sPct > 85 ? '#e74c3c' : (sPct > 60 ? '#f39c12' : '#27ae60');
+    box.innerHTML =
+        '<div class="cq-item"><span class="cq-label">↑上行</span><span class="cq-bar"><i style="width:' + ePct.toFixed(1) + '%;background:' + eColor + '"></i></span><span class="cq-val">' + fmtBytes(st.out) + '</span></div>' +
+        '<div class="cq-item"><span class="cq-label">↓下行</span><span class="cq-bar"><i style="width:' + Math.min(100, st.in / CLOUD_EGRESS_LIMIT * 100).toFixed(1) + '%;background:' + eColor + '"></i></span><span class="cq-val">' + fmtBytes(st.in) + '</span></div>' +
+        '<div class="cq-item"><span class="cq-label">月流量</span><span class="cq-bar"><i style="width:' + ePct.toFixed(1) + '%;background:' + eColor + '"></i></span><span class="cq-val">' + fmtBytes(used) + ' / 5GB</span></div>' +
+        '<div class="cq-item"><span class="cq-label">存储</span><span class="cq-bar"><i style="width:' + sPct.toFixed(1) + '%;background:' + sColor + '"></i></span><span class="cq-val">' + fmtBytes(sBytes) + ' / 500MB</span></div>';
+}
+
+// ---- 组装单条记录的增量行数据 ----
+function _recRowData(rid) {
+    var rec = null, pred = null, i, j;
+    for (i = 0; i < P.history.length; i++) {
+        if (P.history[i] && P.history[i]._rid === rid) { rec = P.history[i]; break; }
+    }
+    if (rec) {
+        var ph = P.predHistory || [];
+        for (j = 0; j < ph.length; j++) {
+            if (ph[j] && ph[j].rid === rid) { pred = ph[j]; break; }
+        }
+    }
+    var d = { ua: Date.now() };
+    if (!rec) { d.del = 1; } // 墓碑：通知其他端删除
+    else { d.r = rec; if (pred) d.p = pred; }
+    return d;
+}
+
+// ---- 增量上传：只传脏记录 ----
+async function cloudSaveIncremental(manual) {
+    if (!supabaseClient || !cloudOnline) { if (manual) alert('云端未连接'); return false; }
+    if (_testMode && !manual) return false;
+    var rids = Object.keys(_dirtyRids);
+    if (!rids.length) {
+        // v46.4: 无待传数据时明确区分"已是最新"与"上传成功"
+        if (manual) showRecordResult(true, '云端已是最新', '没有待上传的新数据\n本地共 ' + P.history.length + ' 局已全部同步到云端\n\n如其他设备刚录入，请点「🔄 拉取最新」获取');
+        return true;
+    }
+    if (_syncIncrRunning) { _pendingCloudSave = true; return false; }
+    _syncIncrRunning = true;
+    var sent = 0, okAll = true, totalBytes = 0;
+    try {
+        var CHUNK = 25;
+        for (var i = 0; i < rids.length; i += CHUNK) {
+            var chunk = rids.slice(i, i + CHUNK);
+            var rows = [];
+            chunk.forEach(function(rid){ rows.push({ id: 'rec_' + rid, data: _recRowData(rid), updated_at: new Date().toISOString() }); });
+            var payloadLen = 0;
+            try { payloadLen = JSON.stringify(rows).length; } catch(e) {}
+            totalBytes += payloadLen;
+            updateCloudStatus('syncing', '☁️ 增量上传 ' + rows.length + ' 条（' + fmtBytes(payloadLen) + '，共' + rids.length + '条待传）...');
+            var res = await supabaseClient.from(CLOUD_TABLE).upsert(rows, { onConflict: 'id' });
+            if (res.error) {
+                okAll = false;
+                console.warn('[增量上传] 失败:', res.error.message);
+                updateCloudStatus('online', '⚠️ 增量上传失败: ' + res.error.message + '（数据已在本地，60秒后自动重试，或点「⬆️ 立即同步」手动重试）');
+                if (manual) alert('增量上传失败：' + res.error.message + '\n\n数据已保存在本地，恢复网络后会自动重试，也可点「⬆️ 立即同步」手动重试。');
+                break;
+            }
+            trackTraffic('out', payloadLen);
+            var nowUa = Date.now();
+            chunk.forEach(function(rid){
+                delete _dirtyRids[rid];
+                for (var k = 0; k < P.history.length; k++) {
+                    if (P.history[k] && P.history[k]._rid === rid) { P.history[k]._ua = nowUa; break; }
+                }
+            });
+            _saveDirtyRids();
+            sent += rows.length;
+        }
+        if (sent > 0) {
+            cloudLastSync = new Date();
+            setAutoSync(true);
+            updateCloudStatus('online', '✅ 增量上传 ' + sent + ' 条（' + fmtBytes(totalBytes) + '）· 共' + P.history.length + '局 · ' + cloudLastSync.toLocaleTimeString());
+        } else if (okAll) {
+            updateCloudStatus('online', '✅ 云端已同步 · 共' + P.history.length + '局');
+        }
+        return okAll;
+    } catch(e) {
+        okAll = false;
+        console.warn('[增量上传] 异常:', e.message);
+        updateCloudStatus('online', '⚠️ 增量上传异常: ' + e.message + '（数据已在本地，60秒后自动重试，或点「⬆️ 立即同步」手动重试）');
+        if (manual) alert('增量上传异常：' + e.message + '\n\n数据已保存在本地，恢复网络后会自动重试，也可点「⬆️ 立即同步」手动重试。');
+        return false;
+    } finally {
+        _syncIncrRunning = false;
+    }
+}
+
+// ---- 合并其他端的增量行（增/改/删）----
+function mergeRemoteRecRows(rows) {
+    if (!rows || !rows.length) return { added: 0, updated: 0, removed: 0 };
+    var added = 0, updated = 0, removed = 0;
+    rows.forEach(function(row) {
+        try {
+            if (!row || !row.id || String(row.id).indexOf('rec_') !== 0) return;
+            var rid = String(row.id).slice(4);
+            var d = row.data;
+            if (!d) return;
+            var ua = row.updated_at ? new Date(row.updated_at).getTime() : (d.ua || 0);
+            // 1) 墓碑 → 删除本地同rid记录
+            if (d.del) {
+                for (var i = P.history.length - 1; i >= 0; i--) {
+                    if (P.history[i] && P.history[i]._rid === rid) {
+                        if (ua > (P.history[i]._ua || 0)) {
+                            P.history.splice(i, 1);
+                            for (var j = P.predHistory.length - 1; j >= 0; j--) {
+                                if (P.predHistory[j] && P.predHistory[j].rid === rid) { P.predHistory.splice(j, 1); break; }
+                            }
+                            removed++;
+                        }
+                        break;
+                    }
+                }
+                return;
+            }
+            // 2) 正常记录
+            var rec = d.r;
+            if (!rec) return;
+            if (!rec._rid) rec._rid = rid;
+            rec._ua = ua;
+            var idx = -1;
+            for (var k = 0; k < P.history.length; k++) {
+                if (P.history[k] && P.history[k]._rid === rid) { idx = k; break; }
+            }
+            if (idx >= 0) {
+                // 已有：仅当远端更新时替换内容（编辑同步）
+                if (ua > (P.history[idx]._ua || 0)) {
+                    P.history[idx] = rec;
+                    for (var j2 = 0; j2 < P.predHistory.length; j2++) {
+                        if (P.predHistory[j2] && P.predHistory[j2].rid === rid) { if (d.p) P.predHistory[j2] = d.p; break; }
+                    }
+                    updated++;
+                }
+                return;
+            }
+            // 本地没有：先按业务键查重（防止两端录入同一局重复）
+            var nk = _recKey(rec);
+            if (nk) {
+                for (var m = 0; m < P.history.length; m++) {
+                    if (_recKey(P.history[m]) === nk) {
+                        if (ua > (P.history[m]._ua || 0)) { P.history[m] = rec; updated++; }
+                        return;
+                    }
+                }
+            }
+            // 追加新记录 + 对应预测快照
+            P.history.push(rec);
+            if (d.p && d.p.rid === rid) P.predHistory.push(d.p);
+            added++;
+        } catch(e) { console.warn('[增量合并] 单行失败:', e && e.message); }
+    });
+    if (added > 0 || updated > 0 || removed > 0) {
+        try { P._rebuildStatsFromPred(); } catch(e) {}
+        try { P._migrateRids(); } catch(e) {}
+        try { P.maxStreakEver = calcMaxStreak(P.history); } catch(e) {}
+        try { P.saveLocal(); } catch(e) {}
+        try { renderAll(); } catch(e) {}
+        cloudLastSync = new Date();
+        var _msg = [];
+        if (added) _msg.push('新增' + added + '条');
+        if (updated) _msg.push('更新' + updated + '条');
+        if (removed) _msg.push('删除' + removed + '条');
+        updateCloudStatus('online', '📥 增量同步：' + _msg.join('，') + '（共' + P.history.length + '局）');
+        trackTraffic('in', rows.length * 2048); // 增量行平均约2KB
+    }
+    return { added: added, updated: updated, removed: removed };
+}
+
+// ---- 增量拉取（统一入口）：拉取 updated_at 大于游标的 rec_ 行并幂等合并 ----
+// v46.4: 手动「拉取最新」、启动加载、空库首拉、20秒轮询 全部走这个函数，杜绝"打开页面拉不到其他端数据"。
+// full=true 时从1970年全量扫（空库/管理员重建场景）；默认从游标增量扫。
+// v46.4修复时钟偏差漏单：无新数据时游标回退30分钟（旧版只回退15秒——
+// 各设备时钟与服务器有偏差，15秒窗口会永久漏掉其他端上传的记录）。
+async function cloudSweepRecRows(full) {
+    if (!supabaseClient || !cloudOnline || _testMode) return 0;
+    var total = 0, _guard = 0;
+    var cursor = full ? '1970-01-01T00:00:00Z' : (_lastPollIso || new Date(Date.now() - 1800000).toISOString());
+    try {
+        while (_guard++ < 60) {
+            var res = await supabaseClient.from(CLOUD_TABLE)
+                .select('id,data,updated_at')
+                // 主键范围 [rec_, rec~) 走索引，避免 like 全表扫描语句超时
+                .gte('id', 'rec_').lt('id', 'rec~')
+                .gt('updated_at', cursor)
+                .order('updated_at', { ascending: true })
+                .limit(300);
+            if (res.error) { console.warn('[增量补拉] 失败:', res.error.message); break; }
+            var rows = res.data || [];
+            if (!rows.length) break;
+            mergeRemoteRecRows(rows);
+            total += rows.length;
+            var maxUa = '';
+            rows.forEach(function(r){ if (r.updated_at && r.updated_at > maxUa) maxUa = r.updated_at; });
+            cursor = maxUa || cursor;
+            if (rows.length < 300) break;
+        }
+        _lastPollIso = cursor || new Date(Date.now() - 1800000).toISOString();
+        try { localStorage.setItem(LAST_POLL_KEY, _lastPollIso); } catch(e) {}
+    } catch(e) {
+        console.warn('[增量补拉] 异常:', e && e.message);
+    }
+    return total;
+}
+// 轮询入口（带防并发与录入保护）
+async function cloudPollIncremental() {
+    if (!supabaseClient || !cloudOnline || _testMode) return;
+    if (_pollIncrRunning || _cloudSaving || _syncIncrRunning) return;
+    if (!_autoSyncEnabled) return;
+    _pollIncrRunning = true;
+    try { await cloudSweepRecRows(false); } finally { _pollIncrRunning = false; }
+}
+// 定时增量轮询（30秒一次，每次仅拉增量行，响应通常<1KB）
+setInterval(function() {
+    if (Date.now() - _lastLocalChange < 30000) return; // 正在录入时暂停，避免合并干扰
+    if (_cloudSaving || _syncIncrRunning || _pollIncrRunning) return;
+    cloudPollIncremental();
+}, 30000);
+// 待传数据网络恢复/定期补偿重试
+setInterval(function() {
+    if (Object.keys(_dirtyRids).length > 0 && supabaseClient && cloudOnline && !_testMode) {
+        cloudSaveIncremental(false);
+    }
+}, 60000);
+
+// ---- 历史预测字段回填：修复旧数据「预测收益/预测投资」显示为横杠 ----
+// 只补缺失字段，不改动已有预测快照（保留历史原貌），分批后台执行不卡UI。
+async function backfillPredFields(silent) {
+    if (!P || !Array.isArray(P.predHistory) || P.history.length === 0) return 0;
+    var need = 0;
+    P.predHistory.forEach(function(ph) {
+        if (ph && (!ph.profitPrediction || !ph.investPrediction)) need++;
+    });
+    if (need === 0) return 0;
+    if (!silent && !confirm('检测到 ' + need + ' 局历史记录缺少「预测收益/预测投资」字段。\n将在后台分批回填（不改动已有预测），数据量大时需几分钟，继续？')) return 0;
+    // v46.6: 自动回填（silent=true）完全静默，不再弹进度提示；只有手动点按钮才显示进度
+    var showTip = !silent;
+    var tip = document.createElement('div');
+    tip.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:#302b63;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+    tip.textContent = '🔄 正在回填预测字段 0%';
+    if (showTip) document.body.appendChild(tip);
+    var rebuildP = new Predictor();
+    rebuildP.modelWeights = Object.assign({}, P.modelWeights);
+    rebuildP._fastRebuild = true;
+    var total = P.history.length, i = 0, patched = 0, BATCH = 40;
+    var snapMap = {}; // rid → snap
+    return new Promise(function(resolve) {
+        function step() {
+            var end = Math.min(i + BATCH, total);
+            for (; i < end; i++) {
+                var h = P.history[i];
+                var pred = null;
+                try { pred = (i > 0 || rebuildP.history.length > 0) ? rebuildP.predict() : null; } catch(e) { pred = null; }
+                if (pred && h._rid) {
+                    snapMap[h._rid] = {
+                        profitPrediction: pred.profitPrediction ? { predicted: pred.profitPrediction.predicted, probs: pred.profitPrediction.probs, confidence: pred.profitPrediction.confidence } : null,
+                        investPrediction: pred.investPrediction ? { predicted: pred.investPrediction.predicted, probs: pred.investPrediction.probs, confidence: pred.investPrediction.confidence } : null
+                    };
+                }
+                try { rebuildP.addRecord(h.a, h.b, h.c, h.timeSlot, h.profitWinner, h.profitA, h.profitB, h.profitC, h.investWinner, h.date); } catch(e) {}
+            }
+            if (showTip) tip.textContent = '🔄 正在回填预测字段 ' + Math.round(i / total * 100) + '%';
+            if (i < total) { setTimeout(step, 0); return; }
+            // 回填：仅补缺失字段
+            // v46.3: rid匹配不到时（含有rid但rid失效的错位条目）也回退到索引偏移映射
+            var _bfOffset = P.history.length - P.predHistory.length;
+            P.predHistory.forEach(function(ph, phi) {
+                if (!ph) return;
+                var snap = ph.rid ? snapMap[ph.rid] : null;
+                if (!snap) {
+                    // 索引偏移映射（predHistory[k] ↔ history[k+offset]）
+                    var hi = phi + _bfOffset;
+                    if (hi >= 0 && hi < P.history.length && P.history[hi]._rid) snap = snapMap[P.history[hi]._rid];
+                }
+                if (!snap) return;
+                if (!ph.profitPrediction && snap.profitPrediction) { ph.profitPrediction = { predicted: snap.profitPrediction.predicted }; patched++; }
+                if (!ph.investPrediction && snap.investPrediction) { ph.investPrediction = { predicted: snap.investPrediction.predicted }; patched++; }
+            });
+            if (showTip && tip.parentNode) document.body.removeChild(tip);
+            try { P.saveLocal(); } catch(e) {}
+            try { renderHistory(); } catch(e) {}
+            try { renderAll(); } catch(e) {}
+            if (patched > 0) showRecordResult(true, '回填完成', '已为 ' + patched + ' 局补齐「预测收益/预测投资」字段');
+            console.log('[回填] 完成，补齐 ' + patched + ' 条');
+            resolve(patched);
+        }
+        setTimeout(step, 0);
+    });
+}
+window.backfillPredFields = backfillPredFields;
 
 async function cloudSave(manual, skipPrecheck) {
     if (!supabaseClient) { updateCloudStatus('online', '⚠️ 云同步未初始化'); return false; }
@@ -9828,6 +10270,15 @@ async function cloudSave(manual, skipPrecheck) {
         }
         cloudLastSync = new Date();
         setAutoSync(true);
+        trackTraffic('out', _dataSize); // v46.0: 流量统计
+        // v46.0: 全量上传成功 → 主快照已包含全部记录，清空增量待传队列
+        markAllClean();
+        try {
+            var _est = {};
+            try { _est = JSON.parse(localStorage.getItem('mm_est_cloud_v1') || '{}'); } catch(e) {}
+            _est.mainBytes = _dataSize;
+            localStorage.setItem('mm_est_cloud_v1', JSON.stringify(_est));
+        } catch(e) {}
         // v36.1：上传成功后把实际写入云端的管理员标记同步回本地，避免本机轮询误判"云端更新"覆盖自己
         if (saveData._adminOverride) { P._adminOverride = saveData._adminOverride; try { P.saveLocal(); } catch(e) {} }
         // v35.8：纯全量同步——上传成功后直接更新计数，不再合并/清空incr
@@ -9848,7 +10299,8 @@ async function cloudSave(manual, skipPrecheck) {
         }
         // v31.5：异步自动清理旧自动备份，保留最近5个（不阻塞主流程）
         try {
-            supabaseClient.from(CLOUD_TABLE).select('id').like('id', 'backup_autosave_%')
+            // v46.1：like 改为主键范围，避免全表扫描超时
+            supabaseClient.from(CLOUD_TABLE).select('id').gte('id', 'backup_autosave_').lt('id', 'backup_autosave~')
                 .order('updated_at', { ascending: false }).limit(200).then(function(res) {
                     if (!res || !res.data || res.data.length <= 5) return;
                     var oldIds = res.data.slice(5).map(function(r){ return r.id; });
@@ -9856,10 +10308,24 @@ async function cloudSave(manual, skipPrecheck) {
                         .then(function(){ console.log('[自动清理] 已删旧备份', oldIds.length, '个'); }, function(){});
                 }, function(){});
         } catch(e) {}
+        // v46.0：全量上传后压缩增量行——已包含在main快照里的 rec_ 行不再需要，
+        // 删除 updated_at 早于本次上传前2分钟的增量行（保留最近2分钟防并发竞态），存储不再无限增长。
+        try {
+            var _compactBefore = new Date(Date.now() - 120000).toISOString();
+            // v46.1：like 'rec\_%' 改为主键范围 [rec_, rec~)，避免全表扫描语句超时
+            supabaseClient.from(CLOUD_TABLE).select('id').gte('id', 'rec_').lt('id', 'rec~')
+                .lt('updated_at', _compactBefore).limit(1000).then(function(cres) {
+                    if (!cres || !cres.data || !cres.data.length) return;
+                    var cids = cres.data.map(function(r){ return r.id; });
+                    supabaseClient.from(CLOUD_TABLE).delete().in('id', cids)
+                        .then(function(){ console.log('[压缩] 已清理已入快照的增量行', cids.length, '条'); }, function(){});
+                }, function(){});
+        } catch(e) {}
         return true;
     } catch(e) {
         var _isAuthErr = e.message && (e.message.indexOf('401') >= 0 || e.message.indexOf('403') >= 0 || e.message.indexOf('Invalid API key') >= 0);
-        if (!_isAuthErr && _cloudSaveRetryCount < CLOUD_MAX_RETRY) {
+        var _isNetErr3 = e.message && (e.message.indexOf('超时') >= 0 || e.message.indexOf('网络') >= 0 || e.message.indexOf('Failed to fetch') >= 0 || e.message.indexOf('aborted') >= 0 || e.message.indexOf('timeout') >= 0);
+        if (!_isAuthErr && _isNetErr3 && _cloudSaveRetryCount < CLOUD_MAX_RETRY) {
             _cloudSaveRetryCount++;
             updateCloudStatus('syncing', '网络异常，' + (2*_cloudSaveRetryCount) + '秒后重试（第' + _cloudSaveRetryCount + '次）...');
             _cloudSaving = false;
@@ -9967,6 +10433,26 @@ function bindCloudEvents() {
         }
         btn.disabled = false;
         btn.textContent = originalText;
+    });
+    // v46.1: 普通用户手动增量同步按钮——自动增量上传失败时可手动重试
+    var incrBtn = document.getElementById('cloudIncrBtn');
+    if (incrBtn) incrBtn.addEventListener('click', async function() {
+        var btn = this;
+        var origText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '同步中...';
+        try {
+            var ok = await cloudSaveIncremental(true);
+            if (ok) {
+                showRecordResult(true, '同步成功', '增量数据已上传到云端 ✅\n当前共 ' + P.history.length + ' 局\n其他设备会自动收到新数据');
+            } else {
+                showRecordResult(false, '同步失败', '增量上传未完成，请检查网络后再次点击「⬆️ 立即同步」重试。\n\n排查建议：\n1. 切换WiFi或开关飞行模式\n2. 关闭VPN/代理/广告拦截\n3. 本地数据已保存，不会丢失');
+            }
+        } catch(e) {
+            showRecordResult(false, '同步出错', e.message + '\n\n本地数据已保存，稍后重试即可。');
+        }
+        btn.disabled = false;
+        btn.textContent = origText;
     });
     var forceSync = document.getElementById('forceSyncBtn');
     if (forceSync) forceSync.addEventListener('click', forceSyncToAll);
@@ -10994,7 +11480,8 @@ function cleanupAllOldBackups() {
     var msg = document.getElementById('backupStatusMsg');
     if (!confirm('确定清理旧备份吗？\n\n将保留最近 ' + AUTO_BACKUP_KEEP_COUNT + ' 个备份，删除其余所有云端备份。\n此操作不可撤销！')) return;
     msg.style.color = '#e65100'; msg.textContent = '正在清理...';
-    supabaseClient.from(CLOUD_TABLE).select('id, updated_at').like('id', 'backup_%').order('updated_at', {ascending: false})
+    // v46.1：like 改为主键范围，避免全表扫描超时
+    supabaseClient.from(CLOUD_TABLE).select('id, updated_at').gte('id', 'backup_').lt('id', 'backup~').order('updated_at', {ascending: false})
         .then(function(res) {
             if (res.error) { msg.style.color = '#e74c3c'; msg.textContent = '查询失败：' + res.error.message; return; }
             var list = res.data || [];
@@ -11356,26 +11843,54 @@ function renderModelAccuracy() {
         }
         if (suspicious) dupSuspicious++;
     }
-    var warnHtml = dupSuspicious > 0
-        ? '<div style="background:#fff3e0;border-left:4px solid #f57c00;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#e65100;">⚠️ 数据健康：发现 '+dupSuspicious+' 处疑似重复录入（同一比分+时间间隔<5分钟），请检查。连续相同比分但时间正常的不算。</div>'
-        : '';
+    // v46.3: 「数据健康」重复录入警告横幅已按用户要求移除（如需清理重复数据，控制台调用 dedupeRebuildDup()）
+    var warnHtml = '';
     // 新一局时对弱模型温和降权（近60局命中率<33%才触发，每新局最多乘0.93，下限0.02）
+    // v46.1准确率增强：降权释放的权重按近60局命中率分配给表现最好的模型（命中率≥40%、样本≥15），
+    // 再整体归一化——让预测更多由近期表现好的模型主导，而非平均摊给所有模型。
     var dampNote = '';
     var pc = P.predHistory.length;
     if (P._lastDampCount !== pc && pc >= 40) {
         P._lastDampCount = pc;
         var recent = rows.slice(-60);
         var damped = [];
+        var freed = 0; // 降权释放的权重总量
         _MODEL_KEYS.forEach(function(k){
             var t = 0, h = 0;
             recent.forEach(function(r){ var p = r.ph.mp ? r.ph.mp[k] : null; if (p) { t++; if (p === r.winner) h++; } });
             if (t >= 15 && h / t < 0.33 && P.modelWeights[k] > 0.02) {
-                P.modelWeights[k] = Math.max(0.02, P.modelWeights[k] * 0.93);
+                var oldW = P.modelWeights[k];
+                P.modelWeights[k] = Math.max(0.02, oldW * 0.93);
+                freed += oldW - P.modelWeights[k];
                 damped.push(_MODEL_LABELS[k] + '→' + P.modelWeights[k].toFixed(3));
             }
         });
         if (damped.length) {
-            dampNote = '<div style="margin-top:6px;color:#e53935;font-size:12px;">🤖 自动降权（近60局低于随机）：' + damped.join('、') + '</div>';
+            // 把释放的权重分给近期命中率≥40%的强模型（按命中率高低成比例）
+            var strong = [];
+            _MODEL_KEYS.forEach(function(k){
+                var t = 0, h = 0;
+                recent.forEach(function(r){ var p = r.ph.mp ? r.ph.mp[k] : null; if (p) { t++; if (p === r.winner) h++; } });
+                if (t >= 15 && h / t >= 0.40 && P.modelWeights[k] > 0.02) strong.push({k: k, acc: h / t});
+            });
+            var boosted = [];
+            if (strong.length > 0 && freed > 0.0001) {
+                var accSum = 0;
+                strong.forEach(function(s){ accSum += s.acc; });
+                if (accSum > 0) {
+                    strong.forEach(function(s){
+                        var add = freed * (s.acc / accSum);
+                        P.modelWeights[s.k] += add;
+                        boosted.push(_MODEL_LABELS[s.k] + '→' + P.modelWeights[s.k].toFixed(3));
+                    });
+                }
+            }
+            // 权重归一化到总和1，保持与「按命中率一键重调权重」同一尺度
+            var wSum = 0;
+            _MODEL_KEYS.forEach(function(k){ wSum += P.modelWeights[k] || 0; });
+            if (wSum > 0) _MODEL_KEYS.forEach(function(k){ P.modelWeights[k] = (P.modelWeights[k] || 0) / wSum; });
+            dampNote = '<div style="margin-top:6px;color:#e53935;font-size:12px;">🤖 自动降权（近60局低于随机）：' + damped.join('、') + '</div>'
+                + (boosted.length ? '<div style="margin-top:4px;color:#2e7d32;font-size:12px;">🤖 同步加权强势模型：' + boosted.join('、') + '</div>' : '');
             // v36.1：渲染时的自动降权只写本地，不触发云端上传（否则打开页面渲染一次就上传一次）
             try { P.saveLocal(); } catch(e) {}
         }
@@ -11730,8 +12245,10 @@ function autoOptimizeTick() {
  * ============================================================ */
 // v40.7: AI辅助分析——调优完成后把模型表现发给大模型，获取加权建议
 var _AI_CFG_KEY = 'mm_ai_cfg_v1';
-var _aiCfg = { url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', key: '715e7bd1289b4b9f9481f1ea035ab8fb.2USXafnXBphI6TwB', model: 'glm-5.3-flash', enabled: true };
-try { var _ais = localStorage.getItem(_AI_CFG_KEY); if (_ais) Object.assign(_aiCfg, JSON.parse(_ais)); } catch(e) {}
+// v46.0: AI功能已彻底移除——不再保留任何API地址/密钥/模型名，防止意外流量与密钥泄露。
+// 保留空配置对象仅为兼容旧引用（全部调用点已有 enabled 短路，不会发起任何网络请求）。
+var _aiCfg = { url: '', key: '', model: '', enabled: false };
+try { localStorage.removeItem(_AI_CFG_KEY); } catch(e) {}
 function _aiSaveCfg() { try { localStorage.setItem(_AI_CFG_KEY, JSON.stringify(_aiCfg)); } catch(e) {} }
 
 // v41.0: AI预测下一局——后台调AI分析走势，缓存概率供融合预测使用
@@ -11764,6 +12281,8 @@ function aiProxyFetch(url, hdrs, bodyObj, timeoutMs) {
     });
 }
 function aiPredictNext(isRetry) {
+    // v45.7: AI功能已禁用，直接返回
+    return;
     console.log('[AI预测] 开始三预测深度分析...');
     // v45.5: aiBar 提前声明——旧版在并发锁之后才赋值，而下面"本局已分析过"分支在赋值前
     // 引用它（var 提升得到 undefined），提示永远不显示。
@@ -11783,10 +12302,9 @@ function aiPredictNext(isRetry) {
     window._aiPredictRunning = true;
     window._aiPredictAt = Date.now();
     if (aiBar) { aiBar.style.display = 'block'; aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...'; }
-    var cfg = getCloudConfig();
-    var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
-    var hdrs = { 'Content-Type': 'application/json' };
-    if (cfg.key) { hdrs['Authorization'] = 'Bearer ' + cfg.key; hdrs['apikey'] = cfg.key; }
+    // v45.6: 直连智谱API + cors-anywhere代理（支持带Authorization头的跨域POST）
+    var proxyUrl = 'https://cors-anywhere.herokuapp.com/' + _aiCfg.url;
+    var hdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _aiCfg.key, 'X-Requested-With': 'XMLHttpRequest' };
     // 最近20局走势——精简版
     var recent = P.history.slice(-20).map(function(r) { return getWinner(r) || '?'; });
     // 模型表现——只取最关键的3个，精简prompt
@@ -12207,6 +12725,8 @@ function aiPredictNext(isRetry) {
 }
 
 function aiAnalyzeAndAdjust(callback) {
+    // v45.7: AI功能已禁用
+    callback && callback(null); return;
     if (!_aiCfg.enabled || !_aiCfg.url || !_aiCfg.key) { callback && callback(null); return; }
     var aiBar = document.getElementById('aiStatusBar');
     if (aiBar) { aiBar.style.display = 'block'; aiBar.innerHTML = '🧠 AI正在分析模型表现...'; }
@@ -12225,12 +12745,11 @@ function aiAnalyzeAndAdjust(callback) {
             JSON.stringify(perf, null, 2) + '\n\n最近20局走势：' + recent.join(' ') +
             '\n\n请分析：哪些模型该加权、哪些该降权？只返回JSON，格式：{"boost":["similarPattern"],"reduce":["rotation","alternation"],"reason":"一句话理由"}。' +
             '注意：样本量<100的模型不要轻易加权，命中率<35%的模型建议降权。';
-        var cfg = getCloudConfig();
-        var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
-        var hdrs = { 'Content-Type': 'application/json' };
-        if (cfg.key) { hdrs['Authorization'] = 'Bearer ' + cfg.key; hdrs['apikey'] = cfg.key; }
+        // v45.6: 直连智谱API + cors-anywhere代理
+        var proxyUrl = 'https://cors-anywhere.herokuapp.com/' + _aiCfg.url;
+        var hdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _aiCfg.key, 'X-Requested-With': 'XMLHttpRequest' };
         aiProxyFetch(proxyUrl, hdrs,
-            { model: (_aiCfg && _aiCfg.model) || 'glm-5.3-flash', messages: [{role:'user',content:prompt}], temperature: 0.3 }, 25000
+            { model: _aiCfg.model, messages: [{role:'user',content:prompt}], temperature: 0.3 }, 25000
         ).then(function(data) {
             var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
             if (!text) { if (aiBar) { aiBar.innerHTML = '❌ AI返回为空'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); } callback && callback(null); return; }
@@ -12847,48 +13366,7 @@ function renderCards() {
         }
         modelDetail.innerHTML=html;
     }
-    // ===== v44.20: 基线对照面板 =====
-    try {
-        var bpEl = document.getElementById('baselinePanel');
-        if (bpEl) {
-            var accN = P.accuracy.length;
-            if (accN < 20) {
-                bpEl.innerHTML = '<strong>📊 系统vs基线对照：</strong>数据不足20局，继续积累中（当前'+accN+'局）';
-            } else {
-                var recent = P.accuracy.slice(-Math.min(50, accN));
-                var sysHits = recent.filter(function(x){return x;}).length;
-                var sysAcc = sysHits / recent.length;
-                // 随机基线
-                var randAcc = 1/3;
-                // 跟上局赢家基线
-                var followHits = 0, followN = 0;
-                for (var bi = 1; bi < recent.length; bi++) {
-                    var prevW = getWinner(P.history[P.history.length - recent.length + bi - 1]);
-                    var curW = getWinner(P.history[P.history.length - recent.length + bi]);
-                    if (prevW && curW) { followN++; if (prevW === curW) followHits++; }
-                }
-                var followAcc = followN > 0 ? followHits / followN : 0.33;
-                // 近20局频率基线
-                var freqCount = {A:0,B:0,C:0};
-                for (var fi = Math.max(0, P.history.length - 20); fi < P.history.length; fi++) {
-                    var fw = getWinner(P.history[fi]);
-                    if (fw) freqCount[fw]++;
-                }
-                var freqTotal = freqCount.A + freqCount.B + freqCount.C;
-                var freqBest = freqTotal > 0 ? Math.max(freqCount.A, freqCount.B, freqCount.C) / freqTotal : 0.33;
-                // z-score
-                var z = (sysAcc - 0.333) / Math.sqrt(0.333 * 0.667 / recent.length);
-                var zLabel = z > 1.65 ? '<span style="color:#2e7d32;font-weight:700;">✅ 显著优于随机</span>' : '<span style="color:#f57c00;font-weight:700;">⚠️ 和随机无差异</span>';
-                bpEl.innerHTML = '<strong>📊 系统vs基线对照（近'+recent.length+'局）：</strong><br>' +
-                    '<table style="width:100%;margin-top:6px;border-collapse:collapse;font-size:12px;">' +
-                    '<tr style="border-bottom:1px solid #eee;"><td style="padding:3px 8px;font-weight:600;">本系统</td><td style="padding:3px 8px;">命中率 '+(sysAcc*100).toFixed(1)+'%</td></tr>' +
-                    '<tr style="border-bottom:1px solid #eee;"><td style="padding:3px 8px;color:#888;">随机猜1/3</td><td style="padding:3px 8px;color:#888;">33.3%</td></tr>' +
-                    '<tr style="border-bottom:1px solid #eee;"><td style="padding:3px 8px;color:#888;">跟上局赢家</td><td style="padding:3px 8px;color:#888;">'+(followAcc*100).toFixed(1)+'%</td></tr>' +
-                    '<tr><td style="padding:3px 8px;color:#888;">近20局最热方</td><td style="padding:3px 8px;color:#888;">'+(freqBest*100).toFixed(1)+'%</td></tr>' +
-                    '</table>' + zLabel + '（z='+z.toFixed(2)+'）';
-            }
-        }
-    } catch(e) { console.warn('[基线面板]失败:', e.message); }
+    // v46.3: 「系统vs基线对照」面板已按用户要求移除（原v44.20基线对照代码已删除）
     // ===== v44.30: 样本外证据表 + 漂移状态 =====
     try {
         var evLog = (P._evidenceLog || []).filter(function(e){return e.actualWinner;});
@@ -13514,13 +13992,27 @@ function renderHistory() {
     var rowsHtml = '';
     // v27.4: 索引偏移移到循环外计算，避免300次重复计算
     var _phOffset = P.history.length - P.predHistory.length;
+    // v46.3根治「预测收益/预测投资」显示横杠：优先按rid匹配预测快照。
+    // 旧版纯用索引偏移(idx-offset)映射，增量合并/重建后若predHistory与history不对齐，
+    // 会读到别的局的快照（缺profitPrediction字段）→ 显示"—"。
+    var _phByRid = null;
+    if (P.predHistory.length > 0 && typeof Map !== 'undefined') {
+        _phByRid = new Map();
+        for (var _pmi = 0; _pmi < P.predHistory.length; _pmi++) {
+            var _pmph = P.predHistory[_pmi];
+            if (_pmph && _pmph.rid && !_phByRid.has(_pmph.rid)) _phByRid.set(_pmph.rid, _pmph);
+        }
+    }
     for (var pi=startIdx; pi<endIdx; pi++) {
         var idx = filtered[pi].origIdx;
         var rec=filtered[pi].rec, winner=filtered[pi].winner; // v34.2：直接用预计算的winner
         var predDisp='—',snapDisp='—',actualRankDisp='—',probDisp='—',corrDisp='—',sourceDisp='—',predProfitDisp='—',predInvestDisp='—';
-        var _phIdx = idx - _phOffset;
-        if (idx>0 && _phIdx>=0 && _phIdx<P.predHistory.length) {
-            var ph=P.predHistory[_phIdx];
+        var ph = null;
+        if (idx > 0) {
+            if (_phByRid && rec._rid && _phByRid.has(rec._rid)) ph = _phByRid.get(rec._rid); // v46.3: rid优先
+            if (!ph) { var _phIdx = idx - _phOffset; if (_phIdx>=0 && _phIdx<P.predHistory.length) ph = P.predHistory[_phIdx]; }
+        }
+        if (ph) {
             if (ph.profitPrediction && ph.profitPrediction.predicted) {
                 var predP = ph.profitPrediction.predicted;
                 var actualP = rec.profitWinner;
@@ -13687,6 +14179,8 @@ function applyTimeEdit(idx, field, value) {
     }
     // v38.2: 时间修改后标记，下次上传跳过合并，直接覆盖云端（避免旧时间数据又被同步回来）
     window._skipNextMerge = true;
+    // v46.0: 时间修改会连续更新多局，全部标记待增量上传
+    try { for (var _ti = idx; _ti < P.history.length; _ti++) { if (P.history[_ti] && P.history[_ti]._rid) markDirtyRid(P.history[_ti]._rid); } } catch(e) {}
     debouncedSave();
     renderHistory();
 }
@@ -15372,6 +15866,8 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
     // v41: 重建后旧规律缓存失效，清空避免残留指纹误导
     try { P.patternHitCache = {}; } catch(e) {}
     P.maxStreakEver = calcMaxStreak(P.history);
+    // v46.0: 导入的数据全部标记待增量上传（rid幂等upsert，重复记录不会翻倍）
+    try { (P.history || []).forEach(function(r) { if (r && r._rid) _dirtyRids[r._rid] = 1; }); _saveDirtyRids(); } catch(e) {}
     if (P.predHistory.length > 0) {
         P.lastPrediction = P.predHistory[P.predHistory.length - 1].guild;
     }
@@ -15422,7 +15918,7 @@ function finishImport(cumP, mode, totalImported, actualAdded, skipCount) {
                 '🛡️ 第二层防护：本地快照已保存\n' +
                 '   点「📜 操作日志」可随时回滚\n\n' +
                 '↩️ 撤销导入：请点页面底部绿色状态条里的红色链接「撤销本次导入」（30秒内有效）\n\n' +
-                '确认数据无误后，请手动点「☁️ 上传云端」同步';
+                '✅ 确认数据无误后，系统将自动分批增量上传到云端（每次25条，无需手动操作）；管理员也可点「☁️ 全量上传」一次性覆盖';
             if (_importErrors && _importErrors.length > 0) {
                 protectMsg += '\n\n⚠️ 有 ' + _importErrors.length + ' 行数据校验失败已跳过';
             }
@@ -15550,7 +16046,7 @@ function _doAddRecord(_btn, a, b, c, pW, iW, _guard) {
             var profitTxt = pW ? ('，获胜收益：' + pW) : '';
             var investTxt = iW ? ('，获胜投资：' + iW) : '';
             showRecordResult(true, '录入成功', '第' + P.history.length + '局已录入\nA：' + a + '分 B：' + b + '分 C：' + c + '分' + profitTxt + investTxt +
-                '\n\n🧠 AI预测将在3秒后自动开始分析下一局\n⏱️ 停手5秒后自动上传云端（连续录入会重新计时）...', 4000);
+                '\n\n⏱️ 停手5秒后自动上传云端（连续录入会重新计时）...', 4000);
             _lastRecordTime = Date.now();
             try {
                 var _ipw = document.getElementById('inputProfitWinner'); if (_ipw) _ipw.value = '';
@@ -15562,24 +16058,13 @@ function _doAddRecord(_btn, a, b, c, pW, iW, _guard) {
             } catch(e) {}
             try { renderAll(); } catch(e) { console.error('[录入]renderAll失败:', e.message); }
             try { _finalizeLastSnapCount(); } catch(e) {}
+            // v46.0: 标记本局为待增量上传
+            try { var _newRec = P.history[P.history.length - 1]; if (_newRec && _newRec._rid) markDirtyRid(_newRec._rid); } catch(e) {}
             try { debouncedSave(); } catch(e) { console.warn('[录入]保存失败:', e.message); }
             try { showLearningIndicator(false); } catch(e) {}
             try { showLearnTip(); } catch(e) {}
             try { P._aiCache = null; window._predCache = null; } catch(e) {}
-            try {
-                var aiBar = document.getElementById('aiStatusBar');
-                if (aiBar) {
-                    var countdown = 3;
-                    aiBar.style.display = 'block';
-                    aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...';
-                    var countdownTimer = setInterval(function() {
-                        countdown--;
-                        if (countdown <= 0) { clearInterval(countdownTimer); aiBar.innerHTML = '🧠 AI正在读取全部系统数据深度分析...'; }
-                        else { aiBar.innerHTML = '🧠 AI预测将在 ' + countdown + ' 秒后自动开始...'; }
-                    }, 1000);
-                }
-                setTimeout(function(){ aiPredictNext(); }, 3000);
-            } catch(e) { console.warn('[AI录入后延迟3s]失败:', e.message); }
+            // v45.7: AI功能已禁用，去掉录入后自动触发AI预测
         } catch(e) {
             console.error('[录入] 后续处理异常:', e);
             if (_committed) {
@@ -15685,7 +16170,8 @@ document.getElementById('btnUndo').addEventListener('click',function(){
     // 抢在20秒轮询之前把较短的本地数据覆盖云端，避免轮询把刚删的那局当对端新记录拉回。
     try {
         if (supabaseClient && cloudOnline && !_testMode && !_cloudSaving) {
-            setTimeout(function() { cloudSave(false, true); }, 300);
+            // v46.0: 撤销后立即增量上传墓碑行（undoLast已标记dirty），不会被轮询拉回
+            setTimeout(function() { cloudSaveIncremental(); }, 300);
         }
     } catch(e) {}
 });
@@ -15838,7 +16324,7 @@ document.getElementById('btnForceLearn').addEventListener('click',function(){
 });
 document.getElementById('btnResetLearn').addEventListener('click',function(){
     if(!confirm('确定重置学习状态？模型权重将恢复默认'))return;
-    P.modelWeights={global:0.12,multiWindow:0.12,score:0.10,streak:0.08,rotation:0.06,alternation:0.05,trend:0.03,regression:0.03,similarPattern:0.15,profitPattern:0.06,aiModel:0.10}; // v44.31: AI初始10%（样本外诊断为降噪定位，靠学习动态调整）
+    P.modelWeights={global:0.12,multiWindow:0.12,score:0.10,streak:0.08,rotation:0.06,alternation:0.05,trend:0.03,regression:0.03,similarPattern:0.15,profitPattern:0.06,aiModel:0.0}; // v45.7: AI功能已禁用
     P.modelPerf={};P.advancedModelPerf={similar:[],loss:[],profit:[],markov:[],bayes:[],trend:[],rebound:[]};P.windowPerf={win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=0;P.reflectionLog=[];
     CONFIG.win6W=0.32;CONFIG.win7W=0.20;CONFIG.win8W=0.28;CONFIG.win10W=0.12;CONFIG.globalW=0.08;
     normalizeWindowWeights();renderAll();renderLearnTab();debouncedSave();showRecordResult(true, '成功', '学习状态已重置'); // v18.0：防抖保存
@@ -15965,6 +16451,46 @@ requestAnimationFrame(function() {
     try { renderPieCharts(); } catch(e) { console.error('[init] renderPieCharts:', e); }
     try { renderInsightPanel(); } catch(e) { console.error('[init] renderInsightPanel:', e); }
 });
+// ============ v46.0 启动钩子 ============
+try { _loadDirtyRids(); } catch(e) {}
+try { renderCloudQuota(); } catch(e) {}
+// v46.0: AI已移除——清除旧版本残留在本地数据里的AI修正缓存，确保不再应用任何AI修正
+try { if (P && P._aiCache) { P._aiCache = null; P.saveLocal(); } } catch(e) {}
+// v46.0: 自动回填历史记录缺失的「预测收益/预测投资」字段（静默分批执行）
+// v46.3: 检测到缺失就重跑（6小时节流），只在确实补齐后记录时间戳；旧版只跑一次导致新增缺失无法修复
+setTimeout(function() {
+    try {
+        var _bfFlag = 'mm_backfill_pred_v46';
+        var _lastBf = parseInt(localStorage.getItem(_bfFlag) || '0', 10);
+        if (Date.now() - _lastBf < 6 * 3600000) return; // 6小时内已跑过
+        if (P && P.predHistory && P.history.length > 0) {
+            var _need = 0;
+            P.predHistory.forEach(function(ph) { if (ph && (!ph.profitPrediction || !ph.investPrediction)) _need++; });
+            if (_need > 0) {
+                console.log('[回填] 检测到 ' + _need + ' 局缺少预测收益/投资字段，开始自动回填...');
+                backfillPredFields(true).then(function(n) {
+                    console.log('[回填] 完成，补齐 ' + n + ' 条');
+                    // v46.6: 无论补齐多少都写入节流标记（旧版补齐0条时不写标记，
+                    // 导致每次打开页面都重跑并弹进度提示）。剩余无法补齐的局是
+                    // 当年本来就没有收益/投资数据的，重跑也不会有结果。
+                    localStorage.setItem(_bfFlag, String(Date.now()));
+                    if (n > 0) {
+                        // 回填结果也同步到云端（增量上传对应局的快照）
+                        try {
+                            P.predHistory.forEach(function(ph) {
+                                if (ph && ph.rid && (!ph._bfDone)) {
+                                    if (ph.profitPrediction && ph.investPrediction) { ph._bfDone = 1; markDirtyRid(ph.rid); }
+                                }
+                            });
+                            _saveDirtyRids();
+                            if (supabaseClient && cloudOnline && !_testMode) cloudSaveIncremental();
+                        } catch(e) {}
+                    }
+                });
+            }
+        }
+    } catch(e) { console.warn('[回填] 启动失败:', e); }
+}, 20000);
 // v26.1：如果predHistory被截断，异步分批重建，不阻塞UI
 // v34.6：延迟3秒启动，等云端数据加载完成；如果云端数据完整会清除_rebuildPending，就不重建
 setTimeout(function() {
@@ -16033,8 +16559,8 @@ document.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         debouncedSave();
-        // v27.3：只有自动同步启用时才同步
-        if (_autoSyncEnabled && supabaseClient && cloudOnline) cloudSave();
+        // v27.3：只有自动同步启用时才同步（v46.0: 改为增量上传，上传始终安全）
+        if (supabaseClient && cloudOnline) cloudSaveIncremental();
         return;
     }
     if (inInput) return;
@@ -16537,6 +17063,8 @@ function saveEditRecord() {
     P.history[_editRecordIdx].c = c;
     if (profit) P.history[_editRecordIdx].profitWinner = profit;
     if (invest) P.history[_editRecordIdx].investWinner = invest;
+    // v46.0: 编辑后标记该局为待增量上传（rid幂等upsert，其他端按ua合并更新）
+    try { var _er = P.history[_editRecordIdx]; if (_er && _er._rid) markDirtyRid(_er._rid); } catch(e) {}
     closeEditRecordModal();
     // v37.2: 只改原始数据，不重建预测历史，改完直接刷新+后台保存
     P.maxStreakEver = calcMaxStreak(P.history);
@@ -16566,6 +17094,8 @@ document.addEventListener('click', function(e) {
         P.maxStreakEver = calcMaxStreak(P.history);
         // v38.2: 删除后标记，下次上传跳过合并，直接覆盖云端（避免删除的记录又被同步回来）
         window._skipNextMerge = true;
+        // v46.0: 删除后上传墓碑增量行，通知其他端删除该记录
+        try { if (deletedRec && deletedRec._rid) markDirtyRid(deletedRec._rid); } catch(e) {}
         renderAll(); debouncedSave();
         try { _finalizeLastSnapCount(); } catch(e) {} // v38.x: 修正快照count为删除后局数
     } else if (e.target.classList.contains('time-edit-cell')) {
@@ -17042,14 +17572,14 @@ function w2Pad(n){ return (n<10?'0':'')+n; }
 function todayStr(){ var d=new Date(); return d.getFullYear()+'-'+w2Pad(d.getMonth()+1)+'-'+w2Pad(d.getDate()); }
 function w2AiChat(prompt, cb){
   try{
+    // v45.7: AI功能已禁用
+    cb(null); return;
     if(!(window._aiCfg && _aiCfg.enabled)){ cb(null); return; }
-    var cfg = (typeof getCloudConfig==='function') ? getCloudConfig() : {};
-    if(!cfg || !cfg.url){ cb(null); return; }
-    var proxyUrl = cfg.url + '/functions/v1/ai-proxy';
-    var hdrs = {'Content-Type':'application/json'};
-    if(cfg.key){ hdrs['Authorization']='Bearer '+cfg.key; hdrs['apikey']=cfg.key; }
+    // v45.6: 直连智谱API + cors-anywhere代理，模型从_glmCfg读取（之前硬编码glm-4.7-flash）
+    var proxyUrl = 'https://cors-anywhere.herokuapp.com/' + _aiCfg.url;
+    var hdrs = {'Content-Type':'application/json', 'Authorization':'Bearer '+_aiCfg.key, 'X-Requested-With':'XMLHttpRequest'};
     aiProxyFetch(proxyUrl, hdrs,
-        {model:'glm-4.7-flash', messages:[{role:'user',content:prompt}], temperature:0.3}, 25000)
+        {model: _aiCfg.model, messages:[{role:'user',content:prompt}], temperature:0.3}, 25000)
       .then(function(data){
         var text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
         cb(text || null);
@@ -17062,7 +17592,7 @@ function buildMoreMenu(){
   try{
     var bar = $('cloudBar');
     if(!bar || $('w2MorePanel')) return;
-    var primary = ['cloudPullBtn','cloudPushBtn','btnAiPredictTop'];
+    var primary = ['cloudPullBtn','cloudIncrBtn','cloudPushBtn'];
     var panel = document.createElement('div');
     panel.id = 'w2MorePanel'; panel.className = 'w2-more-panel';
     var moreBtn = document.createElement('button');
@@ -17415,7 +17945,7 @@ function drainW2Queue(){
   try{
     if(!navigator.onLine) return;
     var q = readW2Queue(); if(!q.length) return;
-    if(typeof cloudSave==='function'){ try{ cloudSave(true); }catch(e){} }
+    if(typeof cloudSaveIncremental==='function'){ try{ cloudSaveIncremental(true); }catch(e){} }
     setTimeout(function(){
       try{ if(typeof debouncedSave==='function') debouncedSave(); }catch(e){}
       saveW2Queue([]); updateW2Badge();
@@ -17608,10 +18138,12 @@ function w2Init(){
     buildMoreMenu();
     buildGroupCopyBtn();
     buildQuickEntry();
-    buildSnapCard();
+    // v46.1: 移除「数据快照历史/今日复盘日报/智能参数调优建议」三个无用面板
+    // （快照回滚已由顶部「📜 操作日志」承担，复盘与调优建议依赖已移除的AI功能）
+    // buildSnapCard();
     buildOffline();
-    buildDailyCard();
-    buildTuneCard();
+    // buildDailyCard();
+    // buildTuneCard();
     hookW2Render();
     window.W2 = { refresh: function(){ try{ updateW2Badge(); }catch(e){} } };
   }catch(e){ console.warn('[w2] init', e); }
