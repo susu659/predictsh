@@ -8,7 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- v47.13: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E">
-<title>商会三竞预测系统 v47.12 · 增量回传阻断版</title>
+<title>商会三竞预测系统 v47.13 · 刷新熔断与增量归零版</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -842,7 +842,7 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="v47.12 阻断被清理增量行的回传通道，增量压缩不再打地鼠">v47.12</span></h1>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="v47.13 刷新循环熔断 + 增量计数归零语义（全量上传后从0重新累计）">v47.13</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
 </header>
 <div class="main-content">
@@ -1878,9 +1878,9 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v47.12'; // v47.12: 增量回传阻断——对账不再把已清理的行重新排队上传
+  var APP_VERSION = 'v47.13'; // v47.13: 刷新循环熔断 + 增量归零语义
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC = 'v47.12 增量回传阻断：对账补传改为先统计后标记，超过 50 条跳过自动补传（只提示管理员全量上传），修复与增量压缩形成「删了又传回来」的打地鼠循环（实测压缩删 3803 条后云端又回到 5126 条）；升级首启自动清空历史积累的本地待传队列。需所有设备同步升级到本版本。';
+  var APP_UPDATE_DESC = 'v47.13 修复：① 360 极速等浏览器页面持续自动刷新——根因是存储配额不足时同步纪元（_syncEpoch）保存失败，页面刷新后每次云端拉取都误判「云端纪元更新」而反复全量覆盖本地；修复为存储兜底必须携带同步纪元，并新增刷新熔断（60 秒内第 3 次页面加载自动暂停所有自动同步，手动操作不受限）。② 增量计数归零语义——增量计数只统计「数据行」（墓碑删除标记单独显示不计入），全量上传后自动清理已入快照的增量行并输出「增量已从 0 重新累计」确认，对账堆积阈值只看数据行。';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg, autoCloseMs) {
@@ -8030,7 +8030,15 @@ class Predictor {
                 localStorage.setItem(STORE_KEY, json);
             } catch(e2) {
                 try {
-                    var minimal = { history: this.history.slice(-500), predHistory: (saveData.predHistory || []).slice(-100) };
+                    // v47.13修复: 兜底保存必须携带关键同步状态——360极速等存储配额更严格的浏览器上，
+                    // 若 _syncEpoch 丢失，页面刷新后每次云端拉取都判定"云端纪元更新"而反复全量覆盖本地
+                    //（表现为页面持续自动刷新 + 各端数据被反复冲掉）。
+                    var minimal = {
+                        history: this.history.slice(-500),
+                        predHistory: (saveData.predHistory || []).slice(-100),
+                        _syncEpoch: this._syncEpoch || 0,
+                        _adminOverride: this._adminOverride || null
+                    };
                     localStorage.setItem(STORE_KEY, JSON.stringify(minimal));
                     if (!window._quotaWarnAt || Date.now() - window._quotaWarnAt > 60000) {
                         window._quotaWarnAt = Date.now();
@@ -9359,6 +9367,22 @@ function toggleAdminMode() {
     showRecordResult(true, '成功', '已进入管理员模式！\n您上传或恢复的数据将强制覆盖其他所有设备。');
 }
 function initCloud() {
+    // v47.13: 刷新循环熔断——60 秒内第 3 次及以上页面加载时，暂停所有自动云端行为
+    //（自动拉取/轮询/对账/自动全量覆盖），无论根因是存储配额导致的纪元丢失、还是浏览器
+    // 特殊行为（如 360 极速），都确定性止住"页面持续自动刷新"。手动操作（立即刷新/上传）不受限。
+    try {
+        var _lastBoot = Number(sessionStorage.getItem('mm_boot_ts') || 0);
+        var _nowBoot = Date.now();
+        window._rapidBootCount = (_lastBoot && _nowBoot - _lastBoot < 60000)
+            ? (Number(sessionStorage.getItem('mm_boot_n') || 0) + 1)
+            : 1;
+        sessionStorage.setItem('mm_boot_ts', String(_nowBoot));
+        sessionStorage.setItem('mm_boot_n', String(window._rapidBootCount));
+        if (window._rapidBootCount >= 3) {
+            window._syncFuseBlown = true;
+            console.warn('[熔断] 60秒内第 ' + window._rapidBootCount + ' 次页面加载，已暂停自动同步以防刷新循环；手动「立即刷新/立即上传」不受影响。重启浏览器或关闭页面5分钟后自动恢复。');
+        }
+    } catch(e) {}
     // v47.9修复: 防重入——已成功初始化过云端则直接跳过（启动定时器与CDN重试各会调用一次，
     // 旧版重复执行心跳/快照加载/5秒首次拉取，产生重复请求与渲染竞态）。
     // 注意：SDK 未加载完成时（window.supabase 不存在）不置标记，允许 CDN 重试时再次进入。
@@ -9556,6 +9580,8 @@ if (!supabaseClient) {
 var _cloudPullRunning = false;
 async function cloudLoad(silent) {
     if (_cloudPullRunning) { console.log('[云端拉取] 已有拉取进行中，跳过本次触发'); return false; }
+    // v47.13: 熔断期间暂停自动拉取（silent=自动触发）；手动操作(!silent)不受限
+    if (window._syncFuseBlown && silent) return false;
     _cloudPullRunning = true;
     try {
         return await _cloudLoadBody(silent);
@@ -9722,8 +9748,12 @@ async function _cloudLoadBody(silent) {
             }
             // v35.6关键防护：本地有未上传的新记录时（刚录入还没上传），
             // 把这些记录附加到云端数据后面，避免被云端旧数据冲掉。
+            // v47.14修复(数据丢失根因): 保护范围从"同步基线之后"扩大到"全部本地记录"——
+            // 实测用户本端已上传的记录（操作日志3803局）被旧主快照（3796局）强制覆盖后丢失，
+            // 因为这些记录在 _lastIncrSyncCount 基线之内，旧版保护不到。按业务键去重只保留
+            // 云端快照缺失的记录，保护后排队增量上传，云端与其他端即可补齐，数据不再丢。
             try {
-                var _localUnsaved = (P.history || []).slice(_lastIncrSyncCount);
+                var _localUnsaved = (P.history || []).slice();
                 if (_localUnsaved.length > 0) {
                     var _freshLocalIdx = _filterNewIndexes(data.data.history || [], _localUnsaved);
                     if (_freshLocalIdx.length > 0) {
@@ -9743,6 +9773,11 @@ async function _cloudLoadBody(silent) {
                             data.data.profitAccuracy = (data.data.profitAccuracy || []).concat(_pickByIndexes(_localUnsavedPA, _freshLocalIdx));
                         }
                         console.log('[云端拉取] 已保护本地未上传的 ' + _freshLocalIdx.length + ' 条新记录');
+                        // v47.14: 被保护的记录排队增量上传——云端主快照缺失它们，必须补传，
+                        // 否则其他端永远拿不到这批记录（数据丢失跨端扩散）。
+                        try {
+                            _freshLocalHist.forEach(function(_r){ if (_r && _r._rid) markDirtyRid(_r._rid); });
+                        } catch(e) {}
                     }
                 }
             } catch(e) { console.warn('[云端拉取] 保护本地未上传记录失败:', e.message); }
@@ -10123,6 +10158,14 @@ async function cloudSaveIncremental(manual) {
     }
 }
 
+// v47.14: predHistory 按 rid 幂等写入（同名快照替换、否则追加，避免重复堆积/静默丢弃）
+function _upsertPredByRid(rid, p) {
+    if (!p) return;
+    for (var i = 0; i < P.predHistory.length; i++) {
+        if (P.predHistory[i] && P.predHistory[i].rid === rid) { P.predHistory[i] = p; return; }
+    }
+    P.predHistory.push(p);
+}
 // ---- 合并其他端的增量行（增/改/删）----
 function mergeRemoteRecRows(rows) {
     if (!rows || !rows.length) return { added: 0, updated: 0, removed: 0 };
@@ -10168,9 +10211,7 @@ function mergeRemoteRecRows(rows) {
                 if (P.history[idx]._dirtyLocal) return;
                 if (ua > (P.history[idx]._ua || 0)) {
                     P.history[idx] = rec;
-                    for (var j2 = 0; j2 < P.predHistory.length; j2++) {
-                        if (P.predHistory[j2] && P.predHistory[j2].rid === rid) { if (d.p) P.predHistory[j2] = d.p; break; }
-                    }
+                    if (d.p && d.p.rid === rid) _upsertPredByRid(rid, d.p);
                     updated++;
                 }
                 return;
@@ -10193,7 +10234,7 @@ function mergeRemoteRecRows(rows) {
             if (_tombHas('rec_' + rid)) return;
             // 追加新记录 + 对应预测快照
             P.history.push(rec);
-            if (d.p && d.p.rid === rid) P.predHistory.push(d.p);
+            if (d.p && d.p.rid === rid) _upsertPredByRid(rid, d.p);
             added++;
         } catch(e) { console.warn('[增量合并] 单行失败:', e && e.message); }
     });
@@ -10289,6 +10330,7 @@ async function cloudPollIncremental() {
     if (!supabaseClient || !cloudOnline || _testMode) return;
     if (_pollIncrRunning || _cloudSaving || _syncIncrRunning) return;
     if (!_autoSyncEnabled) return;
+    if (window._syncFuseBlown) return; // v47.13: 熔断期间暂停自动轮询
     _pollIncrRunning = true;
     try { await cloudSweepRecRows(false); } finally { _pollIncrRunning = false; }
 }
@@ -10366,18 +10408,23 @@ async function cloudReconcileRecIds() {
         // 1) 全量扫增量行 id 列表（主键范围走索引，每行仅id+时间）
         // v47.8修复: 改用 id 主键游标翻页——id 唯一，翻页必然前进；
         // 旧版按 updated_at 游标翻页，大量同批次/同时间戳行会导致游标不前进、反复拉取同一页。
-        var remoteIds = {}, cursorId = 'rec', guard = 0, total = 0;
+        // v47.13: 顺带取 data->>del 分类计数——"增量计数"只统计数据行，
+        // 墓碑（删除标记）不是数据增量，不计入，这样全量上传清理后计数即可归零。
+        var remoteIds = {}, cursorId = 'rec', guard = 0, totalData = 0, totalTomb = 0;
         while (guard++ < 100) {
-            var res = await supabaseClient.from(CLOUD_TABLE).select('id,updated_at')
+            var res = await supabaseClient.from(CLOUD_TABLE).select('id,updated_at,data->>del')
                 .gt('id', cursorId).lt('id', 'rec~')
                 .order('id', { ascending: true }).limit(500);
             if (res.error) { console.warn('[对账] id扫描失败:', res.error.message); return; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v47.13: id 扫描页流量统计（每行仅id+时间，约60字节）
-            try { trackTraffic('in', rows.length * 60); } catch(e2) {}
-            rows.forEach(function(r){ remoteIds[r.id] = r.updated_at; if (r.id > cursorId) cursorId = r.id; });
-            total += rows.length;
+            // v47.13: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
+            try { trackTraffic('in', rows.length * 75); } catch(e2) {}
+            rows.forEach(function(r){
+                remoteIds[r.id] = r.updated_at;
+                if (r.id > cursorId) cursorId = r.id;
+                if (r.del === 1 || r.del === '1') totalTomb++; else totalData++;
+            });
             if (rows.length < 500) break;
         }
         // 2) 云端有、本地无 → 拉数据合并（墓碑集合一次性载入内存，避免循环内反复解析localStorage）
@@ -10413,7 +10460,6 @@ async function cloudReconcileRecIds() {
         // 3) 本地有、云端无且从未上传 → 补标记上传（仅少量散失记录；大量出现说明需要管理员全量上传，不自动刷）
         // v47.13: 全量基线内的记录（索引 < _lastIncrSyncCount，已随全量快照在云端）直接跳过——
         // 全量同步之后新增的记录才计入增量，避免把快照里已有的记录重复计数/重复上传。
-        var marked = 0;
         // v47.12修复: 先统计再标记——大量"从未上传"记录通常意味着同步计数异常或快照已覆盖。
         // 旧版直接全部 markDirtyRid 进脏队列，60秒重试定时器会把几千条已入快照的记录重新上传，
         // 与增量压缩形成"删了又传回来"的打地鼠循环（实测：压缩删3803条后云端又回到5126条）。
@@ -10431,21 +10477,15 @@ async function cloudReconcileRecIds() {
         } else if (marked > 50) {
             console.warn('[对账] 检测到 ' + marked + ' 条从未上传的记录（大概率快照已覆盖/同步计数异常），已跳过自动补传；建议管理员执行一次「全量上传」建立基线');
         }
-        // v47.11: 区分墓碑行计数，避免"云端增量行5158条"误导（其中大量是删除标记和已入快照的历史行）
-        var _tombCount = -1;
-        try {
-            var _tc = await supabaseClient.from(CLOUD_TABLE).select('id', { count: 'exact', head: true })
-                .gte('id', 'rec_').lt('id', 'rec~').eq('data->del', 1);
-            if (!_tc.error && typeof _tc.count === 'number') _tombCount = _tc.count;
-        } catch(e2) {}
-        console.log('[对账] 完成：云端增量行' + total + '条' +
-            (_tombCount >= 0 ? '（其中删除标记墓碑' + _tombCount + '条' : '（墓碑数未知') +
-            '，其余为已入快照的历史行，全量上传后自动压缩清理），补拉' + missing.length + '条，补传' + marked + '条');
-        // v47.11: 增量行堆积时自动压缩——贴合"增量入快照即存量"的生命周期：
+        // v47.13: 增量计数只显示数据行——全量上传清理后日志即归零，符合"增量从0重新累计"语义。
+        // 墓碑（删除标记）单独显示，不与数据增量混在一起误导。
+        console.log('[对账] 完成：云端增量数据行' + totalData + '条（另有删除标记墓碑' + totalTomb + '条，按30天保留期自动清理），补拉' + missing.length + '条，补传' + marked + '条');
+        // v47.11: 增量数据行堆积时自动压缩——贴合"增量入快照即存量"的生命周期：
         // 全量快照建立后，旧的增量数据行不再需要，自动清理（墓碑按保留期、近2分钟窗口内不动）。
-        if (total > 400 && Date.now() - (window._lastAutoCompact || 0) > 6 * 3600000) {
+        // v47.13: 堆积阈值只看数据行，墓碑不触发压缩。
+        if (totalData > 400 && Date.now() - (window._lastAutoCompact || 0) > 6 * 3600000) {
             window._lastAutoCompact = Date.now();
-            compactCloudRecRows('对账发现增量行堆积');
+            compactCloudRecRows('对账发现增量数据行堆积');
         }
     } catch(e) {
         console.warn('[对账] 异常:', e && e.message);
@@ -10520,6 +10560,16 @@ async function compactCloudRecRows(reason) {
                 console.warn('[压缩] 实际删除', deleted, '/', _delIds.length, '条（过期墓碑', _tombDel, '条）——大概率 Supabase 未开放 DELETE 权限（RLS），请在后台执行：create policy "allow delete" on prediction_data for delete to anon using (true);');
             } else {
                 console.log('[压缩] 已清理已入快照的增量行', deleted, '条（过期墓碑', _tombDel, '条）· 触发：' + reason);
+                // v47.13: 全量上传后输出"增量归零"确认（数据行数 = 总行数 - 墓碑数，两次轻量 count）
+                try {
+                    var _allC = await supabaseClient.from(CLOUD_TABLE).select('id', { count: 'exact', head: true }).gte('id', 'rec_').lt('id', 'rec~');
+                    var _tombC = await supabaseClient.from(CLOUD_TABLE).select('id', { count: 'exact', head: true }).gte('id', 'rec_').lt('id', 'rec~').eq('data->del', 1);
+                    if (!_allC.error && !_tombC.error) {
+                        var _dataRows = (_allC.count || 0) - (_tombC.count || 0);
+                        console.log('[增量] 当前云端增量数据行 ' + _dataRows + ' 条（墓碑 ' + (_tombC.count || 0) + ' 条）' +
+                            (reason.indexOf('全量上传') >= 0 ? '——全量上传完成，增量已从 0 重新累计' : '——增量继续累计中，入快照后自动清理'));
+                    }
+                } catch(e3) {}
             }
         }
     } catch(e) { console.warn('[压缩] 异常:', e && e.message); }
@@ -14632,9 +14682,10 @@ function renderHistory() {
     // Read current page from a data attr; default to LAST page on first load
     var container=document.getElementById('historyContainer');
     if(!container) container=document.querySelector('.history-table-container');
-    // v44.38修复: 打开页面默认停留在第1页——旧版容器无data-page时默认取totalPages，导致每次打开都跳到最后一页
+    // v47.14修复(用户要求): 打开时始终定位最新一页——容器无 data-page（首次渲染或云端拉取后重置）时
+    // 默认显示最后一页（最新数据）；用户手动翻页后（data-page 有值）保持当前页不跳转。
     var hasPageAttr = container.hasAttribute('data-page');
-    var curPage = hasPageAttr ? parseInt(container.getAttribute('data-page')) : 1;
+    var curPage = hasPageAttr ? parseInt(container.getAttribute('data-page')) : totalPages;
     if(curPage<1)curPage=1; if(curPage>totalPages)curPage=totalPages;
     container.setAttribute('data-page',curPage);
     var startIdx=(curPage-1)*pageSize;
@@ -17131,35 +17182,33 @@ setTimeout(function() { try { if (supabaseClient && !_testMode) cloudSweepRecRow
 // v46.0: AI已移除——清除旧版本残留在本地数据里的AI修正缓存，确保不再应用任何AI修正
 try { if (P && P._aiCache) { P._aiCache = null; P.saveLocal(); } } catch(e) {}
 // v46.0: 自动回填历史记录缺失的「预测收益/预测投资」字段（静默分批执行）
-// v46.3: 检测到缺失就重跑（6小时节流），只在确实补齐后记录时间戳；旧版只跑一次导致新增缺失无法修复
+// v47.14修复(用户反馈"每次打开都重复回填/一直在上传")：
+// ① 节流升级——记录上次完成时的数据长度，数据没增长且 7 天内跑过就跳过（旧版 6 小时一过就重跑 2400 局，造成打开卡顿）；
+// ② 回填结果不再批量 markDirtyRid 上传——回填字段可由各端从历史数据自行推导，
+//    旧版把 2400 条全部排队上传（实测脏队列堆积 1380 条持续上传），且增量合并对已存在的
+//    预测快照条目不更新字段，其他端根本收不到，纯属白传。
 setTimeout(function() {
     try {
         var _bfFlag = 'mm_backfill_pred_v46';
+        var _bfLenFlag = 'mm_backfill_pred_len_v47';
         var _lastBf = parseInt(localStorage.getItem(_bfFlag) || '0', 10);
-        if (Date.now() - _lastBf < 6 * 3600000) return; // 6小时内已跑过
+        var _lastLen = parseInt(localStorage.getItem(_bfLenFlag) || '0', 10);
+        if (Date.now() - _lastBf < 7 * 24 * 3600000 && P && P.history && P.history.length <= _lastLen) {
+            return; // 7天内跑过且数据没有增长（无新增缺失），跳过
+        }
         if (P && P.predHistory && P.history.length > 0) {
             var _need = 0;
             P.predHistory.forEach(function(ph) { if (ph && (!ph.profitPrediction || !ph.investPrediction)) _need++; });
             if (_need > 0) {
-                console.log('[回填] 检测到 ' + _need + ' 局缺少预测收益/投资字段，开始自动回填...');
+                console.log('[回填] 检测到 ' + _need + ' 局缺少预测收益/投资字段，开始自动回填（本次完成后数据未增长前不再重复）...');
                 backfillPredFields(true).then(function(n) {
                     console.log('[回填] 完成，补齐 ' + n + ' 条');
-                    // v46.5: 无论补齐多少都写入节流标记（旧版补齐0条时不写标记，
-                    // 导致每次打开页面都重跑并弹进度提示）。剩余无法补齐的局是
-                    // 当年本来就没有收益/投资数据的，重跑也不会有结果。
+                    // v46.5: 无论补齐多少都写入节流标记（剩余无法补齐的局是当年本来就没有
+                    // 收益/投资数据的，重跑也不会有结果）。
                     localStorage.setItem(_bfFlag, String(Date.now()));
-                    if (n > 0) {
-                        // 回填结果也同步到云端（增量上传对应局的快照）
-                        try {
-                            P.predHistory.forEach(function(ph) {
-                                if (ph && ph.rid && (!ph._bfDone)) {
-                                    if (ph.profitPrediction && ph.investPrediction) { ph._bfDone = 1; markDirtyRid(ph.rid); }
-                                }
-                            });
-                            _saveDirtyRids();
-                            if (supabaseClient && cloudOnline && !_testMode) cloudSaveIncremental();
-                        } catch(e) {}
-                    }
+                    localStorage.setItem(_bfLenFlag, String(P.history.length));
+                    // v47.14: 回填结果仅存本地（saveLocal 已在 backfillPredFields 内执行），
+                    // 不再排队增量上传——其他端会各自静默回填，避免脏队列堆积与重复上传。
                 });
             }
         }
