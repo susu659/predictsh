@@ -1,14 +1,15 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v48.0: 内联 favicon，消除 favicon.ico 404 报错 -->
+<!-- v48.3: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E">
-<title>商会三竞预测系统 v48.0 · 增量同步稳定版</title>
+<title>商会三竞预测系统 v48.2 · 增量同步稳定版</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -842,7 +843,7 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="v48.0 服务端时间戳权威 + rid优先合并 + 墓碑LWW，根治重复/丢失">v48.0</span></h1>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="v48.2 接收端批量保护：一次性灌入100+条脏数据将被拦截">v48.2</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
 </header>
 <div class="main-content">
@@ -1745,7 +1746,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   .w2-quick-close{width:44px;height:44px;min-width:44px;font-size:20px;}
   }
 
-  /* ==================== v48.0 科技感 UI 覆盖层 ====================
+  /* ==================== v48.3 科技感 UI 覆盖层 ====================
     设计语言：深空渐变背景 + 光晕 + 流光顶带 + 玻璃拟态亮卡；
     仅做视觉层增强与响应式适配，不改动任何 DOM/JS 逻辑。 */
   :root{
@@ -1881,9 +1882,9 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v48.0'; // v48.0: 服务端时间戳权威 + rid优先合并 + 墓碑LWW，根治重复/丢失
+  var APP_VERSION = 'v48.2'; // v48.2: 接收端批量保护，拦截一次性灌入100+条脏数据
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC = 'v48.0 修复（增量同步稳定性）：① 数据重复/丢失根因——时间编辑改写 timeSlot 导致业务键失效、同 rid 双份、脏队列堆积上千条；改为 rid 优先匹配、业务键兜底，并新增 rid 级去重。② 时钟偏差——所有版本比较统一改用服务端 updated_at（上传不再写客户端时间，改为服务端写入后读回），根除各端时钟不准导致的旧数据覆盖新数据。③ 内容指纹——上传期间记录又被修改时不丢修改（保留脏标记重传）。④ 删除/撤销立即登记墓碑，杜绝被对账/快照复活；双端各录同一局时双向墓碑化收敛为一份。⑤ 对账只登记 del=1 的墓碑行，不误删正常数据。⑥ 建表 SQL 补 delete 策略与 updated_at 默认值。';
+  var APP_UPDATE_DESC = 'v48.2 修复（防重复数据扩散）：① 接收端批量保护——增量轮询/对账合并时，单次新增超 100 条（且本地已有数据）弹窗确认，取消则回滚本次新增并标记删除，杜绝脏设备推送的重复副本/日期错乱记录被静默灌入本端、再扩散到其他端（11月9日 +286 局事故的最后缺口）。② 保留 v48.1 的上传端 100 条确认、强制覆盖合并本地独有 100 条确认、dedupeLocalHistory 墓碑化与强匹配去重。';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
   function showRecordResult(success, title, msg, autoCloseMs) {
@@ -6430,7 +6431,7 @@ class Predictor {
             simBoost: simBoost,
             lossBoost: lossBoost,
             profitBoost: profitBoost,
-            _t: Date.now() // v48.0: 计算时间戳，用于多端同步时判断结论新旧
+            _t: Date.now() // v48.3: 计算时间戳，用于多端同步时判断结论新旧
         };
         // v31.0: 附加命中率提示
         var _simAcc = this._advAcc('similar');
@@ -7980,7 +7981,7 @@ class Predictor {
                 driftObserveStart: this._driftObserveStart || null, // v44.30: 观察快照
                 config: snapshotConfig(), // v41: 跨端同步可配置参数
                 runtimeState: snapshotRuntimeState(this), // v42: 连续错误/紧急模式/局间隔同步
-                // v48.0: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
+                // v48.3: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
                 // 刷新/换端恢复后立即显示与最近计算端一致的结论，避免各端标签不一致
                 threeWayAnalysis: this._threeWayAnalysis || null,
                 _syncEpoch: this._syncEpoch || 0,
@@ -8097,7 +8098,7 @@ class Predictor {
         }
         this._syncEpoch = p._syncEpoch || 0;
         this._adminOverride = p._adminOverride || null;
-        // v48.0: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
+        // v48.3: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
         // 本地下次 predict 重算时若底层数据一致会得到相同结论）
         this._threeWayAnalysis = (p.threeWayAnalysis && typeof p.threeWayAnalysis === 'object') ? p.threeWayAnalysis : null;
         // 修复predHistory格式
@@ -8562,14 +8563,27 @@ function _mergeRemoteHistoryIntoLocal(remoteData) {
 }
 // v35.5：一次性清理本地 history 里已经存在的重复记录（按 date+timeSlot 去重，保留首次出现）
 // 用法：浏览器控制台执行 dedupeLocalHistory() ，然后点「上传云端」覆盖。
-window.dedupeLocalHistory = function() {
+// v48.1: 去重并同步删除到云端——被删记录写墓碑（markDirtyRid + _tombAdd）排队上传，
+// 其他端拉到墓碑后同步删除。旧版只删本地、不上传墓碑 → 云端与其他端的重复永远删不掉，
+// 下次拉取/对账又被灌回来（"清了又重复回流"的直接原因）。
+// 用法: dedupeLocalHistory()      —— 业务键(_recKey)去重（timeSlot|a|b|c|profit|invest）
+//       dedupeLocalHistory(true)  —— 强匹配: 日期|a|b|c|收益|投资 分组，可抓出
+//          timeSlot 漂移（时间编辑/重构）导致业务键对不上的真重复（如10月28日污染副本）
+window.dedupeLocalHistory = function(strong) {
     if (!P || !Array.isArray(P.history)) { console.warn('history 不可用'); return; }
     var seen = {};
     var keepIdx = [];
-    var removed = 0;
-    P.history.forEach(function(r, i){
+    var removed = 0, removedRids = [];
+    var _keyOf = function(r) {
         var k = _recKey(r);
-        if (k && seen[k]) { removed++; return; }
+        if (k || !strong) return k;
+        var _m = String(r.timeSlot || '').match(/(\d{1,2}月\d{1,2}日)/);
+        if (!_m) return null; // 无日期信息不参与强去重（防误删不同日期的相同比分真实记录）
+        return _m[1] + '|' + (r.a ?? '') + '|' + (r.b ?? '') + '|' + (r.c ?? '') + '|' + (r.profitWinner || '') + '|' + (r.investWinner || '');
+    };
+    P.history.forEach(function(r, i){
+        var k = r ? _keyOf(r) : null;
+        if (k && seen[k]) { removed++; if (r._rid) removedRids.push(r._rid); return; }
         if (k) seen[k] = 1;
         keepIdx.push(i);
     });
@@ -8578,18 +8592,28 @@ window.dedupeLocalHistory = function() {
         alert('没有发现重复记录，数据已是干净的。');
         return;
     }
+    if (strong && !confirm('强匹配模式：按「日期|比分|收益|投资」分组，同一天同内容只保留一条。\n\n将删除 ' + removed + ' 条重复记录。\n\n⚠️ 若同一天确实打过相同比分的多场比赛，请点「取消」！')) return;
     P.history = keepIdx.map(function(i){ return P.history[i]; });
-    if (Array.isArray(P.predHistory)) P.predHistory = P.predHistory.slice(0, P.history.length + 1);
-    if (Array.isArray(P.accuracy)) P.accuracy = P.accuracy.slice(0, P.history.length);
-    if (Array.isArray(P.profitAccuracy)) P.profitAccuracy = P.profitAccuracy.slice(0, P.history.length);
+    // v48.1: predHistory 按 rid 对齐过滤（不再按长度截断，避免快照错位/误删）
+    var _keepRids = {};
+    P.history.forEach(function(h){ if (h && h._rid) _keepRids[h._rid] = 1; });
+    if (Array.isArray(P.predHistory)) {
+        P.predHistory = P.predHistory.filter(function(ph){ return !ph || !ph.rid || _keepRids[ph.rid]; });
+    }
+    // v48.1: 被删除的重复记录 → 墓碑排队上传，云端与其他端同步删除
+    removedRids.forEach(function(rid){
+        markDirtyRid(rid);
+        try { _tombAdd('rec_' + rid); } catch(e) {}
+    });
+    try { P._rebuildStatsFromPred(); } catch(e) {}
     P.maxStreakEver = calcMaxStreak(P.history);
     _lastFullSyncCount = 0;
     _lastIncrSyncCount = 0;
     _saveSyncCounts();
     renderAll();
     debouncedSave();
-    console.log('[去重] 已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条');
-    alert('已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条。\n\n请点「上传云端」按钮，把干净数据覆盖到云端。');
+    console.log('[去重] 已删除 ' + removed + ' 条重复记录（墓碑已排队上传），剩余 ' + P.history.length + ' 条');
+    alert('已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条。\n\n删除墓碑已排队自动上传，其他端会同步删除。\n建议等墓碑传完后再点一次「上传云端」全量固化。');
 };
 // v39.8：清理"重构污染翻倍"产生的存量重复。
 // 成因：addRecord 旧版把 date 强制写成当天，重构/重算后本地记录 date=操作日，
@@ -8678,6 +8702,21 @@ function _mergeCloudSnapshotWithLocal(data) {
         if (k && cloudByKey[k] === undefined) cloudByKey[k] = r;
     });
     if (!Array.isArray(data.predHistory)) data.predHistory = [];
+    // v48.1: 大批量追加保护——强制覆盖合并时，"本地独有"（云端快照没有）的记录超过 100 条
+    // 几乎必是本端残留的重复副本/历史污染（正常两端差异只有几条）。继续合并会把它们
+    // 全部 markDirtyRid 排队上传 → 重复扩散到所有端（11月9日 +286 局事故的路径）。
+    var _uniqueCount = 0;
+    (P.history || []).forEach(function(lr) {
+        if (!lr) return;
+        if (lr._rid && cloudByRid[lr._rid] !== undefined) return;
+        var k = _recKey(lr);
+        if (k && cloudByKey[k] !== undefined) return;
+        _uniqueCount++;
+    });
+    if (_uniqueCount > 100 && !confirm('⚠️ 云端快照缺少本地 ' + _uniqueCount + ' 条记录（异常大批量）。\n\n这通常意味着本端数据含有已被清理的重复副本/历史残留，继续合并会把它们重新上传、扩散到所有端。\n\n建议：点「取消」，先在控制台执行 dedupeLocalHistory(true) 清理后再同步。\n\n确定仍要合并并上传这 ' + _uniqueCount + ' 条？')) {
+        console.warn('[快照合并] 用户取消：本地独有 ' + _uniqueCount + ' 条未合并上传');
+        return -1;
+    }
     (P.history || []).forEach(function(lr) {
         if (!lr) return;
         var cr = (lr._rid && cloudByRid[lr._rid] !== undefined) ? cloudByRid[lr._rid] : null;
@@ -9623,7 +9662,7 @@ var _cloudFetchWithTimeout = function(url, opts) {
         });
     });
 };
-// v48.0: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
+// v48.3: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
 // 同一 storageKey 下出现多个 GoTrueClient 会触发 Supabase 警告并可能互相干扰
 if (!supabaseClient) {
     supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
@@ -9855,7 +9894,7 @@ async function _cloudLoadBody(silent) {
                     var _rc1 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                     var _ms1 = _mergeSweep(_sw1, _rc1);
                     updateCloudStatus('online', '✅ 云端已同步 · 本地' + P.history.length + '局（云端快照' + cloudHistLen + '局+增量行）' + _fmtSweepSummary(_ms1) + ' · ' + cloudLastSync.toLocaleTimeString());
-                    // v47.0: 拉取成功弹窗；v48.0: 仅在本次有真实变动（增/改/删）时弹出，
+                    // v47.0: 拉取成功弹窗；v48.3: 仅在本次有真实变动（增/改/删）时弹出，
                     // "各端数据一致"的例行检查不再弹窗（云端已有完整数据时保持静默）
                     if (silent && ((_ms1.added || 0) + (_ms1.updated || 0) + (_ms1.removed || 0)) > 0) {
                         try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms1) + '\n云端快照 ' + cloudHistLen + ' 局 + 增量行，各端数据一致'); } catch(e) {}
@@ -9908,7 +9947,7 @@ async function _cloudLoadBody(silent) {
                 var _rc2 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                 var _ms2 = _mergeSweep(_sw2, _rc2);
                 updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局（含增量补拉+对账）');
-                // v47.0: 拉取成功弹窗；v48.0: 仅在有真实变动时弹出，例行无变化检查静默
+                // v47.0: 拉取成功弹窗；v48.3: 仅在有真实变动时弹出，例行无变化检查静默
                 if (silent && ((dataChanged ? 1 : 0) + (_ms2.added || 0) + (_ms2.updated || 0) + (_ms2.removed || 0)) > 0) {
                     try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms2)); } catch(e) {}
                 }
@@ -9961,7 +10000,7 @@ async function _cloudLoadBody(silent) {
             // v36.1：首次拉取完成提示——告诉用户"只拉取"阶段结束，后续录入会自动上传
             var _pullCount = data.data.history ? data.data.history.length : 0;
             updateCloudStatus('online', '✅ 已拉取云端 ' + P.history.length + ' 局+增量 · 后续录入新数据停手5秒后将自动上传');
-            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v48.0: 仅在数据真的变化时弹出
+            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v48.3: 仅在数据真的变化时弹出
             if (silent && dataChanged) { try { showRecordResult(true, '拉取成功', '已从云端加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_mergeSweep(_sw3, _rc3)) + '\n后续录入新数据停手5秒后自动上传'); } catch(e) {} }
             return true;
         } else {
@@ -10054,7 +10093,7 @@ function checkAutoBackup() {
         config: snapshotConfig(),
         runtimeState: snapshotRuntimeState(P),
         learnIterations: P.learnIterations || 0,
-        threeWayAnalysis: P._threeWayAnalysis || null, // v48.0: 备份携带三盘分析结论
+        threeWayAnalysis: P._threeWayAnalysis || null, // v48.3: 备份携带三盘分析结论
         _syncEpoch: P._syncEpoch || 0,
         _count: P.history.length
     };
@@ -10223,7 +10262,7 @@ function _recRowData(rid) {
             if (ph[j] && ph[j].rid === rid) { pred = ph[j]; break; }
         }
     }
-    // v48.0: 不再写客户端时间戳——updated_at 由服务端在上传时写入，
+    // v48.3: 不再写客户端时间戳——updated_at 由服务端在上传时写入，
     // 客户端不把本机时钟带入云端，根除各设备时钟偏差导致的 LWW 误判。
     var d = {};
     if (!rec) { d.del = 1; } // 墓碑：通知其他端删除
@@ -10242,6 +10281,15 @@ async function cloudSaveIncremental(manual) {
         return true;
     }
     if (_syncIncrRunning) { _pendingCloudSave = true; return false; }
+    // v48.1: 批量上传保护——自动触发时待传超过 100 条几乎必是异常
+    // （时间编辑批量改写 / 脏设备的重复副本扩散），弹窗确认，杜绝静默把几百条灌进云端。
+    // 手动点「立即同步」不拦（用户主动意图明确）。
+    if (rids.length > 100 && !manual) {
+        if (!confirm('⚠️ 待增量上传 ' + rids.length + ' 条（异常大批量）。\n\n正常单局录入只上传 1 条；这个数量通常意味着时间编辑批量改写了后续局，或本端含重复副本。\n\n建议：点「取消」，先在控制台执行 dedupeLocalHistory(true) 清理重复，再同步。\n\n确定仍要上传这 ' + rids.length + ' 条？')) {
+            console.warn('[增量上传] 用户取消：' + rids.length + ' 条待传未上传（脏队列保留）');
+            return false;
+        }
+    }
     _syncIncrRunning = true;
     var sent = 0, okAll = true, totalBytes = 0;
     try {
@@ -10253,14 +10301,14 @@ async function cloudSaveIncremental(manual) {
             chunk.forEach(function(rid){
                 var _d = _recRowData(rid);
                 rows.push({ id: 'rec_' + rid, data: _d });
-                // v48.0: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
+                // v48.3: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
                 try { fingerprints[rid] = JSON.stringify(_d); } catch(e) {}
             });
             var payloadLen = 0;
             try { payloadLen = JSON.stringify(rows).length; } catch(e) {}
             totalBytes += payloadLen;
             updateCloudStatus('syncing', '☁️ 增量上传 ' + rows.length + ' 条（' + fmtBytes(payloadLen) + '，共' + rids.length + '条待传）...');
-            // v48.0: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
+            // v48.3: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
             var res = await supabaseClient.from(CLOUD_TABLE).upsert(rows, { onConflict: 'id' }).select('id,updated_at');
             if (res.error) {
                 okAll = false;
@@ -10270,7 +10318,7 @@ async function cloudSaveIncremental(manual) {
                 break;
             }
             trackTraffic('out', payloadLen);
-            // v48.0: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
+            // v48.3: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
             var _serverUa = {};
             (res.data || []).forEach(function(_r){ if (_r && _r.id) { try { _serverUa[_r.id] = new Date(_r.updated_at).getTime(); } catch(e) {} } });
             chunk.forEach(function(rid){
@@ -10292,7 +10340,7 @@ async function cloudSaveIncremental(manual) {
         }
         if (sent > 0) {
             cloudLastSync = new Date();
-            // v48.0: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
+            // v48.3: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
             try { P.saveLocal(); } catch(e) {}
             setAutoSync(true);
             updateCloudStatus('online', '✅ 增量上传 ' + sent + ' 条（' + fmtBytes(totalBytes) + '）· 共' + P.history.length + '局 · ' + cloudLastSync.toLocaleTimeString());
@@ -10327,7 +10375,7 @@ function _upsertPredByRid(rid, p) {
 // ---- 合并其他端的增量行（增/改/删）----
 function mergeRemoteRecRows(rows) {
     if (!rows || !rows.length) return { added: 0, updated: 0, removed: 0 };
-    var added = 0, updated = 0, removed = 0;
+    var added = 0, updated = 0, removed = 0, addedRids = [];
     rows.forEach(function(row) {
         try {
             if (!row || !row.id || String(row.id).indexOf('rec_') !== 0) return;
@@ -10336,7 +10384,7 @@ function mergeRemoteRecRows(rows) {
             if (!d) return;
             var ua = row.updated_at ? new Date(row.updated_at).getTime() : (d.ua || 0);
             // 1) 墓碑 → 删除本地同rid记录
-            // v48.0: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
+            // v48.3: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
             //   · 本地 _dirtyLocal=1 → 远端(含墓碑)一律丢弃，本地优先；
             //   · 否则纯 LWW：墓碑 updated_at 比本地 _ua 新才删除，旧墓碑不覆盖新记录。
             if (d.del) {
@@ -10412,9 +10460,37 @@ function mergeRemoteRecRows(rows) {
             // 追加新记录 + 对应预测快照
             P.history.push(rec);
             if (d.p && d.p.rid === rid) _upsertPredByRid(rid, d.p);
+            addedRids.push(rid);
             added++;
         } catch(e) { console.warn('[增量合并] 单行失败:', e && e.message); }
     });
+    // v48.2: 接收端批量保护——单次合并新增超 100 条（且本地已有数据，排除新设备首拉）
+    // 几乎必是异常灌入（脏设备推送的重复副本/日期错乱记录），弹窗确认；取消则回滚并墓碑化，
+    // 防止脏数据在本地固化、并借本端再扩散到其他端。
+    if (added > 100 && (P.history ? P.history.length : 0) > 200) {
+        var _keep = true;
+        if (!window._mergeConfirmLock) {
+            window._mergeConfirmLock = true;
+            try {
+                _keep = confirm('⚠️ 检测到一次性新增 ' + added + ' 条记录（异常大批量）。\n\n这通常来自其他设备的重复/脏数据（日期错乱、历史污染等），直接接收会导致局数虚增。\n\n「确定」= 保留这 ' + added + ' 条；「取消」= 回滚本次新增并标记删除（防止再次灌入）。');
+            } finally { window._mergeConfirmLock = false; }
+        }
+        if (!_keep) {
+            for (var _ri = P.history.length - 1; _ri >= 0; _ri--) {
+                if (P.history[_ri] && P.history[_ri]._rid && addedRids.indexOf(P.history[_ri]._rid) >= 0) P.history.splice(_ri, 1);
+            }
+            addedRids.forEach(function(_ar) {
+                _removePredArr(P.predHistory, _ar);
+                markDirtyRid(_ar);
+                try { _tombAdd('rec_' + _ar); } catch(e) {}
+            });
+            var _rolled = addedRids.length;
+            added = 0;
+            updateCloudStatus('online', '⚠️ 已回滚 ' + _rolled + ' 条异常新增（已标记删除，防止再次灌入）');
+            console.warn('[增量合并] 用户回滚异常新增 ' + _rolled + ' 条');
+            return { added: 0, updated: updated, removed: removed };
+        }
+    }
     if (added > 0 || updated > 0 || removed > 0) {
         try { P._rebuildStatsFromPred(); } catch(e) {}
         try { P._migrateRids(); } catch(e) {}
@@ -10427,7 +10503,7 @@ function mergeRemoteRecRows(rows) {
         if (updated) _msg.push('更新' + updated + '条');
         if (removed) _msg.push('删除' + removed + '条');
         updateCloudStatus('online', '📥 增量同步：' + _msg.join('，') + '（共' + P.history.length + '局）');
-        // v48.0: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
+        // v48.3: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
         // 此处不再按 2048B/行 重复估算
     }
     return { added: added, updated: updated, removed: removed };
@@ -10479,7 +10555,7 @@ async function cloudSweepRecRows(full) {
             if (res.error) { console.warn('[增量补拉] 失败:', res.error.message); break; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v48.0: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
+            // v48.3: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
             // 幂等重拉时漏计，导致下行流量统计偏低）
             try { var _pgLen = 0; try { _pgLen = JSON.stringify(rows).length; } catch(e2) {} trackTraffic('in', _pgLen); } catch(e2) {}
             // v47.2: 改用 mergeRemoteRecRows 的真实变动结果统计，而非扫描行数——
@@ -10595,7 +10671,7 @@ async function cloudReconcileRecIds() {
             if (res.error) { console.warn('[对账] id扫描失败:', res.error.message); return; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v48.0: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
+            // v48.3: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
             try { trackTraffic('in', rows.length * 75); } catch(e2) {}
             rows.forEach(function(r){
                 remoteIds[r.id] = r.updated_at;
@@ -10618,7 +10694,7 @@ async function cloudReconcileRecIds() {
             for (var mi = 0; mi < missing.length; mi += 100) {
                 var dr = await supabaseClient.from(CLOUD_TABLE).select('id,data,updated_at').in('id', missing.slice(mi, mi + 100));
                 if (dr.error) { console.warn('[对账] 数据拉取失败:', dr.error.message); break; }
-                // v48.0: 按实际下载字节统计流量
+                // v48.3: 按实际下载字节统计流量
                 try { var _drLen = 0; try { _drLen = JSON.stringify(dr.data || []).length; } catch(e3) {} trackTraffic('in', _drLen); } catch(e3) {}
                 var _mr2 = mergeRemoteRecRows(dr.data || []);
                 if (_mr2) { _rAdded += _mr2.added || 0; _rUpdated += _mr2.updated || 0; _rRemoved += _mr2.removed || 0; }
@@ -10629,7 +10705,7 @@ async function cloudReconcileRecIds() {
             (P.history || []).forEach(function(r){ if (r && r._rid) knownRid[r._rid] = 1; });
         }
         // 已确认处理过的墓碑行登记起来，避免每次对账重复拉取
-        // v48.0: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
+        // v48.3: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
         // 一旦某条正常数据因异常未合并进本地，会被误登记成墓碑 → 后续被 _applyTombstonesToLocal 误删。
         var _tombNew = false;
         Object.keys(remoteIds).forEach(function(id) {
@@ -10638,7 +10714,7 @@ async function cloudReconcileRecIds() {
         });
         if (_tombNew) _saveTombIds(tombArr);
         // 3) 本地有、云端无且从未上传 → 补标记上传（仅少量散失记录；大量出现说明需要管理员全量上传，不自动刷）
-        // v48.0: 全量基线内的记录（索引 < _lastIncrSyncCount，已随全量快照在云端）直接跳过——
+        // v48.3: 全量基线内的记录（索引 < _lastIncrSyncCount，已随全量快照在云端）直接跳过——
         // 全量同步之后新增的记录才计入增量，避免把快照里已有的记录重复计数/重复上传。
         // v47.12修复: 先统计再标记——大量"从未上传"记录通常意味着同步计数异常或快照已覆盖。
         // 旧版直接全部 markDirtyRid 进脏队列，60秒重试定时器会把几千条已入快照的记录重新上传，
@@ -10681,7 +10757,7 @@ setInterval(function() {
     }
 }, 60000);
 
-// ---- v48.0: 手动清理云端历史增量行 ----
+// ---- v48.3: 手动清理云端历史增量行 ----
 // 场景：管理员已完成全量同步（main 快照 = 完整数据），云端残留了大量已被快照覆盖的 rec_ 冗余行
 // （历史反复误传产生，约1800条），既浪费存储又让拉取提示虚高、流量虚耗。
 // 安全边界：只删除「非墓碑 且 updated_at 早于 main 快照时间」的增量行——
@@ -11046,7 +11122,7 @@ async function cloudSave(manual, skipPrecheck) {
             for (var _rk in _re) { if (_rk !== 'windowWeights') _sr[_rk] = _re[_rk]; }
             _slimReflection.push(_sr);
         }
-        // v48.0: 全量同步基线——上传前给所有记录盖 _ua 章（标记"已随快照上传"）。
+        // v48.3: 全量同步基线——上传前给所有记录盖 _ua 章（标记"已随快照上传"）。
         // 快照自带 _ua，其他端拉取恢复后对账会跳过这些记录；
         // 本机 markAllClean 后也不会再被对账误判为"从未上传"而反复排队增量上传。
         try {
@@ -11073,7 +11149,7 @@ async function cloudSave(manual, skipPrecheck) {
             patternHitCache: P.patternHitCache || {}, // v41: 规律命中缓存跨端同步
             config: snapshotConfig(), // v41: 可配置参数跨端同步
             runtimeState: snapshotRuntimeState(P), // v42: 连续错误/紧急模式/局间隔跨端同步
-            // v48.0: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
+            // v48.3: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
             threeWayAnalysis: P._threeWayAnalysis || null,
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null)
@@ -11084,7 +11160,7 @@ async function cloudSave(manual, skipPrecheck) {
         var _sizeKB = _dataSize > 0 ? Math.round(_dataSize/1024) : 0;
         updateCloudStatus('syncing', '☁️ 正在上传云端' + (_sizeKB > 0 ? '（约' + _sizeKB + 'KB）' : '') + '...');
 
-        // v48.0: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
+        // v48.3: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
         // 各端 15 分钟「主快照变更检测」不再被客户端时钟偏差误导误刷新
         var res = await supabaseClient.from(CLOUD_TABLE).upsert(
             { id: CLOUD_ROW_ID, data: saveData },
@@ -11112,7 +11188,7 @@ async function cloudSave(manual, skipPrecheck) {
         trackTraffic('out', _dataSize); // v46.0: 流量统计
         // v46.0: 全量上传成功 → 主快照已包含全部记录，清空增量待传队列
         markAllClean();
-        // v48.0: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
+        // v48.3: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
         try { P.saveLocal(); } catch(e) {}
         try {
             var _est = {};
@@ -12478,7 +12554,7 @@ function restoreFromBackup(backupId) {
             normalizeWindowWeights();
             renderAll();
             P.saveLocal();
-            // 同步覆盖云端 main 数据（v48.0: 不传 updated_at，服务端写入）
+            // 同步覆盖云端 main 数据（v48.3: 不传 updated_at，服务端写入）
             var mainData = {
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy,
