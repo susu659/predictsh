@@ -8,9 +8,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v49.3: 内联 favicon，消除 favicon.ico 404 报错 -->
+<!-- v49.7: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E">
-<title>商会三竞预测系统 v49.3 · 大金边与三盘一致修复版</title>
+<title>商会三竞预测系统 v49.7（增量同步修复版）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -841,8 +841,14 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="v48.5：二次审计，修复 14 项缺陷并通过测试套件">v49.3</span></h1>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v49.7</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
+<details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;">📢 更新说明（v49.5）</summary>
+<div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
+<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看更早版本（v49.3 及以前）</summary>
+<div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
+</details>
 </header>
 <div class="main-content">
 <!-- ========== 云同步配置（首次使用） ========== -->
@@ -875,6 +881,21 @@ create policy "public update" on prediction_data for update using (true);
 create policy "public delete" on prediction_data for delete using (true);
 -- 兼容旧表：若 updated_at 没有默认值（早期手建/旧版本建的表），补上，否则增量游标/排序依赖它
 alter table prediction_data alter column updated_at set default now();
+
+-- ★ v49.7 必做：让 updated_at 在 INSERT 和 ON CONFLICT DO UPDATE 时都前进。
+-- 没有它，编辑/删除同一条 rec_ 行时时间戳停在首次插入，增量游标、LWW、
+-- 管理员全量上传检测全部失效（表现为「改了/删了别的端看不到」）。
+-- 必须用 clock_timestamp()：now() 在同一事务/同一批 25 行里返回同一个值。
+create or replace function prediction_data_touch_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := clock_timestamp();
+  return new;
+end $$;
+drop trigger if exists trg_prediction_data_touch on prediction_data;
+create trigger trg_prediction_data_touch
+before insert or update on prediction_data
+for each row execute function prediction_data_touch_updated_at();
 
 -- 访问控制表（设备授权）
 create table access_control (
@@ -909,7 +930,6 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <button class="cloud-btn" id="accessAdminBtn" style="background:#9c27b0;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;display:none;">🔐 设备管理</button>
 <button class="cloud-btn" id="backupRestoreBtn" style="background:#00bcd4;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;display:none;">💾 备份/恢复</button>
 <button class="cloud-btn" id="hardResetBtn" style="background:#d84315;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;display:none;" title="彻底清除本端所有缓存/会话/Cookie/Service Worker（不备份，直接清）">🧹 彻底清理</button>
-<button class="cloud-btn" id="cleanupRecBtn" onclick="cleanupCloudRecRowsNow()" style="display:none;background:#6d4c41;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;" title="删除云端已被主快照覆盖的历史增量行（保留墓碑行和快照之后的新数据），清理冗余存储与流量">🧹 清理历史增量</button>
 <button class="cloud-btn" id="adminModeBtn" style="background:#795548;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">👑 管理员模式</button>
 <button class="cloud-btn" id="snapshotBtn" style="display:none;background:#607d8b;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">📜 操作日志</button>
 <button class="cloud-btn" id="onlineBtn" style="display:none;background:#009688;color:#fff;flex:0 0 auto;min-width:auto;padding:8px 14px;">👥 在线用户</button>
@@ -1121,10 +1141,6 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </table>
 </div>
 <div id="historyPagination" style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;"></div>
-</div>
-<div class="pred-history-panel">
-<h3>📋 预测历史（最近20局）</h3>
-<table class="pred-history-table"><thead><tr><th>局</th><th>预测方</th><th>排名快照</th><th>实际方</th><th>实际排名</th><th>A%</th><th>B%</th><th>C%</th><th>来源</th><th>对错</th></tr></thead><tbody id="predHistoryBody"></tbody></table>
 </div>
 <!-- ========== v24: 概率饼图 ========== -->
 <div class="charts-row">
@@ -1733,7 +1749,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   .w2-quick-close{width:44px;height:44px;min-width:44px;font-size:20px;}
   }
 
-  /* ==================== v49.3 科技感 UI 覆盖层 ====================
+  /* ==================== v49.7 科技感 UI 覆盖层 ====================
     设计语言：深空渐变背景 + 光晕 + 流光顶带 + 玻璃拟态亮卡；
     仅做视觉层增强与响应式适配，不改动任何 DOM/JS 逻辑。 */
   :root{
@@ -1803,7 +1819,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   }
   /* ==================== v48.4 修复①：关闭持续动画（打开页面一直闪动） ====================
      goldRing 呼吸金环 / 顶部流光 / 云状态点脉冲 / 学习指示器闪烁均为 infinite 动画；
-     goldRing 的关键帧还会周期性覆盖 v49.3 的静态卡片阴影，造成卡片明暗跳变。
+     goldRing 的关键帧还会周期性覆盖 v49.7 的静态卡片阴影，造成卡片明暗跳变。
      这里只停掉循环动画，保留静态高亮与 hover 过渡，功能不受影响。 */
   .pred-card.rank-1,
   body.dark-mode .pred-card.rank-1{animation:none !important;box-shadow:0 10px 30px rgba(245,179,1,.32),inset 0 1px 0 rgba(255,255,255,.9) !important;}
@@ -1847,8 +1863,76 @@ create policy "ac update" on access_control for update using (true);</textarea><
   .pred-card,.stat-card,.chart-card,.insight-card{transition:none !important;}
   .pred-card:hover,.stat-card:hover{transform:none !important;}
   body.is-scrolling .pred-card.rank-1{transform:none !important;}
+
+  /* ============ v49.6 移动端相似盘面板紧凑排版 ============
+     只做显示层：手机上一屏能多看到一倍信息，不改任何数据/预测/同步逻辑。
+     放在最后一个 style 末尾，!important 压过前面所有内联 style 与旧移动端规则。 */
+  @media (max-width:720px){
+    /* 1) 铺满屏幕：去掉两侧深色留白 */
+    body{padding:0 !important;}
+    .container{width:100% !important;max-width:100% !important;margin:0 !important;
+               border-radius:0 !important;box-shadow:none !important;}
+    .main-content{padding:10px 8px !important;}
+    header{padding:10px 8px !important;}
+    /* 2) 相似盘主面板：紫色左边框收细、字号行高收紧 */
+    .sim-detail-panel{padding:8px 7px !important;border-left-width:3px !important;
+                      font-size:12px !important;line-height:1.55 !important;margin-top:8px !important;}
+    /* 3) 扫描说明：原来 11px/1.8 在手机上散成 5 行 */
+    .sim-scan-summary{font-size:11px !important;line-height:1.45 !important;margin-bottom:5px !important;}
+    /* 4) 长度权重明细 */
+    .sim-lenbox{font-size:11px !important;line-height:1.5 !important;
+                padding:5px 6px !important;margin:5px 0 !important;}
+    .sim-lenbox span{font-size:10px !important;padding:1px 5px !important;
+                     margin-right:4px !important;margin-bottom:3px !important;}
+    /* 5) 匹配列表：内部滚动区更贴边 */
+    .match-history-list{max-height:300px !important;padding:3px !important;}
+    /* 6) 黄框分组卡片：压缩内边距、首行元素统一缩字号 */
+    .sim-group-card{padding:4px 5px !important;margin:3px 0 !important;border-radius:6px !important;}
+    .sim-group-head{gap:4px !important;flex-wrap:wrap !important;}
+    .sim-group-head span{font-size:11px !important;padding:1px 4px !important;line-height:1.4 !important;}
+    .sim-group-head span[style*="min-width:42px"]{min-width:36px !important;font-size:11px !important;}
+    /* 7) 局号行：去掉 52px 缩进，原来换行成 3 行 → 现在 1~2 行 */
+    .sim-group-ranges{padding-left:0 !important;margin-top:3px !important;
+                      font-size:10px !important;line-height:1.4 !important;
+                      word-break:break-all !important;}
+    /* 8) 单条未分组匹配 */
+    .match-history-item{gap:4px !important;padding:3px 4px !important;
+                        font-size:11px !important;line-height:1.4 !important;}
+    .match-history-seq{font-size:11px !important;line-height:1.4 !important;}
+    .match-history-range,.match-history-sim,.match-history-winner{font-size:10px !important;}
+    /* 9) 三相似盘合并分析：逐行铺太长 → 压紧 */
+    .sim-merge-box{font-size:11px !important;line-height:1.45 !important;
+                   padding:5px 7px !important;margin-top:6px !important;}
+    .sim-merge-box span{font-size:11px !important;line-height:1.45 !important;}
+    /* 10) 多模型融合详情 / 最终结论 */
+    .sim-fusion-box{font-size:11px !important;line-height:1.45 !important;
+                    padding:5px 7px !important;margin-top:6px !important;}
+    .sim-fusion-box span{font-size:10px !important;}
+    .sim-conclusion{font-size:11px !important;line-height:1.5 !important;
+                    padding:5px 7px !important;margin-top:6px !important;}
+    .sim-conclusion strong[style*="16px"]{font-size:13px !important;}
+    /* 11) 面板内标题/分隔间距一起收 */
+    .sim-detail-panel > div{margin-bottom:4px !important;}
+    /* 12) 更新说明折叠块贴边 */
+    #updateNote{margin:8px 0 2px !important;}
+  }
   </style>
 <script>
+// ========== v49.5 ① 简洁日志 ==========
+// 默认不往控制台刷技术流水（拼接统计 / 对账 / 补拉 / 上传前合并 …）。
+// 需要排障时控制台执行 setVerboseLog(true) 即可恢复全部原始日志；
+// console.warn / console.error 任何时候都保留，错误不会被藏起来。
+var VERBOSE_LOG = false;
+function techLog(){ if (VERBOSE_LOG) { try { return console.log.apply(console, arguments); } catch(e) {} } }
+function setVerboseLog(v){ VERBOSE_LOG = !!v; return VERBOSE_LOG; }
+function syncBrief(){
+  try {
+    var n = (window.P && P.history) ? P.history.length : 0;
+    var inc = (typeof _lastIncrSyncCount === 'number' && typeof _lastFullSyncCount === 'number')
+              ? Math.max(0, _lastIncrSyncCount - _lastFullSyncCount) : 0;
+    return '已录入 ' + n + ' 局 · 增量 ' + inc + ' 条 · 同步' + (cloudOnline ? '正常' : '未连接');
+  } catch(e) { return '同步状态未知'; }
+}
 // v30.22: CDN 自动重试 + 多源备用
 (function(){
   var xlsxUrls = [
@@ -1883,7 +1967,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   var _cdnRetryTimer = setInterval(function(){
     if (window._supabaseReady && window.supabase && window.supabase.createClient && typeof initCloud === 'function') {
       clearInterval(_cdnRetryTimer);
-      console.log('[CDN] Supabase SDK 已加载，自动重连云端...');
+      techLog('[CDN] Supabase SDK 已加载，自动重连云端...');
       try { initCloud(); } catch(e) { console.error('initCloud after retry failed:', e); }
       return;
     }
@@ -1914,9 +1998,16 @@ create policy "ac update" on access_control for update using (true);</textarea><
   _currentLoginType = 'user'; // v27.4：当前登录类型，默认user
   var DEVICE_KEY = 'mm_access_device_id';
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
-  var APP_VERSION = 'v49.3'; // v49.3: 静态大金边 / 清除循环动画 / 三盘一致跨端统一
+  var APP_VERSION = 'v49.6'; // v49.6: 移动端相似盘面板紧凑排版
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC = 'v49.3 定点修复：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v49.3 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
+  var APP_UPDATE_DESC_RECENT = 'v49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
+  var APP_UPDATE_DESC_HISTORY = '历史交付（v49.3）：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v49.7 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
+  var APP_UPDATE_DESC = APP_UPDATE_DESC_RECENT + '\n' + APP_UPDATE_DESC_HISTORY; // 兼容旧引用
+  (function(){ try {
+    var r=document.getElementById('updateNoteRecent'), h=document.getElementById('updateNoteHistory');
+    if(r) r.textContent = APP_UPDATE_DESC_RECENT;
+    if(h) h.textContent = APP_UPDATE_DESC_HISTORY;
+  } catch(e){} })();
   var APP_UPDATE_DESC_V484 = 'v48.4 修复（三个问题一起修）：① 关闭金环呼吸/顶部流光/状态点脉冲等 infinite 动画，并在强制覆盖恢复前剔除墓碑记录，杜绝「删→复活→删」循环造成的持续闪动；② 移除移动端悬浮「⚡ 快速录入」按钮及其弹层；③ 增量同步重复根因修复——判重键从 timeSlot 原字符串改为「月日+起始HH:MM」规范化（忽略秒/结束时间差异）、新增近似同局收敛、重构/重算/导入一律沿用原 rid（不再生成新 rid 造成云端同局双行）、云端脏行自动墓碑化、对账不再把重复副本当新记录补传。';
 
   // v27.3：统一提示弹窗函数（提前定义，供全局使用）
@@ -2075,7 +2166,7 @@ var CLOUD_CONFIG_VERSION = 2; // v46.7: 配置版本号——服务器更换时+
     } catch(e) {}
     // 7) 关闭 Supabase 实时订阅通道（如已建立）
     try { if (typeof supabaseClient !== 'undefined' && supabaseClient && supabaseClient.removeAllChannels) supabaseClient.removeAllChannels(); } catch(e) {}
-    console.log('[hardResetAll] 已清除所有本地缓存/会话/Cookie/Service Worker，即将刷新...');
+    techLog('[hardResetAll] 已清除所有本地缓存/会话/Cookie/Service Worker，即将刷新...');
     if (!noReload) { try { setTimeout(function(){ location.reload(); }, 300); } catch(e) {} }
     return true;
   }
@@ -2436,11 +2527,12 @@ var CLOUD_CONFIG_VERSION = 2; // v46.7: 配置版本号——服务器更换时+
     var h = '';
     for (var i = 0; i < arr.length; i++) {
       var d = arr[i], t = d.created_at ? new Date(d.created_at).toLocaleString('zh-CN') : '-';
-      h += '<div class="admin-device-item"><div class="info"><div class="name">' + (d.device_name || '未知') + '</div><div class="id">' + d.id + '</div><div class="time">' + t + '</div></div><div class="actions">';
+      // v49.7 B-1: 设备名/id 来自云端且 RLS 公开可写，必须转义（同文件在线用户列表已用 escHtml）
+      h += '<div class="admin-device-item"><div class="info"><div class="name">' + escHtml(d.device_name || '未知') + '</div><div class="id">' + escHtml(d.id) + '</div><div class="time">' + t + '</div></div><div class="actions">';
       if (type === 'pending') {
-        h += '<button class="admin-btn-approve" data-id="' + d.id + '">同意</button><button class="admin-btn-reject" data-id="' + d.id + '">拒绝</button>';
+        h += '<button class="admin-btn-approve" data-id="' + escHtml(d.id) + '">同意</button><button class="admin-btn-reject" data-id="' + escHtml(d.id) + '">拒绝</button>';
       } else {
-        h += '<button class="admin-btn-revoke" data-id="' + d.id + '">撤销</button>';
+        h += '<button class="admin-btn-revoke" data-id="' + escHtml(d.id) + '">撤销</button>';
       }
       h += '</div></div>';
     }
@@ -2547,7 +2639,7 @@ var CLOUD_CONFIG_VERSION = 2; // v46.7: 配置版本号——服务器更换时+
                     };
                 });
                 localStorage.setItem('prediction_history_shared', JSON.stringify(sharedData));
-                console.log('[共享数据表] 自动导出成功，共' + sharedData.length + '条');
+                techLog('[共享数据表] 自动导出成功，共' + sharedData.length + '条');
             }
         } catch(e) { console.warn('[共享数据表] 自动导出失败:', e.message); }
     }, 3600000); // 每小时一次
@@ -3050,7 +3142,12 @@ var _autoSyncEnabled = true;
 window._autoSyncHold = false;
 function setAutoSync(enabled) {
     _autoSyncEnabled = enabled;
-    console.log('[同步] 自动同步已' + (enabled ? '启用' : '禁用'));
+    // v49.7 P0-3: 暂停时把已排队的 5 秒上传定时器一并取消，否则回调仍会触发上传
+    if (!enabled) {
+        if (typeof _cloudThrottleTimer !== 'undefined' && _cloudThrottleTimer) { clearTimeout(_cloudThrottleTimer); _cloudThrottleTimer = null; }
+        _pendingCloudSave = false;
+    }
+    techLog('[同步] 自动同步已' + (enabled ? '启用' : '禁用'));
     // v27.3：自动同步状态可视化，在状态栏显示
     var bar = document.getElementById('cloudBar');
     var statusText = document.getElementById('cloudStatusText');
@@ -3094,6 +3191,8 @@ function debouncedSave() {
             _pendingCloudSave = true;
             _cloudThrottleTimer = setTimeout(function() {
                 _cloudThrottleTimer = null;
+                // v49.7 P0-3: 定时器起动后才暂停同步（清空/覆盖导入）的情况也要拦住
+                if (!_autoSyncEnabled || window._autoSyncHold) { _pendingCloudSave = false; return; }
                 if (!_pendingCloudSave) return;
                 if (!_firstCloudSyncDone) {
                     // 首拉取还没结束：保持 _pendingCloudSave=true，等 finally 里上传
@@ -3568,7 +3667,7 @@ function renderPieCharts() {
         var w = getWinner(rec);
         if (w && winCounts.hasOwnProperty(w)) { winCounts[w]++; totalValid++; }
     }
-    console.log('[饼图统计] history总数=' + histLen + ', 有效统计=' + totalValid + ', A=' + winCounts.A + ' B=' + winCounts.B + ' C=' + winCounts.C);
+    techLog('[饼图统计] history总数=' + histLen + ', 有效统计=' + totalValid + ', A=' + winCounts.A + ' B=' + winCounts.B + ' C=' + winCounts.C);
     // 更新标题显示总记录数
     var h3el = document.querySelector('.chart-card h3');
     if (h3el && h3el.textContent.indexOf('ABC历史获胜概率') >= 0) {
@@ -5998,7 +6097,7 @@ class Predictor {
                 w[name] *= f;
                 _dynLog.push(name + '@' + (acc*100).toFixed(0) + '%→' + f.toFixed(2));
             });
-            if (window._debugDynWeights) console.log('[动态裁判]', _dynLog.join(' | '));
+            if (window._debugDynWeights) techLog('[动态裁判]', _dynLog.join(' | '));
         } catch(_dynE) { console.warn('[动态裁判] 计算失败，按原权重:', _dynE.message); }
         var wsum = w.global + w.multiWindow + w.score + w.streak + w.rotation + w.alternation + w.trend + w.regression + w.similarPattern + w.profitPattern + w.stateTransition + w.ngram;
         if (wsum === 0) wsum = 1;
@@ -6124,7 +6223,7 @@ class Predictor {
                 result.probsBeforeAI = this._aiBaseProbs
                     ? { A: this._aiBaseProbs.A, B: this._aiBaseProbs.B, C: this._aiBaseProbs.C }
                     : null;
-                console.log('[AI修正] 已应用, 系数=' + adjFactor.toFixed(2)
+                techLog('[AI修正] 已应用, 系数=' + adjFactor.toFixed(2)
                     + ' (信心' + (adj.confidence || 0).toFixed(2) + '×1.5×裁判强度' + aiStr.toFixed(2) + ')');
             }
         } catch(e) { console.warn('[AI修正]失败:', e.message); }
@@ -6544,7 +6643,7 @@ class Predictor {
             simBoost: simBoost,
             lossBoost: lossBoost,
             profitBoost: profitBoost,
-            _t: Date.now(), // v49.3: 计算时间戳，用于多端同步时判断结论新旧
+            _t: Date.now(), // v49.7: 计算时间戳，用于多端同步时判断结论新旧
             _histSig: simProfitCacheSig(this.history) // v49.3 T2: 跨端显示前校验
         };
         // v31.0: 附加命中率提示
@@ -7744,7 +7843,7 @@ class Predictor {
         }
         // v41.2: 从predHistory重建modelPerf（各子模型命中率）
         if (this.predHistory.length > 0 && (!this.modelPerf || Object.keys(this.modelPerf).length === 0)) {
-            console.log('[重建] modelPerf为空，从predHistory重建...');
+            techLog('[重建] modelPerf为空，从predHistory重建...');
             this.modelPerf = {};
             var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
             modelNames.forEach(function(name) { this.modelPerf[name] = []; }, this);
@@ -7780,7 +7879,7 @@ class Predictor {
                     }, this);
                 }
             }
-            console.log('[重建] modelPerf重建完成，各模型样本数：', modelNames.map(function(name){ return name+':'+this.modelPerf[name].length; }, this).join(', '));
+            techLog('[重建] modelPerf重建完成，各模型样本数：', modelNames.map(function(name){ return name+':'+this.modelPerf[name].length; }, this).join(', '));
         }
     }
     // v39.0: 旧数据迁移——给没有rid的历史补ID，给predHistory补correct字段
@@ -7830,6 +7929,10 @@ class Predictor {
         this.emergencyMode = false;
         this._emergencyUntilGame = -1;
         this._maxConsecutiveErrors = 0;
+        // v49.7 P0-3: 清空/覆盖导入时同步清掉待传队列。旧版 _dirtyRids 残留，
+        // 后台定时器会把找不到的 rid 当墓碑上传，用户还没确认就删了云端对应记录。
+        // 仅对全局 P 生效，回测/重算的临时实例不动。
+        try { if (typeof P !== 'undefined' && this === P && typeof markAllClean === 'function') markAllClean(); } catch(e) {}
     }
     // ===== 回测（v24性能优化：移除冗余的全部历史训练，直接用当前modelWeights滑动回测）=====
     runBacktest() {
@@ -8056,7 +8159,7 @@ class Predictor {
                 if (Array.isArray(d1.profitBrierHistory)) d1.profitBrierHistory = d1.profitBrierHistory.slice(-500);
                 if (Array.isArray(d1.investAccuracy)) d1.investAccuracy = d1.investAccuracy.slice(-500);
                 localStorage.setItem(key, JSON.stringify(d1));
-                console.log('[本地存储] 第一次降级成功（截断辅助数据到500条，history+modelPerf完整）');
+                techLog('[本地存储] 第一次降级成功（截断辅助数据到500条，history+modelPerf完整）');
                 return true;
             } catch(e2) {
                 console.warn('[本地存储] 第一次降级失败，尝试只保留核心数据:', e2.message);
@@ -8071,7 +8174,7 @@ class Predictor {
                         _syncEpoch: dataObj._syncEpoch || 0
                     };
                     localStorage.setItem(key, JSON.stringify(d2));
-                    console.log('[本地存储] 第二次降级成功（保留history+权重+命中率，无预测历史）');
+                    techLog('[本地存储] 第二次降级成功（保留history+权重+命中率，无预测历史）');
                     return true;
                 } catch(e3) {
                     console.error('[本地存储] 所有降级均失败:', e3.message);
@@ -8108,7 +8211,7 @@ class Predictor {
                 driftObserveStart: this._driftObserveStart || null, // v44.30: 观察快照
                 config: snapshotConfig(), // v41: 跨端同步可配置参数
                 runtimeState: snapshotRuntimeState(this), // v42: 连续错误/紧急模式/局间隔同步
-                // v49.3: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
+                // v49.7: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
                 // 刷新/换端恢复后立即显示与最近计算端一致的结论，避免各端标签不一致
                 threeWayAnalysis: this._threeWayAnalysis || null,
                 _syncEpoch: this._syncEpoch || 0,
@@ -8225,7 +8328,7 @@ class Predictor {
         }
         this._syncEpoch = p._syncEpoch || 0;
         this._adminOverride = p._adminOverride || null;
-        // v49.3: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
+        // v49.7: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
         // 本地下次 predict 重算时若底层数据一致会得到相同结论）
         this._threeWayAnalysis = (p.threeWayAnalysis && typeof p.threeWayAnalysis === 'object') ? p.threeWayAnalysis : null;
         // 修复predHistory格式
@@ -8361,7 +8464,7 @@ class Predictor {
                             _fixCnt++;
                         }
                     }
-                    if (_fixCnt > 0) console.log("[loadLocal] 自动修复了 " + _fixCnt + " 条格式错误的predHistory记录");
+                    if (_fixCnt > 0) techLog("[loadLocal] 自动修复了 " + _fixCnt + " 条格式错误的predHistory记录");
                 }
             }
             if (p.modelWeights) {
@@ -8559,12 +8662,24 @@ function _loadSyncCounts() {
 // （时间编辑/局间隔秒级推算/格式差异）会被算成两个不同 key，同一局跨端同步就 append 成两份。
 // 统一提取「月日 + 起始 HH:MM」，忽略秒、结束时间与空格；字段值统一转字符串。
 // 仍然不看 rec.date（重构/重算会把它写成操作日），但 timeSlot 自带的月日是稳定的。
+// v49.7 P1-5: 兼容「X月X日」/「2026-11-12」/「11/12」等导入格式。
+// 旧版只认中文月日，ISO 日期的 day 为空 → 跨日期同时间同比分被误判重复并去重删除。
+function _slotDayPart(t) {
+    var s = String(t || '');
+    var dm = s.match(/(\d{1,2})月(\d{1,2})日/);
+    if (dm) return parseInt(dm[1], 10) + '月' + parseInt(dm[2], 10) + '日';
+    var iso = s.match(/(?:\d{4}[-/.])?(\d{1,2})[-/.](\d{1,2})(?=\s|T|$)/);
+    if (iso) {
+        var mo = parseInt(iso[1], 10), da = parseInt(iso[2], 10);
+        if (mo >= 1 && mo <= 12 && da >= 1 && da <= 31) return mo + '月' + da + '日';
+    }
+    return '';
+}
 function _slotKeyPart(rec) {
     var t = (rec && rec.timeSlot) ? String(rec.timeSlot) : '';
     if (!t) return null;
-    var dm = t.match(/(\d{1,2})月(\d{1,2})日/);
+    var day = _slotDayPart(t);
     var tm = t.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);
-    var day = dm ? (parseInt(dm[1], 10) + '月' + parseInt(dm[2], 10) + '日') : '';
     var hm = tm ? (('0' + parseInt(tm[1], 10)).slice(-2) + ':' + tm[2]) : t.trim().replace(/\s+/g, '');
     return day + hm;
 }
@@ -8583,8 +8698,7 @@ function _recApproxKey(rec) {
     var t = String(rec.timeSlot || '');
     var tm = t.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
     if (!tm) return null;
-    var dm = t.match(/(\d{1,2})月(\d{1,2})日/);
-    var day = dm ? (parseInt(dm[1], 10) + '月' + parseInt(dm[2], 10) + '日') : '';
+    var day = _slotDayPart(t);   // v49.7: 与 _recKey 使用同一套日期解析
     var mins = parseInt(tm[1], 10) * 60 + parseInt(tm[2], 10) + (tm[3] ? parseInt(tm[3], 10) / 60 : 0);
     var _s = function(v){ return (v === null || v === undefined) ? '' : String(v); };
     return { day: day, mins: mins, content: _s(rec.a) + '|' + _s(rec.b) + '|' + _s(rec.c) };
@@ -8708,7 +8822,7 @@ function _mergeRemoteHistoryIntoLocal(remoteData) {
             P.learnIterations = remoteData.learnIterations;
         }
         try { P.maxStreakEver = calcMaxStreak(P.history); } catch(e) {}
-        console.log('[上传前合并] 从云端带回对端新记录 ' + addIdx.length + ' 条、更新 ' + _updCount + ' 条，本地现共 ' + P.history.length + ' 局');
+        techLog('[上传前合并] 从云端带回对端新记录 ' + addIdx.length + ' 条、更新 ' + _updCount + ' 条，本地现共 ' + P.history.length + ' 局');
         return addIdx.length + _updCount;
     } catch(e) {
         console.warn('[上传前合并] 失败，继续上传:', e && e.message);
@@ -8742,7 +8856,7 @@ window.dedupeLocalHistory = function(strong) {
         keepIdx.push(i);
     });
     if (removed === 0) {
-        console.log('[去重] 没有发现重复记录');
+        techLog('[去重] 没有发现重复记录');
         alert('没有发现重复记录，数据已是干净的。');
         return;
     }
@@ -8766,7 +8880,7 @@ window.dedupeLocalHistory = function(strong) {
     _saveSyncCounts();
     renderAll();
     debouncedSave();
-    console.log('[去重] 已删除 ' + removed + ' 条重复记录（墓碑已排队上传），剩余 ' + P.history.length + ' 条');
+    techLog('[去重] 已删除 ' + removed + ' 条重复记录（墓碑已排队上传），剩余 ' + P.history.length + ' 条');
     alert('已删除 ' + removed + ' 条重复记录，剩余 ' + P.history.length + ' 条。\n\n删除墓碑已排队自动上传，其他端会同步删除。\n建议等墓碑传完后再点一次「上传云端」全量固化。');
 };
 // v39.8：清理"重构污染翻倍"产生的存量重复。
@@ -8818,7 +8932,7 @@ window.dedupeRebuildDup = function() {
     try { _saveSyncCounts(); } catch (e) {}
     renderAll();
     try { debouncedSave(); } catch (e) {}
-    console.log('[重构污染清理] 原 ' + before + ' 条 → 剩余 ' + P.history.length + ' 条，删除重复 ' + removed + ' 条');
+    techLog('[重构污染清理] 原 ' + before + ' 条 → 剩余 ' + P.history.length + ' 条，删除重复 ' + removed + ' 条');
     alert('重构污染清理完成：\n原 ' + before + ' 条 → 剩余 ' + P.history.length + ' 条（删除重复 ' + removed + ' 条）。\n\n已自动备份快照。请点「☁️ 上传云端」把干净数据覆盖到云端。');
 };
 // v35.6：对一整份数据集（history/predHistory/accuracy/profitAccuracy）做全量去重
@@ -9025,7 +9139,7 @@ function _dedupeDataset(data) {
     if (Array.isArray(data.investAccuracy)) {
         data.investAccuracy = data.investAccuracy.slice(0, data.predHistory.length);
     }
-    console.log('[兜底去重] 合并后数据集删除 ' + removed + ' 条重复，剩余 ' + data.history.length + ' 条');
+    techLog('[兜底去重] 合并后数据集删除 ' + removed + ' 条重复，剩余 ' + data.history.length + ' 条');
     return data;
 }
 var supabaseClient = null;
@@ -9077,7 +9191,7 @@ function setTestMode(enabled) {
     if (enabled && cloudOnline) {
         updateCloudStatus('online', '🧪 测试模式：数据仅保存在本地，点「上传云端」才同步到云端');
     }
-    console.log('[测试模式] ' + (enabled ? '已开启' : '已关闭'));
+    techLog('[测试模式] ' + (enabled ? '已开启' : '已关闭'));
 }
 // v26.4：管理员模式——管理员上传/恢复的数据可强制覆盖其他设备
 var ADMIN_MODE_KEY = 'mm_admin_mode_v1';
@@ -9349,7 +9463,7 @@ function pushOlogToCloud(snap, retry) {
 // 云端连接成功后，补传所有待传快照
 function flushPendingOlog() {
     if (!_pendingOlogUploads || _pendingOlogUploads.length === 0) return;
-    console.log("[olog] 补传待上传快照: " + _pendingOlogUploads.length + " 条");
+    techLog("[olog] 补传待上传快照: " + _pendingOlogUploads.length + " 条");
     var pend = _pendingOlogUploads.slice();
     _pendingOlogUploads = [];
     _savePendingOlog();
@@ -9675,6 +9789,13 @@ function updateCloudStatus(status, info) {
     statusText.textContent = map[status] || status;
     if (info !== undefined) infoText.textContent = info;
     cloudOnline = (status === 'online');
+    // v49.5 ①: 控制台默认只留一句人话，相同状态不重复打印
+    try {
+        var _brief = (status === 'error' ? '❌ 同步失败' : status === 'syncing' ? '🔄 同步中'
+                      : status === 'online' ? '✅ 同步正常' : '☁️ ' + (map[status] || status)) +
+                     ' · ' + syncBrief().replace(/^已录入 /, '已录入 ');
+        if (window._lastBrief !== _brief) { window._lastBrief = _brief; console.info(_brief); }
+    } catch(e) {}
 }
 // v26.4：管理员模式切换
 // v39.6：管理员登录后自动进入管理员模式——统一设置 _isAdmin 与 UI，不再要求二次输密码
@@ -9695,7 +9816,6 @@ function _enterAdminMode() {
     var _ab2 = document.getElementById('backupRestoreBtn'); if (_ab2) _ab2.style.display = '';
     var _ab3 = document.getElementById('cloudReconfigBtn'); if (_ab3) _ab3.style.display = '';
     var _ab4 = document.getElementById('hardResetBtn'); if (_ab4) _ab4.style.display = '';
-    var _cr = document.getElementById('cleanupRecBtn'); if (_cr) _cr.style.display = '';
 }
 function _exitAdminMode() {
     _isAdmin = false;
@@ -9714,7 +9834,6 @@ function _exitAdminMode() {
     var _ab2 = document.getElementById('backupRestoreBtn'); if (_ab2) _ab2.style.display = 'none';
     var _ab3 = document.getElementById('cloudReconfigBtn'); if (_ab3) _ab3.style.display = 'none';
     var _ab4 = document.getElementById('hardResetBtn'); if (_ab4) _ab4.style.display = 'none';
-    var _cr = document.getElementById('cleanupRecBtn'); if (_cr) _cr.style.display = 'none';
 }
 function toggleAdminMode() {
     if (_isAdmin) {
@@ -9821,7 +9940,7 @@ var _cloudFetchWithTimeout = function(url, opts) {
         });
     });
 };
-// v49.3: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
+// v49.7: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
 // 同一 storageKey 下出现多个 GoTrueClient 会触发 Supabase 警告并可能互相干扰
 if (!supabaseClient) {
     supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
@@ -9875,11 +9994,11 @@ if (!supabaseClient) {
                     updateCloudStatus('syncing', '正在从云端拉取最新数据（仅拉取，暂不上传）…');
                     cloudLoad(true).finally(function() {
                         _firstCloudSyncDone = true; // 首次拉取结束（无论成败），解除"只拉取"保护
-                        console.log('[启动] 首次云端拉取已结束，恢复正常上传节奏');
+                        techLog('[启动] 首次云端拉取已结束，恢复正常上传节奏');
                         // v36.1：如果等待期间录了新局（debouncedSave 的5秒定时器到点时首拉取还没好，
                         //   挂起在 _pendingCloudSave=true），现在补传。
                         if (_pendingCloudSave && supabaseClient && cloudOnline && !_testMode) {
-                            console.log('[启动] 补传等待期间录入的新局…');
+                            techLog('[启动] 补传等待期间录入的新局…');
                             setTimeout(function() {
                                 if (_pendingCloudSave) {
                                     _pendingCloudSave = false;
@@ -9897,34 +10016,18 @@ if (!supabaseClient) {
             if (_autoSyncTimer) { clearInterval(_autoSyncTimer); _autoSyncTimer = null; }
             if (!_testMode) {
                 _autoPullTimer = setInterval(async function() {
+                    // ===== v49.5 ④: 管理员全量上传 → 其他端 20 秒内自动全部覆盖 =====
+                    // 放在所有「本地忙碌/同步中」跳过判断之前，保证不会被录入手忙漏掉。
+                    if (await autoAcceptAdminBaseline()) return;
                     if (Date.now() - _lastLocalChange < 30000) return;
                     if (!supabaseClient || !cloudOnline || _testMode) return;
                     if (_cloudSaving || _syncIncrRunning) return;
                     if (!_autoSyncEnabled) return; // v38.2: 覆盖导入后禁止自动拉取合并
-                    // 每15分钟做一次 main 主快照检查（管理员强制同步/他人全量上传感知）
                     var _now = Date.now();
                     // v46.6: 每5分钟做一次全量对账（不依赖时间游标，根治时钟偏差漏单/各端局数不一致）
                     if (!_pollIncrRunning && _now - (window._lastReconcile || 0) > 5 * 60000) {
                         window._lastReconcile = _now;
                         await cloudReconcileRecIds();
-                    }
-                    if (!_pollIncrRunning && _now - (window._lastMainCheck || 0) > 15 * 60000) {
-                        window._lastMainCheck = _now;
-                        try {
-                            var _mr = await supabaseClient.from(CLOUD_TABLE).select('updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
-                            var _cloudMainUa = (_mr && _mr.data && _mr.data.updated_at) ? _mr.data.updated_at : null;
-                            // v47.8修复: 归一化为 ISO 再比较——数据库返回的 updated_at 可能带微秒/时区后缀，
-                            // 与 cloudLoad 里 toISOString() 归一化的 _knownMainUa 格式不同，
-                            // 导致轮询误判"主快照有更新"而触发全量刷新（下载几MB+全界面重渲染=闪烁）。
-                            try { if (_cloudMainUa) _cloudMainUa = new Date(_cloudMainUa).toISOString(); } catch(e) {}
-                            if (_cloudMainUa && window._knownMainUa && _cloudMainUa !== window._knownMainUa) {
-                                console.log('[轮询] 检测到主快照更新，全量刷新...');
-                                await cloudLoad(true);
-                                window._knownMainUa = _cloudMainUa;
-                                return;
-                            }
-                            if (_cloudMainUa) window._knownMainUa = _cloudMainUa;
-                        } catch(e) {}
                     }
                     // 增量拉取其他端的新记录/修改/删除（rid幂等，不会重复）
                     await cloudPollIncremental();
@@ -9946,6 +10049,7 @@ if (!supabaseClient) {
 async function _acceptFullBaseline(d, silent, cloudHistLen, localHistLen, srvUa) {
     var _rawHist = (d && Array.isArray(d.history)) ? d.history.slice() : [];
     var _bl = _establishFullBaseline(d);
+    var _cleanHist = (d && Array.isArray(d.history)) ? d.history.slice() : _rawHist.slice(); // v49.7 P1-6: 去重后的权威数组
     P._syncEpoch = d._syncEpoch || 0;
     if (d._adminOverride) P._adminOverride = d._adminOverride;
     P._fullBaseline = d._fullBaseline || { count: cloudHistLen, at: Date.now() };
@@ -9969,12 +10073,14 @@ async function _acceptFullBaseline(d, silent, cloudHistLen, localHistLen, srvUa)
     } catch(e) {}
     try { P._rebuildStatsFromPred(); } catch(e) {}
     // 硬校验：管理员上传 3948 局，本端就必须是 3948 局（+ 本地未上传的新局）
-    var _expect = _bl.count + _bl.extra;
+    // v49.7 P1-6: 期望值用去重后的 clean 长度（kept 已含 extra）。旧版 count+extra 在
+    // main 快照含重复 rid 时必然对不上，随后用 _rawHist 回填反而把重复 rid 又灌回来。
+    var _expect = _bl.kept;
     if (P.history.length !== _expect) {
-        console.warn('[全量基线] 局数不符：期望 ' + _expect + '，实际 ' + P.history.length + '，用云端原始数组强制回填');
-        P.history = _rawHist.concat((d.history || []).slice(_bl.count));
+        console.warn('[全量基线] 局数不符：期望 ' + _expect + '，实际 ' + P.history.length + '，按去重后的云端数组强制回填');
+        P.history = _cleanHist;
         try { P._rebuildStatsFromPred(); } catch(e) {}
-        try { showRecordResult(false, '全量基线局数校验', '云端 ' + _bl.count + ' 局，本地恢复成 ' + P.history.length + ' 局，已按云端原始数组强制回填'); } catch(e) {}
+        try { showRecordResult(false, '全量基线局数校验', '云端基线 ' + _bl.count + ' 局，本地恢复成 ' + P.history.length + ' 局，已按去重后的云端数组强制回填'); } catch(e) {}
     }
     _lastFullSyncCount = P.history.length;
     _lastIncrSyncCount = _lastFullSyncCount;
@@ -9999,11 +10105,17 @@ async function _acceptFullBaseline(d, silent, cloudHistLen, localHistLen, srvUa)
     } catch(e) { console.warn('[全量基线] 增量补拉异常（不影响基线）:', e && e.message); }
     cloudLastSync = new Date();
     _lastCloudLoadTime = Date.now();
-    var _msg = '✅ 全量基线 ' + _bl.count + ' 局 · 已原样恢复（本地 ' + localHistLen + ' → ' + P.history.length +
-               ' 局，清除本地墓碑 ' + _bl.tombCleared + ' 条' + (_bl.extra ? '，保留本地未上传 ' + _bl.extra + ' 局' : '') +
-               ((_swBl.added || _swBl.updated) ? '，补拉增量 ' + (_swBl.added + _swBl.updated) + ' 条' : '') + '）';
+    // v49.7: 旧文案「本地 3991 → 3991 局，补拉增量 17 条」看不出中间先降到基线再补回来，
+    // 用户容易以为没同步。改成把等式写清楚：基线 + 云端增量 = 本地最终局数。
+    var _msg = '✅ 全量基线 ' + _bl.count + ' 局 · 已原样恢复（基线 ' + _bl.kept + ' 局 + 云端增量 ' +
+               ((_swBl.added || 0) + (_swBl.updated || 0)) + ' 条' +
+               '（新增 ' + (_swBl.added || 0) + ' / 更新 ' + (_swBl.updated || 0) + '）' +
+               ' = 本地 ' + P.history.length + ' 局；进入前 ' + localHistLen + ' 局，' +
+               '清除本地墓碑 ' + _bl.tombCleared + ' 条' +
+               (_bl.extra ? '，保留本地未上传 ' + _bl.extra + ' 局' : '') +
+               ((_swBl.removed || 0) ? '，增量删除 ' + _swBl.removed + ' 条' : '') + '）';
     updateCloudStatus('online', _msg + ' · ' + cloudLastSync.toLocaleTimeString());
-    console.log('[全量基线]', _msg, '| 云端快照', cloudHistLen, '局');
+    techLog('[全量基线]', _msg, '| 云端快照', cloudHistLen, '局');
     if (!silent) {
         try { showRecordResult(true, '全量基线已拉取', _msg + '\n\n管理员全量上传的数据为权威，本端已按原样采纳；可在控制台执行 checkFullBaseline() 复核。'); } catch(e) {}
     }
@@ -10012,9 +10124,33 @@ async function _acceptFullBaseline(d, silent, cloudHistLen, localHistLen, srvUa)
 // v47.9修复: cloudLoad 并发守卫——启动定时器/CDN重试/网络恢复事件可能同时触发多次拉取，
 // 旧版会并发下载几MB主快照并互相覆盖渲染（重复闪烁+浪费流量）。同一时刻只允许一次拉取。
 // 内部网络重试走 _cloudLoadBody 直调，不受守卫影响。
+// ========== v49.5 ④: 管理员全量上传 → 其他端自动全部覆盖 ==========
+// 只查 main 一行的 updated_at（约 30 字节），不下载几 MB 快照。普通增量上传不动 main，
+// 只有管理员「全量上传」会改它，因此时间戳变化 = 权威基线已更新，立即 cloudLoad(true)
+// 走 _acceptFullBaseline 纯净恢复（局数硬校验 + 只保留本地未上传新局）。
+async function autoAcceptAdminBaseline() {
+    try {
+        if (!(supabaseClient && cloudOnline && !_testMode && !_cloudPullRunning &&
+              !window._syncFuseBlown && _autoSyncEnabled)) return false;
+        var _mu = await supabaseClient.from(CLOUD_TABLE).select('updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
+        var _mua = (_mu && _mu.data && _mu.data.updated_at)
+            ? new Date(_mu.data.updated_at).toISOString() : null;
+        if (!_mua) return false;
+        if (window._knownMainUa && _mua !== window._knownMainUa && _mua !== window._selfFullUploadUa) {
+            techLog('[轮询] 检测到管理员全量上传，自动覆盖本端数据');
+            var _ok = await cloudLoad(true);
+            // 拉取失败（并发守卫/网络）时不推进游标，下一轮会重试，不会漏覆盖
+            if (_ok === false) return false;
+            window._knownMainUa = _mua;
+            return true;
+        }
+        window._knownMainUa = _mua;
+        return false;
+    } catch(e) { return false; }
+}
 var _cloudPullRunning = false;
 async function cloudLoad(silent) {
-    if (_cloudPullRunning) { console.log('[云端拉取] 已有拉取进行中，跳过本次触发'); return false; }
+    if (_cloudPullRunning) { techLog('[云端拉取] 已有拉取进行中，跳过本次触发'); return false; }
     // v47.13: 熔断期间暂停自动拉取（silent=自动触发）；手动操作(!silent)不受限
     if (window._syncFuseBlown && silent) return false;
     _cloudPullRunning = true;
@@ -10049,7 +10185,7 @@ async function _cloudLoadBody(silent) {
                     _cloudPullRetryCount++;
                     var _delay = 1500 * _cloudPullRetryCount;
                     updateCloudStatus('syncing', '📶 网络不稳定，' + (_delay/1000) + '秒后自动重试（第' + _cloudPullRetryCount + '/' + CLOUD_PULL_MAX_RETRY + '次）...');
-                    console.log('[云端拉取] 网络错误，' + _delay + 'ms后重试:', msg);
+                    techLog('[云端拉取] 网络错误，' + _delay + 'ms后重试:', msg);
                     await new Promise(function(r){ setTimeout(r, _delay); });
                     var _ok = await _cloudLoadBody(silent);
                     return _ok;
@@ -10134,7 +10270,7 @@ async function _cloudLoadBody(silent) {
                     var _rc1 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                     var _ms1 = _mergeSweep(_sw1, _rc1);
                     updateCloudStatus('online', '✅ 云端已同步 · 本地' + P.history.length + '局（云端快照' + cloudHistLen + '局+增量行）' + _fmtSweepSummary(_ms1) + ' · ' + cloudLastSync.toLocaleTimeString());
-                    // v47.0: 拉取成功弹窗；v49.3: 仅在本次有真实变动（增/改/删）时弹出，
+                    // v47.0: 拉取成功弹窗；v49.7: 仅在本次有真实变动（增/改/删）时弹出，
                     // "各端数据一致"的例行检查不再弹窗（云端已有完整数据时保持静默）
                     if (silent && ((_ms1.added || 0) + (_ms1.updated || 0) + (_ms1.removed || 0)) > 0) {
                         try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms1) + '\n云端快照 ' + cloudHistLen + ' 局 + 增量行，各端数据一致'); } catch(e) {}
@@ -10165,7 +10301,7 @@ async function _cloudLoadBody(silent) {
                 var _mergedFromCloud = _mergeRemoteHistoryIntoLocal(data.data);
                 if (_mergedFromCloud > 0) {
                     dataChanged = true;
-                    console.log('[云端拉取] 合并云端本地缺失记录 ' + _mergedFromCloud + ' 条');
+                    techLog('[云端拉取] 合并云端本地缺失记录 ' + _mergedFromCloud + ' 条');
                 }
                 // 合并后用最新的 P.history 存本地
                 try { P.saveLocal(); } catch(e) {}
@@ -10187,7 +10323,7 @@ async function _cloudLoadBody(silent) {
                 var _rc2 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                 var _ms2 = _mergeSweep(_sw2, _rc2);
                 updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局（含增量补拉+对账）');
-                // v47.0: 拉取成功弹窗；v49.3: 仅在有真实变动时弹出，例行无变化检查静默
+                // v47.0: 拉取成功弹窗；v49.7: 仅在有真实变动时弹出，例行无变化检查静默
                 if (silent && ((dataChanged ? 1 : 0) + (_ms2.added || 0) + (_ms2.updated || 0) + (_ms2.removed || 0)) > 0) {
                     try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms2)); } catch(e) {}
                 }
@@ -10228,7 +10364,7 @@ async function _cloudLoadBody(silent) {
             // 精简数据存localStorage（用于页面快速启动，存不下会自动降级）
             var _lsOk = P.safeLocalStorageSet(STORE_KEY, data.data);
             if (!_lsOk) {
-                console.log('[本地存储] localStorage空间不足，完整数据已存IndexedDB，刷新后自动补全');
+                techLog('[本地存储] localStorage空间不足，完整数据已存IndexedDB，刷新后自动补全');
             }
             if (dataChanged || silent === false) {
                 // v34.9：云端数据加载后跳到最后一页（最新记录）
@@ -10255,7 +10391,7 @@ async function _cloudLoadBody(silent) {
             // v36.1：首次拉取完成提示——告诉用户"只拉取"阶段结束，后续录入会自动上传
             var _pullCount = data.data.history ? data.data.history.length : 0;
             updateCloudStatus('online', '✅ 已拉取云端 ' + P.history.length + ' 局+增量 · 后续录入新数据停手5秒后将自动上传');
-            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v49.3: 仅在数据真的变化时弹出
+            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v49.7: 仅在数据真的变化时弹出
             if (silent && dataChanged) { try { showRecordResult(true, '拉取成功', '已从云端加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_mergeSweep(_sw3, _rc3)) + '\n后续录入新数据停手5秒后自动上传'); } catch(e) {} }
             return true;
         } else {
@@ -10280,7 +10416,7 @@ async function _cloudLoadBody(silent) {
             _cloudPullRetryCount++;
             var _delay2 = 1500 * _cloudPullRetryCount;
             updateCloudStatus('syncing', '📶 网络异常，' + (_delay2/1000) + '秒后自动重试（第' + _cloudPullRetryCount + '/' + CLOUD_PULL_MAX_RETRY + '次）...');
-            console.log('[云端拉取] 异常，' + _delay2 + 'ms后重试:', _emsg);
+            techLog('[云端拉取] 异常，' + _delay2 + 'ms后重试:', _emsg);
             await new Promise(function(r){ setTimeout(r, _delay2); });
             var _ok2 = await _cloudLoadBody(silent);
             return _ok2;
@@ -10300,7 +10436,7 @@ async function _cloudLoadBody(silent) {
 
 // v31.4：网络状态监听——手机从弱网/飞行模式恢复后自动重连云端
 window.addEventListener('online', function() {
-    console.log('[网络] 检测到网络恢复，5秒后自动拉取云端数据...');
+    techLog('[网络] 检测到网络恢复，5秒后自动拉取云端数据...');
     updateCloudStatus('syncing', '📶 网络已恢复，正在重新连接云端...');
     if (_networkRetryTimer) clearTimeout(_networkRetryTimer);
     _networkRetryTimer = setTimeout(function() {
@@ -10313,7 +10449,7 @@ window.addEventListener('online', function() {
     }, 5000);
 });
 window.addEventListener('offline', function() {
-    console.log('[网络] 检测到网络断开');
+    techLog('[网络] 检测到网络断开');
     updateCloudStatus('online', '📵 网络已断开，数据将暂存本地，恢复后自动同步');
 });
 
@@ -10326,7 +10462,9 @@ var AUTO_BACKUP_KEEP_COUNT = 2; // v46.0: 保留最近2个（覆盖策略，存�
 var AUTO_BACKUP_INTERVAL_H = 6; // v46.0: 每6小时一次
 function checkAutoBackup() {
     var now = new Date();
-    var dateStr = now.toISOString().slice(0,10);
+    // v49.7 B-3: 用本地日期，与下方 getHours()（本地时段）保持同一时区；
+    // 旧版 UTC 日期 + 本地小时，UTC+8 的 00:00-08:00 会归到前一天，各端备份 id 不一致重复上传。
+    var dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
     var hourKey = String(Math.floor(now.getHours() / AUTO_BACKUP_INTERVAL_H) * AUTO_BACKUP_INTERVAL_H).padStart(2, '0');
     var backupKey = dateStr + '_' + hourKey;
     if (_lastAutoBackupDate === backupKey) return;
@@ -10348,30 +10486,30 @@ function checkAutoBackup() {
         config: snapshotConfig(),
         runtimeState: snapshotRuntimeState(P),
         learnIterations: P.learnIterations || 0,
-        threeWayAnalysis: P._threeWayAnalysis || null, // v49.3: 备份携带三盘分析结论
+        threeWayAnalysis: P._threeWayAnalysis || null, // v49.7: 备份携带三盘分析结论
         _syncEpoch: P._syncEpoch || 0,
         _count: P.history.length
     };
     if (supabaseClient && cloudOnline) {
-        console.log('[自动备份] 云端备份，时间:', hourKey + '时');
+        techLog('[自动备份] 云端备份，时间:', hourKey + '时');
         try {
             var backupId = 'backup_autohour_' + dateStr.replace(/-/g,'') + '_' + hourKey;
             // v46.2省流量：先查该时段备份是否已存在（任一设备传过即跳过），
             // 避免2-3台设备在同一时段各自重复上传一份几MB的全量快照。
             supabaseClient.from(CLOUD_TABLE).select('id').eq('id', backupId).maybeSingle().then(function(ex) {
-                if (ex && ex.data && ex.data.id) { console.log('[自动备份] 该时段备份已存在，跳过上传'); return; }
+                if (ex && ex.data && ex.data.id) { techLog('[自动备份] 该时段备份已存在，跳过上传'); return; }
                 var _bakLen = 0; try { _bakLen = JSON.stringify(saveData).length; } catch(e) {}
                 supabaseClient.from(CLOUD_TABLE).upsert(
                     { id: backupId, data: saveData, updated_at: now.toISOString() },
                     { onConflict: 'id' }
                 ).then(function(res) {
                     if (res.error) console.error('[自动备份] 云端失败:', res.error.message);
-                    else { console.log('[自动备份] 云端成功:', backupId); trackTraffic('out', _bakLen); cleanupOldAutoBackups(); }
+                    else { techLog('[自动备份] 云端成功:', backupId); trackTraffic('out', _bakLen); cleanupOldAutoBackups(); }
                 }).catch(function(e) { console.error('[自动备份] 云端异常:', e.message); });
             }).catch(function(e) { console.error('[自动备份] 预检异常:', e.message); });
         } catch(e) { console.error('[自动备份] 云端异常:', e.message); }
     } else {
-        console.log('[自动备份] 本地备份，时间:', hourKey + '时');
+        techLog('[自动备份] 本地备份，时间:', hourKey + '时');
         try {
             var LOCAL_BAK_KEY = 'mm_local_autobackups';
             var localBaks = [];
@@ -10380,7 +10518,7 @@ function checkAutoBackup() {
             var LOCAL_BAK_KEEP = 6;
             if (localBaks.length > LOCAL_BAK_KEEP) localBaks = localBaks.slice(-LOCAL_BAK_KEEP);
             localStorage.setItem(LOCAL_BAK_KEY, JSON.stringify(localBaks));
-            console.log('[自动备份] 本地成功，共' + localBaks.length + '个备份');
+            techLog('[自动备份] 本地成功，共' + localBaks.length + '个备份');
         } catch(e) { console.error('[自动备份] 本地异常:', e.message); }
     }
 }
@@ -10401,9 +10539,9 @@ async function cleanupOldAutoBackups() {
         for (var idx = 0; idx < toDelete.length; idx++) {
             await supabaseClient.from(CLOUD_TABLE).delete().eq('id', toDelete[idx].id);
             deleted++;
-            console.log('[自动备份清理] 已删除旧备份:', toDelete[idx].id);
+            techLog('[自动备份清理] 已删除旧备份:', toDelete[idx].id);
         }
-        if (deleted > 0) console.log('[自动备份清理] 共清理 ' + deleted + ' 条旧备份，保留最近24条');
+        if (deleted > 0) techLog('[自动备份清理] 共清理 ' + deleted + ' 条旧备份，保留最近 ' + AUTO_BACKUP_KEEP_COUNT + ' 份');
     } catch(e) {
         console.error('[自动备份清理] 异常:', e.message);
     }
@@ -10457,7 +10595,9 @@ function markAllClean() { _dirtyRids = {}; _saveDirtyRids(); }
 
 // ---- 流量/存储用量统计（估算值，对照 Supabase 免费版配额）----
 function _trafficStore() {
-    var ym = new Date().toISOString().slice(0,7);
+    // v49.7 B-7: 用本地月份分桶，避免 UTC+8 每月 1 日 00:00-08:00 计入上月
+    var _td = new Date();
+    var ym = _td.getFullYear() + '-' + String(_td.getMonth()+1).padStart(2,'0');
     var st = { ym: ym, out: 0, in: 0 };
     try {
         var raw = localStorage.getItem(TRAFFIC_KEY);
@@ -10494,17 +10634,39 @@ function renderCloudQuota() {
     var st = _trafficStore();
     var used = st.out + st.in;
     var ePct = Math.min(100, used / CLOUD_EGRESS_LIMIT * 100);
+    var iPct = Math.min(100, st.in / CLOUD_EGRESS_LIMIT * 100);   // v49.7 B-6: 下行用自己的百分比
     var sBytes = _estStorageBytes();
     var sPct = Math.min(100, sBytes / CLOUD_DB_LIMIT * 100);
     var eColor = ePct > 85 ? '#e74c3c' : (ePct > 60 ? '#f39c12' : '#27ae60');
+    var iColor = iPct > 85 ? '#e74c3c' : (iPct > 60 ? '#f39c12' : '#27ae60');
     var sColor = sPct > 85 ? '#e74c3c' : (sPct > 60 ? '#f39c12' : '#27ae60');
     box.innerHTML =
         '<div class="cq-item"><span class="cq-label">↑上行</span><span class="cq-bar"><i style="width:' + ePct.toFixed(1) + '%;background:' + eColor + '"></i></span><span class="cq-val">' + fmtBytes(st.out) + '</span></div>' +
-        '<div class="cq-item"><span class="cq-label">↓下行</span><span class="cq-bar"><i style="width:' + Math.min(100, st.in / CLOUD_EGRESS_LIMIT * 100).toFixed(1) + '%;background:' + eColor + '"></i></span><span class="cq-val">' + fmtBytes(st.in) + '</span></div>' +
+        '<div class="cq-item"><span class="cq-label">↓下行</span><span class="cq-bar"><i style="width:' + iPct.toFixed(1) + '%;background:' + iColor + '"></i></span><span class="cq-val">' + fmtBytes(st.in) + '</span></div>' +
         '<div class="cq-item"><span class="cq-label">月流量</span><span class="cq-bar"><i style="width:' + ePct.toFixed(1) + '%;background:' + eColor + '"></i></span><span class="cq-val">' + fmtBytes(used) + ' / 5GB</span></div>' +
         '<div class="cq-item"><span class="cq-label">存储</span><span class="cq-bar"><i style="width:' + sPct.toFixed(1) + '%;background:' + sColor + '"></i></span><span class="cq-val">' + fmtBytes(sBytes) + ' / 500MB</span></div>';
 }
 
+// v49.7: 内容指纹——不依赖 updated_at 也能识别「同一版本的内容被改写」。
+// 存量库没装触发器时编辑行的时间戳不前进，LWW 严格大于会拦住同步；指纹不同即视为新版本。
+// 复查：覆盖全部业务字段（按 key 排序保证顺序稳定），只排除 _ 开头的内部状态。
+// 只取 a/b/c/比分等固定字段的话，改备注、投资额等字段时指纹不变，存量库会漏同步。
+function _rowFingerprint(r, p) {
+    try {
+        function _plain(o) {
+            var keys = [], out = {}, i;
+            if (!o || typeof o !== 'object') return null;
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k) && k.charAt(0) !== '_') keys.push(k);
+            keys.sort();
+            for (i = 0; i < keys.length; i++) out[keys[i]] = o[keys[i]];
+            return out;
+        }
+        var str = JSON.stringify([_plain(r), _plain(p)]);
+        var h = 5381;
+        for (var j = 0; j < str.length; j++) h = ((h << 5) + h + str.charCodeAt(j)) | 0;
+        return String(h);
+    } catch(e) { return ''; }
+}
 // ---- 组装单条记录的增量行数据 ----
 function _recRowData(rid) {
     var rec = null, pred = null, i, j;
@@ -10517,17 +10679,31 @@ function _recRowData(rid) {
             if (ph[j] && ph[j].rid === rid) { pred = ph[j]; break; }
         }
     }
-    // v49.3: 不再写客户端时间戳——updated_at 由服务端在上传时写入，
-    // 客户端不把本机时钟带入云端，根除各设备时钟偏差导致的 LWW 误判。
     var d = {};
     if (!rec) { d.del = 1; } // 墓碑：通知其他端删除
-    else { d.r = rec; if (pred) d.p = pred; }
+    else {
+        // v49.7 P0-2: 内部状态绝不外传。旧版把 _dirtyLocal:1 整对象上传，其他端收到后
+        // 该记录被永久锁死（拒绝一切远端更新、也删不掉）。
+        var _r = {};
+        for (var _k in rec) if (Object.prototype.hasOwnProperty.call(rec, _k)) _r[_k] = rec[_k];
+        delete _r._dirtyLocal;
+        d.r = _r;
+        if (pred) d.p = pred;
+        d.h = _rowFingerprint(_r, pred);
+    }
     return d;
 }
 
 // ---- 增量上传：只传脏记录 ----
 async function cloudSaveIncremental(manual) {
     if (!supabaseClient || !cloudOnline) { if (manual) alert('云端未连接'); return false; }
+    // v49.7 P0-3: 暂停期（覆盖导入 / 清空后等待用户确认）一律不上传。
+    // 旧版只有起动定时器时检查，60 秒补偿定时器与 5 秒回调都不检查，残留脏队列会被
+    // 当成墓碑上传，用户还没点「上传云端」就把云端记录删掉了。
+    if (!_autoSyncEnabled || window._autoSyncHold) {
+        if (manual) showRecordResult(false, '同步已暂停', '当前处于「覆盖导入/清空」后的暂停状态。\n请先点「☁️ 全量上传（管理员）」把本地权威数据固化到云端，之后会自动恢复同步。');
+        return false;
+    }
     if (_testMode && !manual) return false;
     var rids = Object.keys(_dirtyRids);
     if (!rids.length) {
@@ -10539,9 +10715,13 @@ async function cloudSaveIncremental(manual) {
     // v48.1: 批量上传保护——自动触发时待传超过 100 条几乎必是异常
     // （时间编辑批量改写 / 脏设备的重复副本扩散），弹窗确认，杜绝静默把几百条灌进云端。
     // 手动点「立即同步」不拦（用户主动意图明确）。
-    if (rids.length > 100 && !manual) {
+    // v49.7 P1-7: 时间编辑本就会批量改写后续局，是用户明确操作，60 秒内不弹「异常大批量」
+    if (rids.length > 100 && !manual && Date.now() >= (window._incrBulkWhitelistUntil || 0)) {
+        // v49.7 P1-2: 用户取消后 10 分钟静默期，避免 60 秒补偿定时器每分钟反复弹窗
+        if (Date.now() < (window._incrBulkQuietUntil || 0)) return false;
         if (!confirm('⚠️ 待增量上传 ' + rids.length + ' 条（异常大批量）。\n\n正常单局录入只上传 1 条；这个数量通常意味着时间编辑批量改写了后续局，或本端含重复副本。\n\n建议：点「取消」，先在控制台执行 dedupeLocalHistory(true) 清理重复，再同步。\n\n确定仍要上传这 ' + rids.length + ' 条？')) {
             console.warn('[增量上传] 用户取消：' + rids.length + ' 条待传未上传（脏队列保留）');
+            window._incrBulkQuietUntil = Date.now() + 10 * 60000;
             return false;
         }
     }
@@ -10555,15 +10735,18 @@ async function cloudSaveIncremental(manual) {
             var fingerprints = {};
             chunk.forEach(function(rid){
                 var _d = _recRowData(rid);
-                rows.push({ id: 'rec_' + rid, data: _d });
-                // v49.3: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
+                // v49.7 P0-1: 显式带 updated_at，保证 ON CONFLICT DO UPDATE 时版本号前进。
+                // 装了触发器 → BEFORE INSERT/UPDATE 用 clock_timestamp() 覆盖成权威服务端时间；
+                // 未装触发器的存量库 → 客户端时间兜底，至少编辑/删除能同步（_ua 仍以服务端回读为准）。
+                rows.push({ id: 'rec_' + rid, data: _d, updated_at: new Date().toISOString() });
+                // v49.7: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
                 try { fingerprints[rid] = JSON.stringify(_d); } catch(e) {}
             });
             var payloadLen = 0;
             try { payloadLen = JSON.stringify(rows).length; } catch(e) {}
             totalBytes += payloadLen;
             updateCloudStatus('syncing', '☁️ 增量上传 ' + rows.length + ' 条（' + fmtBytes(payloadLen) + '，共' + rids.length + '条待传）...');
-            // v49.3: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
+            // v49.7: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
             var res = await supabaseClient.from(CLOUD_TABLE).upsert(rows, { onConflict: 'id' }).select('id,updated_at');
             if (res.error) {
                 okAll = false;
@@ -10573,7 +10756,7 @@ async function cloudSaveIncremental(manual) {
                 break;
             }
             trackTraffic('out', payloadLen);
-            // v49.3: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
+            // v49.7: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
             var _serverUa = {};
             (res.data || []).forEach(function(_r){ if (_r && _r.id) { try { _serverUa[_r.id] = new Date(_r.updated_at).getTime(); } catch(e) {} } });
             chunk.forEach(function(rid){
@@ -10584,8 +10767,14 @@ async function cloudSaveIncremental(manual) {
                 delete _dirtyRids[rid];
                 var _found = false;
                 var _sua = _serverUa['rec_' + rid] || 0;
+                var _fpNow = null;
+                try { _fpNow = _recRowData(rid).h || null; } catch(e) {}
                 for (var k = 0; k < P.history.length; k++) {
-                    if (P.history[k] && P.history[k]._rid === rid) { P.history[k]._ua = _sua; P.history[k]._dirtyLocal = 0; _found = true; break; }
+                    if (P.history[k] && P.history[k]._rid === rid) {
+                        P.history[k]._ua = _sua; P.history[k]._dirtyLocal = 0;
+                        if (_fpNow) P.history[k]._h = _fpNow;
+                        _found = true; break;
+                    }
                 }
                 // v46.6: 墓碑行上传成功 → 登记到墓碑表，防止后续全量拉取把删除的记录"复活"
                 if (!_found) _tombAdd('rec_' + rid);
@@ -10595,7 +10784,7 @@ async function cloudSaveIncremental(manual) {
         }
         if (sent > 0) {
             cloudLastSync = new Date();
-            // v49.3: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
+            // v49.7: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
             try { P.saveLocal(); } catch(e) {}
             if (!window._autoSyncHold) setAutoSync(true); // v48.5: 显式暂停期间保持暂停
             updateCloudStatus('online', '✅ 增量上传 ' + sent + ' 条（' + fmtBytes(totalBytes) + '）· 共' + P.history.length + '局 · ' + cloudLastSync.toLocaleTimeString());
@@ -10616,6 +10805,16 @@ async function cloudSaveIncremental(manual) {
         return false;
     } finally {
         _syncIncrRunning = false;
+        // v49.7 P1-1: 并发期间挂起的上传立刻补跑，不再只等 60 秒补偿定时器。
+        // 复查: 1 秒节流，防止「补跑又撞上并发」时两个实例互相 setTimeout(0) 空转；
+        // 被节流的那次仍保留 _pendingCloudSave，由 60 秒补偿定时器兜底，不会丢数据。
+        if (_pendingCloudSave && supabaseClient && cloudOnline && !_testMode &&
+            _autoSyncEnabled && !window._autoSyncHold &&
+            Date.now() - (window._lastIncrKickAt || 0) > 1000) {
+            _pendingCloudSave = false;
+            window._lastIncrKickAt = Date.now();
+            setTimeout(function(){ cloudSaveIncremental(false); }, 0);
+        }
     }
 }
 
@@ -10630,7 +10829,7 @@ function _upsertPredByRid(rid, p) {
 // ---- 合并其他端的增量行（增/改/删）----
 function mergeRemoteRecRows(rows) {
     if (!rows || !rows.length) return { added: 0, updated: 0, removed: 0 };
-    var added = 0, updated = 0, removed = 0, addedRids = [];
+    var added = 0, updated = 0, removed = 0, addedRids = [], addedRidUa = {};
     // v48.4: 近似同局索引（O(n) 构建，避免每行拉取都全表 O(n²) 比对）
     var _approxIndex = {};
     // v48.5 回归修复：索引必须持有「记录对象容器」而非数组下标。
@@ -10648,7 +10847,8 @@ function mergeRemoteRecRows(rows) {
         var _arr = _approxIndex[_ak.day + '|' + _ak.content] || [];
         for (var _q = 0; _q < _arr.length; _q++) {
             // 起始时间相差 5 分钟内视为同一局（覆盖秒级漂移/时间编辑顺延）
-            if (Math.abs(_arr[_q].mins - _ak.mins) <= 5) return _arr[_q];
+            // v49.7 P1-4: 容差 5 分钟 → 1.5 分钟，只覆盖秒级漂移；同时段补录的独立合法局不再被误判重复
+            if (Math.abs(_arr[_q].mins - _ak.mins) <= 1.5) return _arr[_q];
         }
         return null;
     }
@@ -10661,7 +10861,7 @@ function mergeRemoteRecRows(rows) {
             if (!d) return;
             var ua = row.updated_at ? new Date(row.updated_at).getTime() : (d.ua || 0);
             // 1) 墓碑 → 删除本地同rid记录
-            // v49.3: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
+            // v49.7: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
             //   · 本地 _dirtyLocal=1 → 远端(含墓碑)一律丢弃，本地优先；
             //   · 否则纯 LWW：墓碑 updated_at 比本地 _ua 新才删除，旧墓碑不覆盖新记录。
             if (d.del) {
@@ -10688,6 +10888,9 @@ function mergeRemoteRecRows(rows) {
             // 本地记录的 rid 永远对不上云端，对账每轮都会把同一行当 missing 重拉。
             rec._rid = rid;
             rec._ua = ua;
+            // v49.7 P0-2: 清洗历史污染——旧版把 _dirtyLocal:1 上传，其他端收到后记录被永久锁死
+            delete rec._dirtyLocal;
+            if (d.h) rec._h = d.h;   // v49.7 复查: 新增时也缓存指纹，避免同版本行被反复判为「更新」
             var idx = -1;
             for (var k = 0; k < P.history.length; k++) {
                 if (P.history[k] && P.history[k]._rid === rid) { idx = k; break; }
@@ -10697,7 +10900,11 @@ function mergeRemoteRecRows(rows) {
                 // v47.1: 本地有未上传的修改(_dirtyLocal)时优先保留本地，
                 // 不依赖各设备时钟(ua)比较，避免时钟偏差导致编辑被错误覆盖。
                 if (P.history[idx]._dirtyLocal) return;
-                if (ua > (P.history[idx]._ua || 0)) {
+                // v49.7 P0-1: LWW + 内容指纹双判据。存量库 updated_at 不前进时，
+                // 指纹不同也视为新版本，否则「已存在 rid 但内容被编辑」永远同步不过来。
+                var _fpDiff = d.h && d.h !== P.history[idx]._h;
+                if (ua > (P.history[idx]._ua || 0) || (_fpDiff && ua >= (P.history[idx]._ua || 0))) {
+                    if (d.h) rec._h = d.h;
                     P.history[idx] = rec;
                     if (d.p && d.p.rid === rid) _upsertPredByRid(rid, d.p);
                     updated++;
@@ -10729,7 +10936,7 @@ function mergeRemoteRecRows(rows) {
                 if (_dupLocal && _dupLocal._rid !== rec._rid && _dupLocal._ua && rec._ua &&
                     Math.abs(_dupLocal._ua - rec._ua) > 10 * 60 * 1000) {
                     _dupIdx = -1; _dupCell = null;
-                    console.log('[增量合并] 保留独立合法局 rid=' + rec._rid + '（近似匹配但两端上传时间相隔>10分钟）');
+                    techLog('[增量合并] 保留独立合法局 rid=' + rec._rid + '（近似匹配但两端上传时间相隔>10分钟）');
                 }
             }
             if (_dupIdx >= 0) {
@@ -10770,18 +10977,23 @@ function mergeRemoteRecRows(rows) {
             _indexAdd(rec);
             if (d.p && d.p.rid === rid) _upsertPredByRid(rid, d.p);
             addedRids.push(rid);
+            addedRidUa[rid] = String(row.updated_at || '');
             added++;
         } catch(e) { console.warn('[增量合并] 单行失败:', e && e.message); }
     });
     // v48.2: 接收端批量保护——单次合并新增超 100 条（且本地已有数据，排除新设备首拉）
-    // 几乎必是异常灌入（脏设备推送的重复副本/日期错乱记录），弹窗确认；取消则回滚并墓碑化，
-    // 防止脏数据在本地固化、并借本端再扩散到其他端。
+    // 几乎必是异常灌入（脏设备推送的重复副本/日期错乱记录），弹窗确认；
+    // v49.7: 取消只回滚本端 + 记入忽略缓存，绝不上传墓碑（旧版会把其他端合法数据一并删掉）。
     if (added > 100 && (P.history ? P.history.length : 0) > 200) {
         var _keep = true;
-        if (!window._mergeConfirmLock) {
+        // v49.7 复查: 静默期只对「同一批 rid」生效。若不加签名，用户拒绝过一次之后
+        // 5 分钟内管理员新推的合法大批量增量也会被静默回滚，且用户看不到任何数据回来。
+        var _batchSig = addedRids.slice().sort().join('|');
+        if (Date.now() < (window._mergeRejectQuietUntil || 0) && window._mergeRejectSig === _batchSig) _keep = false;
+        else if (!window._mergeConfirmLock) {
             window._mergeConfirmLock = true;
             try {
-                _keep = confirm('⚠️ 检测到一次性新增 ' + added + ' 条记录（异常大批量）。\n\n这通常来自其他设备的重复/脏数据（日期错乱、历史污染等），直接接收会导致局数虚增。\n\n「确定」= 保留这 ' + added + ' 条；「取消」= 回滚本次新增并标记删除（防止再次灌入）。');
+                _keep = confirm('⚠️ 检测到一次性新增 ' + added + ' 条记录（异常大批量）。\n\n这通常来自其他设备的重复/脏数据（日期错乱、历史污染等），直接接收会导致局数虚增。\n\n「确定」= 保留这 ' + added + ' 条；「取消」= 仅本端忽略这批记录（不改动云端，不影响其他设备）。');
             } finally { window._mergeConfirmLock = false; }
         }
         if (!_keep) {
@@ -10790,13 +11002,20 @@ function mergeRemoteRecRows(rows) {
             }
             addedRids.forEach(function(_ar) {
                 _removePredArr(P.predHistory, _ar);
-                markDirtyRid(_ar);
-                try { _tombAdd('rec_' + _ar); } catch(e) {}
+                // v49.7 P1-3: 只回滚本地并记入忽略缓存，绝不上传墓碑。
+                // 旧版把「用户拒绝接收」当删除标记推到云端，会把其他端合法数据一并删掉。
+                try {
+                    var _seen = _loadRecSeen();
+                    _seen['rec_' + _ar] = addedRidUa[_ar] || new Date().toISOString();
+                    _saveRecSeen(_seen);
+                } catch(e) {}
             });
+            window._mergeRejectQuietUntil = Date.now() + 5 * 60000;
+            window._mergeRejectSig = _batchSig;
             var _rolled = addedRids.length;
             added = 0;
-            updateCloudStatus('online', '⚠️ 已回滚 ' + _rolled + ' 条异常新增（已标记删除，防止再次灌入）');
-            console.warn('[增量合并] 用户回滚异常新增 ' + _rolled + ' 条');
+            updateCloudStatus('online', '⚠️ 已回滚 ' + _rolled + ' 条异常新增（仅本地忽略，不影响云端数据）');
+            console.warn('[增量合并] 用户回滚异常新增 ' + _rolled + ' 条（未上传墓碑）');
             return { added: 0, updated: updated, removed: removed };
         }
     }
@@ -10812,7 +11031,7 @@ function mergeRemoteRecRows(rows) {
         if (updated) _msg.push('更新' + updated + '条');
         if (removed) _msg.push('删除' + removed + '条');
         updateCloudStatus('online', '📥 增量同步：' + _msg.join('，') + '（共' + P.history.length + '局）');
-        // v49.3: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
+        // v49.7: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
         // 此处不再按 2048B/行 重复估算
     }
     return { added: added, updated: updated, removed: removed };
@@ -10879,7 +11098,7 @@ async function cloudSweepRecRows(full) {
             if (res.error) { console.warn('[增量补拉] 失败:', res.error.message); break; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v49.3: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
+            // v49.7: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
             // 幂等重拉时漏计，导致下行流量统计偏低）
             try { var _pgLen = 0; try { _pgLen = JSON.stringify(rows).length; } catch(e2) {} trackTraffic('in', _pgLen); } catch(e2) {}
             // v47.2: 改用 mergeRemoteRecRows 的真实变动结果统计，而非扫描行数——
@@ -10964,7 +11183,7 @@ try {
         localStorage.setItem('mm_dirty_purged_v4712', '1');
         _dirtyRids = {};
         _saveDirtyRids();
-        console.log('[升级净化] 已清空本地增量待传队列（记录数据不受影响）');
+        techLog('[升级净化] 已清空本地增量待传队列（记录数据不受影响）');
     }
 } catch(e) {}
 function _loadTombIds() { try { var a = JSON.parse(localStorage.getItem(TOMB_IDS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch(e) { return []; } }
@@ -11020,7 +11239,7 @@ window.checkFullBaseline = async function() {
         var tr = await supabaseClient.from(CLOUD_TABLE).select('id,data->>del').gte('id','rec_').lt('id','rec~').limit(1000);
         out.cloudRecRows = (tr && tr.data) ? tr.data.length : null;
     } catch(e) { out.err = e.message; }
-    console.log('[全量基线体检]', out);
+    console.info('[全量基线体检]', out);   // v49.5: 用户主动调用，保持可见
     return out;
 };
 // v49.0 S6: 基线 rid 守卫带 10 分钟时效，且用户主动删除时豁免。
@@ -11084,7 +11303,7 @@ async function cloudReconcileRecIds() {
             if (res.error) { console.warn('[对账] id扫描失败:', res.error.message); return; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v49.3: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
+            // v49.7: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
             try { trackTraffic('in', rows.length * 75); } catch(e2) {}
             rows.forEach(function(r){
                 remoteIds[r.id] = r.updated_at;
@@ -11098,9 +11317,31 @@ async function cloudReconcileRecIds() {
         var tombArr = _loadTombIds(), tombSet = {};
         tombArr.forEach(function(id){ tombSet[id] = 1; });
         var missing = [], knownRid = {}, recSeen = _loadRecSeen();
-        (P.history || []).forEach(function(r){ if (r && r._rid) knownRid[r._rid] = 1; });
+        var _seenChanged = false, _tombNew = false;   // v49.5 ③: 提前声明，供下方墓碑直接登记复用
+        var localUaByRid = {};
+        (P.history || []).forEach(function(r){
+            if (!r || !r._rid) return;
+            knownRid[r._rid] = 1;
+            localUaByRid[r._rid] = r._ua || 0;
+        });
         Object.keys(remoteIds).forEach(function(id) {
             var rid = id.slice(4);
+            // v49.5 ③: 云端是删除标记、且本地根本没有这个 rid —— 无需下载整行内容，
+            // 直接登记「已处理」。基线恢复会清空本地墓碑缓存，旧版下一轮对账就把
+            // 这批云端墓碑全判成「本地没见过」重新下载，日志反复「补拉28条」。
+            // 本地真有该记录时（knownRid）仍走原路径，删除语义完全不变。
+            if (remoteDel[id] && !knownRid[rid]) {
+                if (!tombSet[id]) { tombSet[id] = 1; tombArr.push(id); _tombNew = true; }
+                if (recSeen[id] !== remoteIds[id]) { recSeen[id] = remoteIds[id]; _seenChanged = true; }
+                return;
+            }
+            // v49.7 P0-1: 已存在 rid 也要查版本。旧版只补「本地没有的 rid」，
+            // 编辑/删除（同 rid 覆盖）永远进不了 missing，5 分钟全量对账形同虚设。
+            if (knownRid[rid]) {
+                var _rUa = new Date(remoteIds[id]).getTime();
+                if (isFinite(_rUa) && _rUa > (localUaByRid[rid] || 0)) missing.push(id);
+                return;
+            }
             // v48.6: 同一 rid、同一 updated_at 且已判定为重复/收敛的行不再重复下载
             if (!knownRid[rid] && !tombSet[id] && recSeen[id] !== remoteIds[id]) missing.push(id);
         });
@@ -11108,7 +11349,7 @@ async function cloudReconcileRecIds() {
             for (var mi = 0; mi < missing.length; mi += 100) {
                 var dr = await supabaseClient.from(CLOUD_TABLE).select('id,data,updated_at').in('id', missing.slice(mi, mi + 100));
                 if (dr.error) { console.warn('[对账] 数据拉取失败:', dr.error.message); break; }
-                // v49.3: 按实际下载字节统计流量
+                // v49.7: 按实际下载字节统计流量
                 try { var _drLen = 0; try { _drLen = JSON.stringify(dr.data || []).length; } catch(e3) {} trackTraffic('in', _drLen); } catch(e3) {}
                 var _mr2 = mergeRemoteRecRows(dr.data || []);
                 if (_mr2) { _rAdded += _mr2.added || 0; _rUpdated += _mr2.updated || 0; _rRemoved += _mr2.removed || 0; }
@@ -11120,15 +11361,15 @@ async function cloudReconcileRecIds() {
         }
         // v48.6: 登记「下载合并后仍未进入本地」的 rid —— 它们与主快照/本地记录重复，
         // 已收敛，不必每轮重拉。云端该行 updated_at 变化时会重新检查，不漏真实更新。
-        var _seenChanged = false;
+        // v49.5 ③: _seenChanged 已在上方声明
         missing.forEach(function(id){
             if (!knownRid[id.slice(4)]) { recSeen[id] = remoteIds[id]; _seenChanged = true; }
         });
         if (_seenChanged) _saveRecSeen(recSeen);
         // 已确认处理过的墓碑行登记起来，避免每次对账重复拉取
-        // v49.3: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
+        // v49.7: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
         // 一旦某条正常数据因异常未合并进本地，会被误登记成墓碑 → 后续被 _applyTombstonesToLocal 误删。
-        var _tombNew = false;
+        // v49.5 ③: _tombNew 已在上方声明
         Object.keys(remoteIds).forEach(function(id) {
             var rid = id.slice(4);
             if (!knownRid[rid] && !tombSet[id] && remoteDel[id]) { tombSet[id] = 1; tombArr.push(id); _tombNew = true; }
@@ -11162,14 +11403,22 @@ async function cloudReconcileRecIds() {
         var marked = _stale.length;
         if (marked > 0 && marked <= 50) {
             _stale.forEach(function(rid){ markDirtyRid(rid); });
-            console.log('[对账] 发现 ' + marked + ' 条从未上传的本地记录，已排队增量上传');
+            techLog('[对账] 发现 ' + marked + ' 条从未上传的本地记录，已排队增量上传');
             cloudSaveIncremental(false);
         } else if (marked > 50) {
             console.warn('[对账] 检测到 ' + marked + ' 条从未上传的记录（大概率快照已覆盖/同步计数异常），已跳过自动补传；建议管理员执行一次「全量上传」建立基线');
         }
         // v47.13: 增量计数只显示数据行——全量上传清理后日志即归零，符合"增量从0重新累计"语义。
         // 墓碑（删除标记）单独显示，不与数据增量混在一起误导。
-        console.log('[对账] 完成：云端增量数据行' + totalData + '条（另有删除标记墓碑' + totalTomb + '条，按30天保留期自动清理），补拉' + missing.length + '条，补传' + marked + '条');
+        // v49.7 B-4: 写入增量行数，让云端存储估算真的随行数变化（旧版 recCount 从未被写入）
+        try {
+            var _estR = {};
+            try { _estR = JSON.parse(localStorage.getItem('mm_est_cloud_v1') || '{}'); } catch(e4) {}
+            _estR.recCount = totalData + totalTomb;
+            localStorage.setItem('mm_est_cloud_v1', JSON.stringify(_estR));
+            renderCloudQuota();
+        } catch(e4) {}
+        techLog('[对账] 完成：云端增量数据行' + totalData + '条（另有删除标记墓碑' + totalTomb + '条，按30天保留期自动清理），补拉' + missing.length + '条，补传' + marked + '条');
         // v47.11: 增量数据行堆积时自动压缩——贴合"增量入快照即存量"的生命周期：
         // 全量快照建立后，旧的增量数据行不再需要，自动清理（墓碑按保留期、近2分钟窗口内不动）。
         // v47.13: 堆积阈值只看数据行，墓碑不触发压缩。
@@ -11187,12 +11436,13 @@ async function cloudReconcileRecIds() {
 // 待传数据网络恢复/定期补偿重试
 setInterval(function() {
     if (window._syncFuseBlown) return; // v48.5: 熔断期间不自动补传
+    if (!_autoSyncEnabled || window._autoSyncHold) return; // v49.7 P0-3: 暂停期间不补传
     if (Object.keys(_dirtyRids).length > 0 && supabaseClient && cloudOnline && !_testMode) {
         cloudSaveIncremental(false);
     }
 }, 60000);
 
-// ---- v49.3: 手动清理云端历史增量行 ----
+// ---- v49.7: 手动清理云端历史增量行 ----
 // 场景：管理员已完成全量同步（main 快照 = 完整数据），云端残留了大量已被快照覆盖的 rec_ 冗余行
 // （历史反复误传产生，约1800条），既浪费存储又让拉取提示虚高、流量虚耗。
 // 安全边界：只删除「非墓碑 且 updated_at 早于 main 快照时间」的增量行——
@@ -11210,7 +11460,15 @@ async function compactCloudRecRows(reason) {
     if (Date.now() - _lastCompactAt < 60000) return; // 1分钟防抖
     _lastCompactAt = Date.now();
     try {
-        var _compactBefore = new Date(Date.now() - 120000).toISOString();
+        // v49.7 P0-4: 分界改为主快照时间（取更早者）。旧版用「本机 now-2min」，
+        // 叠加 updated_at 不前进，会把「刚编辑但时间戳停在首次插入」的增量行判成已入快照删掉。
+        var _mainUaMs2 = 0;
+        try {
+            var _mres2 = await supabaseClient.from(CLOUD_TABLE).select('updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
+            if (_mres2 && _mres2.data && _mres2.data.updated_at) _mainUaMs2 = new Date(_mres2.data.updated_at).getTime();
+        } catch(e4) {}
+        var _cutoffMs2 = (_mainUaMs2 && isFinite(_mainUaMs2)) ? Math.min(_mainUaMs2, Date.now() - 120000) : (Date.now() - 120000);
+        var _compactBefore = new Date(_cutoffMs2).toISOString();
         var _tombExpireBefore = new Date(Date.now() - TOMBSTONE_TTL_MS).toISOString();
         var _delIds = [], _guard = 0, _offset = 0, _tombDel = 0, _delShort = false;
         // 分页扫描全部待压缩增量行（主键范围走索引，避免全表扫描超时）
@@ -11253,14 +11511,14 @@ async function compactCloudRecRows(reason) {
                 // 持续堆积，每轮轮询重复下载全部残留行（重复/卡顿），用户此前无感知
                 try { updateCloudStatus('online', '⚠️ 云端删除权限缺失：请在 Supabase SQL Editor 执行 create policy "public delete" on prediction_data for delete using (true);'); } catch(e) {}
             } else {
-                console.log('[压缩] 已清理已入快照的增量行', deleted, '条（过期墓碑', _tombDel, '条）· 触发：' + reason);
+                techLog('[压缩] 已清理已入快照的增量行', deleted, '条（过期墓碑', _tombDel, '条）· 触发：' + reason);
                 // v47.13: 全量上传后输出"增量归零"确认（数据行数 = 总行数 - 墓碑数，两次轻量 count）
                 try {
                     var _allC = await supabaseClient.from(CLOUD_TABLE).select('id', { count: 'exact', head: true }).gte('id', 'rec_').lt('id', 'rec~');
                     var _tombC = await supabaseClient.from(CLOUD_TABLE).select('id', { count: 'exact', head: true }).gte('id', 'rec_').lt('id', 'rec~').eq('data->del', 1);
                     if (!_allC.error && !_tombC.error) {
                         var _dataRows = (_allC.count || 0) - (_tombC.count || 0);
-                        console.log('[增量] 当前云端增量数据行 ' + _dataRows + ' 条（墓碑 ' + (_tombC.count || 0) + ' 条）' +
+                        techLog('[增量] 当前云端增量数据行 ' + _dataRows + ' 条（墓碑 ' + (_tombC.count || 0) + ' 条）' +
                             (reason.indexOf('全量上传') >= 0 ? '——全量上传完成，增量已从 0 重新累计' : '——增量继续累计中，入快照后自动清理'));
                     }
                 } catch(e3) {}
@@ -11324,7 +11582,7 @@ async function resetCloudIncrRows(mainLen, baselineRids) {
             _cur = rows[rows.length - 1].id;
             if (rows.length < 1000) break;
         }
-        console.log('[增量归零] 按 rid 判定：基线 ' + _baseCount + ' 个 rid · 待删 ' + _ids.length +
+        techLog('[增量归零] 按 rid 判定：基线 ' + _baseCount + ' 个 rid · 待删 ' + _ids.length +
                     ' 条（数据 ' + _delData + ' + 墓碑 ' + _delTomb + '）· 保留基线外新录 ' + _kept + ' 条');
         var _deleted = 0;
         for (var i = 0; i < _ids.length; i += 1000) {
@@ -11344,9 +11602,10 @@ async function resetCloudIncrRows(mainLen, baselineRids) {
             console.warn('[增量归零] 实际删除 ' + _deleted + '/' + _ids.length + ' 条——大概率 Supabase 未开放 DELETE 权限(RLS)，请在后台执行 create policy "allow delete" on prediction_data for delete to anon using (true);');
             try { updateCloudStatus('online', '⚠️ 全量已上传（' + mainLen + ' 局），但云端增量行删除权限缺失，请在 Supabase 开启 delete 策略'); } catch(e) {}
         } else {
-            console.log('[增量归零] 全量基线 ' + mainLen + ' 局 · 已清空云端旧增量行 ' + _deleted +
+            techLog('[增量归零] 全量基线 ' + mainLen + ' 局 · 已清空云端旧增量行 ' + _deleted +
                         ' 条（数据 ' + _delData + ' + 墓碑 ' + _delTomb + '）· 增量恢复 ' + _kept +
                         ' 条' + (_kept ? '（基线后新录）' : '（0）'));
+            console.info('✅ 全量 ' + mainLen + ' 局 · 增量已归零（清空 ' + _deleted + ' 条旧增量行）');
         }
         return { ok: _deleted === _ids.length, deleted: _deleted, total: _ids.length, kept: _kept };
     } catch(e) {
@@ -11378,7 +11637,8 @@ async function cleanupCloudRecRowsNow() {
             if (!rows.length) break;
             rows.forEach(function(r) {
                 if (r.data && r.data.del === 1) { _tombKept++; return; }           // 墓碑保留
-                if (r.updated_at && r.updated_at >= mainUa) { _recentKept++; return; } // 快照之后的新数据保留
+                // v49.7: 按时间数值比较，避免微秒/时区后缀造成的字符串字典序误判
+                if (r.updated_at && new Date(r.updated_at).getTime() >= new Date(mainUa).getTime()) { _recentKept++; return; } // 快照之后的新数据保留
                 _delIds.push(r.id);
             });
             if (rows.length < 1000) break;
@@ -11406,7 +11666,7 @@ async function cleanupCloudRecRowsNow() {
         } else {
             showRecordResult(true, '清理完成', '已删除 ' + deleted + ' 条历史增量行\n保留墓碑 ' + _tombKept + ' 条、快照后新数据 ' + _recentKept + ' 条\n\n云端现为：main 快照（完整数据）+ 少量必要增量行');
         }
-        console.log('[清理历史增量] 完成：实际删除', deleted, '/', _delIds.length, '条，保留墓碑', _tombKept, '条，保留快照后', _recentKept, '条');
+        techLog('[清理历史增量] 完成：实际删除', deleted, '/', _delIds.length, '条，保留墓碑', _tombKept, '条，保留快照后', _recentKept, '条');
     } catch(e) {
         console.warn('[清理历史增量] 异常:', e && e.message);
         showRecordResult(false, '清理失败', '异常：' + (e && e.message));
@@ -11471,7 +11731,7 @@ async function backfillPredFields(silent) {
             try { renderHistory(); } catch(e) {}
             try { renderAll(); } catch(e) {}
             if (patched > 0) showRecordResult(true, '回填完成', '已为 ' + patched + ' 局补齐「预测收益/预测投资」字段');
-            console.log('[回填] 完成，补齐 ' + patched + ' 条');
+            techLog('[回填] 完成，补齐 ' + patched + ' 条');
             resolve(patched);
         }
         setTimeout(step, 0);
@@ -11485,7 +11745,7 @@ async function cloudSave(manual, skipPrecheck) {
     if (_cloudSaving && !skipPrecheck) return false;
     // v27.4：测试模式——非手动上传时直接拦截，数据只存本地
     if (_testMode && !manual) {
-        console.log('[测试模式] 自动上传已拦截，数据仅保存在本地');
+        techLog('[测试模式] 自动上传已拦截，数据仅保存在本地');
         return false;
     }
     // v27.4：自动上传节流——非手动上传时，8秒内只上传一次，避免频繁操作导致卡顿和失败
@@ -11521,7 +11781,7 @@ async function cloudSave(manual, skipPrecheck) {
                         { id: _backupId, data: _cloudData, updated_at: new Date().toISOString() },
                         { onConflict: 'id' }
                     );
-                    console.log('自动备份云端旧版本:', _backupId, '(' + _cloudLen + '条)');
+                    techLog('自动备份云端旧版本:', _backupId, '(' + _cloudLen + '条)');
                 }
 
                 // 检查2：epoch/管理员更新——复用同一次查询结果，不再二次请求
@@ -11535,7 +11795,7 @@ async function cloudSave(manual, skipPrecheck) {
                         // 但保留云端较新的 epoch/adminOverride，否则本地上传会把管理员强制同步信号抹掉。
                         if (cloudEpoch > (P._syncEpoch || 0)) P._syncEpoch = cloudEpoch;
                         if (adminNewer && cloudAdmin) P._adminOverride = cloudAdmin;
-                        console.log('[覆盖导入后上传] 保留云端较新同步信号: epoch=' + P._syncEpoch);
+                        techLog('[覆盖导入后上传] 保留云端较新同步信号: epoch=' + P._syncEpoch);
                     } else {
                         var reason = cloudEpoch > (P._syncEpoch || 0) ? '云端数据已重置（纪元' + cloudEpoch + '）' : '云端有管理员更新';
                         updateCloudStatus('syncing', '检测到' + reason + '，先拉取覆盖本地...');
@@ -11666,7 +11926,7 @@ async function cloudSave(manual, skipPrecheck) {
             patternHitCache: P.patternHitCache || {}, // v41: 规律命中缓存跨端同步
             config: snapshotConfig(), // v41: 可配置参数跨端同步
             runtimeState: snapshotRuntimeState(P), // v42: 连续错误/紧急模式/局间隔跨端同步
-            // v49.3: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
+            // v49.7: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
             threeWayAnalysis: P._threeWayAnalysis || null,
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null),
@@ -11679,10 +11939,13 @@ async function cloudSave(manual, skipPrecheck) {
         var _sizeKB = _dataSize > 0 ? Math.round(_dataSize/1024) : 0;
         updateCloudStatus('syncing', '☁️ 正在上传云端' + (_sizeKB > 0 ? '（约' + _sizeKB + 'KB）' : '') + '...');
 
-        // v49.3: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
+        // v49.7: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
         // 各端 15 分钟「主快照变更检测」不再被客户端时钟偏差误导误刷新
+        // v49.7 P0-1: main 行同样要带 updated_at。旧版只 upsert {id,data}，冲突更新时
+        // updated_at 不变 → 其他端 autoAcceptAdminBaseline 永远检测不到「管理员全量上传」。
+        // 有触发器时会被 clock_timestamp() 覆盖为服务端权威时间。
         var res = await supabaseClient.from(CLOUD_TABLE).upsert(
-            { id: CLOUD_ROW_ID, data: saveData },
+            { id: CLOUD_ROW_ID, data: saveData, updated_at: new Date().toISOString() },
             { onConflict: 'id' }
         ).select('updated_at');   // v49.0 S1: 取服务端时间戳回填 _ua
         if (res.error) {
@@ -11713,11 +11976,14 @@ async function cloudSave(manual, skipPrecheck) {
             if (_srvUa && isFinite(_srvUa)) {
                 (P.history || []).forEach(function(r) { if (r && r._rid) { r._ua = _srvUa; r._dirtyLocal = 0; } });
                 window.__v49MainUa = new Date(_srvUa).toISOString();
+                // v49.5 ④: 本端自己全量上传产生的时间戳不当作「他端更新」触发自动覆盖
+                window._knownMainUa = window.__v49MainUa;
+                window._selfFullUploadUa = window.__v49MainUa;
             }
         } catch(e) {}
         // v46.0: 全量上传成功 → 主快照已包含全部记录，清空增量待传队列
         markAllClean();
-        // v49.3: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
+        // v49.7: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
         try { P.saveLocal(); } catch(e) {}
         try {
             var _est = {};
@@ -11751,7 +12017,7 @@ async function cloudSave(manual, skipPrecheck) {
                     if (!res || !res.data || res.data.length <= 5) return;
                     var oldIds = res.data.slice(5).map(function(r){ return r.id; });
                     if (oldIds.length) supabaseClient.from(CLOUD_TABLE).delete().in('id', oldIds)
-                        .then(function(){ console.log('[自动清理] 已删旧备份', oldIds.length, '个'); }, function(){});
+                        .then(function(){ techLog('[自动清理] 已删旧备份', oldIds.length, '个'); }, function(){});
                 }, function(){});
         } catch(e) {}
         // v46.0：全量上传后压缩增量行——已包含在main快照里的 rec_ 行不再需要，
@@ -12259,12 +12525,12 @@ function sendHeartbeat() {
             console.warn('[心跳] PATCH last_seen 失败:', e && e.message);
             // v35.2: 如果404（设备未注册），自动补注册为authorized，避免新设备永远离线
             if (e && e.message && e.message.indexOf('404') >= 0) {
-                console.log('[心跳] 设备未注册，自动补注册:', _devId);
+                techLog('[心跳] 设备未注册，自动补注册:', _devId);
                 _api('access_control', {
                     method: 'POST',
                     body: { id: _devId, device_name: (window._cloudDevName ? window._cloudDevName() : '未知'), status: 'authorized', created_at: new Date().toISOString(), authorized_at: new Date().toISOString(), last_seen: new Date().toISOString() }
                 }).then(function(){
-                    console.log('[心跳] 自动注册成功');
+                    techLog('[心跳] 自动注册成功');
                     _heartbeatFailCount = 0;
                     _rescheduleHeartbeat();
                 }).catch(function(e2){
@@ -12917,7 +13183,7 @@ function loadBackupList() {
     // v36.1: 一次请求，只查 id+时间+局数（data->>_count 提取文本，不拉大JSON）
     supabaseClient.from(CLOUD_TABLE).select('id, updated_at,data->>_count').like('id', 'backup_%').order('updated_at', {ascending: false})
         .then(function(res) {
-            if (res.error) { tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载失败：' + res.error.message + '</td></tr>'; return; }
+            if (res.error) { tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载失败：' + escHtml(res.error.message) + '</td></tr>'; return; }
             var list = res.data || [];
             if (list.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#999;">暂无备份，点上方「创建新备份」</td></tr>';
@@ -12949,7 +13215,7 @@ function loadBackupList() {
             }
             tbody.innerHTML = html;
         }).catch(function(e) {
-            tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载异常：' + e.message + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" style="padding:16px;color:#e74c3c;">加载异常：' + escHtml(e.message) + '</td></tr>';
         });
 }</script>
 <script>
@@ -13091,7 +13357,7 @@ function restoreFromBackup(backupId) {
             normalizeWindowWeights();
             renderAll();
             P.saveLocal();
-            // 同步覆盖云端 main 数据（v49.3: 不传 updated_at，服务端写入）
+            // 同步覆盖云端 main 数据（v49.7: 不传 updated_at，服务端写入）
             var mainData = {
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy,
@@ -13707,7 +13973,7 @@ function autoOptimizeTick() {
                         reloadConfig();
                         renderAll();
                         debouncedSave();
-                        console.log('[autoOptimize] 自动应用新参数，提升', improve.toFixed(3));
+                        techLog('[autoOptimize] 自动应用新参数，提升', improve.toFixed(3));
                         var badge = document.getElementById('autoBrierBadge');
                         if (badge) {
                             var oldHtml = badge.innerHTML;
@@ -13769,21 +14035,21 @@ function aiProxyFetch(url, hdrs, bodyObj, timeoutMs) {
 function aiPredictNext(isRetry) {
     // v45.7: AI功能已禁用，直接返回
     return;
-    console.log('[AI预测] 开始三预测深度分析...');
+    techLog('[AI预测] 开始三预测深度分析...');
     // v45.5: aiBar 提前声明——旧版在并发锁之后才赋值，而下面"本局已分析过"分支在赋值前
     // 引用它（var 提升得到 undefined），提示永远不显示。
     var aiBar = document.getElementById('aiStatusBar');
-    if (!_aiCfg.enabled) { console.log('[AI预测] AI未启用'); return; }
+    if (!_aiCfg.enabled) { techLog('[AI预测] AI未启用'); return; }
     // v43.40: 一局只AI预测一次——已经分析过就不再重复调，避免越调越离谱
     if (P._aiCache && P._aiCache.time && !isRetry) {
-        console.log('[AI预测] 本局已AI分析过了，跳过重复调用');
+        techLog('[AI预测] 本局已AI分析过了，跳过重复调用');
         if (aiBar) { aiBar.innerHTML = '✅ 本局已AI分析过了，录入新局后可再次预测'; setTimeout(function(){ aiBar.style.display='none'; }, 3000); }
         return;
     }
     // v42.0 防并发锁；v45.5 加时间戳自愈：旧版任何同步异常、或 AI 返回内容但缺修正字段时，
     // _aiPredictRunning 会永久为 true，之后所有 AI 调用都被"上一次还在运行"跳过。
     if (window._aiPredictRunning && (Date.now() - (window._aiPredictAt || 0)) < 30000) {
-        console.log('[AI预测] 上一次还在运行，跳过本次'); return;
+        techLog('[AI预测] 上一次还在运行，跳过本次'); return;
     }
     window._aiPredictRunning = true;
     window._aiPredictAt = Date.now();
@@ -14043,7 +14309,7 @@ function aiPredictNext(isRetry) {
         '只返回JSON：{"adjA":调整值,"adjB":调整值,"adjC":调整值,"adjInvestBig":调整值,"adjInvestMid":调整值,"adjInvestSmall":调整值,"adjProfitBig":调整值,"adjProfitMid":调整值,"adjProfitSmall":调整值,"confidence":你的信心(0-1),"reason":"严格按思考模板写的详细分析"}\n' +
         '【精度要求】调整值保留2位小数，例如+0.05、-0.03\n' +
         '【信心说明】confidence是你对自己修正判断的信心，0=完全没把握，1=非常确定\n';
-    console.log('[AI预测] 请求:', prompt);
+    techLog('[AI预测] 请求:', prompt);
     // v44.33修复: 输入快照——记录本次请求的关键输入指纹，供重试时比对输入是否变化
     window._aiInputSnap = {
         attempt: isRetry ? 2 : 1,
@@ -14055,7 +14321,7 @@ function aiPredictNext(isRetry) {
     if (isRetry && window._aiRetryInfo) {
         var _snap = window._aiInputSnap;
         var _inputSame = (window._aiRetryInfo.historyLen === _snap.historyLen && window._aiRetryInfo.lastRec === _snap.lastRec);
-        console.log('[AI预测][重试比对] 首次失败原因:', window._aiRetryInfo.firstFail,
+        techLog('[AI预测][重试比对] 首次失败原因:', window._aiRetryInfo.firstFail,
             '· 输入' + (_inputSame ? '未变（同一局数据，输出差异来自temperature=0.3随机性）' : '已变化（重试前数据被更新）'),
             '· prompt长度:', window._aiRetryInfo.promptLen, '→', _snap.promptLen);
     }
@@ -14064,7 +14330,7 @@ function aiPredictNext(isRetry) {
     aiProxyFetch(proxyUrl, hdrs,
         { model: _aiCfg.model, messages: [{role:'user',content:prompt}], temperature: 0.3 }, 25000
     ).then(function(data) {
-        console.log('[AI预测] 响应:', data);
+        techLog('[AI预测] 响应:', data);
         var text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
         // v44.33修复: 空响应/无JSON/解析失败改为throw进入统一catch——旧版这三类失败直接return，
         // 完全绕过重试逻辑；而它们恰是最常发生、最适合重试的瞬时失败（AI格式抖动）
@@ -14078,7 +14344,7 @@ function aiPredictNext(isRetry) {
         var jsonStr = jm[0].replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ');
         // v43.3: AI经常返回带正号的数字（如+0.05），这不是合法JSON，自动去掉正号
         jsonStr = jsonStr.replace(/":\s*\+/g, '": ');
-        console.log('[AI预测] 待解析JSON:', jsonStr.substring(0, 200) + '...');
+        techLog('[AI预测] 待解析JSON:', jsonStr.substring(0, 200) + '...');
         var pred;
         try {
             pred = JSON.parse(jsonStr);
@@ -14131,7 +14397,7 @@ function aiPredictNext(isRetry) {
             try {
                 window._predCache = null;
                 renderCards();
-                console.log('[AI修正] 三个预测模块已根据AI修正刷新');
+                techLog('[AI修正] 三个预测模块已根据AI修正刷新');
             } catch(e) { console.warn('[AI修正]刷新卡片失败:', e.message); }
             if (aiBar) {
                 var reasonText = pred.reason || '';
@@ -14166,7 +14432,7 @@ function aiPredictNext(isRetry) {
                     '<span style="font-size:12px;opacity:0.9;">' + reasonText + '</span>';
                 // v44.33: 重试成功的输出比对——把首次失败原因与重试后输出一并记录
                 if (isRetry && window._aiRetryInfo) {
-                    console.log('[AI预测][重试比对] 首次失败:', window._aiRetryInfo.firstFail,
+                    techLog('[AI预测][重试比对] 首次失败:', window._aiRetryInfo.firstFail,
                         '→ 重试成功。输出adjA/B/C:', aiAdj.adjA, aiAdj.adjB, aiAdj.adjC,
                         '· confidence:', aiAdj.confidence,
                         '· 修正方向vs基础概率:', JSON.stringify(P._aiBaseProbs || null));
@@ -14181,7 +14447,7 @@ function aiPredictNext(isRetry) {
                 }, 0);
                 setTimeout(function(){ aiBar.style.display='none'; }, 60000);
             }
-            console.log('[AI修正] 成功:', aiAdj);
+            techLog('[AI修正] 成功:', aiAdj);
         } else {
             // v45.5: AI 返回了内容但既无 adjA/B/C 也无 A/B/C 时，旧版既不进 catch 也不释放锁。
             console.info('[AI预测] 返回内容缺少修正字段，本次不应用');
@@ -14205,8 +14471,8 @@ function aiPredictNext(isRetry) {
         if (!isRetry && !isRateLimit && !isAbort) {
             var _snap = window._aiInputSnap || {};
             window._aiRetryInfo = { firstFail: errMsg, historyLen: _snap.historyLen, lastRec: _snap.lastRec, promptLen: _snap.promptLen, at: Date.now() };
-            console.log('[AI预测] 准备3秒后自动重试(第2次尝试)...');
-            if (aiBar) { aiBar.innerHTML = '🔄 AI预测失败（' + errMsg.substring(0, 60) + '），3秒后自动重试...'; }
+            techLog('[AI预测] 准备3秒后自动重试(第2次尝试)...');
+            if (aiBar) { aiBar.innerHTML = '🔄 AI预测失败（' + escHtml(String(errMsg).substring(0, 60)) + '），3秒后自动重试...'; }
             setTimeout(function() { aiPredictNext(true); }, 3000);
             return;
         }
@@ -14260,7 +14526,7 @@ function aiAnalyzeAndAdjust(callback) {
             });
             var ws = Object.keys(mw).reduce(function(s,k){return s+mw[k];},0);
             if (ws > 0) Object.keys(mw).forEach(function(k){ mw[k] /= ws; });
-            console.log('[AI建议]', advice.reason, applied.join(', '));
+            techLog('[AI建议]', advice.reason, applied.join(', '));
             if (aiBar) { aiBar.innerHTML = '✅ 调优完成 · AI分析成功<br><span style="font-size:12px;">' + applied.join(' ') + '</span><br><span style="font-size:11px;opacity:0.9;">' + (advice.reason||'') + '</span>'; setTimeout(function(){ aiBar.style.display='none'; }, 10000); }
             var badge = document.getElementById('autoBrierBadge');
             if (badge && applied.length > 0) {
@@ -14269,8 +14535,8 @@ function aiAnalyzeAndAdjust(callback) {
                 setTimeout(function(){ badge.innerHTML = oldHtml; }, 10000);
             }
             callback && callback(advice);
-        }).catch(function(e) { console.warn('[AI分析]失败:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI分析失败：' + e.message; setTimeout(function(){ aiBar.style.display='none'; }, 5000); } callback && callback(null); });
-    } catch(e) { console.warn('[AI分析]异常:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI分析异常：' + e.message; setTimeout(function(){ aiBar.style.display='none'; }, 5000); } callback && callback(null); }
+        }).catch(function(e) { console.warn('[AI分析]失败:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI分析失败：' + escHtml(e.message); setTimeout(function(){ aiBar.style.display='none'; }, 5000); } callback && callback(null); });
+    } catch(e) { console.warn('[AI分析]异常:', e.message); if (aiBar) { aiBar.innerHTML = '❌ AI分析异常：' + escHtml(e.message); setTimeout(function(){ aiBar.style.display='none'; }, 5000); } callback && callback(null); }
 }
 function copyPrediction() {
     try {
@@ -14883,7 +15149,7 @@ function renderCards() {
         voteHtml += '</div>';
         // v48.7: 长度分组权重明细 —— 直接把「9局→B / 8局→B×2 / 6局→A×3」摊开
         if (si.lenGroups && si.lenGroups.length) {
-            voteHtml += '<div style="margin:6px 0;padding:8px 10px;background:#f3e5f5;border-radius:8px;font-size:12px;line-height:1.9;color:#6a1b9a;">'+
+            voteHtml += '<div class="sim-lenbox" style="margin:6px 0;padding:8px 10px;background:#f3e5f5;border-radius:8px;font-size:12px;line-height:1.9;color:#6a1b9a;">'+
                 '<strong>⚖️ 长度权重明细（长序列主导 · 同长度多条对数饱和）</strong><br>';
             si.lenGroups.slice(0, 12).forEach(function(g){
                 voteHtml += '<span style="display:inline-block;margin-right:10px;padding:1px 7px;border-radius:9px;background:#fff;">'+
@@ -15165,7 +15431,7 @@ function renderCards() {
         lines.push(' / 平均 <strong>'+(si.avgSimilarity*100).toFixed(0)+'%</strong></div>');
         // 长度权重分组明细——把「10局→B / 9局→C / 8局→A / 7局→A×2」摊开
         if (si.lenGroups && si.lenGroups.length) {
-            lines.push('<div style="margin:6px 0;padding:8px 10px;background:#f3e5f5;border-radius:8px;font-size:12px;line-height:1.9;color:#6a1b9a;">'+
+            lines.push('<div class="sim-lenbox" style="margin:6px 0;padding:8px 10px;background:#f3e5f5;border-radius:8px;font-size:12px;line-height:1.9;color:#6a1b9a;">'+
                 '<strong>⚖️ 长度权重明细（长序列主导 · 同长度多条对数饱和）</strong><br>');
             si.lenGroups.slice(0, 12).forEach(function(_g){
                 lines.push('<span style="display:inline-block;margin-right:10px;padding:1px 7px;border-radius:9px;background:#fff;">'+
@@ -15263,7 +15529,7 @@ function renderCards() {
             // v44.30-fix4: 补原始命中/去重/近似段，让"匹配少"可核对
         var _sEff = (typeof _toWinnerSeq === 'function') ? _toWinnerSeq(P.history) : P.history.map(getWinner);
         var _sSt = scanSimilarStats(_sEff);
-        lines.push('<div style="font-size:11px;color:#6a1b9a;margin-bottom:4px;line-height:1.8;">已扫描全部 '+P.history.length+' 局历史（v48.8 按对局时间排序后扫描）× 5~18 局共 14 档；完全匹配优先、长度降序、重叠>50%只留最长。'+
+        lines.push('<div class="sim-scan-summary" style="font-size:11px;color:#6a1b9a;margin-bottom:4px;line-height:1.8;">已扫描全部 '+P.history.length+' 局历史（v48.8 按对局时间排序后扫描）× 5~18 局共 14 档；完全匹配优先、长度降序、重叠>50%只留最长。'+
             '胜方序列逐位一致原始命中 <strong>'+_sSt.raw+'</strong> 条，去重后 <strong>'+_sSt.kept+'</strong> 条；当前最长完全匹配：<strong>'+_maxLen+' 局</strong>'+(_maxLen < SIM_MAX_LEN ? '（当前最长 '+_maxLen+' 局，未达 18 局上限）' : '')+'；'+
             '另有 <strong>'+_sSt.near1+'</strong> 条「仅差 1 位」近似段（当前口径不收、不参与投票）。</div>');
             lines.push('<div class="match-history-list" style="max-height:260px;overflow-y:auto;border:1px solid #e1bee7;border-radius:6px;padding:6px;background:#faf5fc;">');
@@ -15293,15 +15559,15 @@ function renderCards() {
                 var isGrouped = (m2.mergedCount && m2.mergedCount > 1);
                 if (isGrouped) {
                     var rangesHtml = m2.mergedRanges.join(' · ');
-                    lines.push('<div style="border:2px solid '+simBg+';border-radius:8px;margin:4px 0;padding:6px 8px;background:#fff;">'+
-                        '<div style="display:flex;align-items:center;gap:8px;">'+
+                    lines.push('<div class="sim-group-card" style="border:2px solid '+simBg+';border-radius:8px;margin:4px 0;padding:6px 8px;background:#fff;">'+
+                        '<div class="sim-group-head" style="display:flex;align-items:center;gap:8px;">'+
                         '<span style="flex:0 0 auto;min-width:42px;text-align:center;padding:2px 6px;border-radius:4px;background:'+simBg+';color:'+simFg+';font-weight:700;">'+simLabel+'</span>'+
                         '<span style="flex:0 0 auto;background:#7b1fa2;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">'+(m2.matchLen||6)+'局</span>'+
                         '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">['+mSeq+']</span>'+
                         '<span style="flex:0 0 auto;font-weight:700;color:'+mColor+';">&#8594; '+mNextW+'</span>'+
                         '<span style="flex:0 0 auto;background:#9c27b0;color:#fff;font-size:10px;padding:1px 6px;border-radius:8px;font-weight:700;">x'+m2.mergedCount+'</span>'+
                         '</div>'+
-                        '<div style="font-size:11px;color:#888;margin-top:4px;padding-left:52px;line-height:1.8;">'+rangesHtml+'</div>'+
+                        '<div class="sim-group-ranges" style="font-size:11px;color:#888;margin-top:4px;padding-left:52px;line-height:1.8;">'+rangesHtml+'</div>'+
                         '</div>');
                 } else {
                     var _os2 = (m2.origStartIdx !== undefined) ? m2.origStartIdx : m2.startIdx;
@@ -15319,7 +15585,7 @@ function renderCards() {
         }
         // v32: 三相似盘智能合并分析日志
         if (P._similarAnalysisLog) {
-            lines.push('<div style="margin-top:8px;padding:8px 10px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:12px;line-height:1.8;">');
+            lines.push('<div class="sim-merge-box" style="margin-top:8px;padding:8px 10px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;font-size:12px;line-height:1.8;">');
             lines.push('<strong>🧠 三相似盘合并分析：</strong><br>');
             P._similarAnalysisLog.split('\n').forEach(function(line) {
                 var color = line.indexOf('✅') >= 0 ? '#2e7d32' : line.indexOf('⚠️') >= 0 ? '#e65100' : '#333';
@@ -15329,7 +15595,7 @@ function renderCards() {
         }
         // v19: 多模型融合计算详情
         if (result.fusionDetail && result.fusionDetail.length > 0) {
-            lines.push('<div style="margin-top:8px;padding:8px 10px;background:#f3e5f5;border-radius:6px;font-size:12px;line-height:1.8;">');
+            lines.push('<div class="sim-fusion-box" style="margin-top:8px;padding:8px 10px;background:#f3e5f5;border-radius:6px;font-size:12px;line-height:1.8;">');
             lines.push('<strong>📐 多模型融合计算详情：</strong><br>');
             result.fusionDetail.forEach(function(fd) {
                 var top = 'A';
@@ -15352,7 +15618,7 @@ function renderCards() {
             lines.push('</div>');
         }
         // 最终结论
-        lines.push('<div style="margin-top:8px;padding:6px 10px;background:#e8daef;border-radius:6px;">'+
+        lines.push('<div class="sim-conclusion" style="margin-top:8px;padding:6px 10px;background:#e8daef;border-radius:6px;">'+
             '<strong>✅ 结论：</strong>基于'+si.similarCount+'个相似盘的综合投票，相似盘倾向 <strong style="font-size:16px;color:#6a1b9a;">'+
             simBestG2+'</strong>（概率 '+(siProbs[simBestG2]*100).toFixed(1)+
             '%，置信度 '+(result.patternConf*100).toFixed(0)+'%）；系统最终预测 <strong style="font-size:16px;color:#6a1b9a;">'+
@@ -15891,7 +16157,11 @@ function applyTimeEdit(idx, field, value) {
     // v38.2: 时间修改后标记，下次上传跳过合并，直接覆盖云端（避免旧时间数据又被同步回来）
     window._skipNextMerge = true;
     // v46.0: 时间修改会连续更新多局，全部标记待增量上传
-    try { for (var _ti = idx; _ti < P.history.length; _ti++) { if (P.history[_ti] && P.history[_ti]._rid) { P.history[_ti]._dirtyLocal = 1; markDirtyRid(P.history[_ti]._rid); } } } catch(e) {}
+    try {
+    for (var _ti = idx; _ti < P.history.length; _ti++) { if (P.history[_ti] && P.history[_ti]._rid) { P.history[_ti]._dirtyLocal = 1; markDirtyRid(P.history[_ti]._rid); } }
+    // v49.7 P1-7: 时间编辑本就会批量改写后续局，属用户明确操作；60 秒内这类批量上传不弹「异常大批量」确认
+    window._incrBulkWhitelistUntil = Date.now() + 60000;
+} catch(e) {}
     debouncedSave();
     renderHistory();
 }
@@ -16286,7 +16556,7 @@ function _bindExportDataBtn() {
             }
             toggleExportRange();
         });
-        console.log('[导出] btnExportData 绑定成功');
+        techLog('[导出] btnExportData 绑定成功');
     } else {
         console.warn('[导出] btnExportData 未找到');
     }
@@ -16340,7 +16610,7 @@ function importFromShared() {
         renderCards();
         
         alert('✅ 导入成功！共导入 ' + data.length + ' 条数据');
-        console.log('[共享数据表] 导入成功，共' + data.length + '条');
+        techLog('[共享数据表] 导入成功，共' + data.length + '条');
     } catch(e) {
         alert('导入失败：' + e.message);
         console.error('[共享数据表] 导入失败:', e);
@@ -16700,7 +16970,7 @@ function doCustomExport() {
                 XLSX.writeFile(wb, fname);
                 closeExportModal();
                 showRecordResult(true, '导出成功', '已导出 ' + exportCount + ' 条记录到Excel\n范围：' + rangeDesc + '\n列：' + selectedCols.length + ' 列\n文件名：' + fname);
-                console.log('[导出] Excel完成，导出' + exportCount + '条，' + selectedCols.length + '列');
+                techLog('[导出] Excel完成，导出' + exportCount + '条，' + selectedCols.length + '列');
             } catch(e) {
                 console.error('[Excel导出] 失败:', e);
                 showRecordResult(false, '导出失败', 'Excel导出出错：' + e.message);
@@ -16720,7 +16990,7 @@ function doCustomExport() {
 
             closeExportModal();
             showRecordResult(true, '导出成功', '已导出 ' + exportCount + ' 条记录\n范围：' + rangeDesc + '\n列：' + selectedCols.length + ' 列\n请检查浏览器下载栏');
-            console.log('[导出] CSV完成，导出' + exportCount + '条，' + selectedCols.length + '列');
+            techLog('[导出] CSV完成，导出' + exportCount + '条，' + selectedCols.length + '列');
         }
     } catch(e) {
         console.error('[导出] 失败:', e);
@@ -17432,14 +17702,14 @@ function postImportAutoTune(mode) {
                     if (el) {
                         el.innerHTML = '📊 回测准确率 <strong>'+(m.acc1*100).toFixed(1)+'%</strong> | Brier <strong>'+m.avgBrier.toFixed(3)+'</strong> | 收益 <strong>'+(m.profitCount>0?(m.profitAcc*100).toFixed(0)+'%':'—')+'</strong>';
                     }
-                    console.log('[导入后回测] 准确率', (m.acc1*100).toFixed(1)+'%');
+                    techLog('[导入后回测] 准确率', (m.acc1*100).toFixed(1)+'%');
                 }
             }
             // 大数量（>300条）首次导入不自动跑重型参数优化，避免卡死，等用户手动在优化页触发
             if (P.history && P.history.length >= 200 && P.history.length < 300 && !window._optRunning) {
                 _lastOptimizeCount = P.history.length;
                 window._optRunning = true;
-                console.log('[导入后优化] 开始自动参数优化...');
+                techLog('[导入后优化] 开始自动参数优化...');
                 P.autoOptimize(function(result) {
                     if (result.done && result.bestCombo) {
                         window._optRunning = false;
@@ -17456,11 +17726,11 @@ function postImportAutoTune(mode) {
                                 document.getElementById('cfgGlobalW').value = p.globalW||0.08;
                                 document.getElementById('cfgLearnRate').value = p.learnRate||0.06;
                                 reloadConfig();
-                                console.log('[导入后优化] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
+                                techLog('[导入后优化] 自动应用新参数，提升', (result.bestScore-oldScore).toFixed(3));
                                 renderAll();
                             } catch(e) { console.warn('[导入后优化] apply failed:', e.message); }
                         } else {
-                            console.log('[导入后优化] 当前参数已较优，无需调整');
+                            techLog('[导入后优化] 当前参数已较优，无需调整');
                         }
                         window._optimalParams = result.bestCombo;
                     }
@@ -18109,7 +18379,7 @@ function fixFalseTies() {
         if (ph.isTie && rec) { var w = getWinner(rec); if (w) { ph.isTie = false; fixed++; } }
     }
     if (fixed > 0) {
-        console.log('[平局修复] 纠正'+fixed+'条');
+        techLog('[平局修复] 纠正'+fixed+'条');
         // v36.1：启动时自动修复旧数据只写本地，不触发云端上传——
         //   否则首次拉取一结束，_pendingCloudSave 会导致自动补传，违背"第一次打开只拉取不上传"。
         try { P.saveLocal(); } catch(e) { console.warn('[平局修复] saveLocal失败:', e.message); }
@@ -18121,7 +18391,7 @@ fixFalseTies();
 // v42.0: 页面打开不再自动跑AI预测，改为录入成功3秒后才触发
 // v27.4：如果localStorage数据不完整（predHistory被截断），从IndexedDB加载完整数据
 if (P.predHistory && P.history && P.predHistory.length < P.history.length - 1) {
-    console.log('[初始化] localStorage数据不完整，从IndexedDB加载完整数据...');
+    techLog('[初始化] localStorage数据不完整，从IndexedDB加载完整数据...');
     idbLoad(STORE_KEY).then(function(fullData) {
         if (fullData && fullData.history) {
             P.restoreFromData(fullData); // v27.4：直接从IndexedDB数据恢复，绕过localStorage
@@ -18144,8 +18414,8 @@ if (P.predHistory && P.history && P.predHistory.length < P.history.length - 1) {
                     try { renderPredHistory(); } catch(e) {}
                 });
             }
-            console.log('[初始化] 已从IndexedDB恢复完整数据，history:', fullData.history.length);
-            console.log('[初始化] 已从IndexedDB恢复完整数据，predHistory:', fullData.predHistory.length);
+            techLog('[初始化] 已从IndexedDB恢复完整数据，history:', fullData.history.length);
+            techLog('[初始化] 已从IndexedDB恢复完整数据，predHistory:', fullData.predHistory.length);
         }
     });
 }
@@ -18226,10 +18496,18 @@ setTimeout(function(){
         try { P.saveLocal(); } catch(e) {}
         try { renderAll(); } catch(e) {}
         if (supabaseClient && cloudOnline && !_testMode && _autoSyncEnabled && _firstCloudSyncDone && !window._autoSyncHold) cloudSaveIncremental(false);
-        console.log('[v48.4] 已清理本地重复记录 ' + _dupRids.length + ' 条，删除墓碑已排队同步');
+        techLog('[v48.4] 已清理本地重复记录 ' + _dupRids.length + ' 条，删除墓碑已排队同步');
     } catch(e) { console.warn('[v48.4] 存量去重跳过:', e && e.message); }
 }, 9000);
 try { _loadDirtyRids(); } catch(e) {}
+// v49.7 P0-2: 清理历史遗留的 _dirtyLocal 污染（旧版把该内部标记上传，其他端收到后
+// 记录被永久锁死）。本地「确实待上传」的记录（脏队列里有 rid）仍保留保护。
+try {
+    (P.history || []).forEach(function(r){
+        if (!r || !r._dirtyLocal) return;
+        if (!_dirtyRids || !_dirtyRids[r._rid]) delete r._dirtyLocal;
+    });
+} catch(e) {}
 try { renderCloudQuota(); } catch(e) {}
 // v47.0: 启动8秒后再补拉一次增量行（双保险：即使首次拉取时序有偏差，其他端新数据也能尽快出现）
 setTimeout(function() { try { if (supabaseClient && !_testMode) cloudSweepRecRows(false); } catch(e) {} }, 8000);
@@ -18254,9 +18532,9 @@ setTimeout(function() {
             var _need = 0;
             P.predHistory.forEach(function(ph) { if (ph && (!ph.profitPrediction || !ph.investPrediction)) _need++; });
             if (_need > 0) {
-                console.log('[回填] 检测到 ' + _need + ' 局缺少预测收益/投资字段，开始自动回填（本次完成后数据未增长前不再重复）...');
+                techLog('[回填] 检测到 ' + _need + ' 局缺少预测收益/投资字段，开始自动回填（本次完成后数据未增长前不再重复）...');
                 backfillPredFields(true).then(function(n) {
-                    console.log('[回填] 完成，补齐 ' + n + ' 条');
+                    techLog('[回填] 完成，补齐 ' + n + ' 条');
                     // v46.5: 无论补齐多少都写入节流标记（剩余无法补齐的局是当年本来就没有
                     // 收益/投资数据的，重跑也不会有结果）。
                     localStorage.setItem(_bfFlag, String(Date.now()));
@@ -18370,9 +18648,9 @@ if (darkBtn) darkBtn.onclick = toggleDarkMode;
 // v26优化：自测延迟到首屏渲染后执行，不阻塞页面加载
 setTimeout(function(){
 (function selfTest(){
-    console.log('%c[v16 自测]','color:#6a1b9a;font-weight:bold');
+    techLog('%c[v16 自测]','color:#6a1b9a;font-weight:bold');
     var passed=0,failed=0;
-    function test(name,fn){try{fn();console.log('✅ '+name);passed++;}catch(e){console.log('❌ '+name+' → '+e.message);failed++;}}
+    function test(name,fn){try{fn();techLog('✅ '+name);passed++;}catch(e){techLog('❌ '+name+' → '+e.message);failed++;}}
     function assert(c,m){if(!c)throw new Error(m||'fail');}
     var t=new Predictor();
     test('空预测返回null',function(){assert(t.predict()===null);});
@@ -18629,7 +18907,7 @@ setTimeout(function(){
             }
         }
     });
-    console.log('%c[v16 自测] 通过:'+passed+' 失败:'+failed,failed===0?'color:green;font-weight:bold':'color:red;font-weight:bold');
+    techLog('%c[v16 自测] 通过:'+passed+' 失败:'+failed,failed===0?'color:green;font-weight:bold':'color:red;font-weight:bold');
 })();
 }, 300);</script>
 <script>
@@ -19258,13 +19536,6 @@ function buildContainers(){
   if(el('extVotePanel') && !el('extHeatPanel')){
     var h=document.createElement('div'); h.id='extHeatPanel'; h.className='ext-panel';
     el('extVotePanel').parentNode.insertBefore(h, el('extVotePanel').nextSibling);
-  }
-  var php=document.querySelector('.pred-history-panel');
-  if(php && php.children.length>0 && !el('extTimelineWrap')){
-    var t=document.createElement('div'); t.id='extTimelineWrap'; t.className='ext-panel';
-    t.innerHTML='<div class="ext-title">🕒 最近20局 · 预测 vs 实际</div><div class="ext-timeline" id="extTimeline"></div>';
-    var ref=php.children[1]||null;
-    php.insertBefore(t,ref);
   }
   var diag=el('diagBar');
   if(diag && !el('extAccReport')){
