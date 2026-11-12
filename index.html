@@ -8,9 +8,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v49.7: 内联 favicon，消除 favicon.ico 404 报错 -->
+<!-- v49.9: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E">
-<title>商会三竞预测系统 v49.7（增量同步修复版）</title>
+<title>商会三竞预测系统 v49.8（权重口径 + 移动端全显示版）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -841,7 +841,7 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v49.7</span></h1>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v49.8</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
 <summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;">📢 更新说明（v49.5）</summary>
@@ -1749,7 +1749,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   .w2-quick-close{width:44px;height:44px;min-width:44px;font-size:20px;}
   }
 
-  /* ==================== v49.7 科技感 UI 覆盖层 ====================
+  /* ==================== v49.9 科技感 UI 覆盖层 ====================
     设计语言：深空渐变背景 + 光晕 + 流光顶带 + 玻璃拟态亮卡；
     仅做视觉层增强与响应式适配，不改动任何 DOM/JS 逻辑。 */
   :root{
@@ -1819,7 +1819,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   }
   /* ==================== v48.4 修复①：关闭持续动画（打开页面一直闪动） ====================
      goldRing 呼吸金环 / 顶部流光 / 云状态点脉冲 / 学习指示器闪烁均为 infinite 动画；
-     goldRing 的关键帧还会周期性覆盖 v49.7 的静态卡片阴影，造成卡片明暗跳变。
+     goldRing 的关键帧还会周期性覆盖 v49.9 的静态卡片阴影，造成卡片明暗跳变。
      这里只停掉循环动画，保留静态高亮与 hover 过渡，功能不受影响。 */
   .pred-card.rank-1,
   body.dark-mode .pred-card.rank-1{animation:none !important;box-shadow:0 10px 30px rgba(245,179,1,.32),inset 0 1px 0 rgba(255,255,255,.9) !important;}
@@ -1915,6 +1915,50 @@ create policy "ac update" on access_control for update using (true);</textarea><
     .sim-detail-panel > div{margin-bottom:4px !important;}
     /* 12) 更新说明折叠块贴边 */
     #updateNote{margin:8px 0 2px !important;}
+
+    /* ============ v49.8 移动端：收益 / 投资 / 血本 / 相似盘「看不全」根治 ============
+       根因：这四个面板的匹配序列是 JS 动态拼的内联 span，写死了
+       white-space:nowrap; text-overflow:ellipsis; overflow:hidden，
+       且没有 class。v49.6 那套紧凑规则只命中 .match-history-seq / .sim-group-ranges
+       等有 class 的主相似盘元素，收益/投资/血本三块完全没覆盖到 ——
+       于是 16 局长序列在手机上被截成「大 → 中 → 小 → …」，后面全看不见；
+       局号行还有 52px 缩进、列表限高 300px 内部滚动，更像「只有这几条」。
+       这里用属性选择器直接命中内联 style，!important 压过内联声明，纯显示层，
+       不动任何 JS / 数据 / 预测 / 同步逻辑。放在最后一个 style 末尾保证优先级。 */
+    .sim-detail-panel{overflow-x:visible !important;}
+    /* 序列整条换行显示，不再省略号截断；flex-basis:100% 让它独占第二行 */
+    .sim-detail-panel span[style*="text-overflow:ellipsis"]{
+      white-space:normal !important;overflow:visible !important;text-overflow:clip !important;
+      flex-basis:100% !important;order:3;word-break:break-word;line-height:1.5 !important;
+      background:#fff;border-radius:4px;padding:2px 4px;margin-top:2px;
+    }
+    /* 首行允许换行，否则 flex-basis:100% 会把徽章挤成 0 宽 */
+    .sim-detail-panel div[style*="display:flex;align-items:center;gap:8px"]{
+      flex-wrap:wrap !important;gap:4px !important;
+    }
+    /* 局号行去掉 52px 缩进，整行铺开 */
+    .sim-detail-panel div[style*="padding-left:52px"]{
+      padding-left:0 !important;margin-top:3px !important;
+      font-size:10px !important;line-height:1.5 !important;word-break:break-all !important;
+    }
+    /* 相似度/局数徽章收窄，给序列让出宽度 */
+    .sim-detail-panel span[style*="min-width:42px"]{
+      min-width:34px !important;font-size:10px !important;padding:1px 4px !important;
+    }
+    /* 匹配列表不再限高内部滚动：整段铺开，上下滑就能看全 */
+    .sim-detail-panel .match-history-list{
+      max-height:none !important;overflow-y:visible !important;padding:3px !important;
+    }
+    /* 面板内说明文字允许折行，避免整块横向溢出 */
+    .sim-detail-panel div{word-break:break-word !important;}
+    /* 收益/投资/ABC 三张预测卡片在手机上一律单列（不依赖 pointer:coarse 判定） */
+    .prediction-cards{grid-template-columns:1fr !important;gap:10px !important;}
+    .pred-card{padding:14px !important;}
+    .pred-card .win-prob{font-size:26px !important;}
+    .pred-card .guild-name{font-size:17px !important;}
+    /* 投注建议条：允许换行，理由文字不再被挤出屏幕 */
+    #betAdviceBar{flex-wrap:wrap !important;gap:6px !important;padding:10px 12px !important;font-size:14px !important;}
+    #betAdviceReason{font-size:12px !important;line-height:1.5 !important;word-break:break-word;}
   }
   </style>
 <script>
@@ -2000,8 +2044,8 @@ function syncBrief(){
   var AUTH_CACHE_KEY = 'mm_access_auth_ok';
   var APP_VERSION = 'v49.6'; // v49.6: 移动端相似盘面板紧凑排版
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
-  var APP_UPDATE_DESC_HISTORY = '历史交付（v49.3）：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v49.7 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
+  var APP_UPDATE_DESC_RECENT = 'v49.8：①相似盘、相似收益盘、相似投资盘、血本盘统一改成「局数定档 + 同档按次数」的严格权重——局数长的档位恒压过短档位，局数相同则次数多的权重大，质量不再参与加权，只留在匹配明细里供核对（控制台执行 CONFIG.simStrictOrder=false; 可回退旧口径）；②移动端收益/投资/血本/相似盘四个面板不再把长序列截成省略号、不再限高内部滚动，整段铺开上下滑即可看全；预测卡片一律单列。\nv49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
+  var APP_UPDATE_DESC_HISTORY = '历史交付（v49.3）：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v49.9 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
   var APP_UPDATE_DESC = APP_UPDATE_DESC_RECENT + '\n' + APP_UPDATE_DESC_HISTORY; // 兼容旧引用
   (function(){ try {
     var r=document.getElementById('updateNoteRecent'), h=document.getElementById('updateNoteHistory');
@@ -2753,7 +2797,16 @@ function simLengthWeight(matchLen) {
     return Math.pow(L / 5, exp);
 }
 // rows: [{matchLen, winner, quality}] → {weights, total, breakdown}
-// 同一 (长度, 指向) 组内多条：取平均质量 × log2 饱和次数，条数不能线性堆死长档位。
+// v49.8 严格口径（用户规则）：
+//   「局数长的权重高」+「局数相同的时候，次数多的权重大」。
+// 旧口径 vote = 长度系数 × 平均质量 × log2 次数加成，质量因子实测能差 20 倍（0.1~2.0），
+// 于是出现过 6局→A 权重 1.9 反被 5局→A×5 的 2.0 压过，且同为 6 局的两条因质量不同
+// 一个 2.1 一个 1.9，界面上看不出原因。
+// 新口径：vote = 长度系数 × log2 次数加成，质量只留在 breakdown 里供核对，不参与加权。
+// 为保证「任何短档位都堆不死长档位」，次数加成按相邻档位的长度系数比设上限：
+//   cap(L) = lenW(L+1)/lenW(L) × 0.98  ⇒  L 档最大 vote < (L+1) 档最小 vote，严格单调。
+// 同档位内 repeat 随 n 单调递增 ⇒ 次数多的组权重严格更大。
+// 开关：CONFIG.simStrictOrder = false 可回到旧混合口径（改动前的行为）。
 function simVoteTally(rows) {
     var groups = {};
     var out = { weights: {A:0, B:0, C:0, 大:0, 中:0, 小:0, X:0}, total: 0, breakdown: [] };
@@ -2771,16 +2824,27 @@ function simVoteTally(rows) {
     });
     var boost = (typeof CONFIG !== 'undefined' && CONFIG.simRepeatBoost !== undefined) ? CONFIG.simRepeatBoost : 0.25;
     if (!isFinite(boost) || boost < 0) boost = 0.25;
+    var strict = !(typeof CONFIG !== 'undefined' && CONFIG.simStrictOrder === false);
+    var maxLen = (typeof SIM_MAX_LEN !== 'undefined') ? SIM_MAX_LEN : 18;
     Object.keys(groups).forEach(function(k) {
         var g = groups[k];
         var avgQ = g.sum / g.n;
         var repeat = 1 + boost * Math.log(g.n) / Math.LN2;   // n=1→1, 2→1.25, 3→1.40, 8→1.75
         if (!isFinite(repeat) || repeat < 1) repeat = 1;
-        var vote = g.lenW * avgQ * repeat;
+        var effectiveRepeat = repeat;
+        if (strict) {
+            // 最高档位没有「更长的下一档」，不封顶；其余档位封顶到相邻长度系数比
+            if (g.len < maxLen) {
+                var nextLw = simLengthWeight(g.len + 1);
+                var cap = (nextLw / g.lenW) * 0.98;
+                if (isFinite(cap) && cap >= 1 && effectiveRepeat > cap) effectiveRepeat = cap;
+            }
+        }
+        var vote = strict ? (g.lenW * effectiveRepeat) : (g.lenW * avgQ * repeat);
         out.weights[g.winner] = (out.weights[g.winner] || 0) + vote;
         out.total += vote;
         out.breakdown.push({ len: g.len, winner: g.winner, n: g.n, lenW: g.lenW,
-                             avgQuality: avgQ, repeat: repeat, vote: vote });
+                             avgQuality: avgQ, repeat: effectiveRepeat, vote: vote });
     });
     out.breakdown.sort(function(a, b) { return (b.len - a.len) || (b.vote - a.vote); });
     return out;
@@ -2818,6 +2882,10 @@ const CONFIG = {
     // v48.7: 相似盘长序列权重（可在控制台改 CONFIG.simLenExp 调陡峭度）
     simLenExp: 2.6,        // 超线性指数：权重 = (len/5)^exp
     simRepeatBoost: 0.25,  // 同(长度,指向)多条的对数饱和增益
+  // v49.8: 严格口径（默认开）。true = 权重只由「局数 + 次数」决定，质量不参与跨档位加权；
+  // 保证「局数长的权重一定更高」「同局数次数多的权重一定更大」。
+  // 想回到 v49.7 及更早的混合口径：控制台执行 CONFIG.simStrictOrder = false; renderAll();
+  simStrictOrder: true,
     // v16: multi-dimensional fusion weights
     fusionTrendW: 0.08,
     fusionTempW: 0.08,
@@ -5334,9 +5402,9 @@ function predictFromSimilarPattern(window, history) {
     detail += '📊 加权投票: ' + voteStr + ' | 倾向: ' + bestG + '(' + (probs[bestG] * 100).toFixed(1) + '%)\n';
     // v48.7: 把「哪一档长度投给谁、权重多少」摊开，长序列优先一目了然
     if (lenGroups && lenGroups.length) {
-        detail += '⚖️ 长度权重（长序列主导，同长度多条对数饱和）：';
+        detail += '⚖️ 长度权重（局数定档 · 同档按次数 · 质量不参与加权）：';
         lenGroups.slice(0, 8).forEach(function(g){
-            detail += g.len + '局→' + g.winner + (g.n > 1 ? '×' + g.n : '') + ' 权重' + g.vote.toFixed(1) + '（长度系数' + g.lenW.toFixed(1) + '）  ';
+            detail += g.len + '局→' + g.winner + (g.n > 1 ? '×' + g.n : '') + ' 权重' + g.vote.toFixed(2) + '（长度系数' + g.lenW.toFixed(2) + '）  ';
         });
         detail += '\n';
     }
@@ -6643,7 +6711,7 @@ class Predictor {
             simBoost: simBoost,
             lossBoost: lossBoost,
             profitBoost: profitBoost,
-            _t: Date.now(), // v49.7: 计算时间戳，用于多端同步时判断结论新旧
+            _t: Date.now(), // v49.9: 计算时间戳，用于多端同步时判断结论新旧
             _histSig: simProfitCacheSig(this.history) // v49.3 T2: 跨端显示前校验
         };
         // v31.0: 附加命中率提示
@@ -8211,7 +8279,7 @@ class Predictor {
                 driftObserveStart: this._driftObserveStart || null, // v44.30: 观察快照
                 config: snapshotConfig(), // v41: 跨端同步可配置参数
                 runtimeState: snapshotRuntimeState(this), // v42: 连续错误/紧急模式/局间隔同步
-                // v49.7: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
+                // v49.9: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
                 // 刷新/换端恢复后立即显示与最近计算端一致的结论，避免各端标签不一致
                 threeWayAnalysis: this._threeWayAnalysis || null,
                 _syncEpoch: this._syncEpoch || 0,
@@ -8328,7 +8396,7 @@ class Predictor {
         }
         this._syncEpoch = p._syncEpoch || 0;
         this._adminOverride = p._adminOverride || null;
-        // v49.7: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
+        // v49.9: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
         // 本地下次 predict 重算时若底层数据一致会得到相同结论）
         this._threeWayAnalysis = (p.threeWayAnalysis && typeof p.threeWayAnalysis === 'object') ? p.threeWayAnalysis : null;
         // 修复predHistory格式
@@ -9940,7 +10008,7 @@ var _cloudFetchWithTimeout = function(url, opts) {
         });
     });
 };
-// v49.7: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
+// v49.9: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
 // 同一 storageKey 下出现多个 GoTrueClient 会触发 Supabase 警告并可能互相干扰
 if (!supabaseClient) {
     supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
@@ -10270,7 +10338,7 @@ async function _cloudLoadBody(silent) {
                     var _rc1 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                     var _ms1 = _mergeSweep(_sw1, _rc1);
                     updateCloudStatus('online', '✅ 云端已同步 · 本地' + P.history.length + '局（云端快照' + cloudHistLen + '局+增量行）' + _fmtSweepSummary(_ms1) + ' · ' + cloudLastSync.toLocaleTimeString());
-                    // v47.0: 拉取成功弹窗；v49.7: 仅在本次有真实变动（增/改/删）时弹出，
+                    // v47.0: 拉取成功弹窗；v49.9: 仅在本次有真实变动（增/改/删）时弹出，
                     // "各端数据一致"的例行检查不再弹窗（云端已有完整数据时保持静默）
                     if (silent && ((_ms1.added || 0) + (_ms1.updated || 0) + (_ms1.removed || 0)) > 0) {
                         try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms1) + '\n云端快照 ' + cloudHistLen + ' 局 + 增量行，各端数据一致'); } catch(e) {}
@@ -10323,7 +10391,7 @@ async function _cloudLoadBody(silent) {
                 var _rc2 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                 var _ms2 = _mergeSweep(_sw2, _rc2);
                 updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局（含增量补拉+对账）');
-                // v47.0: 拉取成功弹窗；v49.7: 仅在有真实变动时弹出，例行无变化检查静默
+                // v47.0: 拉取成功弹窗；v49.9: 仅在有真实变动时弹出，例行无变化检查静默
                 if (silent && ((dataChanged ? 1 : 0) + (_ms2.added || 0) + (_ms2.updated || 0) + (_ms2.removed || 0)) > 0) {
                     try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms2)); } catch(e) {}
                 }
@@ -10391,7 +10459,7 @@ async function _cloudLoadBody(silent) {
             // v36.1：首次拉取完成提示——告诉用户"只拉取"阶段结束，后续录入会自动上传
             var _pullCount = data.data.history ? data.data.history.length : 0;
             updateCloudStatus('online', '✅ 已拉取云端 ' + P.history.length + ' 局+增量 · 后续录入新数据停手5秒后将自动上传');
-            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v49.7: 仅在数据真的变化时弹出
+            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v49.9: 仅在数据真的变化时弹出
             if (silent && dataChanged) { try { showRecordResult(true, '拉取成功', '已从云端加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_mergeSweep(_sw3, _rc3)) + '\n后续录入新数据停手5秒后自动上传'); } catch(e) {} }
             return true;
         } else {
@@ -10486,7 +10554,7 @@ function checkAutoBackup() {
         config: snapshotConfig(),
         runtimeState: snapshotRuntimeState(P),
         learnIterations: P.learnIterations || 0,
-        threeWayAnalysis: P._threeWayAnalysis || null, // v49.7: 备份携带三盘分析结论
+        threeWayAnalysis: P._threeWayAnalysis || null, // v49.9: 备份携带三盘分析结论
         _syncEpoch: P._syncEpoch || 0,
         _count: P.history.length
     };
@@ -10739,14 +10807,14 @@ async function cloudSaveIncremental(manual) {
                 // 装了触发器 → BEFORE INSERT/UPDATE 用 clock_timestamp() 覆盖成权威服务端时间；
                 // 未装触发器的存量库 → 客户端时间兜底，至少编辑/删除能同步（_ua 仍以服务端回读为准）。
                 rows.push({ id: 'rec_' + rid, data: _d, updated_at: new Date().toISOString() });
-                // v49.7: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
+                // v49.9: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
                 try { fingerprints[rid] = JSON.stringify(_d); } catch(e) {}
             });
             var payloadLen = 0;
             try { payloadLen = JSON.stringify(rows).length; } catch(e) {}
             totalBytes += payloadLen;
             updateCloudStatus('syncing', '☁️ 增量上传 ' + rows.length + ' 条（' + fmtBytes(payloadLen) + '，共' + rids.length + '条待传）...');
-            // v49.7: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
+            // v49.9: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
             var res = await supabaseClient.from(CLOUD_TABLE).upsert(rows, { onConflict: 'id' }).select('id,updated_at');
             if (res.error) {
                 okAll = false;
@@ -10756,7 +10824,7 @@ async function cloudSaveIncremental(manual) {
                 break;
             }
             trackTraffic('out', payloadLen);
-            // v49.7: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
+            // v49.9: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
             var _serverUa = {};
             (res.data || []).forEach(function(_r){ if (_r && _r.id) { try { _serverUa[_r.id] = new Date(_r.updated_at).getTime(); } catch(e) {} } });
             chunk.forEach(function(rid){
@@ -10784,7 +10852,7 @@ async function cloudSaveIncremental(manual) {
         }
         if (sent > 0) {
             cloudLastSync = new Date();
-            // v49.7: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
+            // v49.9: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
             try { P.saveLocal(); } catch(e) {}
             if (!window._autoSyncHold) setAutoSync(true); // v48.5: 显式暂停期间保持暂停
             updateCloudStatus('online', '✅ 增量上传 ' + sent + ' 条（' + fmtBytes(totalBytes) + '）· 共' + P.history.length + '局 · ' + cloudLastSync.toLocaleTimeString());
@@ -10861,7 +10929,7 @@ function mergeRemoteRecRows(rows) {
             if (!d) return;
             var ua = row.updated_at ? new Date(row.updated_at).getTime() : (d.ua || 0);
             // 1) 墓碑 → 删除本地同rid记录
-            // v49.7: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
+            // v49.9: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
             //   · 本地 _dirtyLocal=1 → 远端(含墓碑)一律丢弃，本地优先；
             //   · 否则纯 LWW：墓碑 updated_at 比本地 _ua 新才删除，旧墓碑不覆盖新记录。
             if (d.del) {
@@ -11031,7 +11099,7 @@ function mergeRemoteRecRows(rows) {
         if (updated) _msg.push('更新' + updated + '条');
         if (removed) _msg.push('删除' + removed + '条');
         updateCloudStatus('online', '📥 增量同步：' + _msg.join('，') + '（共' + P.history.length + '局）');
-        // v49.7: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
+        // v49.9: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
         // 此处不再按 2048B/行 重复估算
     }
     return { added: added, updated: updated, removed: removed };
@@ -11098,7 +11166,7 @@ async function cloudSweepRecRows(full) {
             if (res.error) { console.warn('[增量补拉] 失败:', res.error.message); break; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v49.7: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
+            // v49.9: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
             // 幂等重拉时漏计，导致下行流量统计偏低）
             try { var _pgLen = 0; try { _pgLen = JSON.stringify(rows).length; } catch(e2) {} trackTraffic('in', _pgLen); } catch(e2) {}
             // v47.2: 改用 mergeRemoteRecRows 的真实变动结果统计，而非扫描行数——
@@ -11303,7 +11371,7 @@ async function cloudReconcileRecIds() {
             if (res.error) { console.warn('[对账] id扫描失败:', res.error.message); return; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v49.7: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
+            // v49.9: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
             try { trackTraffic('in', rows.length * 75); } catch(e2) {}
             rows.forEach(function(r){
                 remoteIds[r.id] = r.updated_at;
@@ -11349,7 +11417,7 @@ async function cloudReconcileRecIds() {
             for (var mi = 0; mi < missing.length; mi += 100) {
                 var dr = await supabaseClient.from(CLOUD_TABLE).select('id,data,updated_at').in('id', missing.slice(mi, mi + 100));
                 if (dr.error) { console.warn('[对账] 数据拉取失败:', dr.error.message); break; }
-                // v49.7: 按实际下载字节统计流量
+                // v49.9: 按实际下载字节统计流量
                 try { var _drLen = 0; try { _drLen = JSON.stringify(dr.data || []).length; } catch(e3) {} trackTraffic('in', _drLen); } catch(e3) {}
                 var _mr2 = mergeRemoteRecRows(dr.data || []);
                 if (_mr2) { _rAdded += _mr2.added || 0; _rUpdated += _mr2.updated || 0; _rRemoved += _mr2.removed || 0; }
@@ -11367,7 +11435,7 @@ async function cloudReconcileRecIds() {
         });
         if (_seenChanged) _saveRecSeen(recSeen);
         // 已确认处理过的墓碑行登记起来，避免每次对账重复拉取
-        // v49.7: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
+        // v49.9: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
         // 一旦某条正常数据因异常未合并进本地，会被误登记成墓碑 → 后续被 _applyTombstonesToLocal 误删。
         // v49.5 ③: _tombNew 已在上方声明
         Object.keys(remoteIds).forEach(function(id) {
@@ -11442,7 +11510,7 @@ setInterval(function() {
     }
 }, 60000);
 
-// ---- v49.7: 手动清理云端历史增量行 ----
+// ---- v49.9: 手动清理云端历史增量行 ----
 // 场景：管理员已完成全量同步（main 快照 = 完整数据），云端残留了大量已被快照覆盖的 rec_ 冗余行
 // （历史反复误传产生，约1800条），既浪费存储又让拉取提示虚高、流量虚耗。
 // 安全边界：只删除「非墓碑 且 updated_at 早于 main 快照时间」的增量行——
@@ -11926,7 +11994,7 @@ async function cloudSave(manual, skipPrecheck) {
             patternHitCache: P.patternHitCache || {}, // v41: 规律命中缓存跨端同步
             config: snapshotConfig(), // v41: 可配置参数跨端同步
             runtimeState: snapshotRuntimeState(P), // v42: 连续错误/紧急模式/局间隔跨端同步
-            // v49.7: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
+            // v49.9: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
             threeWayAnalysis: P._threeWayAnalysis || null,
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null),
@@ -11939,7 +12007,7 @@ async function cloudSave(manual, skipPrecheck) {
         var _sizeKB = _dataSize > 0 ? Math.round(_dataSize/1024) : 0;
         updateCloudStatus('syncing', '☁️ 正在上传云端' + (_sizeKB > 0 ? '（约' + _sizeKB + 'KB）' : '') + '...');
 
-        // v49.7: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
+        // v49.9: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
         // 各端 15 分钟「主快照变更检测」不再被客户端时钟偏差误导误刷新
         // v49.7 P0-1: main 行同样要带 updated_at。旧版只 upsert {id,data}，冲突更新时
         // updated_at 不变 → 其他端 autoAcceptAdminBaseline 永远检测不到「管理员全量上传」。
@@ -11983,7 +12051,7 @@ async function cloudSave(manual, skipPrecheck) {
         } catch(e) {}
         // v46.0: 全量上传成功 → 主快照已包含全部记录，清空增量待传队列
         markAllClean();
-        // v49.7: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
+        // v49.9: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
         try { P.saveLocal(); } catch(e) {}
         try {
             var _est = {};
@@ -13357,7 +13425,7 @@ function restoreFromBackup(backupId) {
             normalizeWindowWeights();
             renderAll();
             P.saveLocal();
-            // 同步覆盖云端 main 数据（v49.7: 不传 updated_at，服务端写入）
+            // 同步覆盖云端 main 数据（v49.9: 不传 updated_at，服务端写入）
             var mainData = {
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy,
@@ -15147,14 +15215,14 @@ function renderCards() {
                 '<div class="sim-vote-count">'+cnt+'票 / 加权'+wv.toFixed(1)+'<br>'+pct+'%</div></div>';
         });
         voteHtml += '</div>';
-        // v48.7: 长度分组权重明细 —— 直接把「9局→B / 8局→B×2 / 6局→A×3」摊开
+        // v49.8: 长度分组权重明细 —— 局数定档 + 同档按次数，摊开给用户对数字
         if (si.lenGroups && si.lenGroups.length) {
             voteHtml += '<div class="sim-lenbox" style="margin:6px 0;padding:8px 10px;background:#f3e5f5;border-radius:8px;font-size:12px;line-height:1.9;color:#6a1b9a;">'+
-                '<strong>⚖️ 长度权重明细（长序列主导 · 同长度多条对数饱和）</strong><br>';
+                '<strong>⚖️ 长度权重明细（局数定档 · 同档按次数）</strong><br>';
             si.lenGroups.slice(0, 12).forEach(function(g){
                 voteHtml += '<span style="display:inline-block;margin-right:10px;padding:1px 7px;border-radius:9px;background:#fff;">'+
                     '<strong>'+g.len+'局</strong>→'+g.winner+(g.n>1?' ×'+g.n:'')+
-                    ' · 长度系数'+g.lenW.toFixed(1)+' · 权重<strong>'+g.vote.toFixed(1)+'</strong></span>';
+                    ' · 长度系数'+g.lenW.toFixed(2)+' · 权重<strong>'+g.vote.toFixed(2)+'</strong></span>';
             });
             voteHtml += '</div>';
         }
@@ -15429,16 +15497,16 @@ function renderCards() {
         lines.push('C=<strong>'+((siProbs.C||0)*100).toFixed(1)+'%</strong> ');
         lines.push('| 盘面相似度（非序列一致率，不参与排序）: 最高 <strong>'+((si.topSimilarity||si.avgSimilarity||0)*100).toFixed(0)+'%</strong>');
         lines.push(' / 平均 <strong>'+(si.avgSimilarity*100).toFixed(0)+'%</strong></div>');
-        // 长度权重分组明细——把「10局→B / 9局→C / 8局→A / 7局→A×2」摊开
+        // v49.8: 长度权重分组明细——把「10局→B / 9局→C / 8局→A / 7局→A×2」摊开
         if (si.lenGroups && si.lenGroups.length) {
             lines.push('<div class="sim-lenbox" style="margin:6px 0;padding:8px 10px;background:#f3e5f5;border-radius:8px;font-size:12px;line-height:1.9;color:#6a1b9a;">'+
-                '<strong>⚖️ 长度权重明细（长序列主导 · 同长度多条对数饱和）</strong><br>');
+                '<strong>⚖️ 长度权重明细（局数定档 · 同档按次数）</strong><br>');
             si.lenGroups.slice(0, 12).forEach(function(_g){
                 lines.push('<span style="display:inline-block;margin-right:10px;padding:1px 7px;border-radius:9px;background:#fff;">'+
                     '<strong>'+_g.len+'局</strong>→'+_g.winner+(_g.n>1?' ×'+_g.n:'')+
-                    ' · 长度系数'+_g.lenW.toFixed(1)+' · 权重<strong>'+_g.vote.toFixed(1)+'</strong></span>');
+                    ' · 长度系数'+_g.lenW.toFixed(2)+' · 权重<strong>'+_g.vote.toFixed(2)+'</strong></span>');
             });
-            lines.push('<br><span style="font-size:11px;color:#888;">票数看长度档位，不看简单计数；短档位多条按 log₂ 饱和，堆不死长档位。</span></div>');
+            lines.push('<br><span style="font-size:11px;color:#888;">权重只由局数与次数决定：局数长的档位恒压过短档位，同档位内次数多的权重大；相似度等质量信息只用于匹配排序，不参与加权。</span></div>');
             // 长档位方向分散 → 明确建议观望，不再硬给一个第一名
             var _lg = si.lenGroups.slice(0, 3);
             var _dirs = {};
