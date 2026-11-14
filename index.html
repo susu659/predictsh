@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v50.7: 内联 favicon，消除 favicon.ico 404 报错 -->
+<!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%88%3C/text%3E%3C/svg%3E">
-<title>商会三竞预测系统 v50.7（跨端一致版）</title>
+<title>商会三竞预测系统 v50.8（跨端一致版）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;padding:16px;color:#333;position:relative}
@@ -836,10 +836,10 @@ body.dark-mode .guild-input{background:#12213f}
 <div id="learnTip" role="status" aria-live="polite">🧠 学习完成</div>
 <div class="container">
 <header>
-<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.7</span></h1>
+<h1>🏆 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.8</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;">🔬 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;">📢 更新说明（v50.7）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;">📢 更新说明（v50.8）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
 <details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看更早版本（v49.3 及以前）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
@@ -1745,7 +1745,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   .w2-quick-close{width:44px;height:44px;min-width:44px;font-size:20px;}
   }
 
-  /* ==================== v50.7 科技感 UI 覆盖层 ====================
+  /* ==================== v50.8 科技感 UI 覆盖层 ====================
     设计语言：深空渐变背景 + 光晕 + 流光顶带 + 玻璃拟态亮卡；
     仅做视觉层增强与响应式适配，不改动任何 DOM/JS 逻辑。 */
   :root{
@@ -1815,7 +1815,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   }
   /* ==================== v48.4 修复①：关闭持续动画（打开页面一直闪动） ====================
      goldRing 呼吸金环 / 顶部流光 / 云状态点脉冲 / 学习指示器闪烁均为 infinite 动画；
-     goldRing 的关键帧还会周期性覆盖 v50.7 的静态卡片阴影，造成卡片明暗跳变。
+     goldRing 的关键帧还会周期性覆盖 v50.8 的静态卡片阴影，造成卡片明暗跳变。
      这里只停掉循环动画，保留静态高亮与 hover 过渡，功能不受影响。 */
   .pred-card.rank-1,
   body.dark-mode .pred-card.rank-1{animation:none !important;box-shadow:0 10px 30px rgba(245,179,1,.32),inset 0 1px 0 rgba(255,255,255,.9) !important;}
@@ -2063,10 +2063,10 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v50.7'; // v50.7: 导出日期范围逐条过滤；登录态统一凭证持久化，不再反复重新授权/登录
+  var APP_VERSION = 'v50.8'; // v50.8: 根治每次打开都重建 4000+ 局预测历史（IDB 完整副本不再被残缺快照覆盖）
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v50.7：①【导出日期范围不再夹带其它日期】旧版把「日期范围」导出取成首尾命中记录之间的连续物理区间，而云端补录会把 13 号的局拼到 14 号局之间，导出 14 号时就把夹在中间的 13 号一起带了出来（历史表格走时间有序视图所以显示正常）。现改为逐条按日期过滤、只导出命中记录，并按时间先后排序；日期解析在 timeSlot 无月日时回退 rec.date，导出文件名带上具体日期，范围与条数一眼可核对。②【登录态持久化】普通用户反复重新授权、管理员反复重新登录的根因是：重读云配置时一并把设备 ID 与授权缓存删掉（刷新后设备 ID 变了＝云端新设备＝必须管理员重新授权），且残留的用户授权轮询会把管理员登录类型覆盖成 user。现新增带冗余的统一登录凭证，启动时自愈回写设备 ID / 授权 / 登录类型；配置重读不再清设备与授权，仅真正换服务器才清同步缓存；后台校验遇弱网或云端查不到记录时保持登录，只有管理员明确撤销才要求重新授权。预测算法、权重口径与同步协议不变。\nv50.7：①【旧基线标记不再覆盖本地新局】拉取时，旧主快照携带的上次全量基线标记，在本地比云端更长（有尚未上传的新局）时，旧逻辑仍会把旧快照当权威基线采纳，硬校验局数不符后用云端旧数组强制回填，把刚录的局抹掉并清空待传队列——表现为本地显示 4085/4086、云端和对端收不到；现只有云端局数不少于本地、或管理员/纪元强制时才按基线采纳，本地更长时走键级合并、只补本地缺的记录，不再用旧快照覆盖本地。②【基线回填兜底保留本地独有局】即使进入基线回填，也先把本地原数组里编号不在云端快照中的局按编号保留回来，不按业务键删除；待传标记丢失也不会被旧快照抹掉。预测算法、权重口径、同步协议与上传体积速度不变。\nv50.5：①【重建窗口新局保留】后台分批重建预测历史期间若又录入或合并了新局，旧逻辑重建完成时会用旧快照整体覆盖历史，把窗口内新增的局抹掉——残留的待传编号上传时找不到对应记录而被当成删除墓碑，表现为「本地在、云端或对端收不到」；现按编号保留重建结果之外的新增局及其预测快照拼回，命中率统计按合并后的预测历史重建，不再索引错位，预测算法与权重口径不变。②【同步对账体检】云同步面板新增「🩺 同步体检」按钮，一键汇总只读对比结果（也可在控制台执行 syncDiagnostics() 查各道同步闸门与拦截原因、await cloudDiffDiagnostics() 逐项对比本地历史、云端主快照、增量行与墓碑，列出「本地有而主快照缺失」的局及其是否已在增量行、是否被墓碑），用于定位新局卡在上传、拉取还是合并哪一段；诊断只读，不改任何数据。③【增量版本号回填加固】增量上传成功但服务端时间戳回读为空时，旧逻辑会把本地版本号置 0，导致这条新局在两端版本比较里永远被判成旧记录、被接收端当重复墓碑化（本地在、对端收不到）；现回读不到权威时间就保留待传标记、不把版本号清零，下轮重传再争取服务端时间戳，正常回读成功时行为不变，上传体积与速度不变。\nv50.4：【历史时间乱序修复】云端补录的早时间局会被拼到历史数组末尾，导致历史表格里「14 号下面接 13 号」、近局序列与导入尾局锚点取到错误的尾部。现历史表格、近 5/10/20 局序列、导入锚点匹配统一改走按时间排序的有序视图（与预测窗口同源），展示与锚点按时间先后排列；编辑/删除仍按原记录定位，预测算法、权重口径与同步协议不变。\nv50.3：①【编辑比分后重建预测历史】修改历史比分/收益/投资后，旧预测对错已与新结果脱节，现交后台既有回测链路按新历史分批重建预测历史与命中率，不阻塞界面；重建期间再次编辑会在当前完成后补排一轮。②【数据一致性自检】录入/合并/刷新后自动校验预测历史与历史局数对齐、rid 唯一、预测条目字段完整、时间有序，异常写入技术日志与控制台告警，不阻断使用；自检 60 秒节流，不增加日常渲染负担。③【临界榜首提示】非观望状态下，榜首与次名概率差不足 2% 时，总结区标注「势均力敌、排名不稳」，避免把临界翻转当成确定结论；概率算法与权重口径不变。\nv50.2：【本地存储瘦身】localStorage 只保留核心历史、模型权重、配置与同步纪元等小字段，predHistory/命中率大数组、反思日志、命中缓存等只存 IndexedDB，刷新后自动补全或回测重建；4000+ 局后不再反复触发本地存储配额超限告警，启动时局数短暂偏少再回弹的现象随之消除。完整数据仍由 IndexedDB 兜底，云端同步协议与预测算法不变。\nv50.1：①【AI 停用收尾】旧会话/旧快照残留的 AI 修正缓存不再参与最终概率——仅当 AI 开关显式启用时才套用；清空或恢复数据时一并清掉旧 AI 缓存，残留不再改概率。②【快照精简】AI 裁判强度系数只留本地存档，不再随云端全量快照/备份/回写主行上传，也不参与跨端对齐；跨端仍同步的只有盘面转移矩阵、漂移状态及观察起点三项。预测算法与权重口径不变。\nv50.0：①【跨端一致】AI 裁判强度、盘面转移矩阵、漂移状态及观察起点四项小学习态纳入云端全量快照/自动备份/回滚快照，并在拉取合并时按权威快照对齐——同一份历史在各端、刷新后、换端后算出一致概率，不再因各端残留不同内部状态在临界带翻转榜首；证据表与校准桶仍留本地不上云，日常增量上传体积与速度不变。②【向后兼容】旧快照缺这些字段时保留本机当前值、回退既有默认，不覆盖、不重置；预测算法、权重口径与既有交互均未改动。\nv49.8：①相似盘、相似收益盘、相似投资盘、血本盘统一改成「局数定档 + 同档按次数」的严格权重——局数长的档位恒压过短档位，局数相同则次数多的权重大，质量不再参与加权，只留在匹配明细里供核对（控制台执行 CONFIG.simStrictOrder=false; 可回退旧口径）；②移动端收益/投资/血本/相似盘四个面板不再把长序列截成省略号、不再限高内部滚动，整段铺开上下滑即可看全；预测卡片一律单列。\nv49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
-  var APP_UPDATE_DESC_HISTORY = '历史交付（v49.3）：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v50.7 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
+  var APP_UPDATE_DESC_RECENT = 'v50.8：①【不再每次打开都重建历史预测数据】v50.2 起 localStorage 只存精简副本（不含 predHistory），每次打开 loadLocal 都把重建标记置起；而启动早期的保存、云端快照回写又会用这份残缺预测历史覆盖 IndexedDB 里的完整副本，3 秒的重建定时器还常常抢在 IDB 读取完成之前启动，于是 4000+ 局被反复重建（截图 1470/4102）。现加「预测历史完整态」标记与受保护的 IDB 写入：残缺的 predHistory 绝不覆盖 IDB 完整副本；云端残缺快照回写时沿用本机已完整的预测历史；启动重建统一等 IDB 补全完成后再决策，IDB 补全成功即直接跳过重建；重建完成后落标记，数据没变化就永不重复重建。只有真正新增局/编辑比分/清空数据后才按需重建。②【附带】重建进度条只在真正需要重建时出现；预测算法、权重口径与同步协议不变。\nv50.7：①【导出日期范围不再夹带其它日期】旧版把「日期范围」导出取成首尾命中记录之间的连续物理区间，而云端补录会把 13 号的局拼到 14 号局之间，导出 14 号时就把夹在中间的 13 号一起带了出来（历史表格走时间有序视图所以显示正常）。现改为逐条按日期过滤、只导出命中记录，并按时间先后排序；日期解析在 timeSlot 无月日时回退 rec.date，导出文件名带上具体日期，范围与条数一眼可核对。②【登录态持久化】普通用户反复重新授权、管理员反复重新登录的根因是：重读云配置时一并把设备 ID 与授权缓存删掉（刷新后设备 ID 变了＝云端新设备＝必须管理员重新授权），且残留的用户授权轮询会把管理员登录类型覆盖成 user。现新增带冗余的统一登录凭证，启动时自愈回写设备 ID / 授权 / 登录类型；配置重读不再清设备与授权，仅真正换服务器才清同步缓存；后台校验遇弱网或云端查不到记录时保持登录，只有管理员明确撤销才要求重新授权。预测算法、权重口径与同步协议不变。\nv50.8：①【旧基线标记不再覆盖本地新局】拉取时，旧主快照携带的上次全量基线标记，在本地比云端更长（有尚未上传的新局）时，旧逻辑仍会把旧快照当权威基线采纳，硬校验局数不符后用云端旧数组强制回填，把刚录的局抹掉并清空待传队列——表现为本地显示 4085/4086、云端和对端收不到；现只有云端局数不少于本地、或管理员/纪元强制时才按基线采纳，本地更长时走键级合并、只补本地缺的记录，不再用旧快照覆盖本地。②【基线回填兜底保留本地独有局】即使进入基线回填，也先把本地原数组里编号不在云端快照中的局按编号保留回来，不按业务键删除；待传标记丢失也不会被旧快照抹掉。预测算法、权重口径、同步协议与上传体积速度不变。\nv50.5：①【重建窗口新局保留】后台分批重建预测历史期间若又录入或合并了新局，旧逻辑重建完成时会用旧快照整体覆盖历史，把窗口内新增的局抹掉——残留的待传编号上传时找不到对应记录而被当成删除墓碑，表现为「本地在、云端或对端收不到」；现按编号保留重建结果之外的新增局及其预测快照拼回，命中率统计按合并后的预测历史重建，不再索引错位，预测算法与权重口径不变。②【同步对账体检】云同步面板新增「🩺 同步体检」按钮，一键汇总只读对比结果（也可在控制台执行 syncDiagnostics() 查各道同步闸门与拦截原因、await cloudDiffDiagnostics() 逐项对比本地历史、云端主快照、增量行与墓碑，列出「本地有而主快照缺失」的局及其是否已在增量行、是否被墓碑），用于定位新局卡在上传、拉取还是合并哪一段；诊断只读，不改任何数据。③【增量版本号回填加固】增量上传成功但服务端时间戳回读为空时，旧逻辑会把本地版本号置 0，导致这条新局在两端版本比较里永远被判成旧记录、被接收端当重复墓碑化（本地在、对端收不到）；现回读不到权威时间就保留待传标记、不把版本号清零，下轮重传再争取服务端时间戳，正常回读成功时行为不变，上传体积与速度不变。\nv50.4：【历史时间乱序修复】云端补录的早时间局会被拼到历史数组末尾，导致历史表格里「14 号下面接 13 号」、近局序列与导入尾局锚点取到错误的尾部。现历史表格、近 5/10/20 局序列、导入锚点匹配统一改走按时间排序的有序视图（与预测窗口同源），展示与锚点按时间先后排列；编辑/删除仍按原记录定位，预测算法、权重口径与同步协议不变。\nv50.3：①【编辑比分后重建预测历史】修改历史比分/收益/投资后，旧预测对错已与新结果脱节，现交后台既有回测链路按新历史分批重建预测历史与命中率，不阻塞界面；重建期间再次编辑会在当前完成后补排一轮。②【数据一致性自检】录入/合并/刷新后自动校验预测历史与历史局数对齐、rid 唯一、预测条目字段完整、时间有序，异常写入技术日志与控制台告警，不阻断使用；自检 60 秒节流，不增加日常渲染负担。③【临界榜首提示】非观望状态下，榜首与次名概率差不足 2% 时，总结区标注「势均力敌、排名不稳」，避免把临界翻转当成确定结论；概率算法与权重口径不变。\nv50.2：【本地存储瘦身】localStorage 只保留核心历史、模型权重、配置与同步纪元等小字段，predHistory/命中率大数组、反思日志、命中缓存等只存 IndexedDB，刷新后自动补全或回测重建；4000+ 局后不再反复触发本地存储配额超限告警，启动时局数短暂偏少再回弹的现象随之消除。完整数据仍由 IndexedDB 兜底，云端同步协议与预测算法不变。\nv50.1：①【AI 停用收尾】旧会话/旧快照残留的 AI 修正缓存不再参与最终概率——仅当 AI 开关显式启用时才套用；清空或恢复数据时一并清掉旧 AI 缓存，残留不再改概率。②【快照精简】AI 裁判强度系数只留本地存档，不再随云端全量快照/备份/回写主行上传，也不参与跨端对齐；跨端仍同步的只有盘面转移矩阵、漂移状态及观察起点三项。预测算法与权重口径不变。\nv50.0：①【跨端一致】AI 裁判强度、盘面转移矩阵、漂移状态及观察起点四项小学习态纳入云端全量快照/自动备份/回滚快照，并在拉取合并时按权威快照对齐——同一份历史在各端、刷新后、换端后算出一致概率，不再因各端残留不同内部状态在临界带翻转榜首；证据表与校准桶仍留本地不上云，日常增量上传体积与速度不变。②【向后兼容】旧快照缺这些字段时保留本机当前值、回退既有默认，不覆盖、不重置；预测算法、权重口径与既有交互均未改动。\nv49.8：①相似盘、相似收益盘、相似投资盘、血本盘统一改成「局数定档 + 同档按次数」的严格权重——局数长的档位恒压过短档位，局数相同则次数多的权重大，质量不再参与加权，只留在匹配明细里供核对（控制台执行 CONFIG.simStrictOrder=false; 可回退旧口径）；②移动端收益/投资/血本/相似盘四个面板不再把长序列截成省略号、不再限高内部滚动，整段铺开上下滑即可看全；预测卡片一律单列。\nv49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
+  var APP_UPDATE_DESC_HISTORY = '历史交付（v49.3）：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v50.8 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
   var APP_UPDATE_DESC = APP_UPDATE_DESC_RECENT + '\n' + APP_UPDATE_DESC_HISTORY; // 兼容旧引用
   (function(){ try {
     var r=document.getElementById('updateNoteRecent'), h=document.getElementById('updateNoteHistory');
@@ -6813,7 +6813,7 @@ class Predictor {
             simBoost: simBoost,
             lossBoost: lossBoost,
             profitBoost: profitBoost,
-            _t: Date.now(), // v50.7: 计算时间戳，用于多端同步时判断结论新旧
+            _t: Date.now(), // v50.8: 计算时间戳，用于多端同步时判断结论新旧
             _histSig: simProfitCacheSig(this.history) // v49.3 T2: 跨端显示前校验
         };
         // v31.0: 附加命中率提示
@@ -8456,14 +8456,22 @@ class Predictor {
                 driftObserveStart: this._driftObserveStart || null, // v44.30: 观察快照
                 config: snapshotConfig(), // v41: 跨端同步可配置参数
                 runtimeState: snapshotRuntimeState(this), // v42: 连续错误/紧急模式/局间隔同步
-                // v50.7: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
+                // v50.8: 三盘分析结论（三盘一致/两盘一致标签来源）随本地存储持久化，
                 // 刷新/换端恢复后立即显示与最近计算端一致的结论，避免各端标签不一致
                 threeWayAnalysis: this._threeWayAnalysis || null,
                 _syncEpoch: this._syncEpoch || 0,
                 _adminOverride: this._adminOverride || null
             };
             // v27.4：完整数据异步存IndexedDB（大容量，不截断）
-            try { idbSave(STORE_KEY, saveData); } catch(e) { console.warn('[IndexedDB] saveLocal保存失败:', e.message); }
+            // v50.8：仅在 predHistory 与 history 对齐时才写 IDB 并落「完整态」标记。
+            // 启动早期从 localStorage 精简副本恢复时 predHistory 为空，若此时写 IDB 会把
+            // 上次重建好的完整副本冲掉，正是「每次打开都要重建 4000+ 局」的直接原因。
+            if (_predHistComplete(this.history, this.predHistory)) {
+                try { idbSave(STORE_KEY, saveData); } catch(e) { console.warn('[IndexedDB] saveLocal保存失败:', e.message); }
+                _markPredHistReady(this.history, this.predHistory);
+            } else {
+                techLog('[本地存储] 预测历史尚未补全，跳过 IDB 写入以保护完整副本');
+            }
             // v50.2: localStorage 只写精简副本（核心历史+权重+配置+同步态），predHistory/命中率等大数组留 IDB，
             // 刷新后由 IDB 补全或自动重建；4000+ 局不再反复触发 localStorage 配额超限告警。
             var lsSnap = this._localSnapshot(saveData);
@@ -8503,6 +8511,20 @@ class Predictor {
     // v27.4：直接从数据对象恢复（绕过localStorage，用于IndexedDB完整数据补全）
     restoreFromData(p) {
         if (!p || !Array.isArray(p.history)) return false;
+        // v50.8：待恢复数据缺 predHistory 时，若本机已有完整预测历史且是同一批数据，
+        // 直接沿用它，不再把 _rebuildPending 反复置 true（云端 main 快照 predHistory 被
+        // 裁掉/为空时会让所有端每次打开都重建）。历史指纹不同说明真的换了数据，仍按原逻辑处理。
+        if (!_predHistComplete(p.history, p.predHistory) &&
+            _predHistComplete(this.history, this.predHistory) &&
+            _histFingerprint(p.history) === _histFingerprint(this.history)) {
+            var _keepP = this;
+            var _pFixed = Object.assign({}, p);
+            ['predHistory','accuracy','profitAccuracy','profitBrierHistory','investAccuracy'].forEach(function(k) {
+                if (Array.isArray(_keepP[k])) _pFixed[k] = _keepP[k];
+            });
+            p = _pFixed;
+            techLog('[恢复] 云端/快照缺预测历史，沿用本机完整预测历史，无需重建');
+        }
         this.clearAll();
         var predHistComplete = Array.isArray(p.predHistory) && p.predHistory.length > 0
             && p.predHistory.length >= p.history.length - 1;
@@ -8545,7 +8567,7 @@ class Predictor {
         }
         this._syncEpoch = p._syncEpoch || 0;
         this._adminOverride = p._adminOverride || null;
-        // v50.7: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
+        // v50.8: 恢复三盘分析结论（多端一致——快照/本地存档里带什么就用什么，
         // 本地下次 predict 重算时若底层数据一致会得到相同结论）
         this._threeWayAnalysis = (p.threeWayAnalysis && typeof p.threeWayAnalysis === 'object') ? p.threeWayAnalysis : null;
         // 修复predHistory格式
@@ -8810,6 +8832,8 @@ class Predictor {
                 self._rebuildModelWeights = null;
                 // v30.22: 重构完成后立即保存完整数据到IndexedDB，下次打开不用再重构
                 try { self.saveLocal(); } catch(e) { console.warn('[rebuild] saveLocal after rebuild failed:', e.message); }
+                // v50.8：显式落「完整态」标记，下次打开即便 IDB 读取稍慢也不会抢跑重建
+                try { _markPredHistReady(self.history, self.predHistory); } catch(e) {}
                 if (onDone) onDone();
             }
         }
@@ -8841,6 +8865,57 @@ function idbOpen() {
         req.onerror = function(e) { reject(e.target.error); };
     });
 }
+// ============ v50.8: 预测历史完整态标记 + IDB 保护写入 ============
+// 根因：v50.2 之后 localStorage 只存精简副本（不含 predHistory），每次打开 loadLocal()
+// 都会把 _rebuildPending 置 true；而启动早期任何一次 saveLocal / 云端快照回写，
+// 都会用这份残缺 predHistory 覆盖 IndexedDB 里的完整副本，于是下次打开又得重建 4000+ 局。
+var PRED_READY_KEY = 'mm_predhist_ready_v51';
+function _histFingerprint(h) {
+    if (!Array.isArray(h) || !h.length) return '0';
+    var last = h[h.length - 1] || {};
+    var first = h[0] || {};
+    return h.length + '|' + String(last._rid || last.timeSlot || '') + '|' + String(first._rid || first.timeSlot || '');
+}
+function _predHistComplete(h, ph) {
+    return Array.isArray(h) && Array.isArray(ph) && ph.length > 0 && ph.length >= h.length - 1;
+}
+function _readPredReady() {
+    try { var o = JSON.parse(localStorage.getItem(PRED_READY_KEY) || 'null'); return (o && typeof o === 'object') ? o : null; } catch(e) { return null; }
+}
+function _markPredHistReady(h, ph) {
+    if (!_predHistComplete(h, ph)) return;
+    try { localStorage.setItem(PRED_READY_KEY, JSON.stringify({ fp: _histFingerprint(h), p: ph.length, ts: Date.now() })); } catch(e) {}
+}
+function _predHistReadyMatches(h) {
+    var o = _readPredReady();
+    return !!(o && o.fp && Array.isArray(h) && o.fp === _histFingerprint(h) && o.p >= h.length - 1);
+}
+// 受保护的 IDB 写入：残缺 predHistory 绝不覆盖 IDB 里的完整副本。
+// 若本次只是「启动早期还没从 IDB 补回来」，会用 IDB 已有完整副本补齐后写回；
+// 若历史指纹已变（云端真的有新增/删除局），则不写，交给后续完整数据重建后再落盘，
+// 避免用旧预测快照和新历史错位拼接。
+function _idbSaveProtected(d) {
+    if (!d) return;
+    if (_predHistComplete(d.history, d.predHistory)) {
+        try { idbSave(STORE_KEY, d); } catch(e) {}
+        _markPredHistReady(d.history, d.predHistory);
+        return;
+    }
+    try {
+        idbLoad(STORE_KEY).then(function(old) {
+            if (old && _predHistComplete(old.history, old.predHistory) &&
+                _histFingerprint(old.history) === _histFingerprint(d.history)) {
+                var merged = Object.assign({}, d);
+                ['predHistory','accuracy','profitAccuracy','profitBrierHistory','investAccuracy'].forEach(function(k) {
+                    if (Array.isArray(old[k])) merged[k] = old[k];
+                });
+                idbSave(STORE_KEY, merged);
+                _markPredHistReady(d.history, old.predHistory);
+            }
+        }).catch(function(){});
+    } catch(e) {}
+}
+
 function idbSave(key, data) {
     return idbOpen().then(function(db) {
         return new Promise(function(resolve, reject) {
@@ -10198,7 +10273,7 @@ var _cloudFetchWithTimeout = function(url, opts) {
         });
     });
 };
-// v50.7: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
+// v50.8: 防止重复创建客户端（initCloud 可能被 CDN 重试与登录流程多次触发），
 // 同一 storageKey 下出现多个 GoTrueClient 会触发 Supabase 警告并可能互相干扰
 if (!supabaseClient) {
     supabaseClient = window.supabase.createClient(cfg.url, cfg.key, { global: { fetch: _cloudFetchWithTimeout } });
@@ -10336,7 +10411,7 @@ async function _acceptFullBaseline(d, silent, cloudHistLen, localHistLen, srvUa)
     var _expect = _bl.kept;
     if (P.history.length !== _expect) {
         console.warn('[全量基线] 局数不符：期望 ' + _expect + '，实际 ' + P.history.length + '，按去重后的云端数组强制回填');
-        // v50.7: 回填前先留住本地原数组里 rid 不在云端 clean 中的局——仅按 rid 保留，不按业务键删，
+        // v50.8: 回填前先留住本地原数组里 rid 不在云端 clean 中的局——仅按 rid 保留，不按业务键删，
         // 避免某局待传标记丢失时被旧快照整体抹掉（本地在、对端收不到的一种成因）。
         var _beforeHist = P.history.slice();
         P.history = _cleanHist.slice();
@@ -10352,7 +10427,7 @@ async function _acceptFullBaseline(d, silent, cloudHistLen, localHistLen, srvUa)
     _lastFullSyncCount = P.history.length;
     _lastIncrSyncCount = _lastFullSyncCount;
     _saveSyncCounts();
-    try { idbSave(STORE_KEY, d); } catch(e) {}
+    try { _idbSaveProtected(d); } catch(e) {}
     try { P.safeLocalStorageSet(STORE_KEY, P._localSnapshot(d)); } catch(e) {}
     try { P.saveLocal(); } catch(e) {}
     if (P._rebuildPending) {
@@ -10512,7 +10587,7 @@ async function _cloudLoadBody(silent) {
             // 旧端 3948 局全量上传 → 新端 3946：拉过来了，但被本地墓碑/业务键去重/
             // 云端残留墓碑层层删掉。基线即真相，识别到权威覆盖时直接原样采纳并硬校验。
             var _blMark = data.data._fullBaseline;
-            // v50.7: 旧 main 携带的基线标记只代表「上次全量上传时的权威快照」。当本地比云端更长
+            // v50.8: 旧 main 携带的基线标记只代表「上次全量上传时的权威快照」。当本地比云端更长
             // （存在尚未上传的新局）时，不能仅凭这个旧标记触发基线采纳——否则回填会用云端旧数组
             // 抹掉本地刚录的局，并清空待传队列，表现为本地在、对端收不到。仅在云端局数不少于本地、
             // 或管理员/纪元强制覆盖时，才按基线原样采纳。
@@ -10542,7 +10617,7 @@ async function _cloudLoadBody(silent) {
                     var _rc1 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                     var _ms1 = _mergeSweep(_sw1, _rc1);
                     updateCloudStatus('online', '✅ 云端已同步 · 本地' + P.history.length + '局（云端快照' + cloudHistLen + '局+增量行）' + _fmtSweepSummary(_ms1) + ' · ' + cloudLastSync.toLocaleTimeString());
-                    // v47.0: 拉取成功弹窗；v50.7: 仅在本次有真实变动（增/改/删）时弹出，
+                    // v47.0: 拉取成功弹窗；v50.8: 仅在本次有真实变动（增/改/删）时弹出，
                     // "各端数据一致"的例行检查不再弹窗（云端已有完整数据时保持静默）
                     if (silent && ((_ms1.added || 0) + (_ms1.updated || 0) + (_ms1.removed || 0)) > 0) {
                         try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms1) + '\n云端快照 ' + cloudHistLen + ' 局 + 增量行，各端数据一致'); } catch(e) {}
@@ -10577,7 +10652,8 @@ async function _cloudLoadBody(silent) {
                 }
                 // 合并后用最新的 P.history 存本地
                 try { P.saveLocal(); } catch(e) {}
-                idbSave(STORE_KEY, {history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy, profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf, advancedModelPerf: P.advancedModelPerf, windowPerf: P.windowPerf, patternHitCache: P.patternHitCache, config: snapshotConfig(), runtimeState: snapshotRuntimeState(P), threeWayAnalysis: P._threeWayAnalysis || null, _syncEpoch: P._syncEpoch, _adminOverride: P._adminOverride, aiStrength: (typeof P._aiStrength === 'number' && isFinite(P._aiStrength)) ? P._aiStrength : 0.6, stateTransition: (P._stateTransition && typeof P._stateTransition === 'object') ? P._stateTransition : {}, driftState: (typeof P._driftState === 'string') ? P._driftState : 'stable', driftObserveStart: P._driftObserveStart || null});
+                // v50.8: 走保护写入，避免启动早期残缺 predHistory 覆盖 IDB 完整副本
+                _idbSaveProtected({history: P.history, predHistory: P.predHistory, accuracy: P.accuracy, profitAccuracy: P.profitAccuracy, profitBrierHistory: P.profitBrierHistory, investAccuracy: P.investAccuracy, modelWeights: P.modelWeights, modelPerf: P.modelPerf, advancedModelPerf: P.advancedModelPerf, windowPerf: P.windowPerf, patternHitCache: P.patternHitCache, config: snapshotConfig(), runtimeState: snapshotRuntimeState(P), threeWayAnalysis: P._threeWayAnalysis || null, _syncEpoch: P._syncEpoch, _adminOverride: P._adminOverride, aiStrength: (typeof P._aiStrength === 'number' && isFinite(P._aiStrength)) ? P._aiStrength : 0.6, stateTransition: (P._stateTransition && typeof P._stateTransition === 'object') ? P._stateTransition : {}, driftState: (typeof P._driftState === 'string') ? P._driftState : 'stable', driftObserveStart: P._driftObserveStart || null});
                 _lastFullSyncCount = P.history.length;
                 _lastIncrSyncCount = P.history.length;
                 _saveSyncCounts();
@@ -10595,7 +10671,7 @@ async function _cloudLoadBody(silent) {
                 var _rc2 = await cloudReconcileRecIds(); // v46.6: 全量对账，保证各端局数一致
                 var _ms2 = _mergeSweep(_sw2, _rc2);
                 updateCloudStatus('online', '✅ 已拉取云端 · 本地现共 ' + P.history.length + ' 局（含增量补拉+对账）');
-                // v47.0: 拉取成功弹窗；v50.7: 仅在有真实变动时弹出，例行无变化检查静默
+                // v47.0: 拉取成功弹窗；v50.8: 仅在有真实变动时弹出，例行无变化检查静默
                 if (silent && ((dataChanged ? 1 : 0) + (_ms2.added || 0) + (_ms2.updated || 0) + (_ms2.removed || 0)) > 0) {
                     try { showRecordResult(true, '拉取成功', '已加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_ms2)); } catch(e) {}
                 }
@@ -10632,7 +10708,8 @@ async function _cloudLoadBody(silent) {
             _lastIncrSyncCount = _lastFullSyncCount;
             _saveSyncCounts();
             // 完整数据异步存IndexedDB（大容量，不截断）
-            idbSave(STORE_KEY, data.data);
+            // v50.8: 走保护写入，云端快照缺 predHistory 时不覆盖 IDB 完整副本
+            _idbSaveProtected(data.data);
             // v50.2: 精简数据存localStorage（完整副本在 IDB；存不下会自动降级）
             var _lsOk = P.safeLocalStorageSet(STORE_KEY, P._localSnapshot(data.data));
             if (!_lsOk) {
@@ -10663,7 +10740,7 @@ async function _cloudLoadBody(silent) {
             // v36.1：首次拉取完成提示——告诉用户"只拉取"阶段结束，后续录入会自动上传
             var _pullCount = data.data.history ? data.data.history.length : 0;
             updateCloudStatus('online', '✅ 已拉取云端 ' + P.history.length + ' 局+增量 · 后续录入新数据停手5秒后将自动上传');
-            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v50.7: 仅在数据真的变化时弹出
+            // v47.0: 拉取成功弹窗（首次打开/覆盖恢复）；v50.8: 仅在数据真的变化时弹出
             if (silent && dataChanged) { try { showRecordResult(true, '拉取成功', '已从云端加载 ' + P.history.length + ' 局' + _fmtSweepSummary(_mergeSweep(_sw3, _rc3)) + '\n后续录入新数据停手5秒后自动上传'); } catch(e) {} }
             return true;
         } else {
@@ -10758,7 +10835,7 @@ function checkAutoBackup() {
         config: snapshotConfig(),
         runtimeState: snapshotRuntimeState(P),
         learnIterations: P.learnIterations || 0,
-        threeWayAnalysis: P._threeWayAnalysis || null, // v50.7: 备份携带三盘分析结论
+        threeWayAnalysis: P._threeWayAnalysis || null, // v50.8: 备份携带三盘分析结论
         _syncEpoch: P._syncEpoch || 0,
         // v50.1: 与 main 快照同源的三项小学习态，换端/恢复后行为一致（aiStrength 留本地）
         stateTransition: (P._stateTransition && typeof P._stateTransition === 'object') ? P._stateTransition : {},
@@ -11015,14 +11092,14 @@ async function cloudSaveIncremental(manual) {
                 // 装了触发器 → BEFORE INSERT/UPDATE 用 clock_timestamp() 覆盖成权威服务端时间；
                 // 未装触发器的存量库 → 客户端时间兜底，至少编辑/删除能同步（_ua 仍以服务端回读为准）。
                 rows.push({ id: 'rec_' + rid, data: _d, updated_at: new Date().toISOString() });
-                // v50.7: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
+                // v50.8: 内容指纹——上传期间记录又被改时，据此保留脏标记重传新版本
                 try { fingerprints[rid] = JSON.stringify(_d); } catch(e) {}
             });
             var payloadLen = 0;
             try { payloadLen = JSON.stringify(rows).length; } catch(e) {}
             totalBytes += payloadLen;
             updateCloudStatus('syncing', '☁️ 增量上传 ' + rows.length + ' 条（' + fmtBytes(payloadLen) + '，共' + rids.length + '条待传）...');
-            // v50.7: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
+            // v50.8: 不传 updated_at，由服务端写入；select 读回服务器时间用于 _ua 回填
             var res = await supabaseClient.from(CLOUD_TABLE).upsert(rows, { onConflict: 'id' }).select('id,updated_at');
             if (res.error) {
                 okAll = false;
@@ -11032,7 +11109,7 @@ async function cloudSaveIncremental(manual) {
                 break;
             }
             trackTraffic('out', payloadLen);
-            // v50.7: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
+            // v50.8: 服务器确认的时间戳 → 回填本地 _ua（权威版本号，不再用客户端 Date.now()）
             var _serverUa = {};
             (res.data || []).forEach(function(_r){ if (_r && _r.id) { try { _serverUa[_r.id] = new Date(_r.updated_at).getTime(); } catch(e) {} } });
             chunk.forEach(function(rid){
@@ -11074,7 +11151,7 @@ async function cloudSaveIncremental(manual) {
         }
         if (sent > 0) {
             cloudLastSync = new Date();
-            // v50.7: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
+            // v50.8: 持久化 _ua 上传标记（此前只写内存，刷新后丢失→对账重复排队上传）
             try { P.saveLocal(); } catch(e) {}
             if (!window._autoSyncHold) setAutoSync(true); // v48.5: 显式暂停期间保持暂停
             updateCloudStatus('online', '✅ 增量上传 ' + sent + ' 条（' + fmtBytes(totalBytes) + '）· 共' + P.history.length + '局 · ' + cloudLastSync.toLocaleTimeString());
@@ -11151,7 +11228,7 @@ function mergeRemoteRecRows(rows) {
             if (!d) return;
             var ua = row.updated_at ? new Date(row.updated_at).getTime() : (d.ua || 0);
             // 1) 墓碑 → 删除本地同rid记录
-            // v50.7: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
+            // v50.8: 冲突规则统一为「本地未上传修改(dirty)优先 + 纯 LWW」——
             //   · 本地 _dirtyLocal=1 → 远端(含墓碑)一律丢弃，本地优先；
             //   · 否则纯 LWW：墓碑 updated_at 比本地 _ua 新才删除，旧墓碑不覆盖新记录。
             if (d.del) {
@@ -11321,7 +11398,7 @@ function mergeRemoteRecRows(rows) {
         if (updated) _msg.push('更新' + updated + '条');
         if (removed) _msg.push('删除' + removed + '条');
         updateCloudStatus('online', '📥 增量同步：' + _msg.join('，') + '（共' + P.history.length + '局）');
-        // v50.7: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
+        // v50.8: 流量统计已移至下载点按实际字节计（cloudSweepRecRows / cloudReconcileRecIds），
         // 此处不再按 2048B/行 重复估算
     }
     return { added: added, updated: updated, removed: removed };
@@ -11388,7 +11465,7 @@ async function cloudSweepRecRows(full) {
             if (res.error) { console.warn('[增量补拉] 失败:', res.error.message); break; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v50.7: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
+            // v50.8: 按实际下载字节统计流量（旧版只在有合并变动时按2048B/行估算，
             // 幂等重拉时漏计，导致下行流量统计偏低）
             try { var _pgLen = 0; try { _pgLen = JSON.stringify(rows).length; } catch(e2) {} trackTraffic('in', _pgLen); } catch(e2) {}
             // v47.2: 改用 mergeRemoteRecRows 的真实变动结果统计，而非扫描行数——
@@ -11729,7 +11806,7 @@ async function cloudReconcileRecIds() {
             if (res.error) { console.warn('[对账] id扫描失败:', res.error.message); return; }
             var rows = res.data || [];
             if (!rows.length) break;
-            // v50.7: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
+            // v50.8: id 扫描页流量统计（每行仅id+时间+del标记，约75字节）
             try { trackTraffic('in', rows.length * 75); } catch(e2) {}
             rows.forEach(function(r){
                 remoteIds[r.id] = r.updated_at;
@@ -11775,7 +11852,7 @@ async function cloudReconcileRecIds() {
             for (var mi = 0; mi < missing.length; mi += 100) {
                 var dr = await supabaseClient.from(CLOUD_TABLE).select('id,data,updated_at').in('id', missing.slice(mi, mi + 100));
                 if (dr.error) { console.warn('[对账] 数据拉取失败:', dr.error.message); break; }
-                // v50.7: 按实际下载字节统计流量
+                // v50.8: 按实际下载字节统计流量
                 try { var _drLen = 0; try { _drLen = JSON.stringify(dr.data || []).length; } catch(e3) {} trackTraffic('in', _drLen); } catch(e3) {}
                 var _mr2 = mergeRemoteRecRows(dr.data || []);
                 if (_mr2) { _rAdded += _mr2.added || 0; _rUpdated += _mr2.updated || 0; _rRemoved += _mr2.removed || 0; }
@@ -11793,7 +11870,7 @@ async function cloudReconcileRecIds() {
         });
         if (_seenChanged) _saveRecSeen(recSeen);
         // 已确认处理过的墓碑行登记起来，避免每次对账重复拉取
-        // v50.7: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
+        // v50.8: 只登记「云端是墓碑(del=1)且本地无」的行——旧版把"云端有本地无"一律登记，
         // 一旦某条正常数据因异常未合并进本地，会被误登记成墓碑 → 后续被 _applyTombstonesToLocal 误删。
         // v49.5 ③: _tombNew 已在上方声明
         Object.keys(remoteIds).forEach(function(id) {
@@ -11868,7 +11945,7 @@ setInterval(function() {
     }
 }, 60000);
 
-// ---- v50.7: 手动清理云端历史增量行 ----
+// ---- v50.8: 手动清理云端历史增量行 ----
 // 场景：管理员已完成全量同步（main 快照 = 完整数据），云端残留了大量已被快照覆盖的 rec_ 冗余行
 // （历史反复误传产生，约1800条），既浪费存储又让拉取提示虚高、流量虚耗。
 // 安全边界：只删除「非墓碑 且 updated_at 早于 main 快照时间」的增量行——
@@ -12352,7 +12429,7 @@ async function cloudSave(manual, skipPrecheck) {
             patternHitCache: P.patternHitCache || {}, // v41: 规律命中缓存跨端同步
             config: snapshotConfig(), // v41: 可配置参数跨端同步
             runtimeState: snapshotRuntimeState(P), // v42: 连续错误/紧急模式/局间隔跨端同步
-            // v50.7: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
+            // v50.8: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
             threeWayAnalysis: P._threeWayAnalysis || null,
             _syncEpoch: P._syncEpoch || 0,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null),
@@ -12369,7 +12446,7 @@ async function cloudSave(manual, skipPrecheck) {
         var _sizeKB = _dataSize > 0 ? Math.round(_dataSize/1024) : 0;
         updateCloudStatus('syncing', '☁️ 正在上传云端' + (_sizeKB > 0 ? '（约' + _sizeKB + 'KB）' : '') + '...');
 
-        // v50.7: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
+        // v50.8: 不传 updated_at，由服务端写入——主快照 updated_at 权威一致，
         // 各端 15 分钟「主快照变更检测」不再被客户端时钟偏差误导误刷新
         // v49.7 P0-1: main 行同样要带 updated_at。旧版只 upsert {id,data}，冲突更新时
         // updated_at 不变 → 其他端 autoAcceptAdminBaseline 永远检测不到「管理员全量上传」。
@@ -12413,7 +12490,7 @@ async function cloudSave(manual, skipPrecheck) {
         } catch(e) {}
         // v46.0: 全量上传成功 → 主快照已包含全部记录，清空增量待传队列
         markAllClean();
-        // v50.7: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
+        // v50.8: 持久化 _ua 基线，刷新页面后对账不再把已同步记录重新排队
         try { P.saveLocal(); } catch(e) {}
         try {
             var _est = {};
@@ -13799,7 +13876,7 @@ function restoreFromBackup(backupId) {
             normalizeWindowWeights();
             renderAll();
             P.saveLocal();
-            // 同步覆盖云端 main 数据（v50.7: 不传 updated_at，服务端写入）
+            // 同步覆盖云端 main 数据（v50.8: 不传 updated_at，服务端写入）
             var mainData = {
                 history: P.history, predHistory: P.predHistory, accuracy: P.accuracy,
                 profitAccuracy: P.profitAccuracy,
@@ -18899,36 +18976,33 @@ function fixFalseTies() {
 P.loadLocal();
 fixFalseTies();
 // v42.0: 页面打开不再自动跑AI预测，改为录入成功3秒后才触发
-// v27.4：如果localStorage数据不完整（predHistory被截断），从IndexedDB加载完整数据
-if (P.predHistory && P.history && P.predHistory.length < P.history.length - 1) {
-    techLog('[初始化] localStorage数据不完整，从IndexedDB加载完整数据...');
-    idbLoad(STORE_KEY).then(function(fullData) {
+// v50.8：localStorage 精简副本不含 predHistory 时，从 IndexedDB 补全完整数据。
+// 关键：把补全 Promise 暴露给启动协调器，重建决策必须等它完成；
+// 旧版这里会在补全后立刻重建一次，3 秒定时器又重建一次，且定时器常抢在 IDB 读取之前。
+window._idbRestorePromise = (function() {
+    if (!(P.predHistory && P.history && P.predHistory.length < P.history.length - 1)) {
+        return Promise.resolve(false);
+    }
+    techLog('[初始化] localStorage为精简副本，从IndexedDB补全完整预测历史...');
+    return idbLoad(STORE_KEY).then(function(fullData) {
         if (fullData && fullData.history) {
-            P.restoreFromData(fullData); // v27.4：直接从IndexedDB数据恢复，绕过localStorage
+            P.restoreFromData(fullData); // 完整数据恢复后会清掉 _rebuildPending
             try { fixFalseTies(); } catch(e) {}
-            // v44.30-fix3: 数据补全后走系统自带的完整分帧刷新（卡片/统计/历史表/预测历史/
-            // 模型准确率/联合信号/血本盘/学习页/饼图/洞察/漂移告警），不再手工列举几个面板。
-            // 旧版只刷 renderCards+updateStats，血本盘、饼图、洞察等全留在首屏 100 局版本，
-            // 造成"投资盘3620局 / 血本盘100局"的同屏数据分叉。
+            // v44.30-fix3: 数据补全后走系统自带的完整分帧刷新
             try { renderAll(); } catch(e) { console.error('[IndexedDB补全]刷新失败:', e); }
-            if (P._rebuildPending) {
-                P.rebuildHistoryAsync(null, function() {
-                    requestAnimationFrame(function() {
-                        try { renderHistory(); } catch(e) {}
-                        try { renderPredHistory(); } catch(e) {}
-                    });
-                });
-            } else {
-                requestAnimationFrame(function() {
-                    try { renderHistory(); } catch(e) {}
-                    try { renderPredHistory(); } catch(e) {}
-                });
-            }
+            // v50.8: 不再在这里即时重建，统一交给启动协调器，避免双重重建
+            requestAnimationFrame(function() {
+                try { renderHistory(); } catch(e) {}
+                try { renderPredHistory(); } catch(e) {}
+            });
             techLog('[初始化] 已从IndexedDB恢复完整数据，history:', fullData.history.length);
-            techLog('[初始化] 已从IndexedDB恢复完整数据，predHistory:', fullData.predHistory.length);
+            techLog('[初始化] 已从IndexedDB恢复完整数据，predHistory:', (fullData.predHistory || []).length);
+            return true;
         }
-    });
-}
+        return false;
+    }).catch(function() { return false; });
+})();
+
 // v27.4：首次加载分帧渲染——先出预测卡片和统计，下一帧再渲染历史表格，大幅减少卡顿
 var _initHC = document.getElementById('historyContainer');
 if (_initHC) _initHC.removeAttribute('data-page'); // 确保打开时默认在最后一页
@@ -19056,34 +19130,58 @@ setTimeout(function() {
         }
     } catch(e) { console.warn('[回填] 启动失败:', e); }
 }, 20000);
-// v26.1：如果predHistory被截断，异步分批重建，不阻塞UI
-// v34.6：延迟3秒启动，等云端数据加载完成；如果云端数据完整会清除_rebuildPending，就不重建
-setTimeout(function() {
-if (P._rebuildPending) {
-    var rebuildTip = document.createElement('div');
-    rebuildTip.id = 'rebuildTip';
-    rebuildTip.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:#302b63;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.2);max-width:320px;line-height:1.6;';
-    rebuildTip.innerHTML = '🔄 正在重建历史预测数据...<br><span id="rebuildProgress" style="font-size:12px;opacity:0.8;">0%</span>';
-    document.body.appendChild(rebuildTip);
-    P.rebuildHistoryAsync(
-        function(done, total) {
-            var pct = Math.floor(done / total * 100);
-            var el = document.getElementById('rebuildProgress');
-            if (el) el.textContent = done + '/' + total + ' (' + pct + '%)';
-        },
-        function() {
-            renderAll();
-            // v36.1：本地重建predHistory完成只写本地，不触发上传
-            try { P.saveLocal(); } catch(e) {}
-            var tip = document.getElementById('rebuildTip');
-            if (tip) {
-                tip.innerHTML = '✅ 历史预测数据重建完成！';
-                setTimeout(function(){ if (tip.parentNode) tip.parentNode.removeChild(tip); }, 2000);
-            }
+// v26.1：predHistory 被截断时异步分批重建，不阻塞 UI
+// v50.8：统一协调器——必须等 IndexedDB 补全 Promise 完成后再决策。
+// 旧版只延迟 3 秒，4 千局的 IDB 读取/解析常常超过 3 秒，定时器抢先启动重建，
+// 补全回调随后又把状态冲掉，形成「每次打开都从头重建 4000+ 局」。
+(function() {
+    var _decided = false;
+    function _decide() {
+        if (_decided) return;
+        _decided = true;
+        if (!P._rebuildPending) {
+            techLog('[启动] 预测历史已完整，跳过重建');
+            return;
         }
-    );
-}
-}, 3000);
+        // IDB 补全已成功、数据也对齐：不必重建（防御性兜底）
+        if (_predHistReadyMatches(P.history) && _predHistComplete(P.history, P.predHistory)) {
+            P._rebuildPending = false;
+            P._rebuildHist = null;
+            techLog('[启动] 完整态标记命中且预测历史已对齐，跳过重建');
+            return;
+        }
+        var rebuildTip = document.createElement('div');
+        rebuildTip.id = 'rebuildTip';
+        rebuildTip.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99999;background:#302b63;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.2);max-width:320px;line-height:1.6;';
+        rebuildTip.innerHTML = '🔄 正在重建历史预测数据...<br><span id="rebuildProgress" style="font-size:12px;opacity:0.8;">0%</span>';
+        document.body.appendChild(rebuildTip);
+        techLog('[启动] 预测历史确实缺失，启动一次重建（完成后落完整态标记，后续不再重复）');
+        P.rebuildHistoryAsync(
+            function(done, total) {
+                var pct = Math.floor(done / total * 100);
+                var el = document.getElementById('rebuildProgress');
+                if (el) el.textContent = done + '/' + total + ' (' + pct + '%)';
+            },
+            function() {
+                renderAll();
+                // v36.1：本地重建predHistory完成只写本地，不触发上传
+                try { P.saveLocal(); } catch(e) {}
+                try { _markPredHistReady(P.history, P.predHistory); } catch(e) {}
+                var tip = document.getElementById('rebuildTip');
+                if (tip) {
+                    tip.innerHTML = '✅ 历史预测数据重建完成！';
+                    setTimeout(function(){ if (tip.parentNode) tip.parentNode.removeChild(tip); }, 2000);
+                }
+            }
+        );
+    }
+    var _idbP = window._idbRestorePromise || Promise.resolve(false);
+    var _minWait = new Promise(function(r){ setTimeout(r, 3000); });
+    var _guard = new Promise(function(r){ setTimeout(function(){ r('idb-timeout'); }, 12000); });
+    // 等「IDB 补全 + 至少 3 秒」；IDB 卡死时 12 秒兜底推进，不会永久不出结果
+    Promise.race([Promise.all([_idbP, _minWait]), _guard]).then(_decide).catch(_decide);
+})();
+
 // v26.5：深色模式
 var DARK_MODE_KEY = 'mm_dark_mode_v1';
 function toggleDarkMode() {
