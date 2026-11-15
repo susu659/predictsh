@@ -4,13 +4,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v50.12: 双核浏览器（360安全/极速、QQ、搜狗等）强制走极速(Chromium)内核。
+<!-- v50.16: 双核浏览器（360安全/极速、QQ、搜狗等）强制走极速(Chromium)内核。
      不加这行时，部分版本对本地 file:// 页面会落到 IE 内核，直接整页白屏且不报错。 -->
 <meta name="renderer" content="webkit">
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v50.9（跨端一致版）</title>
+<title>商会三竞预测系统 v50.16（跨端一致版）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -124,6 +124,10 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
     border-radius:14px;
     box-shadow:0 6px 20px rgba(0,0,0,.06);
     border:1px solid #e8ecf0;
+    /* v50.14 性能：把表格滚动区独立成「布局/绘制隔离区」，滚动时只重绘自身，
+       不再牵连整页；overscroll-behavior 防止滚到底后把滚动传给整个页面。 */
+    contain:layout paint;
+    overscroll-behavior:contain;
 }
 /* v46.0: 历史记录筛选工具栏 */
 .history-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:#f8f9fa;border:1px solid #e9ecef;border-radius:12px;padding:10px 14px;margin-top:10px}
@@ -154,7 +158,9 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
     white-space:nowrap;
 }
 .history-table th{
-    background:linear-gradient(180deg,#302b63,#1e1a4a);
+    /* v50.14 性能：粘性表头改用纯色 + 细边框，去掉渐变与阴影——
+       粘性元素在滚动时每帧重绘，渐变/阴影是重绘大户。视觉几乎无差别。 */
+    background:#262144;
     color:#fff;
     font-weight:700;
     font-size:clamp(13px,1.5vw,15px);
@@ -164,15 +170,19 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
     position:sticky;
     top:0;
     z-index:10;
-    box-shadow:0 2px 8px rgba(0,0,0,0.15);
+    border-bottom:2px solid #14112b;
 }
 .history-table td{
     height:40px;
 }
 .history-table tr:last-child td{border-bottom:none}
-.history-table tr:hover td{background:#f5f3ff;transition:background .15s}
-.history-table tr:nth-child(even) td{background:#fafbfc}
-.history-table tr:nth-child(even):hover td{background:#f5f3ff}
+/* v50.14 性能：斑马纹与 hover 从「每个 td 各画一块背景」改为「整行画一块」。
+   100 行 × 14 列原本是 1400 次背景绘制，现在只有 100 次；hover 去掉过渡动画，
+   避免滚动时鼠标扫过行触发成排的重绘；触屏设备不启用 hover 效果。 */
+.history-table tr:nth-child(even){background:#fafbfc}
+@media (hover:hover){
+    .history-table tbody tr:hover{background:#f5f3ff}
+}
 .winner-cell{font-weight:700;font-size:clamp(16px,1.7vw,18px)}
 .winner-a{color:#e74c3c}
 .winner-b{color:#3498db}
@@ -220,7 +230,7 @@ button{flex:1;min-width:110px;padding:14px 20px;border:none;border-radius:9px;fo
 .pred-history-table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 .pred-history-table th,.pred-history-table td{padding:14px 20px;border-bottom:1px solid #e8ecf0;text-align:center;white-space:nowrap;line-height:1.8}
 .pred-history-table th{background:#e9ecef;position:sticky;top:0;font-weight:600;color:#495057;letter-spacing:0.5px;font-size:14px;padding:14px 20px}
-.pred-history-table tr:hover td{background:#f0f0ff}
+@media (hover:hover){ .pred-history-table tbody tr:hover{background:#f0f0ff} }
 .correct-bg{background:rgba(212,237,218,.55)}
 .wrong-bg{background:rgba(248,215,218,.55)}
 /* ========== 其他面板 ========== */
@@ -719,7 +729,7 @@ body.dark-mode .guild-input{background:#12213f}
      导致「把浏览器窗口拖窄」时 ABC 换行。本段只加规则、不改原 CSS：
        1) 任何宽度固定 3 列（!important 覆盖 1080px 的 repeat(2,1fr) 与 720px 的 1fr）
        2) 用 vw 让字号/内边距/间距按窗口宽度线性缩放，
-          视觉上等同于「按窗口百分比缩放」，而不是重排（v50.12 起不再用 cqw）
+          视觉上等同于「按窗口百分比缩放」，而不是重排（v50.16 起不再用 cqw）
        3) 触屏设备(pointer:coarse)窄屏仍保留单列，避免手机上三列挤成一团
      ==================================================================== -->
 <style id="v45_3_fluidCards">
@@ -728,7 +738,7 @@ body.dark-mode .guild-input{background:#12213f}
   gap:clamp(6px,1.1vw,20px) !important;
   align-items:stretch;
 }
-/* v50.12 兼容修复③：原版用容器查询（container-type / cqw / @container），需要
+/* v50.16 兼容修复③：原版用容器查询（container-type / cqw / @container），需要
    Chromium 105+（2022 年）才支持；360极速X 等 95 内核会把整段声明判为非法并丢弃，
    「按容器等比缩放」完全失效。这里改用同语义的 vw 单位 + 普通媒体查询，Chrome 79+
    全部生效，新旧内核表现一致。 */
@@ -768,10 +778,12 @@ body.dark-mode .guild-input{background:#12213f}
 /* v50.13 图标统一：把依赖系统 emoji 字体的非 BMP 图标，换成「彩色圆角方块 + 白色符号」徽章。
    符号全部落在 BMP（↻ ↑ ☁ ★ ⚙ ※ ▦ ◎ ✖ ▤ ✚ ◇ ◉ ♛ ¥ △ □ ∞ ✔），Windows 中文字体自带字形，
    不再依赖彩色 emoji 字体；emoji 正常的设备上外观也更整齐统一。 */
-.ico{display:inline-flex;align-items:center;justify-content:center;width:1.18em;height:1.18em;
+/* v50.15: 固定徽章基线/尺寸（vertical-align:middle + flex:0 0 auto），
+   文本重排时图标不再上下抖动；配合下方脚本修复徽章被反复销毁重建的问题。 */
+.ico{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:1.18em;height:1.18em;
      min-width:1.18em;border-radius:.24em;color:#fff;font-size:.82em;font-weight:700;line-height:1;
-     vertical-align:-.18em;margin-right:.34em;font-family:'Segoe UI','Microsoft YaHei',sans-serif;
-     text-shadow:none;box-shadow:inset 0 -1px 0 rgba(0,0,0,.14);}
+     vertical-align:middle;margin-right:.34em;font-family:'Segoe UI','Microsoft YaHei',sans-serif;
+     text-shadow:none;box-shadow:inset 0 -1px 0 rgba(0,0,0,.14);white-space:nowrap}
 a .ico,.tab-btn .ico{margin-right:.3em}
 </style>
 </head>
@@ -857,10 +869,10 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.9</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.16</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.9）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.16）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
 <details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看更早版本（v49.3 及以前）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
@@ -1694,7 +1706,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   </div>
 </div>
 
-<!-- ================= EXT v1.0 六模块扩展（独立 style 块，不改动原有 CSS） ================= -->
+<!-- ================= EXT v1.0 扩展面板（独立 style 块，不改动原有 CSS；v50.15 移除多维度准确率报表） ================= -->
 <style>
 .ext-panel{margin:12px 0;padding:12px 14px;border-radius:10px;background:linear-gradient(135deg,#f8f7ff,#eef0fb);border:1px solid #e0e2f5;font-size:13px;color:#495057;box-sizing:border-box;}
 .ext-title{font-weight:700;color:#302b63;font-size:13px;margin-bottom:8px;}
@@ -1703,8 +1715,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 .ext-conflict{display:none;margin:10px 0;padding:10px 14px;border-radius:10px;background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;font-size:13px;font-weight:600;line-height:1.6;}
 .ext-timeline{display:flex;gap:6px;align-items:center;overflow-x:auto;padding:6px 0;}
 .ext-tl-dot{min-width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex:0 0 auto;cursor:default;}
-.ext-acc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;}
-.ext-acc-card{background:#fff;border:1px solid #e9ecef;border-radius:10px;padding:8px 10px;}
+/* v50.15: 首页「多维度准确率报表」已移除，配套样式一并清理。 */
 @media (max-width:640px){
   .ext-panel{padding:10px 12px;font-size:12px;}
   .ext-tl-dot{min-width:22px;height:22px;font-size:11px;}
@@ -1798,7 +1809,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
     background:linear-gradient(90deg,rgba(79,140,255,.22),rgba(0,229,195,.22));
     border:1px solid var(--nx-line);box-shadow:0 0 12px rgba(79,140,255,.35);text-shadow:none;}
   /* 玻璃拟态卡片 */
-  /* v50.12 兼容修复①：彻底移除 backdrop-filter:blur(10px)。
+  /* v50.16 兼容修复①：彻底移除 backdrop-filter:blur(10px)。
      ① 老内核（360极速X / Chromium 95 等）在软件合成或被降级 GPU 上，带 backdrop-filter
         且自身形成层叠上下文（如 rank-1 的 z-index:1）的元素会整块不绘制 → 卡片"凭空消失"、
         整块面板空白，看起来就是白屏；② 该属性每帧重采样背景，是滑动卡顿的大头。
@@ -1807,7 +1818,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
    border:1px solid rgba(255,255,255,.55);box-shadow:0 8px 26px rgba(4,9,32,.35), inset 0 1px 0 rgba(255,255,255,.85);
    transition:none;}
   .pred-card:hover,.stat-card:hover{box-shadow:0 12px 34px rgba(4,9,32,.42)}
- /* v50.12 兼容修复①补：兼容层兜底——任何主体卡片都不允许再出现 backdrop-filter
+ /* v50.16 兼容修复①补：兼容层兜底——任何主体卡片都不允许再出现 backdrop-filter
     （含暗色主题/后续覆盖），老内核一旦命中该属性，整块卡片可能完全不绘制。 */
  .pred-card,.stat-card,.chart-card,.insight-card{
    backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
@@ -1858,7 +1869,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   body::before{background-size:100% 100%;background-position:0 0;}
   /* v48.6: 滚动时 sticky 表头/大表格的合成层兜底，减少 Chrome 滚动重绘闪烁。
      真正的根治在 renderHistory：内容无变化时不写 DOM。 */
-  /* v50.12 兼容修复②：整段移除 translateZ(0)。它会强行把历史表容器（最多 100 行 × 40px，
+  /* v50.16 兼容修复②：整段移除 translateZ(0)。它会强行把历史表容器（最多 100 行 × 40px，
      老内核/3x DPR 下远超 GPU 纹理上限）提升成巨型合成层，显存换页时正是「滑动白屏」
      的典型成因；v48.6 的闪动问题已由 renderHistory 的 DOM 签名守卫根治，不再需要建层兜底。 */
   .history-table-container{-webkit-overflow-scrolling:touch;}
@@ -2101,9 +2112,9 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v50.9'; // v50.9: 导出日期纯净 / 登录态持久化 / 滑动零白屏
+  var APP_VERSION = 'v50.16'; // v50.16: 全量缺陷修复（同步安全 / 预测口径 / 渲染健壮性）
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v50.9：①【导出日期范围不再夹带其它日期】日期归属判定改为与历史表格时间有序视图同源，导出文件的「日期」列与筛选条件共用同一个函数，并在导出前按最终写入的日期逐条复核，导出 14 号不会再混进 13 号；日期下拉一次性生成，默认仍只选最新一天。②【登录态不再反复掉】启动时自愈回写设备 ID / 授权缓存 / 登录类型 / 统一凭证；换服务器判定改为与上次实际使用的地址比较，不再每次启动误判并触发清理刷新；后台校验遇弱网或云端查不到记录时保持登录，管理员登录类型不再被用户授权轮询覆盖，撤销设备授权也不会把管理员弹回密码页；只有普通用户被管理员明确撤销才需要重新授权。③【滑动不再白屏卡顿】滚动门控补上历史表格等内部滚动容器（scroll 不冒泡，旧版 window 监听收不到），内部滑动不再引发整页样式重算，云端轮询渲染统一排队到停手后；启动 5 秒内自动渲染合并窗口放宽，避开 IndexedDB 补全 / 首次拉取 / 重建与用户滑动抢主线程。预测算法、权重口径与同步协议不变。\nv50.8：①【不再每次打开都重建历史预测数据】v50.2 起 localStorage 只存精简副本（不含 predHistory），每次打开 loadLocal 都把重建标记置起；而启动早期的保存、云端快照回写又会用这份残缺预测历史覆盖 IndexedDB 里的完整副本，3 秒的重建定时器还常常抢在 IDB 读取完成之前启动，于是 4000+ 局被反复重建（截图 1470/4102）。现加「预测历史完整态」标记与受保护的 IDB 写入：残缺的 predHistory 绝不覆盖 IDB 完整副本；云端残缺快照回写时沿用本机已完整的预测历史；启动重建统一等 IDB 补全完成后再决策，IDB 补全成功即直接跳过重建；重建完成后落标记，数据没变化就永不重复重建。只有真正新增局/编辑比分/清空数据后才按需重建。②【附带】重建进度条只在真正需要重建时出现；预测算法、权重口径与同步协议不变。\nv50.7：①【导出日期范围不再夹带其它日期】旧版把「日期范围」导出取成首尾命中记录之间的连续物理区间，而云端补录会把 13 号的局拼到 14 号局之间，导出 14 号时就把夹在中间的 13 号一起带了出来（历史表格走时间有序视图所以显示正常）。现改为逐条按日期过滤、只导出命中记录，并按时间先后排序；日期解析在 timeSlot 无月日时回退 rec.date，导出文件名带上具体日期，范围与条数一眼可核对。②【登录态持久化】普通用户反复重新授权、管理员反复重新登录的根因是：重读云配置时一并把设备 ID 与授权缓存删掉（刷新后设备 ID 变了＝云端新设备＝必须管理员重新授权），且残留的用户授权轮询会把管理员登录类型覆盖成 user。现新增带冗余的统一登录凭证，启动时自愈回写设备 ID / 授权 / 登录类型；配置重读不再清设备与授权，仅真正换服务器才清同步缓存；后台校验遇弱网或云端查不到记录时保持登录，只有管理员明确撤销才要求重新授权。预测算法、权重口径与同步协议不变。\nv50.8：①【旧基线标记不再覆盖本地新局】拉取时，旧主快照携带的上次全量基线标记，在本地比云端更长（有尚未上传的新局）时，旧逻辑仍会把旧快照当权威基线采纳，硬校验局数不符后用云端旧数组强制回填，把刚录的局抹掉并清空待传队列——表现为本地显示 4085/4086、云端和对端收不到；现只有云端局数不少于本地、或管理员/纪元强制时才按基线采纳，本地更长时走键级合并、只补本地缺的记录，不再用旧快照覆盖本地。②【基线回填兜底保留本地独有局】即使进入基线回填，也先把本地原数组里编号不在云端快照中的局按编号保留回来，不按业务键删除；待传标记丢失也不会被旧快照抹掉。预测算法、权重口径、同步协议与上传体积速度不变。\nv50.5：①【重建窗口新局保留】后台分批重建预测历史期间若又录入或合并了新局，旧逻辑重建完成时会用旧快照整体覆盖历史，把窗口内新增的局抹掉——残留的待传编号上传时找不到对应记录而被当成删除墓碑，表现为「本地在、云端或对端收不到」；现按编号保留重建结果之外的新增局及其预测快照拼回，命中率统计按合并后的预测历史重建，不再索引错位，预测算法与权重口径不变。②【同步对账体检】云同步面板新增「🩺 同步体检」按钮，一键汇总只读对比结果（也可在控制台执行 syncDiagnostics() 查各道同步闸门与拦截原因、await cloudDiffDiagnostics() 逐项对比本地历史、云端主快照、增量行与墓碑，列出「本地有而主快照缺失」的局及其是否已在增量行、是否被墓碑），用于定位新局卡在上传、拉取还是合并哪一段；诊断只读，不改任何数据。③【增量版本号回填加固】增量上传成功但服务端时间戳回读为空时，旧逻辑会把本地版本号置 0，导致这条新局在两端版本比较里永远被判成旧记录、被接收端当重复墓碑化（本地在、对端收不到）；现回读不到权威时间就保留待传标记、不把版本号清零，下轮重传再争取服务端时间戳，正常回读成功时行为不变，上传体积与速度不变。\nv50.4：【历史时间乱序修复】云端补录的早时间局会被拼到历史数组末尾，导致历史表格里「14 号下面接 13 号」、近局序列与导入尾局锚点取到错误的尾部。现历史表格、近 5/10/20 局序列、导入锚点匹配统一改走按时间排序的有序视图（与预测窗口同源），展示与锚点按时间先后排列；编辑/删除仍按原记录定位，预测算法、权重口径与同步协议不变。\nv50.3：①【编辑比分后重建预测历史】修改历史比分/收益/投资后，旧预测对错已与新结果脱节，现交后台既有回测链路按新历史分批重建预测历史与命中率，不阻塞界面；重建期间再次编辑会在当前完成后补排一轮。②【数据一致性自检】录入/合并/刷新后自动校验预测历史与历史局数对齐、rid 唯一、预测条目字段完整、时间有序，异常写入技术日志与控制台告警，不阻断使用；自检 60 秒节流，不增加日常渲染负担。③【临界榜首提示】非观望状态下，榜首与次名概率差不足 2% 时，总结区标注「势均力敌、排名不稳」，避免把临界翻转当成确定结论；概率算法与权重口径不变。\nv50.2：【本地存储瘦身】localStorage 只保留核心历史、模型权重、配置与同步纪元等小字段，predHistory/命中率大数组、反思日志、命中缓存等只存 IndexedDB，刷新后自动补全或回测重建；4000+ 局后不再反复触发本地存储配额超限告警，启动时局数短暂偏少再回弹的现象随之消除。完整数据仍由 IndexedDB 兜底，云端同步协议与预测算法不变。\nv50.1：①【AI 停用收尾】旧会话/旧快照残留的 AI 修正缓存不再参与最终概率——仅当 AI 开关显式启用时才套用；清空或恢复数据时一并清掉旧 AI 缓存，残留不再改概率。②【快照精简】AI 裁判强度系数只留本地存档，不再随云端全量快照/备份/回写主行上传，也不参与跨端对齐；跨端仍同步的只有盘面转移矩阵、漂移状态及观察起点三项。预测算法与权重口径不变。\nv50.0：①【跨端一致】AI 裁判强度、盘面转移矩阵、漂移状态及观察起点四项小学习态纳入云端全量快照/自动备份/回滚快照，并在拉取合并时按权威快照对齐——同一份历史在各端、刷新后、换端后算出一致概率，不再因各端残留不同内部状态在临界带翻转榜首；证据表与校准桶仍留本地不上云，日常增量上传体积与速度不变。②【向后兼容】旧快照缺这些字段时保留本机当前值、回退既有默认，不覆盖、不重置；预测算法、权重口径与既有交互均未改动。\nv49.8：①相似盘、相似收益盘、相似投资盘、血本盘统一改成「局数定档 + 同档按次数」的严格权重——局数长的档位恒压过短档位，局数相同则次数多的权重大，质量不再参与加权，只留在匹配明细里供核对（控制台执行 CONFIG.simStrictOrder=false; 可回退旧口径）；②移动端收益/投资/血本/相似盘四个面板不再把长序列截成省略号、不再限高内部滚动，整段铺开上下滑即可看全；预测卡片一律单列。\nv49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
+  var APP_UPDATE_DESC_RECENT = 'v50.16：全量缺陷修复（不影响预测算法与权重口径）\n①【同步与数据安全】改设备备注名的 PATCH 补上 id 过滤（旧版会把云端所有设备的设备名都改成当前设备名）；覆盖导入改为先快照模型权重再清空，学到的权重不再被默认值顶掉；共享数据表导出/导入字段对齐（时间/收益/投资不再全空），并修掉导入时调用不存在的 P.learn() 导致该功能直接报错；备份恢复失败不再谎报「恢复成功」；saveLocal 兜底不再把主存储写成 undefined。\n②【预测与统计口径】证据表补录实际结果修正差一，样本外证据与漂移检测恢复生效；异步重建预测快照多跳 2 条造成的 predHistory 永久错位修正；收益盘相似片段补 nextWinner，收益方向投票不再恒空；相似度门槛 minSim 真正生效、相似盘缓存按窗口区分、自动调参坐标下降不再只测前 2 档；概率校准分母修正，过度自信检测恢复。\n③【界面与交互】当日快照表不再冒出「加载更多」并覆盖整表；历史表/学习页遇缺字段或空洞不再整块渲染失败；删除行、编辑清空收益/投资、标签归属、版本回滚按钮、云状态提示、在线设备重复行、离线补传队列、时间线配对等一批健壮性修复。\n④ 版本号与更新说明同步至 v50.16，便于各端核对是否同一版本。\nv50.9：①【导出日期范围不再夹带其它日期】日期归属判定改为与历史表格时间有序视图同源，导出文件的「日期」列与筛选条件共用同一个函数，并在导出前按最终写入的日期逐条复核，导出 14 号不会再混进 13 号；日期下拉一次性生成，默认仍只选最新一天。②【登录态不再反复掉】启动时自愈回写设备 ID / 授权缓存 / 登录类型 / 统一凭证；换服务器判定改为与上次实际使用的地址比较，不再每次启动误判并触发清理刷新；后台校验遇弱网或云端查不到记录时保持登录，管理员登录类型不再被用户授权轮询覆盖，撤销设备授权也不会把管理员弹回密码页；只有普通用户被管理员明确撤销才需要重新授权。③【滑动不再白屏卡顿】滚动门控补上历史表格等内部滚动容器（scroll 不冒泡，旧版 window 监听收不到），内部滑动不再引发整页样式重算，云端轮询渲染统一排队到停手后；启动 5 秒内自动渲染合并窗口放宽，避开 IndexedDB 补全 / 首次拉取 / 重建与用户滑动抢主线程。预测算法、权重口径与同步协议不变。\nv50.8：①【不再每次打开都重建历史预测数据】v50.2 起 localStorage 只存精简副本（不含 predHistory），每次打开 loadLocal 都把重建标记置起；而启动早期的保存、云端快照回写又会用这份残缺预测历史覆盖 IndexedDB 里的完整副本，3 秒的重建定时器还常常抢在 IDB 读取完成之前启动，于是 4000+ 局被反复重建（截图 1470/4102）。现加「预测历史完整态」标记与受保护的 IDB 写入：残缺的 predHistory 绝不覆盖 IDB 完整副本；云端残缺快照回写时沿用本机已完整的预测历史；启动重建统一等 IDB 补全完成后再决策，IDB 补全成功即直接跳过重建；重建完成后落标记，数据没变化就永不重复重建。只有真正新增局/编辑比分/清空数据后才按需重建。②【附带】重建进度条只在真正需要重建时出现；预测算法、权重口径与同步协议不变。\nv50.7：①【导出日期范围不再夹带其它日期】旧版把「日期范围」导出取成首尾命中记录之间的连续物理区间，而云端补录会把 13 号的局拼到 14 号局之间，导出 14 号时就把夹在中间的 13 号一起带了出来（历史表格走时间有序视图所以显示正常）。现改为逐条按日期过滤、只导出命中记录，并按时间先后排序；日期解析在 timeSlot 无月日时回退 rec.date，导出文件名带上具体日期，范围与条数一眼可核对。②【登录态持久化】普通用户反复重新授权、管理员反复重新登录的根因是：重读云配置时一并把设备 ID 与授权缓存删掉（刷新后设备 ID 变了＝云端新设备＝必须管理员重新授权），且残留的用户授权轮询会把管理员登录类型覆盖成 user。现新增带冗余的统一登录凭证，启动时自愈回写设备 ID / 授权 / 登录类型；配置重读不再清设备与授权，仅真正换服务器才清同步缓存；后台校验遇弱网或云端查不到记录时保持登录，只有管理员明确撤销才要求重新授权。预测算法、权重口径与同步协议不变。\nv50.8：①【旧基线标记不再覆盖本地新局】拉取时，旧主快照携带的上次全量基线标记，在本地比云端更长（有尚未上传的新局）时，旧逻辑仍会把旧快照当权威基线采纳，硬校验局数不符后用云端旧数组强制回填，把刚录的局抹掉并清空待传队列——表现为本地显示 4085/4086、云端和对端收不到；现只有云端局数不少于本地、或管理员/纪元强制时才按基线采纳，本地更长时走键级合并、只补本地缺的记录，不再用旧快照覆盖本地。②【基线回填兜底保留本地独有局】即使进入基线回填，也先把本地原数组里编号不在云端快照中的局按编号保留回来，不按业务键删除；待传标记丢失也不会被旧快照抹掉。预测算法、权重口径、同步协议与上传体积速度不变。\nv50.5：①【重建窗口新局保留】后台分批重建预测历史期间若又录入或合并了新局，旧逻辑重建完成时会用旧快照整体覆盖历史，把窗口内新增的局抹掉——残留的待传编号上传时找不到对应记录而被当成删除墓碑，表现为「本地在、云端或对端收不到」；现按编号保留重建结果之外的新增局及其预测快照拼回，命中率统计按合并后的预测历史重建，不再索引错位，预测算法与权重口径不变。②【同步对账体检】云同步面板新增「🩺 同步体检」按钮，一键汇总只读对比结果（也可在控制台执行 syncDiagnostics() 查各道同步闸门与拦截原因、await cloudDiffDiagnostics() 逐项对比本地历史、云端主快照、增量行与墓碑，列出「本地有而主快照缺失」的局及其是否已在增量行、是否被墓碑），用于定位新局卡在上传、拉取还是合并哪一段；诊断只读，不改任何数据。③【增量版本号回填加固】增量上传成功但服务端时间戳回读为空时，旧逻辑会把本地版本号置 0，导致这条新局在两端版本比较里永远被判成旧记录、被接收端当重复墓碑化（本地在、对端收不到）；现回读不到权威时间就保留待传标记、不把版本号清零，下轮重传再争取服务端时间戳，正常回读成功时行为不变，上传体积与速度不变。\nv50.4：【历史时间乱序修复】云端补录的早时间局会被拼到历史数组末尾，导致历史表格里「14 号下面接 13 号」、近局序列与导入尾局锚点取到错误的尾部。现历史表格、近 5/10/20 局序列、导入锚点匹配统一改走按时间排序的有序视图（与预测窗口同源），展示与锚点按时间先后排列；编辑/删除仍按原记录定位，预测算法、权重口径与同步协议不变。\nv50.3：①【编辑比分后重建预测历史】修改历史比分/收益/投资后，旧预测对错已与新结果脱节，现交后台既有回测链路按新历史分批重建预测历史与命中率，不阻塞界面；重建期间再次编辑会在当前完成后补排一轮。②【数据一致性自检】录入/合并/刷新后自动校验预测历史与历史局数对齐、rid 唯一、预测条目字段完整、时间有序，异常写入技术日志与控制台告警，不阻断使用；自检 60 秒节流，不增加日常渲染负担。③【临界榜首提示】非观望状态下，榜首与次名概率差不足 2% 时，总结区标注「势均力敌、排名不稳」，避免把临界翻转当成确定结论；概率算法与权重口径不变。\nv50.2：【本地存储瘦身】localStorage 只保留核心历史、模型权重、配置与同步纪元等小字段，predHistory/命中率大数组、反思日志、命中缓存等只存 IndexedDB，刷新后自动补全或回测重建；4000+ 局后不再反复触发本地存储配额超限告警，启动时局数短暂偏少再回弹的现象随之消除。完整数据仍由 IndexedDB 兜底，云端同步协议与预测算法不变。\nv50.1：①【AI 停用收尾】旧会话/旧快照残留的 AI 修正缓存不再参与最终概率——仅当 AI 开关显式启用时才套用；清空或恢复数据时一并清掉旧 AI 缓存，残留不再改概率。②【快照精简】AI 裁判强度系数只留本地存档，不再随云端全量快照/备份/回写主行上传，也不参与跨端对齐；跨端仍同步的只有盘面转移矩阵、漂移状态及观察起点三项。预测算法与权重口径不变。\nv50.0：①【跨端一致】AI 裁判强度、盘面转移矩阵、漂移状态及观察起点四项小学习态纳入云端全量快照/自动备份/回滚快照，并在拉取合并时按权威快照对齐——同一份历史在各端、刷新后、换端后算出一致概率，不再因各端残留不同内部状态在临界带翻转榜首；证据表与校准桶仍留本地不上云，日常增量上传体积与速度不变。②【向后兼容】旧快照缺这些字段时保留本机当前值、回退既有默认，不覆盖、不重置；预测算法、权重口径与既有交互均未改动。\nv49.8：①相似盘、相似收益盘、相似投资盘、血本盘统一改成「局数定档 + 同档按次数」的严格权重——局数长的档位恒压过短档位，局数相同则次数多的权重大，质量不再参与加权，只留在匹配明细里供核对（控制台执行 CONFIG.simStrictOrder=false; 可回退旧口径）；②移动端收益/投资/血本/相似盘四个面板不再把长序列截成省略号、不再限高内部滚动，整段铺开上下滑即可看全；预测卡片一律单列。\nv49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
   var APP_UPDATE_DESC_HISTORY = '历史交付（v49.3）：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v50.8 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
   var APP_UPDATE_DESC = APP_UPDATE_DESC_RECENT + '\n' + APP_UPDATE_DESC_HISTORY; // 兼容旧引用
   (function(){ try {
@@ -2322,6 +2333,11 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
     if (!sbUrl || !sbKey) return Promise.reject(new Error('请先配置云同步（Supabase）'));
     var h = {'apikey': sbKey, 'Authorization': 'Bearer ' + sbKey, 'Content-Type': 'application/json'};
     if (opt && opt.headers) for (var k in opt.headers) h[k] = opt.headers[k];
+    // v50.16修复：支持 query 过滤条件。旧版忽略该参数，PATCH（改设备备注名）会命中整张表，
+    // 把云端所有设备的 device_name 都改成当前设备名。同时把 Prefer 头带上，PATCH 返回空体也不报错。
+    if (opt && opt.query) {
+      path += (path.indexOf('?') >= 0 ? '&' : '?') + String(opt.query).replace(/^\?/, '');
+    }
     // v31.4：加AbortController超时，避免弱网下设备授权请求永久挂起
     var _ctrl = new AbortController();
     var _to = setTimeout(function(){ _ctrl.abort(); }, 20000); // 恢复全局20秒超时，保证正常云同步不被掐断
@@ -2396,7 +2412,8 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
         var rb = document.getElementById('accessReapplyBtn');
         if (rb) rb.style.display = 'inline-block';
       } else {
-        document.getElementById('accessPendingHint').textContent = '等待管理员授权中…（每5秒自动刷新）';
+        // v50.16修复：旧版这里直接把待授权页上刚显示的"设备名称：xxx"覆盖掉，用户永远看不到自己的备注名
+        document.getElementById('accessPendingHint').textContent = '设备名称：' + devName() + ' · 等待管理员授权中…（每5秒自动刷新）';
         var rb2 = document.getElementById('accessReapplyBtn');
         if (rb2) rb2.style.display = 'none';
       }
@@ -2664,7 +2681,9 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
 
   function renderList(cid, arr, type) {
     var c = document.getElementById(cid);
-    if (!arr.length) { c.innerHTML = '<div class="admin-empty">暂无设备</div>'; return; }
+    // v50.16修复：DOM 缺失或接口返回空响应（arr=null）时这里会直接抛 TypeError
+    if (!c) return;
+    if (!arr || !arr.length) { c.innerHTML = '<div class="admin-empty">暂无设备</div>'; return; }
     var h = '';
     for (var i = 0; i < arr.length; i++) {
       var d = arr[i], t = d.created_at ? new Date(d.created_at).toLocaleString('zh-CN') : '-';
@@ -2851,26 +2870,26 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
         try {
             if (P && P.history) {
                 const sharedData = P.history.map(function(r) {
-                    // 解析时间字符串
+                    // v50.16修复：记录上的字段是 timeSlot/profitWinner/investWinner，
+                    // 旧版读的是 r.time/r.profit/r.invest，永远取不到值——导出的共享表里时间/收益/投资全是空。
                     let dateStr = '';
                     let timeStr = '';
-                    if (r.time) {
-                        try {
-                            const d = new Date(r.time);
-                            dateStr = (d.getMonth() + 1) + '月' + d.getDate() + '日';
-                            const h = String(d.getHours()).padStart(2, '0');
-                            const m = String(d.getMinutes()).padStart(2, '0');
-                            timeStr = h + ':' + m;
-                        } catch(e) {}
-                    }
+                    try {
+                        const ts = r.timeSlot ? splitTimeSlot(r.timeSlot) : null;
+                        if (ts && ts.date) {
+                            dateStr = ts.date;
+                            timeStr = ts.time ? ts.time.split('-')[0].slice(0, 5) : '';
+                        }
+                    } catch(e) {}
                     return {
                         date: dateStr,
                         time: timeStr,
+                        timeSlot: r.timeSlot || '',
                         a: r.a !== undefined ? r.a : '',
                         b: r.b !== undefined ? r.b : '',
                         c: r.c !== undefined ? r.c : '',
-                        profit: r.profit || '',
-                        invest: r.invest || ''
+                        profit: r.profitWinner || r.profit || '',
+                        invest: r.investWinner || r.invest || ''
                     };
                 });
                 localStorage.setItem('prediction_history_shared', JSON.stringify(sharedData));
@@ -3416,14 +3435,18 @@ function setAutoSync(enabled) {
             bar.style.borderColor = '#ff9800';
             statusText.style.color = '#e65100';
             // 在状态文字后加标记
-            if (statusText.textContent.indexOf('🔒') < 0) {
+            // v50.15: 🔒 会被 v50.13 图标脚本换成 .ico 徽章，旧版用 indexOf('🔒') 判断
+            // 会永远判为「没有标记」→ 每次调用都重复追加，状态文字越来越长、图标反复跳动；
+            // 启用时的字符串 replace 也会因字符被替换而失效，标记删不掉。
+            // 改用不受图标替换影响的中文标记，并用正则截断尾部标记。
+            if (statusText.textContent.indexOf('自动同步已暂停') < 0) {
                 statusText.textContent = statusText.textContent + ' 🔒自动同步已暂停';
             }
         } else {
             bar.style.background = '';
             bar.style.borderColor = '';
             statusText.style.color = '';
-            statusText.textContent = statusText.textContent.replace(' 🔒自动同步已暂停', '');
+            statusText.textContent = statusText.textContent.replace(/\s*\S*自动同步已暂停\s*$/, '');
         }
     }
 }
@@ -4343,6 +4366,10 @@ function findSimilarProfitSegments(history, opts) {
                     matchLen: winLen,
                     matchedWindow: histWindow.slice(),
                     nextProfit: nextProfit,
+                    // v50.16修复：消费端 predictFromSimilarProfitPattern 用 ar.nextWinner 做 ABC 方向投票，
+                    // 但这里从来没人写过该字段（`if (!ar.nextWinner) continue;` 恒成立），收益盘的
+                    // ABC 投票一直是空的。这里补上"匹配片段之后那一局的真实获胜方"。
+                    nextWinner: (recIdx >= 0 && recIdx < history.length) ? getWinner(history[recIdx]) : null,
                     similarity: exactSim * recency,
                     exactSim: exactSim,
                     recencyFactor: recency,
@@ -5306,6 +5333,9 @@ function findSimilarSegments(window, history, opts) {
     // v28.3: 综合 = 指纹30% + 序列50% + 分数分布20%
     var wsSim = _winnerSeqSimilarity(winSeq, histWinSeq);
     var combinedSim = fpSim * 0.3 + wsSim * 0.5 + scoreDistSim * 0.2;
+    // v50.16修复：minSim 声明后从未参与判断——所有调用方传的相似度门槛（_minSimForLen 0.45~0.58、
+    // scanSimilarDepth 的 0.90、相似盘 0.55 等）全部失效。这里按综合相似度真正过滤。
+    if (combinedSim < minSim) continue;
         // v39.1: 上面已快速过滤过胜方序列，走到这里就是完全匹配
         {
             var nextIdx = start + winLen;
@@ -5363,7 +5393,16 @@ function predictFromSimilarPattern(window, history) {
     for (var _fi = Math.max(0, history.length - 6); _fi < history.length; _fi++) {
         _tailFp += String(history[_fi].timeSlot || '') + ',';
     }
-    var cacheKey = history.length + '_' + (lastRec ? lastRec.timeSlot : 'empty') + '_' + _tailFp;
+    // v50.16修复：缓存 key 原来只含 history 指纹，不含入参 window——6局窗口先算一次后，
+    // 18局窗口（以及不同档位窗口）会直接命中同一份结果，串味。这里把 window 自身指纹并入 key。
+    var _winFp = '';
+    try {
+        for (var _wf = 0; _wf < window.length; _wf++) {
+            var _wr = window[_wf] || {};
+            _winFp += String(_wr.timeSlot || '') + ':' + _wr.a + '/' + _wr.b + '/' + _wr.c + ',';
+        }
+    } catch(e) { _winFp = 'na'; }
+    var cacheKey = window.length + '#' + _winFp + '_' + history.length + '_' + (lastRec ? lastRec.timeSlot : 'empty') + '_' + _tailFp;
     if (_simPatternCache.key === cacheKey && _simPatternCache.result) {
         return _simPatternCache.result;
     }
@@ -5767,7 +5806,10 @@ function detectCyclePattern(history) {
                     matchLen: matchLen,
                     afterWinner: afterW,
                     // 计算周期长度
-                    cycleLen: ts.count + 1 // 连胜+断开局
+                    // v50.16修复：这里取的是"下一个周期起点"，应该基于实际匹配到的长度 matchLen。
+                    // 旧版固定用 ts.count+1，当历史片段只部分匹配(matchLen<ts.count)时取样位置整体后移，
+                    // 统计到的"周期结束后下一局"其实是别的局。完全匹配时与旧行为一致。
+                    cycleLen: matchLen + 1 // 连胜+断开局
                 });
             }
         }
@@ -7005,15 +7047,17 @@ class Predictor {
     try {
         var _calN = Math.min(30, this.predHistory.length, this.accuracy.length);
         if (_calN >= 20) {
-            var _sumP = 0, _hits = 0;
+            var _sumP = 0, _hits = 0, _used = 0;
             for (var _ci = this.predHistory.length - _calN; _ci < this.predHistory.length; _ci++) {
                 var _ph = this.predHistory[_ci];
                 if (!_ph || !_ph.probs || !_ph.guild) continue;
                 var _p = _ph.probs[_ph.guild];
-                if (_p > 0) { _sumP += _p; _hits += (this.accuracy[_ci] ? 1 : 0); }
+                if (_p > 0) { _sumP += _p; _hits += (this.accuracy[_ci] ? 1 : 0); _used++; }
             }
-            var _avgP = _sumP / _calN;
-            var _hitR = _hits / _calN;
+            // v50.16修复：分母原来固定用 _calN，但上面 continue/_p<=0 跳过的条目没计入 _sumP/_hits，
+            // 会把平均预测概率系统性低估，过度自信几乎永远检测不到，校准形同失效。
+            var _avgP = _used > 0 ? (_sumP / _used) : 0;
+            var _hitR = _used > 0 ? (_hits / _used) : 0;
             // 预测概率比实际命中率高15%以上 = 过度自信
             if (_avgP - _hitR > 0.15 && _avgP > 0.5) {
                 var _shrink = Math.max(0.55, _hitR / _avgP); // 收缩因子，最低不低于0.55
@@ -7854,7 +7898,10 @@ class Predictor {
                 // v44.30: 证据表补录实际结果（冻结快照，不修改历史权重）
                 try {
                     for (var _ei = this._evidenceLog.length - 1; _ei >= 0; _ei--) {
-                        if (this._evidenceLog[_ei].actualWinner === null && this._evidenceLog[_ei].gameIdx === this.history.length - 1) {
+                        // v50.16修复：快照里的 gameIdx 记录的是"录入前"的 this.history.length（见证据表 push 处），
+                        // 而此时 history.push 还没执行，长度仍是录入前的值。旧版写成 length-1，恒不相等，
+                        // actualWinner 永远补不上，证据表/漂移检测全程失效。
+                        if (this._evidenceLog[_ei].actualWinner === null && this._evidenceLog[_ei].gameIdx === this.history.length) {
                             this._evidenceLog[_ei].actualWinner = winner;
                             this._evidenceLog[_ei].actualInvest = rec.investWinner || null;
                             this._evidenceLog[_ei].actualProfit = rec.profitWinner || null;
@@ -8432,7 +8479,9 @@ class Predictor {
                 var key = keys[coordKeyIdx];
                 var vals = paramSpace[key];
                 // 一批处理一个key的所有取值
-                for (var vi = 0; vi < vals.length && tested < batchEnd; vi++) {
+                // v50.16修复：原来这里还有 `&& tested < batchEnd`，而 batchSize=2 —— 每个参数
+                // 只试前 2 个取值就被 coordKeyIdx++ 跳过，参数空间里第 3 档以后的取值永远测不到。
+                for (var vi = 0; vi < vals.length; vi++) {
                     var c = Object.assign({}, bestCombo);
                     c[key] = vals[vi];
                     // 跳过和当前best相同的
@@ -8578,6 +8627,9 @@ class Predictor {
             // 仍失败才降级保存最近历史；告警加 60 秒节流，避免控制台刷屏。
             try {
                 ['mm_est_cloud_v1', 'mm_traffic_stat_v2'].forEach(function(k){ try { localStorage.removeItem(k); } catch(e3) {} });
+                // v50.16修复：异常若发生在 json 赋值之前（序列化失败），这里会把主存储写成字符串 "undefined"，
+                // 下次 JSON.parse 直接抛错 = 丢档。只有拿到合法字符串才重试。
+                if (typeof json !== 'string' || !json) throw new Error('serialize failed');
                 localStorage.setItem(STORE_KEY, json);
             } catch(e2) {
                 try {
@@ -8624,7 +8676,9 @@ class Predictor {
         var canSkipRebuild = !predHistComplete && hasModelWeights;
         if (predHistComplete || canSkipRebuild) {
             this.history = p.history.slice();
-            this.predHistory = p.predHistory.slice();
+            // v50.16修复：canSkipRebuild 分支允许 p.predHistory 缺失（有 modelWeights 即可跳过重建），
+            // 旧版直接 .slice() 会抛 TypeError，整次恢复失败。
+            this.predHistory = Array.isArray(p.predHistory) ? p.predHistory.slice() : [];
             this.accuracy = Array.isArray(p.accuracy) ? p.accuracy.slice() : [];
             this.profitAccuracy = Array.isArray(p.profitAccuracy) ? p.profitAccuracy.slice() : [];
             // v37.0修复: 补全遗漏的稀疏数组恢复
@@ -9542,16 +9596,19 @@ function _dedupeDataset(data) {
             data.accuracy = newAcc;
         }
     }
+    // v50.16修复：data.predHistory 可能不存在（旧快照/被裁剪），旧版直接取 .length 会抛 TypeError，
+    // 被上层 catch 吞掉后整个兜底去重失效，重复记录直接进 restoreFromData。
+    var _phLen = Array.isArray(data.predHistory) ? data.predHistory.length : 0;
     if (Array.isArray(data.profitAccuracy)) {
         // v37.0修复: profitAccuracy是稀疏数组（只有录入了收益数据的局才有条目），和history不是1:1对应
         // 之前用hi-1索引会错位，改为保守策略：去重后截断到新predHistory长度，用户可点"重新计算预测快照"精确重建
-        data.profitAccuracy = data.profitAccuracy.slice(0, data.predHistory.length);
+        data.profitAccuracy = data.profitAccuracy.slice(0, _phLen);
     }
     if (Array.isArray(data.profitBrierHistory)) {
-        data.profitBrierHistory = data.profitBrierHistory.slice(0, data.predHistory.length);
+        data.profitBrierHistory = data.profitBrierHistory.slice(0, _phLen);
     }
     if (Array.isArray(data.investAccuracy)) {
-        data.investAccuracy = data.investAccuracy.slice(0, data.predHistory.length);
+        data.investAccuracy = data.investAccuracy.slice(0, _phLen);
     }
     techLog('[兜底去重] 合并后数据集删除 ' + removed + ' 条重复，剩余 ' + data.history.length + ' 条');
     return data;
@@ -10210,8 +10267,10 @@ function updateCloudStatus(status, info) {
         if (statusText) statusText.style.color = '';
     }
     var map = {'off':'未连接云端','connecting':'连接中...','online':'云端已连接','error':'云端连接失败','syncing':'同步中...'};
-    statusText.textContent = map[status] || status;
-    if (info !== undefined) infoText.textContent = info;
+    // v50.16修复：函数开头只判了 bar，这里却直接访问 statusText/infoText；元素缺失即抛 TypeError，
+    // 其后的 cloudOnline 也不会更新，云端状态永远停留在"未连接"。
+    if (statusText) statusText.textContent = map[status] || status;
+    if (info !== undefined && infoText) infoText.textContent = info;
     cloudOnline = (status === 'online');
     // v49.5 ①: 控制台默认只留一句人话，相同状态不重复打印
     try {
@@ -13017,10 +13076,11 @@ function bindCloudEvents() {
                 alert('序号无效'); btn.disabled=false; btn.textContent=orig; return;
             }
             var target = commits[idx];
+            // v50.16修复：点"取消"直接 return，按钮永久 disabled、文案停在"准备回滚…"，只能刷新页面。
             if (!confirm('确定回滚到这个版本？\n\n时间：' + new Date(target.commit.author.date).toLocaleString('zh-CN') +
                 '\n说明：' + target.commit.message.split('\n')[0] +
                 '\n短码：' + target.sha.substring(0,7) +
-                '\n\n⚠️ 这会用该版本覆盖当前线上文件。')) return;
+                '\n\n⚠️ 这会用该版本覆盖当前线上文件。')) { btn.disabled = false; btn.textContent = orig; return; }
 
             // 3. 拉目标版本的内容（content 字段已是 base64）
             btn.textContent = '拉取旧版本…';
@@ -13095,7 +13155,7 @@ function refreshOlog() {
         renderSnapshotList();
         var localN = (_snapshots||[]).length;
         var cloudN = (_cloudSnaps||[]).length;
-        msg.textContent = '已刷新 · 本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
+        if (msg) msg.textContent = '已刷新 · 本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
     }, false);
 }
 // ========== 在线用户心跳与列表 ==========
@@ -13189,11 +13249,14 @@ function refreshOnlineList() {
     }
     var myDisplayName = myAlias ? (myAlias + ' <span style="color:#888;font-size:11px;">(' + myName + ')</span>') : myName;
     // 先立刻渲染本机
-    tbody.innerHTML = '<tr style="border-top:1px solid #f0f0f0;background:#f1f8e9;">' +
+    // v50.16修复：本机行单独存一份，异步回调里不再"读回 innerHTML 再拼接"——两次刷新请求
+    // 并发返回时，会把设备行往已渲染内容后面重复追加一遍。
+    var _baseRowHtml = '<tr style="border-top:1px solid #f0f0f0;background:#f1f8e9;">' +
         '<td style="padding:8px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;margin-right:6px;"></span><span style="color:#2e7d32;font-weight:600;">在线</span></td>' +
         '<td style="padding:8px;">' + myDisplayName + ' <span style="color:#1a73e8;font-size:11px;">（当前设备）</span></td>' +
         '<td style="padding:8px;color:#2e7d32;">刚刚</td>' +
         '</tr>';
+    tbody.innerHTML = _baseRowHtml;
     // v34.3：access_control 表实际列：id/device_name/status/created_at/authorized_at（没有 last_seen）
     var _api = window._cloudApi;
     if (!_api) {
@@ -13266,8 +13329,7 @@ function refreshOnlineList() {
                 '<td style="padding:8px;color:#666;">' + timeStr + '</td>' +
                 '</tr>';
         });
-        var myRow = tbody.innerHTML;
-        tbody.innerHTML = myRow + html;
+        tbody.innerHTML = _baseRowHtml + html;
         msg.textContent = '🟢 ' + onlineCount + ' 台在线 / ' + authedCount + ' 台已授权 / ' + pendingCount + ' 待授权 / ' + (rows?rows.length:0) + ' 条记录';
     }).catch(function(e) {
         msg.style.color = '#e65100';
@@ -13536,14 +13598,9 @@ function renderDailySnapshot() {
             '<td>' + ivBadge + '</td>' +
             '</tr>';
     }
-    // v30.22：分页加载更多按钮
-    if (_ologHasMore) {
-        html += '<tr><td colspan="5" style="padding:10px;text-align:center;">' +
-            '<button onclick="loadMoreOlog()" style="background:#f0f0f0;color:#1a73e8;border:1px solid #1a73e8;padding:6px 20px;border-radius:4px;cursor:pointer;font-size:13px;">加载更多 ↓</button>' +
-            '</td></tr>';
-    } else if (_cloudSnaps.length > 0) {
-        html += '<tr><td colspan="5" style="padding:8px;text-align:center;color:#999;font-size:12px;">— 已加载全部日志 —</td></tr>';
-    }
+    // v50.16修复：这里是「当日快照」表（8 列、一次全量渲染），旧版误用了操作日志的分页状态
+    // _ologHasMore / _cloudSnaps：表尾凭空多出「加载更多」按钮，点击后 loadMoreOlog() 拉的是
+    // 操作日志并重渲染操作日志面板，把当日快照表整表覆盖；colspan=5 也与 8 列不符。
     tbody.innerHTML = html;
     // 自动缩放：让所有行在一页内显示
     applyDsAutoZoom(rows.length);
@@ -13927,15 +13984,18 @@ function restoreLocalBackup(idx) {
 }
 function restoreFromBackup(backupId) {
     if (!confirm('确定要恢复此备份吗？当前所有数据将被覆盖，此操作不可撤销！')) return;
-    var msg = document.getElementById('backupStatusMsg');
+    var msg = document.getElementById('backupStatusMsg') || {style:{}};
     msg.style.color = '#302b63';
     msg.textContent = '正在恢复...';
+    // v50.16修复：下面三个错误分支原本只 return，链式下一个 .then 仍会执行并显示
+    // "✅ 恢复成功"，把失败提示覆盖成成功（实际什么都没恢复）。这里用标记真正中止链路。
+    var _restoreAborted = false;
     supabaseClient.from(CLOUD_TABLE).select('data, updated_at').eq('id', backupId).maybeSingle()
         .then(function(res) {
-            if (res.error) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 恢复失败：' + res.error.message; return; }
-            if (!res.data || !res.data.data) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份数据为空'; return; }
+            if (res.error) { _restoreAborted = true; msg.style.color = '#e74c3c'; msg.textContent = '❌ 恢复失败：' + res.error.message; return null; }
+            if (!res.data || !res.data.data) { _restoreAborted = true; msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份数据为空'; return null; }
             var data = res.data.data;
-            if (!data.history || !Array.isArray(data.history)) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份格式不正确'; return; }
+            if (!data.history || !Array.isArray(data.history)) { _restoreAborted = true; msg.style.color = '#e74c3c'; msg.textContent = '❌ 备份格式不正确'; return null; }
             // 恢复到本地
             P.clearAll();
             P.history = data.history.slice();
@@ -13992,6 +14052,7 @@ function restoreFromBackup(backupId) {
             return supabaseClient.from(CLOUD_TABLE).upsert({ id: CLOUD_ROW_ID, data: mainData }, { onConflict: 'id' });
         })
         .then(function(upsertRes) {
+            if (_restoreAborted) return; // v50.13：前置步骤失败时不再谎报"恢复成功"
             if (upsertRes && upsertRes.error) { msg.style.color = '#e67e22'; msg.textContent = '⚠️ 本地已恢复，但同步云端失败：' + upsertRes.error.message; showRecordResult(false, '恢复部分成功', '本地数据已恢复，但同步云端失败：' + upsertRes.error.message); return; }
             cloudLastSync = new Date();
             msg.style.color = '#2e7d32';
@@ -15906,7 +15967,8 @@ function renderCards() {
                 // v25: 显示各窗口历史准确率
                 var wAccKey = fd.window==='近6局'?'win6':fd.window==='近7局'?'win7':fd.window==='近8局'?'win8':fd.window==='近10局'?'win10':'global';
                 var wAccVal = result.windowAccuracy ? result.windowAccuracy[wAccKey] : null;
-                var accStr = wAccVal !== null ? ' <span style="font-size:11px;color:'+(wAccVal>=0.5?'#28a745':'#dc3545')+';">准确率'+(wAccVal*100).toFixed(0)+'%</span>' : '';
+                // v50.16修复：`!== null` 挡不住 undefined，窗口准确率缺失时会渲染出"准确率NaN%"。
+                var accStr = (typeof wAccVal === 'number' && isFinite(wAccVal)) ? ' <span style="font-size:11px;color:'+(wAccVal>=0.5?'#28a745':'#dc3545')+';">准确率'+(wAccVal*100).toFixed(0)+'%</span>' : '';
                 html += '<span style="display:inline-block;min-width:55px;font-weight:600;">'+fd.window+accStr+'</span> ';
                 html += '权重<b>'+(fd.weight*100).toFixed(0)+'%</b> | ';
                 html += '预测 A:'+(fd.probs.A*100).toFixed(0)+'% B:'+(fd.probs.B*100).toFixed(0)+'% C:'+(fd.probs.C*100).toFixed(0)+'% | ';
@@ -16107,7 +16169,9 @@ function renderCards() {
                 if (sph.source !== 'similar' || sph.isTie) continue;
                 var shIdx = _s + _phOff2;
                 var sW = (shIdx < P.history.length) ? getWinner(P.history[shIdx]) : null;
-                if (sW === null) continue;
+                // v50.16修复：getWinner 平局返回 null，但越界分支返回的是 undefined；`=== null` 挡不住，
+                // 平局会被当成"未命中"计入命中率（同文件其它处统一用 !winner 判平局）。
+                if (!sW) continue;
                 simTotalN++;
                 if (sW === sph.guild) simTotalHit++;
                 if (recentN < 20) { recentN++; if (sW === sph.guild) recentHits++; }
@@ -16674,7 +16738,10 @@ function renderHistory() {
             } else {
                 actualRankDisp='<span style="color:#999;">—</span>';
             }
-            probDisp=(ph.probs[ph.guild]*100).toFixed(0)+'%';
+            // v50.16修复：旧条目可能没有 probs（或用旧字段名 probabilities），直接取值会抛 TypeError，
+            // 整张历史表渲染失败变空白。
+            var _ppb = ph.probs || ph.probabilities;
+            probDisp = (_ppb && typeof _ppb[ph.guild] === 'number') ? (_ppb[ph.guild]*100).toFixed(0)+'%' : '—';
             sourceDisp=sourceBadge(ph.source);
         } else if (idx===0) {
             predDisp='<span style="color:#999;">首局无预测</span>';
@@ -16991,6 +17058,9 @@ function renderLearnTab() {
     if (confStatsEl && P.predHistory.length > 0) {
         var confStats = {high:{total:0,correct:0},mid:{total:0,correct:0},low:{total:0,correct:0}};
         P.predHistory.forEach(function(ph, i) {
+            // v50.16修复：predHistory 可能是稀疏数组（截断/精简快照恢复后有空洞），
+            // 未跳过 null 时 ph.probs 直接抛 TypeError，学习页后面所有区块都不再渲染。
+            if (!ph || !ph.probs || !ph.guild) return;
             if (i >= P.accuracy.length) return;
             var topProb = ph.probs[ph.guild];
             var probs = [ph.probs.A,ph.probs.B,ph.probs.C].sort(function(a,b){return b-a;});
@@ -17231,36 +17301,45 @@ function importFromShared() {
         if (!confirm('将从共享数据表导入 ' + data.length + ' 条数据，是否继续？\n（注意：会覆盖当前历史记录）')) return;
         
         // 转换格式并导入
+        // v50.16修复：① 旧版把收益/投资写成 profit/invest、时间写成 time，与全站数据模型
+        // (profitWinner/investWinner/timeSlot) 不一致，导入后收益/投资/时间全部丢失；
+        // ② 旧版调用的 P.learn() 根本不存在，必抛 TypeError，导致整个导入功能不可用。
+        var _nowRef = new Date();
         P.history = data.map(function(row, idx) {
-            // 构造时间
-            let timeStr = new Date().toISOString();
-            if (row.date && row.time) {
-                try {
-                    const now = new Date();
-                    const month = parseInt(row.date.replace('月', '/').replace('日', '')) - 1;
-                    const timeParts = row.time.split(':');
-                    if (timeParts.length >= 2) {
-                        timeStr = new Date(now.getFullYear(), month, now.getDate(), parseInt(timeParts[0]), parseInt(timeParts[1])).toISOString();
-                    }
-                } catch(e) {}
-            }
+            var _slot = row.timeSlot || '';
+            var _base = null;
+            try {
+                if (_slot) _base = parseTimeSlot(_slot);
+                if (!_base && row.date && row.time) _base = parseTimeSlot(String(row.date) + ' ' + String(row.time));
+            } catch(e) {}
+            if (!_base) _base = _nowRef;
+            var _ts = _slot || getTimeSlot(_base, false);
+            var _dateStr = _base.getFullYear() + '-' + String(_base.getMonth()+1).padStart(2,'0') + '-' + String(_base.getDate()).padStart(2,'0');
             return {
                 a: parseFloat(row.a) || 0,
                 b: parseFloat(row.b) || 0,
                 c: parseFloat(row.c) || 0,
-                profit: row.profit || '',
-                invest: row.invest || '',
-                time: timeStr
+                profitWinner: row.profitWinner || row.profit || '',
+                investWinner: row.investWinner || row.invest || '',
+                timeSlot: _ts,
+                date: _dateStr,
+                _rid: _genRid()
             };
         });
-        
-        // 保存并刷新
-        P.save();
-        P.learn();
+        P.maxStreakEver = calcMaxStreak(P.history);
+        // 清空旧的预测/统计，按新历史完整重建（异步分批，避免大批量时主线程卡死）
+        P.predHistory = []; P.accuracy = [];
+        P.profitAccuracy = []; P.profitBrierHistory = []; P.investAccuracy = [];
+        P.lastPrediction = null;
         window._predCache = null;
-        renderCards();
+        rebuildPredHistoryFromAsync(1, function() {
+            try { P.saveLocal(); } catch(e) {}
+            try { renderAll(); } catch(e) {}
+            try { renderHistory(); } catch(e) {}
+            try { _markPredHistReady(P.history, P.predHistory); } catch(e) {}
+        });
         
-        alert('✅ 导入成功！共导入 ' + data.length + ' 条数据');
+        alert('✅ 导入成功！共导入 ' + P.history.length + ' 条数据（预测快照正在后台重建）');
         techLog('[共享数据表] 导入成功，共' + data.length + '条');
     } catch(e) {
         alert('导入失败：' + e.message);
@@ -18278,6 +18357,12 @@ function confirmImport() {
     
     confirmBtn.disabled = true;
     progressWrap.classList.add('show');
+
+    // v50.16修复：覆盖模式下 L18300 的 clearAll() 会先把 modelWeights 重置为默认值，
+    // 原来在下面（clearAll 之后）才取 P.modelWeights，等于把默认权重当成学到的权重存下来。
+    // 这里提前快照一次，后面的 _savedWeights 优先用它。
+    var _preWeights = (P.modelWeights && Object.keys(P.modelWeights).length > 3) ? Object.assign({}, P.modelWeights) : null;
+    var _preWindowWeights = Object.assign({}, P.windowWeights || {});
     
     // 覆盖模式：直接清空
     if (mode === 'replace') {
@@ -18293,7 +18378,9 @@ function confirmImport() {
     var importRecs = recs;
     var skipCount = 0;
     if (mode === 'incremental') {
-        var align = alignByTail(recs, P.history);
+        // v50.16修复：手动填行号对齐时，openImportModal 已把对齐结果写入 _pendingAlign（含 _manualAlign 分支）；
+        // 旧版这里无条件重算 alignByTail，把手动对齐结果丢掉——手动对齐后点确认必然"校验未通过"、数据不导入。
+        var align = (_pendingAlign && _pendingAlign.matched && Array.isArray(_pendingAlign.newRecs)) ? _pendingAlign : alignByTail(recs, P.history);
         if (!align.matched) {
             // 兜底拦截（正常情况下模态框已禁用增量，这里做双保险）
             progressFill.style.width = '0%';
@@ -18379,8 +18466,8 @@ function confirmImport() {
     // v22: 分批异步导入，避免UI卡顿
     // v29优化：每批100条（原20条），开启_fastRebuild跳过O(n²)相似盘匹配，大幅提速
     // v29修复：先保存当前modelWeights，再clearAll，否则复制的是重置后的默认权重
-    var _savedWeights = Object.assign({}, P.modelWeights);
-    var _savedWindowWeights = Object.assign({}, P.windowWeights || {});
+    var _savedWeights = _preWeights ? Object.assign({}, _preWeights) : Object.assign({}, P.modelWeights);
+    var _savedWindowWeights = (_preWindowWeights && Object.keys(_preWindowWeights).length) ? Object.assign({}, _preWindowWeights) : Object.assign({}, P.windowWeights || {});
     P.clearAll();
     var cumP = new Predictor();
     cumP.modelWeights = Object.assign({}, _savedWeights); // 用导入前的权重
@@ -19260,11 +19347,15 @@ setTimeout(function() {
                     techLog('[回填] 完成，补齐 ' + n + ' 条');
                     // v46.5: 无论补齐多少都写入节流标记（剩余无法补齐的局是当年本来就没有
                     // 收益/投资数据的，重跑也不会有结果）。
-                    localStorage.setItem(_bfFlag, String(Date.now()));
-                    localStorage.setItem(_bfLenFlag, String(P.history.length));
+                    // v50.16修复：localStorage 写失败（隐私模式/配额满）会抛错变成未处理 rejection，
+                    // 节流标记写不进去 → 每次打开都重跑回填。
+                    try {
+                        localStorage.setItem(_bfFlag, String(Date.now()));
+                        localStorage.setItem(_bfLenFlag, String(P.history.length));
+                    } catch(e2) {}
                     // v47.14: 回填结果仅存本地（saveLocal 已在 backfillPredFields 内执行），
                     // 不再排队增量上传——其他端会各自静默回填，避免脏队列堆积与重复上传。
-                });
+                }).catch(function(e) { console.warn('[回填] 执行失败:', e && e.message); });
             }
         }
     } catch(e) { console.warn('[回填] 启动失败:', e); }
@@ -19295,6 +19386,7 @@ setTimeout(function() {
         rebuildTip.innerHTML = '🔄 正在重建历史预测数据...<br><span id="rebuildProgress" style="font-size:12px;opacity:0.8;">0%</span>';
         document.body.appendChild(rebuildTip);
         techLog('[启动] 预测历史确实缺失，启动一次重建（完成后落完整态标记，后续不再重复）');
+        try {
         P.rebuildHistoryAsync(
             function(done, total) {
                 var pct = Math.floor(done / total * 100);
@@ -19313,6 +19405,12 @@ setTimeout(function() {
                 }
             }
         );
+        } catch(e) {
+            // v50.16修复：重建抛错时"正在重建…0%"浮层永远不消失（外层 _decided 已置 true，不会重试）。
+            console.warn('[启动] 重建失败:', e && e.message);
+            P._rebuildPending = false;
+            try { if (rebuildTip.parentNode) rebuildTip.parentNode.removeChild(rebuildTip); } catch(e2) {}
+        }
     }
     var _idbP = window._idbRestorePromise || Promise.resolve(false);
     var _minWait = new Promise(function(r){ setTimeout(r, 3000); });
@@ -19791,7 +19889,10 @@ function rebuildPredHistoryFromAsync(startIdx, onComplete) {
     var done = 0;
     // v37.2: 前 startIdx+1 条记录跳过预测计算（结果不变，纯浪费时间）
     // 只有从第 startIdx+2 条开始才需要真正跑预测
-    var skipPredUntil = startIdx + 1; // i <= skipPredUntil 时跳过 predict
+    // v50.16修复：predHistory[k] 是"加入第 k 条记录之前"的预测，要补回 predHistory[startIdx]，
+    // 必须在 i === startIdx 时真正跑 predict。旧版写成 startIdx+1，比同步版 rebuildPredHistoryFrom
+    // 多跳 2 条，重建后 predHistory/accuracy 比 history 少 2 条，与 history 永久错位。
+    var skipPredUntil = startIdx - 1; // i <= skipPredUntil 时跳过 predict
     showRebuildLoading('正在更新...');
 
     function processBatch() {
@@ -19863,8 +19964,9 @@ function saveEditRecord() {
     P.history[_editRecordIdx].a = a;
     P.history[_editRecordIdx].b = b;
     P.history[_editRecordIdx].c = c;
-    if (profit) P.history[_editRecordIdx].profitWinner = profit;
-    if (invest) P.history[_editRecordIdx].investWinner = invest;
+    // v50.16修复：原来只在非空时写回，用户清空输入框想删掉错误的收益/投资标注时原值被保留，永远清不掉。
+    P.history[_editRecordIdx].profitWinner = profit || '';
+    P.history[_editRecordIdx].investWinner = invest || '';
     // v46.0: 编辑后标记该局为待增量上传（rid幂等upsert，其他端按ua合并更新）
     try { var _er = P.history[_editRecordIdx]; if (_er && _er._rid) { _er._dirtyLocal = 1; markDirtyRid(_er._rid); } } catch(e) {}
     closeEditRecordModal();
@@ -19898,7 +20000,10 @@ document.addEventListener('click', function(e) {
     if (e.target.classList.contains('btn-edit-row')) {
         openEditRecord(parseInt(e.target.getAttribute('data-idx')));
     } else if (e.target.classList.contains('btn-delete-row')) {
-        var i = parseInt(e.target.getAttribute('data-idx'));
+        var i = parseInt(e.target.getAttribute('data-idx'), 10);
+        // v50.16修复：data-idx 缺失/非数字时 parseInt 得到 NaN，splice(NaN,1) 会被当成 0，
+        // 直接把第 1 局删掉。这里先做范围校验。
+        if (isNaN(i) || i < 0 || i >= P.history.length) return;
         if (!confirm('删除第' + (i+1) + '局？')) return;
         createSnapshot('删除第' + (i+1) + '局');
         var deletedRec = P.history[i];
@@ -20034,10 +20139,11 @@ var encryptToggleBtn = document.getElementById('encryptToggleBtn');
 if (encryptToggleBtn) encryptToggleBtn.onclick = toggleEncryption;</script>
 <script>
 /* ============================================================
- * 16-ext.js — 扩展面板：投票热力、冲突监测、时间线、准确率报告、标签体系
+ * 16-ext.js — 扩展面板：投票热力、冲突监测、时间线、标签体系
  * 来源: 商会三竞预测系统 v44.30 单文件工程拆分 (源行 15986-16315)
+ * v50.15: 移除首页「多维度准确率报表」；各面板加内容签名守卫，消除图标反复重建。
  * ============================================================ */
-/* EXT v1.0: 六模块扩展 IIFE——全部 try/catch 兜底，绝不影响原有 renderAll */
+/* EXT v1.0: 扩展 IIFE——全部 try/catch 兜底，绝不影响原有 renderAll */
 (function(){
 'use strict';
 function el(id){ return document.getElementById(id); }
@@ -20054,12 +20160,25 @@ function htmlEsc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 var GUILD_COLOR={A:'#e74c3c',B:'#3498db',C:'#2ecc71'};
+/* v50.15: 面板内容签名守卫。图标脚本会把 emoji 换成 .ico 徽章，若每次
+   ExtOnRender 都无条件重写 innerHTML，徽章会被反复销毁重建（图标一直跳动），
+   还会让 v49.1 的 DOM 写入守卫失效。内容不变时一个字节都不写，功能不受影响。 */
+function extSet(box, html, show){
+  if(box.__extSig===html && box.__extShown===show) return;
+  box.__extSig=html; box.__extShown=show;
+  box.innerHTML=html;
+  box.style.display=show?'block':'none';
+}
+function extHide(box){
+  if(box.__extShown===false) return;
+  box.__extShown=false; box.__extSig=null; box.style.display='none';
+}
 
 /* ---------- 模块1：三路投票 ---------- */
 function renderVote(){
   var box=el('extVotePanel'); if(!box) return;
   try{
-    if(!P || !P.history || P.history.length<1){ box.style.display='none'; return; }
+    if(!P || !P.history || P.history.length<1){ extHide(box); return; }
     var savedAi=P._aiCache||null, savedCache=window._predCache||null;
     var sRes=null;
     try{ P._aiCache=null; window._predCache=null; sRes=P.predict(); }catch(e){ sRes=null; }
@@ -20068,7 +20187,7 @@ function renderVote(){
     var aRes=(window._predCache&&window._predCache.result)?window._predCache.result:null;
     if(!aRes){ try{ aRes=P.predict(); }catch(e){ aRes=null; } }
     var aP=(aRes&&aRes.probabilities)?aRes.probabilities:null;
-    if(!sP||!aP){ box.style.display='none'; return; }
+    if(!sP||!aP){ extHide(box); return; }
     sP=norm(sP); aP=norm(aP);
     var iP=null, iLabel='🤖 AI独立';
     if(savedAi && savedAi.adjustment){
@@ -20095,19 +20214,18 @@ function renderVote(){
       var g=topG(p);
       return '<div class="ext-vote-row"><span>'+label+'</span><span><span class="ext-chip" style="background:'+GUILD_COLOR[g]+'22;color:'+GUILD_COLOR[g]+';">'+g+' ('+(p[g]*100).toFixed(0)+'%)</span>'+(note?' <span style="color:#999;font-size:11px;">'+note+'</span>':'')+'</span></div>';
     }
-    box.innerHTML='<div class="ext-title">🗳️ 三路投票集成</div>'+
+    extSet(box,'<div class="ext-title">🗳️ 三路投票集成</div>'+
       row('📊 统计融合',sP,'')+
       row(iLabel,iP,'')+
-      '<div class="ext-vote-row" style="border-top:1px dashed #d5d8ec;margin-top:4px;padding-top:6px;"><span style="font-weight:700;color:#302b63;">加权共识</span><span class="ext-chip" style="background:'+GUILD_COLOR[fg]+';color:#fff;">👉 '+fg+' ('+(fP[fg]*100).toFixed(0)+'%)</span></div>';
-    box.style.display='block';
-  }catch(e){ try{ box.style.display='none'; }catch(e2){} }
+      '<div class="ext-vote-row" style="border-top:1px dashed #d5d8ec;margin-top:4px;padding-top:6px;"><span style="font-weight:700;color:#302b63;">加权共识</span><span class="ext-chip" style="background:'+GUILD_COLOR[fg]+';color:#fff;">👉 '+fg+' ('+(fP[fg]*100).toFixed(0)+'%)</span></div>',true);
+  }catch(e){ try{ extHide(box); }catch(e2){} }
 }
 
 /* ---------- 模块2：冷热度 ---------- */
 function renderHeat(){
   var box=el('extHeatPanel'); if(!box) return;
   try{
-    if(!P||!P.history||!P.history.length){ box.style.display='none'; return; }
+    if(!P||!P.history||!P.history.length){ extHide(box); return; }
     function missBy(fn){
       var m=0;
       for(var i=P.history.length-1;i>=0;i--){ if(fn(P.history[i])) break; m++; }
@@ -20127,8 +20245,8 @@ function renderHeat(){
     h+='</div><div><b style="color:#9c27b0;">投资：</b>';
     ['大','中','小'].forEach(function(v){ h+=chip('投资'+v,missBy(function(r){return r.investWinner===v;})); });
     h+='</div>';
-    box.innerHTML=h; box.style.display='block';
-  }catch(e){ try{ box.style.display='none'; }catch(e2){} }
+    extSet(box,h,true);
+  }catch(e){ try{ extHide(box); }catch(e2){} }
 }
 
 /* ---------- 模块3：信号冲突横幅 ---------- */
@@ -20147,72 +20265,38 @@ function renderConflict(){
     if(sim&&prof&&sim!==prof) msgs.push('相似盘指向 <b>'+sim+'</b>，收益信号指向 <b>'+prof+'</b>');
     if(loss&&sim&&loss!==sim) msgs.push('血本反推指向 <b>'+loss+'</b>，与相似盘 <b>'+sim+'</b> 不一致');
     if(finalG&&sim&&finalG!==sim) msgs.push('最终融合指向 <b>'+finalG+'</b>，与相似盘 <b>'+sim+'</b> 相反');
-    if(!msgs.length){ box.style.display='none'; box.innerHTML=''; return; }
-    box.innerHTML='⚠️ <b>信号冲突，谨慎下注</b><div style="margin-top:4px;font-weight:500;">'+msgs.join('<br>')+'</div>';
-    box.style.display='block';
-  }catch(e){ try{ box.style.display='none'; }catch(e2){} }
+    if(!msgs.length){ extHide(box); return; }
+    extSet(box,'⚠️ <b>信号冲突，谨慎下注</b><div style="margin-top:4px;font-weight:500;">'+msgs.join('<br>')+'</div>',true);
+  }catch(e){ try{ extHide(box); }catch(e2){} }
 }
 
 /* ---------- 模块4：最近20局时间线 ---------- */
 function renderTimeline(){
   var box=el('extTimeline'); if(!box) return;
   try{
-    if(!P||!P.predHistory||!P.predHistory.length){ box.innerHTML='<span style="color:#999;font-size:12px;">暂无预测记录</span>'; return; }
-    var off=P.history.length-P.predHistory.length;
+    if(!P||!P.predHistory||!P.predHistory.length){ extSet(box,'<span style="color:#999;font-size:12px;">暂无预测记录</span>',true); return; }
+    // v50.16修复：predHistory[k] 固定对应 history[k+1]（预测是"录入下一局前"生成的）。
+    // 旧版用"条数差"当偏移，一旦 predHistory 与 history 不是严格差 1（重建/补全异常），
+    // 所有圆点的预测与实际配对全部错位，命中显示会与实际相反。
     var start=Math.max(0,P.predHistory.length-20);
     var html='';
     for(var i=start;i<P.predHistory.length;i++){
       var ph=P.predHistory[i];
-      var hi=i+off;
+      var hi=i+1;
       var actual=(hi<P.history.length)?getWinner(P.history[hi]):null;
       var tie=(ph.isTie||actual===null);
       var corr=(!tie&&actual===ph.guild);
       var bg=tie?'#adb5bd':(corr?'#27ae60':'#e74c3c');
       html+='<div class="ext-tl-dot" style="background:'+bg+'" title="第'+(hi+1)+'局 预测'+ph.guild+' → 实际'+(actual||'待定')+(corr?' ✓':(tie?' (平局)':' ✗'))+'">'+(i-start+1)+'</div>';
     }
-    box.innerHTML=html;
-  }catch(e){ box.innerHTML=''; }
+    extSet(box,html,true);
+  }catch(e){ try{ extHide(box); }catch(e2){} }
 }
 
-/* ---------- 模块5：多维度准确率报表 ---------- */
-function renderAccReport(){
-  var box=el('extAccReport'); if(!box) return;
-  try{
-    if(!P||!P.predHistory||!P.predHistory.length){ box.style.display='none'; return; }
-    var off=P.history.length-P.predHistory.length;
-    var gStat={A:{t:0,h:0},B:{t:0,h:0},C:{t:0,h:0}};
-    var pStat={'大':{t:0,h:0},'中':{t:0,h:0},'小':{t:0,h:0}};
-    var iStat={'大':{t:0,h:0},'中':{t:0,h:0},'小':{t:0,h:0}};
-    for(var i=0;i<P.predHistory.length;i++){
-      var ph=P.predHistory[i]; if(!ph||ph.isTie) continue;
-      var hi=i+off; var rec=(hi<P.history.length)?P.history[hi]:null;
-      var actual=rec?getWinner(rec):null;
-      if(ph.guild&&gStat[ph.guild]){ gStat[ph.guild].t++; if(actual===ph.guild) gStat[ph.guild].h++; }
-      if(rec){
-        if(ph.profitPrediction&&ph.profitPrediction.predicted&&rec.profitWinner){
-          var pp=ph.profitPrediction.predicted; pStat[pp].t++; if(pp===rec.profitWinner) pStat[pp].h++;
-        }
-        if(ph.investPrediction&&ph.investPrediction.predicted&&rec.investWinner){
-          var ip=ph.investPrediction.predicted; iStat[ip].t++; if(ip===rec.investWinner) iStat[ip].h++;
-        }
-      }
-    }
-    function cards(stat,colorMap,title){
-      var h='<div class="ext-title">'+title+'</div><div class="ext-acc-grid">';
-      Object.keys(stat).forEach(function(k){
-        var s=stat[k]; var pct=s.t>0?Math.round(s.h/s.t*100):null;
-        h+='<div class="ext-acc-card"><div style="font-weight:700;color:'+colorMap[k]+';">'+k+'</div>'+
-          '<div style="font-size:12px;color:#666;margin-top:2px;">'+(s.t>0?'命中 '+s.h+'/'+s.t+' · <b style="color:'+(pct>=50?'#27ae60':'#e74c3c')+';">'+pct+'%</b>':'暂无样本')+'</div></div>';
-      });
-      return h+'</div>';
-    }
-    box.innerHTML='<div class="ext-title">📊 多维度准确率报表</div>'+
-      cards(gStat,{A:'#e74c3c',B:'#3498db',C:'#2ecc71'},'🏆 按商会（预测X且开出X的命中率）')+
-      cards(pStat,{'大':'#e74c3c','中':'#f39c12','小':'#27ae60'},'💰 按收益')+
-      cards(iStat,{'大':'#e91e63','中':'#9c27b0','小':'#00bcd4'},'💎 按投资');
-    box.style.display='block';
-  }catch(e){ try{ box.style.display='none'; }catch(e2){} }
-}
+/* ---------- v50.15：模块5「多维度准确率报表」已按需求移除 ----------
+   原 renderAccReport() 会每次渲染无条件重建整块报表（含 4 个 emoji 图标），
+   是首页图标跳动与无谓重绘的来源之一；容器 extAccReport 也不再构建。
+   其余扩展模块、标签体系与预测逻辑均不受影响。 */
 
 /* ---------- 模块6：标签/备注 ---------- */
 function refreshTagFilterOptions(){
@@ -20227,7 +20311,9 @@ function refreshTagFilterOptions(){
     });
     // v48.6: 内容一致就不重建下拉选项；旧版每次 renderAll 都重写 select，
     // 与下面标签列一起造成滚动时的额外重绘。
-    if (sel.innerHTML !== opts) sel.innerHTML=opts;
+    // v50.15: 用户标签可能含 emoji，图标脚本会把选项文本换成 .ico 徽章，
+    // 直接读 innerHTML 比较会永远不等 → 下拉反复重建、图标跳动。改用业务签名。
+    if (sel.__extOpts !== opts) { sel.__extOpts=opts; sel.innerHTML=opts; }
     if (sel.value !== cur) sel.value=cur;
   }catch(e){}
 }
@@ -20254,7 +20340,10 @@ function processHistoryTags(){
         // tr.style.display，云端 20s 轮询一触发，正在上下滑动的历史表格就被大批量改写 → 闪动。
         // 内容一致时一个字节都不写，onclick 也保留原绑定；标签真变了才重建并重绑。
         var _want = chips+' <button class="ext-tag-add" data-idx="'+idx+'" style="border:none;background:#eef2ff;color:#4f46e5;border-radius:6px;font-size:11px;cursor:pointer;padding:2px 6px;" title="'+htmlEsc(rec.note||'')+'">🏷</button>';
-        if (cell.innerHTML !== _want) {
+        // v50.15: 不读回 innerHTML——图标脚本已把 🏷 换成 .ico 徽章，比较永远不等；
+        // 用业务签名判断，内容不变时零写入，图标与表格行都不再反复重建。
+        if (cell.__extSig !== _want) {
+          cell.__extSig = _want;
           cell.innerHTML = _want;
           var ab=cell.querySelector('.ext-tag-add');
           ab.onclick=function(){
@@ -20284,7 +20373,6 @@ function ExtOnRender(){
   try{ renderHeat(); }catch(e){}
   try{ renderConflict(); }catch(e){}
   try{ renderTimeline(); }catch(e){}
-  try{ renderAccReport(); }catch(e){}
   try{ processHistoryTags(); }catch(e){}
 }
 
@@ -20303,11 +20391,9 @@ function buildContainers(){
     var h=document.createElement('div'); h.id='extHeatPanel'; h.className='ext-panel';
     el('extVotePanel').parentNode.insertBefore(h, el('extVotePanel').nextSibling);
   }
-  var diag=el('diagBar');
-  if(diag && !el('extAccReport')){
-    var a=document.createElement('div'); a.id='extAccReport'; a.className='ext-panel';
-    diag.parentNode.insertBefore(a,diag.nextSibling);
-  }
+  // v50.15: 首页「多维度准确率报表」已按需求移除；同时清理旧版本可能残留的容器。
+  var _oldAcc=el('extAccReport');
+  if(_oldAcc && _oldAcc.parentNode){ try{ _oldAcc.parentNode.removeChild(_oldAcc); }catch(e){} }
   var bg=document.querySelector('.btn-group');
   if(bg && !el('extTagInput')){
     var w=document.createElement('div'); w.style.marginTop='12px';
@@ -20333,11 +20419,15 @@ function hookAddRecord(){
     if(P && typeof P.addRecord==='function' && !P._extAddPatched){
       var orig=P.addRecord;
       P.addRecord=function(){
+        // v50.16修复：原来不管录入是否成功，都往 history 最后一条挂标签——录入被校验拒绝时
+        // 会把标签写到"上一局"上覆盖它的 tags，同时输入框已被清空，用户标签静默丢失。
+        var _lenBefore = (P.history && P.history.length) ? P.history.length : 0;
         var r=orig.apply(P,arguments);
         try{
           var inp=el('extTagInput');
           var v=inp?inp.value.trim():'';
-          if(v && P.history && P.history.length){
+          var _added = P.history && P.history.length > _lenBefore;
+          if(v && _added){
             var rec=P.history[P.history.length-1];
             rec.tags=v.split(/[,，、;；]/).map(function(s){return s.trim();}).filter(Boolean);
             rec.note=v;
@@ -20356,7 +20446,9 @@ function hookRenderAll(){
     if(typeof renderAll==='function' && !window._extRenderPatched){
       var _orig=renderAll;
       window.renderAll=function(){
-        try{ _orig.apply(this,arguments); }catch(e){}
+        // v50.15: 旧版吞掉主 renderAll 异常且不留日志，出错时完全静默；现记录到控制台，
+        // 仍不中断扩展面板渲染（行为不变，排障可见）。
+        try{ _orig.apply(this,arguments); }catch(e){ if(window.console) console.error('[renderAll]',e); }
         setTimeout(function(){ try{ ExtOnRender(); }catch(e){} },60);
       };
       window._extRenderPatched=true;
@@ -20693,7 +20785,9 @@ function w2SnapView(idx){
       $('w2SnapCloseView').addEventListener('click', function(){ $('w2SnapView').classList.remove('w2-show'); });
       w2EnsureSnapData(s, function(ok){
         if(ok){ if($('w2SnapView').classList.contains('w2-show')) w2SnapView(idx); }
-        else { var b=$('w2SnapViewBody'); if(b) b.innerHTML += '<div style="margin-top:8px;color:#c0392b;">云端未取到完整数据（未登录云同步或该条尚未上传）。此条可用于查看日志，暂不可回滚。</div>'; }
+        // v50.15: 旧版 innerHTML += 会整体重建预览区，把上面绑定的「关闭」按钮一起换掉 → 按钮失效。
+        // 改为末尾追加，已有节点与事件监听保持不动。
+        else { var b=$('w2SnapViewBody'); if(b) b.insertAdjacentHTML('beforeend','<div style="margin-top:8px;color:#c0392b;">云端未取到完整数据（未登录云同步或该条尚未上传）。此条可用于查看日志，暂不可回滚。</div>'); }
       });
       return;
     }
@@ -20770,7 +20864,11 @@ function drainW2Queue(){
   try{
     if(!navigator.onLine) return;
     var q = readW2Queue(); if(!q.length) return;
-    if(typeof cloudSaveIncremental==='function'){ try{ cloudSaveIncremental(true); }catch(e){} }
+    // v50.16修复：原来固定 800ms 后无条件清空队列并提示"已补传云端"——上传失败/未登录云端时
+    // 待补记录直接消失。现在云端不可用就保留队列，等下次联网/连上云端再补。
+    var _canUpload = (typeof supabaseClient !== 'undefined' && supabaseClient && typeof cloudOnline !== 'undefined' && cloudOnline);
+    if(_canUpload && typeof cloudSaveIncremental==='function'){ try{ cloudSaveIncremental(true); }catch(e){ _canUpload = false; } }
+    if(!_canUpload) return;
     setTimeout(function(){
       try{ if(typeof debouncedSave==='function') debouncedSave(); }catch(e){}
       saveW2Queue([]); updateW2Badge();
@@ -20987,7 +21085,9 @@ if(document.readyState==='loading'){
 <script>
 /* v50.13：把界面上的 emoji 图标替换为 .ico 徽章（不依赖 emoji 字体）。
    只处理非 BMP emoji（BMP 的 ✅ ❌ ⚠ ⚙ 各端本就能正常显示，保持原样）。
-   MutationObserver 负责后续动态渲染出来的内容。 */
+   MutationObserver 负责后续动态渲染出来的内容。
+   v50.15：修复「图标一直跳动」——替换时不再污染 v49.1 DOM 写入守卫的 dirty 标记，
+   监听回调期间暂停 observer，避免徽章被反复销毁重建；图标外观与功能不变。 */
 (function () {
     try {
         var MAP = {
@@ -21073,15 +21173,41 @@ if(document.readyState==='loading'){
         var RE = new RegExp(ALT, 'g');
         var HAS = new RegExp('(' + ALT + ')');
         var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, TITLE: 1 };
+        var OBS_CFG = { childList: true, subtree: true, characterData: true };
+        var mo = null;
 
         function badge(ch) {
             var cfg = MAP[ch] || ['\u25CF', '#607D8B'];
             var s = document.createElement('span');
             s.className = 'ico';
             s.setAttribute('aria-hidden', 'true');
+            s.setAttribute('data-ico', '1');
             s.style.backgroundColor = cfg[1];
             s.textContent = cfg[0];
             return s;
+        }
+        /* v50.15 修复「图标一直跳动」根因：
+           v49.1 的 DOM 写入守卫 patch 了 Node.prototype.replaceChild，替换时会把
+           容器及 12 层祖先打上 __v49Dirty / __v49TDirty。含 emoji 的容器因此缓存
+           永久失效，此后每次 renderAll 都无条件重写 innerHTML → 徽章被反复销毁
+           重建（视觉上一跳一跳），也连带废掉了「内容不变零写入」的优化。
+           这里在替换前后保存/恢复守卫标记：业务缓存字符串不受影响，内容不变时
+           零写入、徽章保持同一个 DOM 节点；不影响任何数据与交互。 */
+        function silentReplace(parent, frag, node) {
+            var saved = [], n = parent, d = 0;
+            while (n && d++ < 12) {
+                saved.push([n, n.__v49Dirty, n.__v49TDirty]);
+                n = n.parentNode;
+            }
+            try { parent.replaceChild(frag, node); }
+            finally {
+                for (var i = 0; i < saved.length; i++) {
+                    try {
+                        saved[i][0].__v49Dirty = saved[i][1];
+                        saved[i][0].__v49TDirty = saved[i][2];
+                    } catch (e) {}
+                }
+            }
         }
         function fixNode(node) {
             try {
@@ -21089,7 +21215,9 @@ if(document.readyState==='loading'){
                 if (!v || v.length < 2 || !HAS.test(v)) return;
                 var p = node.parentNode;
                 while (p && p.nodeType === 1) {
-                    if (SKIP[p.tagName] || (p.className && String(p.className).indexOf('ico') === 0)) return;
+                    // v50.15: classList 精确判断徽章；旧写法 indexOf('ico')===0
+                    // 会误把 class="icon-*" 的祖先整段跳过，导致 emoji 漏替换。
+                    if (SKIP[p.tagName] || (p.classList && p.classList.contains('ico'))) return;
                     p = p.parentNode;
                 }
                 var hits = v.match(RE), parts = v.split(RE);
@@ -21100,7 +21228,7 @@ if(document.readyState==='loading'){
                     frag.appendChild(badge(hits[i]));
                 }
                 if (parts[parts.length - 1]) frag.appendChild(document.createTextNode(parts[parts.length - 1]));
-                node.parentNode.replaceChild(frag, node);
+                silentReplace(node.parentNode, frag, node);
             } catch (e) {}
         }
         function scan(root) {
@@ -21117,26 +21245,35 @@ if(document.readyState==='loading'){
         function flush() {
             timer = 0;
             var arr = queue; queue = [];
-            for (var i = 0; i < arr.length; i++) scan(arr[i]);
+            if (mo) { try { mo.disconnect(); } catch (e) {} }
+            try { for (var i = 0; i < arr.length; i++) scan(arr[i]); }
+            finally { if (mo) { try { mo.observe(document.body, OBS_CFG); } catch (e) {} } }
         }
         function start() {
             if (!document.body) return;
+            if (mo) { try { mo.disconnect(); } catch (e) {} }
             scan(document.body);
             try {
-                var mo = new MutationObserver(function (muts) {
-                    for (var i = 0; i < muts.length; i++) {
-                        var mu = muts[i];
-                        if (mu.type === 'characterData') { fixNode(mu.target); continue; }
-                        var add = mu.addedNodes || [];
-                        for (var j = 0; j < add.length; j++) {
-                            var an = add[j];
-                            if (an.nodeType === 3) fixNode(an);
-                            else if (an.nodeType === 1) queue.push(an);
+                mo = new MutationObserver(function (muts) {
+                    // v50.15: 处理期间暂停监听，避免自身插入的徽章/文本被反复入队扫描。
+                    if (mo) { try { mo.disconnect(); } catch (e) {} }
+                    try {
+                        for (var i = 0; i < muts.length; i++) {
+                            var mu = muts[i];
+                            if (mu.type === 'characterData') { fixNode(mu.target); continue; }
+                            var add = mu.addedNodes || [];
+                            for (var j = 0; j < add.length; j++) {
+                                var an = add[j];
+                                if (an.nodeType === 3) fixNode(an);
+                                else if (an.nodeType === 1) queue.push(an);
+                            }
                         }
+                        if (queue.length && !timer) timer = setTimeout(flush, 60);
+                    } finally {
+                        if (mo) { try { mo.observe(document.body, OBS_CFG); } catch (e) {} }
                     }
-                    if (queue.length && !timer) timer = setTimeout(flush, 60);
                 });
-                mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+                mo.observe(document.body, OBS_CFG);
             } catch (e) {}
         }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
