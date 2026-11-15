@@ -4,13 +4,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- v50.16: 双核浏览器（360安全/极速、QQ、搜狗等）强制走极速(Chromium)内核。
+<!-- v50.17: 双核浏览器（360安全/极速、QQ、搜狗等）强制走极速(Chromium)内核。
      不加这行时，部分版本对本地 file:// 页面会落到 IE 内核，直接整页白屏且不报错。 -->
 <meta name="renderer" content="webkit">
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v50.16（跨端一致版）</title>
+<title>商会三竞预测系统 v50.17（跨端一致版）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -350,9 +350,18 @@ h1{font-size:20px !important}
 .interval-btn{padding:10px 14px !important;font-size:13px !important;}
 }
 /* ========== v22: 导入模式选择模态框 ========== */
-.import-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:10000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+/* v50.17 性能修复：移除 backdrop-filter:blur(3px)。
+   该遮罩是全屏固定层，里面的 .import-modal（操作日志/导入弹窗）是独立滚动容器，
+   带 backdrop-filter 时每滚动一帧都要对整屏背景重新采样+模糊 → 弹窗内滑动必然掉帧
+   （软件渲染/远程桌面下尤其明显）。v50.17 只清理了卡片，漏了 3 个遮罩层。
+   用略微加深的纯色底保持视觉压暗效果，功能与观感无实质变化。 */
+.import-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.62);z-index:10000;display:none;align-items:center;justify-content:center;}
 .import-modal-overlay.open{display:flex;}
-.import-modal{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:520px;width:92%;padding:28px 30px;animation:modalIn .25s ease-out;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.import-modal{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:520px;width:92%;padding:28px 30px;animation:modalIn .25s ease-out;max-height:90vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    /* v50.17 性能：滚动到弹窗底部时不再把滚动"传染"给后面整页（避免整页跟着滚动重绘）。
+       注：这里刻意不加 contain:paint —— 它会让弹窗成为绝对/固定定位后代的包含块，
+       可能改变内部浮层定位，属于有副作用的改动，收益不如直接去掉遮罩模糊。 */
+    overscroll-behavior:contain;}
 @keyframes modalIn{from{opacity:0;transform:translateY(20px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
 .import-modal h3{font-size:20px;color:#302b63;margin-bottom:6px;}
 .import-modal .modal-sub{font-size:13px;color:#6c757d;margin-bottom:20px;line-height:1.6;}
@@ -415,7 +424,8 @@ body.dark-mode .import-anchor-detail.bad{background:#3a1d1d;color:#ef9a9a;}
 .cloud-config-row input{flex:1;min-width:250px;padding:8px 12px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:monospace;}
 .cloud-config-tip{font-size:12px;color:#e65100;margin-top:8px;line-height:1.6;}
 /* 访问控制 */
-.access-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.88);z-index:999999;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+/* v50.17 性能修复：去掉全屏遮罩 backdrop-filter，避免每帧整屏重模糊。 */
+.access-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:999999;display:none;align-items:center;justify-content:center;}
 .access-box{background:#fff;border-radius:16px;padding:32px 28px;max-width:420px;width:92%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
 .access-box h2{margin:0 0 12px;color:#302b63;font-size:20px;}
 .access-box p{color:#666;margin:8px 0;font-size:13px;line-height:1.6;}
@@ -469,7 +479,8 @@ body.dark-mode .access-box{background:#16213e;}
 body.dark-mode .access-box h2{color:#e0e0e0;}
 body.dark-mode .access-box p{color:#aaa;}
 /* ========== 当日快照弹窗 ========== */
-.ds-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.55);z-index:10001;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px);}
+/* v50.17 性能修复：同 .import-modal-overlay，去掉全屏遮罩的 backdrop-filter（滚动时整屏重模糊）。 */
+.ds-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.62);z-index:10001;display:none;align-items:center;justify-content:center;}
 .ds-modal-overlay.open{display:flex;}
 .ds-modal{background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:94%;max-width:680px;overflow:hidden;animation:modalIn .25s ease-out;display:flex;flex-direction:column;max-height:92vh;}
 .ds-header{background:linear-gradient(135deg,#1a1740,#302b63);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
@@ -729,7 +740,7 @@ body.dark-mode .guild-input{background:#12213f}
      导致「把浏览器窗口拖窄」时 ABC 换行。本段只加规则、不改原 CSS：
        1) 任何宽度固定 3 列（!important 覆盖 1080px 的 repeat(2,1fr) 与 720px 的 1fr）
        2) 用 vw 让字号/内边距/间距按窗口宽度线性缩放，
-          视觉上等同于「按窗口百分比缩放」，而不是重排（v50.16 起不再用 cqw）
+          视觉上等同于「按窗口百分比缩放」，而不是重排（v50.17 起不再用 cqw）
        3) 触屏设备(pointer:coarse)窄屏仍保留单列，避免手机上三列挤成一团
      ==================================================================== -->
 <style id="v45_3_fluidCards">
@@ -738,7 +749,7 @@ body.dark-mode .guild-input{background:#12213f}
   gap:clamp(6px,1.1vw,20px) !important;
   align-items:stretch;
 }
-/* v50.16 兼容修复③：原版用容器查询（container-type / cqw / @container），需要
+/* v50.17 兼容修复③：原版用容器查询（container-type / cqw / @container），需要
    Chromium 105+（2022 年）才支持；360极速X 等 95 内核会把整段声明判为非法并丢弃，
    「按容器等比缩放」完全失效。这里改用同语义的 vw 单位 + 普通媒体查询，Chrome 79+
    全部生效，新旧内核表现一致。 */
@@ -869,10 +880,10 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.16</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.17</span></h1>
 <p class="subtitle"><span>三盘独立规律 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.16）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.17）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
 <details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看更早版本（v49.3 及以前）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
@@ -1809,7 +1820,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
     background:linear-gradient(90deg,rgba(79,140,255,.22),rgba(0,229,195,.22));
     border:1px solid var(--nx-line);box-shadow:0 0 12px rgba(79,140,255,.35);text-shadow:none;}
   /* 玻璃拟态卡片 */
-  /* v50.16 兼容修复①：彻底移除 backdrop-filter:blur(10px)。
+  /* v50.17 兼容修复①：彻底移除 backdrop-filter:blur(10px)。
      ① 老内核（360极速X / Chromium 95 等）在软件合成或被降级 GPU 上，带 backdrop-filter
         且自身形成层叠上下文（如 rank-1 的 z-index:1）的元素会整块不绘制 → 卡片"凭空消失"、
         整块面板空白，看起来就是白屏；② 该属性每帧重采样背景，是滑动卡顿的大头。
@@ -1818,7 +1829,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
    border:1px solid rgba(255,255,255,.55);box-shadow:0 8px 26px rgba(4,9,32,.35), inset 0 1px 0 rgba(255,255,255,.85);
    transition:none;}
   .pred-card:hover,.stat-card:hover{box-shadow:0 12px 34px rgba(4,9,32,.42)}
- /* v50.16 兼容修复①补：兼容层兜底——任何主体卡片都不允许再出现 backdrop-filter
+ /* v50.17 兼容修复①补：兼容层兜底——任何主体卡片都不允许再出现 backdrop-filter
     （含暗色主题/后续覆盖），老内核一旦命中该属性，整块卡片可能完全不绘制。 */
  .pred-card,.stat-card,.chart-card,.insight-card{
    backdrop-filter:none !important;-webkit-backdrop-filter:none !important;
@@ -1869,7 +1880,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
   body::before{background-size:100% 100%;background-position:0 0;}
   /* v48.6: 滚动时 sticky 表头/大表格的合成层兜底，减少 Chrome 滚动重绘闪烁。
      真正的根治在 renderHistory：内容无变化时不写 DOM。 */
-  /* v50.16 兼容修复②：整段移除 translateZ(0)。它会强行把历史表容器（最多 100 行 × 40px，
+  /* v50.17 兼容修复②：整段移除 translateZ(0)。它会强行把历史表容器（最多 100 行 × 40px，
      老内核/3x DPR 下远超 GPU 纹理上限）提升成巨型合成层，显存换页时正是「滑动白屏」
      的典型成因；v48.6 的闪动问题已由 renderHistory 的 DOM 签名守卫根治，不再需要建层兜底。 */
   .history-table-container{-webkit-overflow-scrolling:touch;}
@@ -2112,9 +2123,9 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v50.16'; // v50.16: 全量缺陷修复（同步安全 / 预测口径 / 渲染健壮性）
+  var APP_VERSION = 'v50.17'; // v50.17: 性能修复（弹窗滑动 / 点击渲染路径）
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v50.16：全量缺陷修复（不影响预测算法与权重口径）\n①【同步与数据安全】改设备备注名的 PATCH 补上 id 过滤（旧版会把云端所有设备的设备名都改成当前设备名）；覆盖导入改为先快照模型权重再清空，学到的权重不再被默认值顶掉；共享数据表导出/导入字段对齐（时间/收益/投资不再全空），并修掉导入时调用不存在的 P.learn() 导致该功能直接报错；备份恢复失败不再谎报「恢复成功」；saveLocal 兜底不再把主存储写成 undefined。\n②【预测与统计口径】证据表补录实际结果修正差一，样本外证据与漂移检测恢复生效；异步重建预测快照多跳 2 条造成的 predHistory 永久错位修正；收益盘相似片段补 nextWinner，收益方向投票不再恒空；相似度门槛 minSim 真正生效、相似盘缓存按窗口区分、自动调参坐标下降不再只测前 2 档；概率校准分母修正，过度自信检测恢复。\n③【界面与交互】当日快照表不再冒出「加载更多」并覆盖整表；历史表/学习页遇缺字段或空洞不再整块渲染失败；删除行、编辑清空收益/投资、标签归属、版本回滚按钮、云状态提示、在线设备重复行、离线补传队列、时间线配对等一批健壮性修复。\n④ 版本号与更新说明同步至 v50.16，便于各端核对是否同一版本。\nv50.9：①【导出日期范围不再夹带其它日期】日期归属判定改为与历史表格时间有序视图同源，导出文件的「日期」列与筛选条件共用同一个函数，并在导出前按最终写入的日期逐条复核，导出 14 号不会再混进 13 号；日期下拉一次性生成，默认仍只选最新一天。②【登录态不再反复掉】启动时自愈回写设备 ID / 授权缓存 / 登录类型 / 统一凭证；换服务器判定改为与上次实际使用的地址比较，不再每次启动误判并触发清理刷新；后台校验遇弱网或云端查不到记录时保持登录，管理员登录类型不再被用户授权轮询覆盖，撤销设备授权也不会把管理员弹回密码页；只有普通用户被管理员明确撤销才需要重新授权。③【滑动不再白屏卡顿】滚动门控补上历史表格等内部滚动容器（scroll 不冒泡，旧版 window 监听收不到），内部滑动不再引发整页样式重算，云端轮询渲染统一排队到停手后；启动 5 秒内自动渲染合并窗口放宽，避开 IndexedDB 补全 / 首次拉取 / 重建与用户滑动抢主线程。预测算法、权重口径与同步协议不变。\nv50.8：①【不再每次打开都重建历史预测数据】v50.2 起 localStorage 只存精简副本（不含 predHistory），每次打开 loadLocal 都把重建标记置起；而启动早期的保存、云端快照回写又会用这份残缺预测历史覆盖 IndexedDB 里的完整副本，3 秒的重建定时器还常常抢在 IDB 读取完成之前启动，于是 4000+ 局被反复重建（截图 1470/4102）。现加「预测历史完整态」标记与受保护的 IDB 写入：残缺的 predHistory 绝不覆盖 IDB 完整副本；云端残缺快照回写时沿用本机已完整的预测历史；启动重建统一等 IDB 补全完成后再决策，IDB 补全成功即直接跳过重建；重建完成后落标记，数据没变化就永不重复重建。只有真正新增局/编辑比分/清空数据后才按需重建。②【附带】重建进度条只在真正需要重建时出现；预测算法、权重口径与同步协议不变。\nv50.7：①【导出日期范围不再夹带其它日期】旧版把「日期范围」导出取成首尾命中记录之间的连续物理区间，而云端补录会把 13 号的局拼到 14 号局之间，导出 14 号时就把夹在中间的 13 号一起带了出来（历史表格走时间有序视图所以显示正常）。现改为逐条按日期过滤、只导出命中记录，并按时间先后排序；日期解析在 timeSlot 无月日时回退 rec.date，导出文件名带上具体日期，范围与条数一眼可核对。②【登录态持久化】普通用户反复重新授权、管理员反复重新登录的根因是：重读云配置时一并把设备 ID 与授权缓存删掉（刷新后设备 ID 变了＝云端新设备＝必须管理员重新授权），且残留的用户授权轮询会把管理员登录类型覆盖成 user。现新增带冗余的统一登录凭证，启动时自愈回写设备 ID / 授权 / 登录类型；配置重读不再清设备与授权，仅真正换服务器才清同步缓存；后台校验遇弱网或云端查不到记录时保持登录，只有管理员明确撤销才要求重新授权。预测算法、权重口径与同步协议不变。\nv50.8：①【旧基线标记不再覆盖本地新局】拉取时，旧主快照携带的上次全量基线标记，在本地比云端更长（有尚未上传的新局）时，旧逻辑仍会把旧快照当权威基线采纳，硬校验局数不符后用云端旧数组强制回填，把刚录的局抹掉并清空待传队列——表现为本地显示 4085/4086、云端和对端收不到；现只有云端局数不少于本地、或管理员/纪元强制时才按基线采纳，本地更长时走键级合并、只补本地缺的记录，不再用旧快照覆盖本地。②【基线回填兜底保留本地独有局】即使进入基线回填，也先把本地原数组里编号不在云端快照中的局按编号保留回来，不按业务键删除；待传标记丢失也不会被旧快照抹掉。预测算法、权重口径、同步协议与上传体积速度不变。\nv50.5：①【重建窗口新局保留】后台分批重建预测历史期间若又录入或合并了新局，旧逻辑重建完成时会用旧快照整体覆盖历史，把窗口内新增的局抹掉——残留的待传编号上传时找不到对应记录而被当成删除墓碑，表现为「本地在、云端或对端收不到」；现按编号保留重建结果之外的新增局及其预测快照拼回，命中率统计按合并后的预测历史重建，不再索引错位，预测算法与权重口径不变。②【同步对账体检】云同步面板新增「🩺 同步体检」按钮，一键汇总只读对比结果（也可在控制台执行 syncDiagnostics() 查各道同步闸门与拦截原因、await cloudDiffDiagnostics() 逐项对比本地历史、云端主快照、增量行与墓碑，列出「本地有而主快照缺失」的局及其是否已在增量行、是否被墓碑），用于定位新局卡在上传、拉取还是合并哪一段；诊断只读，不改任何数据。③【增量版本号回填加固】增量上传成功但服务端时间戳回读为空时，旧逻辑会把本地版本号置 0，导致这条新局在两端版本比较里永远被判成旧记录、被接收端当重复墓碑化（本地在、对端收不到）；现回读不到权威时间就保留待传标记、不把版本号清零，下轮重传再争取服务端时间戳，正常回读成功时行为不变，上传体积与速度不变。\nv50.4：【历史时间乱序修复】云端补录的早时间局会被拼到历史数组末尾，导致历史表格里「14 号下面接 13 号」、近局序列与导入尾局锚点取到错误的尾部。现历史表格、近 5/10/20 局序列、导入锚点匹配统一改走按时间排序的有序视图（与预测窗口同源），展示与锚点按时间先后排列；编辑/删除仍按原记录定位，预测算法、权重口径与同步协议不变。\nv50.3：①【编辑比分后重建预测历史】修改历史比分/收益/投资后，旧预测对错已与新结果脱节，现交后台既有回测链路按新历史分批重建预测历史与命中率，不阻塞界面；重建期间再次编辑会在当前完成后补排一轮。②【数据一致性自检】录入/合并/刷新后自动校验预测历史与历史局数对齐、rid 唯一、预测条目字段完整、时间有序，异常写入技术日志与控制台告警，不阻断使用；自检 60 秒节流，不增加日常渲染负担。③【临界榜首提示】非观望状态下，榜首与次名概率差不足 2% 时，总结区标注「势均力敌、排名不稳」，避免把临界翻转当成确定结论；概率算法与权重口径不变。\nv50.2：【本地存储瘦身】localStorage 只保留核心历史、模型权重、配置与同步纪元等小字段，predHistory/命中率大数组、反思日志、命中缓存等只存 IndexedDB，刷新后自动补全或回测重建；4000+ 局后不再反复触发本地存储配额超限告警，启动时局数短暂偏少再回弹的现象随之消除。完整数据仍由 IndexedDB 兜底，云端同步协议与预测算法不变。\nv50.1：①【AI 停用收尾】旧会话/旧快照残留的 AI 修正缓存不再参与最终概率——仅当 AI 开关显式启用时才套用；清空或恢复数据时一并清掉旧 AI 缓存，残留不再改概率。②【快照精简】AI 裁判强度系数只留本地存档，不再随云端全量快照/备份/回写主行上传，也不参与跨端对齐；跨端仍同步的只有盘面转移矩阵、漂移状态及观察起点三项。预测算法与权重口径不变。\nv50.0：①【跨端一致】AI 裁判强度、盘面转移矩阵、漂移状态及观察起点四项小学习态纳入云端全量快照/自动备份/回滚快照，并在拉取合并时按权威快照对齐——同一份历史在各端、刷新后、换端后算出一致概率，不再因各端残留不同内部状态在临界带翻转榜首；证据表与校准桶仍留本地不上云，日常增量上传体积与速度不变。②【向后兼容】旧快照缺这些字段时保留本机当前值、回退既有默认，不覆盖、不重置；预测算法、权重口径与既有交互均未改动。\nv49.8：①相似盘、相似收益盘、相似投资盘、血本盘统一改成「局数定档 + 同档按次数」的严格权重——局数长的档位恒压过短档位，局数相同则次数多的权重大，质量不再参与加权，只留在匹配明细里供核对（控制台执行 CONFIG.simStrictOrder=false; 可回退旧口径）；②移动端收益/投资/血本/相似盘四个面板不再把长序列截成省略号、不再限高内部滚动，整段铺开上下滑即可看全；预测卡片一律单列。\nv49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
+  var APP_UPDATE_DESC_RECENT = 'v50.17：性能修复（只优化执行路径，预测算法与权重口径完全不变）\n①【弹窗滑动卡顿根因】移除 3 个全屏遮罩的 backdrop-filter（导入/操作日志/当日快照/设备授权遮罩）：全屏模糊层内的弹窗一旦滚动，浏览器每帧都要对整屏背景重新采样+模糊，是所有弹窗内滑动掉帧的元凶（v50.17 只清理了卡片，漏了遮罩）；弹窗滚动区补 overscroll-behavior:contain，滚到底不再带动整页。\n②【点击卡顿】renderCards 末尾不再同步 P.saveLocal()（全量 JSON.stringify + localStorage 同步写盘 + IndexedDB 克隆都在主线程），改为"节流 + 空闲执行 + 仅本地"，不触发云端上传；版本号/描述同步 v50.17。\n③【重复计算】三路投票面板复用本轮预测缓存（同一指纹下结果完全一致），不再每次渲染重算一遍 predict；AI 真生效或缓存失效时仍走原分支。\n④【滚动让路】扩展面板（投票/冷热度/标签逐行读写）在滚动期间延后到滚动结束后渲染；操作日志表内容未变时不重写 innerHTML，刷新不再让列表跳回顶部。\nv50.16：全量缺陷修复（不影响预测算法与权重口径）\n①【同步与数据安全】改设备备注名的 PATCH 补上 id 过滤（旧版会把云端所有设备的设备名都改成当前设备名）；覆盖导入改为先快照模型权重再清空，学到的权重不再被默认值顶掉；共享数据表导出/导入字段对齐（时间/收益/投资不再全空），并修掉导入时调用不存在的 P.learn() 导致该功能直接报错；备份恢复失败不再谎报「恢复成功」；saveLocal 兜底不再把主存储写成 undefined。\n②【预测与统计口径】证据表补录实际结果修正差一，样本外证据与漂移检测恢复生效；异步重建预测快照多跳 2 条造成的 predHistory 永久错位修正；收益盘相似片段补 nextWinner，收益方向投票不再恒空；相似度门槛 minSim 真正生效、相似盘缓存按窗口区分、自动调参坐标下降不再只测前 2 档；概率校准分母修正，过度自信检测恢复。\n③【界面与交互】当日快照表不再冒出「加载更多」并覆盖整表；历史表/学习页遇缺字段或空洞不再整块渲染失败；删除行、编辑清空收益/投资、标签归属、版本回滚按钮、云状态提示、在线设备重复行、离线补传队列、时间线配对等一批健壮性修复。\n④ 版本号与更新说明同步至 v50.16，便于各端核对是否同一版本。\nv50.9：①【导出日期范围不再夹带其它日期】日期归属判定改为与历史表格时间有序视图同源，导出文件的「日期」列与筛选条件共用同一个函数，并在导出前按最终写入的日期逐条复核，导出 14 号不会再混进 13 号；日期下拉一次性生成，默认仍只选最新一天。②【登录态不再反复掉】启动时自愈回写设备 ID / 授权缓存 / 登录类型 / 统一凭证；换服务器判定改为与上次实际使用的地址比较，不再每次启动误判并触发清理刷新；后台校验遇弱网或云端查不到记录时保持登录，管理员登录类型不再被用户授权轮询覆盖，撤销设备授权也不会把管理员弹回密码页；只有普通用户被管理员明确撤销才需要重新授权。③【滑动不再白屏卡顿】滚动门控补上历史表格等内部滚动容器（scroll 不冒泡，旧版 window 监听收不到），内部滑动不再引发整页样式重算，云端轮询渲染统一排队到停手后；启动 5 秒内自动渲染合并窗口放宽，避开 IndexedDB 补全 / 首次拉取 / 重建与用户滑动抢主线程。预测算法、权重口径与同步协议不变。\nv50.8：①【不再每次打开都重建历史预测数据】v50.2 起 localStorage 只存精简副本（不含 predHistory），每次打开 loadLocal 都把重建标记置起；而启动早期的保存、云端快照回写又会用这份残缺预测历史覆盖 IndexedDB 里的完整副本，3 秒的重建定时器还常常抢在 IDB 读取完成之前启动，于是 4000+ 局被反复重建（截图 1470/4102）。现加「预测历史完整态」标记与受保护的 IDB 写入：残缺的 predHistory 绝不覆盖 IDB 完整副本；云端残缺快照回写时沿用本机已完整的预测历史；启动重建统一等 IDB 补全完成后再决策，IDB 补全成功即直接跳过重建；重建完成后落标记，数据没变化就永不重复重建。只有真正新增局/编辑比分/清空数据后才按需重建。②【附带】重建进度条只在真正需要重建时出现；预测算法、权重口径与同步协议不变。\nv50.7：①【导出日期范围不再夹带其它日期】旧版把「日期范围」导出取成首尾命中记录之间的连续物理区间，而云端补录会把 13 号的局拼到 14 号局之间，导出 14 号时就把夹在中间的 13 号一起带了出来（历史表格走时间有序视图所以显示正常）。现改为逐条按日期过滤、只导出命中记录，并按时间先后排序；日期解析在 timeSlot 无月日时回退 rec.date，导出文件名带上具体日期，范围与条数一眼可核对。②【登录态持久化】普通用户反复重新授权、管理员反复重新登录的根因是：重读云配置时一并把设备 ID 与授权缓存删掉（刷新后设备 ID 变了＝云端新设备＝必须管理员重新授权），且残留的用户授权轮询会把管理员登录类型覆盖成 user。现新增带冗余的统一登录凭证，启动时自愈回写设备 ID / 授权 / 登录类型；配置重读不再清设备与授权，仅真正换服务器才清同步缓存；后台校验遇弱网或云端查不到记录时保持登录，只有管理员明确撤销才要求重新授权。预测算法、权重口径与同步协议不变。\nv50.8：①【旧基线标记不再覆盖本地新局】拉取时，旧主快照携带的上次全量基线标记，在本地比云端更长（有尚未上传的新局）时，旧逻辑仍会把旧快照当权威基线采纳，硬校验局数不符后用云端旧数组强制回填，把刚录的局抹掉并清空待传队列——表现为本地显示 4085/4086、云端和对端收不到；现只有云端局数不少于本地、或管理员/纪元强制时才按基线采纳，本地更长时走键级合并、只补本地缺的记录，不再用旧快照覆盖本地。②【基线回填兜底保留本地独有局】即使进入基线回填，也先把本地原数组里编号不在云端快照中的局按编号保留回来，不按业务键删除；待传标记丢失也不会被旧快照抹掉。预测算法、权重口径、同步协议与上传体积速度不变。\nv50.5：①【重建窗口新局保留】后台分批重建预测历史期间若又录入或合并了新局，旧逻辑重建完成时会用旧快照整体覆盖历史，把窗口内新增的局抹掉——残留的待传编号上传时找不到对应记录而被当成删除墓碑，表现为「本地在、云端或对端收不到」；现按编号保留重建结果之外的新增局及其预测快照拼回，命中率统计按合并后的预测历史重建，不再索引错位，预测算法与权重口径不变。②【同步对账体检】云同步面板新增「🩺 同步体检」按钮，一键汇总只读对比结果（也可在控制台执行 syncDiagnostics() 查各道同步闸门与拦截原因、await cloudDiffDiagnostics() 逐项对比本地历史、云端主快照、增量行与墓碑，列出「本地有而主快照缺失」的局及其是否已在增量行、是否被墓碑），用于定位新局卡在上传、拉取还是合并哪一段；诊断只读，不改任何数据。③【增量版本号回填加固】增量上传成功但服务端时间戳回读为空时，旧逻辑会把本地版本号置 0，导致这条新局在两端版本比较里永远被判成旧记录、被接收端当重复墓碑化（本地在、对端收不到）；现回读不到权威时间就保留待传标记、不把版本号清零，下轮重传再争取服务端时间戳，正常回读成功时行为不变，上传体积与速度不变。\nv50.4：【历史时间乱序修复】云端补录的早时间局会被拼到历史数组末尾，导致历史表格里「14 号下面接 13 号」、近局序列与导入尾局锚点取到错误的尾部。现历史表格、近 5/10/20 局序列、导入锚点匹配统一改走按时间排序的有序视图（与预测窗口同源），展示与锚点按时间先后排列；编辑/删除仍按原记录定位，预测算法、权重口径与同步协议不变。\nv50.3：①【编辑比分后重建预测历史】修改历史比分/收益/投资后，旧预测对错已与新结果脱节，现交后台既有回测链路按新历史分批重建预测历史与命中率，不阻塞界面；重建期间再次编辑会在当前完成后补排一轮。②【数据一致性自检】录入/合并/刷新后自动校验预测历史与历史局数对齐、rid 唯一、预测条目字段完整、时间有序，异常写入技术日志与控制台告警，不阻断使用；自检 60 秒节流，不增加日常渲染负担。③【临界榜首提示】非观望状态下，榜首与次名概率差不足 2% 时，总结区标注「势均力敌、排名不稳」，避免把临界翻转当成确定结论；概率算法与权重口径不变。\nv50.2：【本地存储瘦身】localStorage 只保留核心历史、模型权重、配置与同步纪元等小字段，predHistory/命中率大数组、反思日志、命中缓存等只存 IndexedDB，刷新后自动补全或回测重建；4000+ 局后不再反复触发本地存储配额超限告警，启动时局数短暂偏少再回弹的现象随之消除。完整数据仍由 IndexedDB 兜底，云端同步协议与预测算法不变。\nv50.1：①【AI 停用收尾】旧会话/旧快照残留的 AI 修正缓存不再参与最终概率——仅当 AI 开关显式启用时才套用；清空或恢复数据时一并清掉旧 AI 缓存，残留不再改概率。②【快照精简】AI 裁判强度系数只留本地存档，不再随云端全量快照/备份/回写主行上传，也不参与跨端对齐；跨端仍同步的只有盘面转移矩阵、漂移状态及观察起点三项。预测算法与权重口径不变。\nv50.0：①【跨端一致】AI 裁判强度、盘面转移矩阵、漂移状态及观察起点四项小学习态纳入云端全量快照/自动备份/回滚快照，并在拉取合并时按权威快照对齐——同一份历史在各端、刷新后、换端后算出一致概率，不再因各端残留不同内部状态在临界带翻转榜首；证据表与校准桶仍留本地不上云，日常增量上传体积与速度不变。②【向后兼容】旧快照缺这些字段时保留本机当前值、回退既有默认，不覆盖、不重置；预测算法、权重口径与既有交互均未改动。\nv49.8：①相似盘、相似收益盘、相似投资盘、血本盘统一改成「局数定档 + 同档按次数」的严格权重——局数长的档位恒压过短档位，局数相同则次数多的权重大，质量不再参与加权，只留在匹配明细里供核对（控制台执行 CONFIG.simStrictOrder=false; 可回退旧口径）；②移动端收益/投资/血本/相似盘四个面板不再把长序列截成省略号、不再限高内部滚动，整段铺开上下滑即可看全；预测卡片一律单列。\nv49.7：增量同步修复——①SQL 加 updated_at 触发器（编辑/删除/管理员全量上传的时间戳终于会前进）；②上传不再外泄 _dirtyLocal 内部状态，并加内容指纹兜底存量编辑；③暂停自动同步期间彻底拦截后台上传，清空/覆盖导入不再误删云端；④增量压缩改按主快照时间判定；⑤全量基线局数硬校验修正、暂停/批量确认/转义与配额显示等一批修复。\nv49.6：移动端相似盘面板紧凑排版——页面铺满屏幕不留两侧深色边、扫描说明与合并分析收紧字号行高、黄框分组卡片去掉 52px 局号缩进并压成紧凑两行、标题栏不再截断。\nv49.5：①控制台默认只显示一句人话状态（需要技术日志时执行 setVerboseLog(true)）；②移除「🧹 清理历史增量」按钮；③修复基线恢复后对账反复「补拉28条」；④管理员全量上传后，其他端 20 秒内自动全部覆盖，不用再手动点拉取；⑤更新说明默认折叠，只展开最近两版。\nv49.4：移除主界面「📋 预测历史（最近20局）」模块及圆点时间线。';
   var APP_UPDATE_DESC_HISTORY = '历史交付（v49.3）：①【大金边回归】第一名卡片恢复 4px 实金边 + 金色外发光，静态无动画；v48.4 关动画时只换了阴影没管 border-color，被后面 v50.8 科技感覆盖层的蓝色 border 顶掉，现用最后一层 !important 压住，亮色/暗色主题都是金边。②【循环动画从源码删除】goldRing / pulse / pulse-dot / nxFlow 五处 infinite 声明与四组 @keyframes 全部移除（不再靠 animation:none 硬压），并去掉 rank-1 常驻 scale(1.03) 与卡片 hover translateY 位移、卡片 transition，滚动与划过不再触发合成层。③【三盘一致跨端统一】根因：profitTop 来自本地内存缓存 _lastSimProfit，它不随云端同步、也不随历史变化失效，A 端用自己刚算的、B 端复用上一局旧缓存，同一局就一边三盘一致一边两盘一致；且 _threeWayAnalysis 被四处持久化同步后各端各自覆盖，三处显示还各写一套计数口径。现改为：三盘分析段按当前 history 现算收益盘（不读缓存），缓存另加 O(1) 历史指纹失效；抽 calcThreeWay() 统一四处口径；predict 结果携带 threeWay，显示侧统一走 getThreeWay() 校验指纹，云端带过来的旧结论不再被显示。历史交付（v49.2）：①【增量归零真正生效】判定从「updated_at 时间戳」改为「rid 是否已包含进本次 main 快照」——自动同步会刷新 rec_ 行的 updated_at，旧版把 23 条数据 + 30 条墓碑全判成「基线之后新录」而一条都删不掉；现按 rid 判：数据行在基线里就删、不在就保留（并发新局不丢），墓碑一律删（全量基线是整体覆盖语义，接收端会原样采纳并清本地墓碑，不会复活）。全量上传后日志明确显示「增量恢复 0 条」。②【预测主界面三个模块删除】移除「💡 优化建议」「🏷️ 各子模型长期命中率」「🔗 胜负×收益 联合信号」；保留智能分析总结 4 张卡片；「近60局低于随机自动降权」计算逻辑照常运行（只不写已删除的 DOM），预测权重行为不变。历史交付（v49.1）：①【复合游标漏数据修复】时间前进时重置 id 游标，根治「新时间但 rid 字典序更小」的增量行被静默漏拉（实测 350 行只拉 300 行）；②【DOM 守卫副作用修复】删除累加分支（此前吞掉了仓位建议 / 样本外证据 / 概率校准 / 模型贡献 / 异常排名告警），新增直接 DOM 变更失效机制（修 innerHTML=\'\' + appendChild 行翻倍、textContent 缓存不同步、两套缓存互不失效导致清空后摘要不刷新）；③ 热路径 5 处累加改一次性赋值，保住「静止/滚动零写入」。历史交付（v49.0）：①【上下滑动闪动根治】浏览器实测一次 renderAll 会无条件重写 100+ 个 DOM 节点（内容完全没变也整体销毁重建），且分 4 帧跨帧写入；v48.6 只保护了历史表格。现加常驻 DOM 写入守卫（内容相同一个字节都不写）+ 滚动期间渲染排队到停手 180ms 后 + 关闭 scroll-behavior:smooth 与滚动时的 backdrop-filter。②【数据录入区标题右侧】新增「已录入 N 局」胶囊，实时刷新。③【增量同步终审 8 项】S1 全量上传改用服务端 updated_at 回填 _ua（旧版混用客户端时间导致 LWW 失效、编辑同步不过来）；S2 全量归零只删主快照时间点之前的 rec_ 行，不再误删其他端并发新录的局，游标改用服务端时间；S3 批量上传同一时间戳满页时改复合游标翻页，不再丢剩余行；S4 近似同局增加「两条已独立上传且相隔>10分钟则不合并」，防误删同时段补录的合法局；S5 基线恢复后清脏队列并盖服务端 _ua，杜绝旧版本回流与「从未上传」误判；S6 基线 rid 守卫改 10 分钟时效且用户主动删除时豁免（修 v48.9 删不掉的回归）；S7 增量游标不再用客户端时间初始化；S8 基线推进时同步清理 recSeen/墓碑缓存并对齐游标。历史交付（v48.9）：旧端 3948 局全量上传、新端只显示 3946 局）：根因是管理员全量上传的 main 快照被接收端层层删减 —— ① 本地墓碑过滤云端快照、② _dedupeDataset 按业务键去重（无月日/同时段/同比分的两局不同 rid 被误删）、③ 恢复后 _applyTombstonesToLocal 再删一轮、④ 云端残留的旧 rec_ 墓碑行在增量合并/对账时又删一次，全程无局数校验。现改为：全量基线 = 真相，识别到管理员权威覆盖/主快照刚更新且云端更全/手动拉取且云端更全时，走纯净恢复短路（只按 rid 去重，绝不按业务键删；仅追加本地未上传且云端没有的记录），恢复后硬校验 P.history.length === 基线局数，不一致用原始数组强制回填并告警；清空本地墓碑并建立基线 rid 守卫，任何删除路径不得删除基线记录；状态栏明确显示「全量基线 N 局 · 已原样恢复」，控制台可执行 checkFullBaseline() 体检。以下为 v48.8 修复：旧版全文件没有按时间排序，「近18局」实际取的是数组末尾 18 条，而数组顺序由云端 updated_at / 拼接顺序决定 —— 两端尾部差 2 局或顺序不同，窗口就整体错位，14 档匹配/投票/预测全跟着变（你两张截图 3945 vs 3947 的窗口不同即由此而来）。现统一按「月日 + 起始 HH:MM」生成时间有序视图，算法与面板同源；窗口后追加「第X~Y局 · 起止时间」自证，两端是否一致一眼可见；相似盘缓存 key 补时间指纹；主面板也补齐 v48.7 漏改的长序列加权明细与观望提示。以下为 v48.7 修复：9局→B + 8局→B×2 现在必定压过 6局→A×3。① 启用此前从未被调用的 lengthWeight 死代码，改为超线性 (len/5)^2.6（5=1.0 / 6=1.6 / 8=3.4 / 9=4.5 / 18=26.5），不再 8 局封顶 4.0；② 相似度/时间/盘面质量降级为温和修正，取消「单样本 ×0.447」降权与「模糊 ×0.3」重罚；③ 新增按(长度,指向)分组的对数饱和计票，短序列条数不能线性堆死长档位；④ 主相似盘 / 收益 / 收益ABC / 投资 / 血本 / 导出六处投票统一口径；⑤ 详情面板新增「长度权重分组」明细，票柱改画加权票，与概率口径一致。以下为 v48.6 修复（上下滑动闪动 + 全量上传后增量归零）：① 历史表格改为内容签名比对，无变化完全不写 DOM、变化时才保存并恢复滚动位置，云端轮询/对账不再让正在滑动的表格瞬间清空重建；② 对账新增「已收敛 rid」缓存与 30 秒冷却，根治日志反复「补拉4条」；③ 合并时本地 dirty 分支与 rid 漂移也做收敛，杜绝同一批行被无限重拉；④ 管理员全量上传成功后立即清空云端全部 rec_ 增量行（数据行 + 墓碑），前推拉取游标，状态栏明确显示「全量 XXXX 局 · 增量 0 条」，之后新录的局从 0 重新累计。以下为 v48.5 二次审计修复（14 项）：① 修复近似同局索引用数组下标、同批删除/替换后失效的回归；② 增量拉取游标改时间戳比较，杜绝微秒/时区导致的字符串序错乱；③ 增量压缩查询补 updated_at，30 天墓碑清理真正生效；④ 熔断补齐对账/重试定时器检查并给出可见提示；⑤ 对账不再按索引基线跳过「从未上传」的老记录；⑥ 重构/重算/导入不再把全历史批量标脏；⑦ 重构污染清理统一判重口径；⑧ 连续两局同比分不再被 3 秒防连点误拦；⑨ 编辑收益/投资/时间同步后界面正确刷新；⑩ 覆盖导入/清空后的同步保护不被后台增量上传提前解除；⑪ 消除 20s+30s 双轮询冗余；⑫ 配置迁移加防重复刷新；⑬ 弹窗降级提示兜底；⑭ 存量去重后重置同步计数。另保留 v48.4 的关闭循环动画、移除移动端快捷录入、rid 沿用与规范化判重。';
   var APP_UPDATE_DESC = APP_UPDATE_DESC_RECENT + '\n' + APP_UPDATE_DESC_HISTORY; // 兼容旧引用
   (function(){ try {
@@ -3488,6 +3499,26 @@ function debouncedSave() {
         }
     }, 300);
 }
+// v50.17 性能：渲染后的本地保存改为"节流 + 空闲执行 + 仅本地"。
+// renderCards 原来在每次渲染末尾同步 P.saveLocal()：全量 JSON.stringify + localStorage 同步写盘
+// + IndexedDB 结构化克隆全在主线程，几百毫秒级尖峰正是"点一下卡一下"的主因。
+// 注意不能用 debouncedSave()——它 5 秒后会触发云端增量上传（v36.1 明确要求渲染不得触发上传）。
+var _rclSaveTimer = null;
+function scheduleLocalSave() {
+    if (_rclSaveTimer) return;
+    _rclSaveTimer = setTimeout(function(){
+        _rclSaveTimer = null;
+        var _run = function(){ try { P.saveLocal(); } catch(e) { console.warn('[saveLocal]', e && e.message); } };
+        if (window.requestIdleCallback) requestIdleCallback(_run, { timeout: 1500 });
+        else setTimeout(_run, 0);
+    }, 1200);
+}
+// v50.17：页面关闭/切后台时，若还有排队中的本地保存，补一次同步落盘（只在有排队时才执行，平时零开销）
+window.addEventListener('pagehide', function(){
+    if (!_rclSaveTimer) return;
+    clearTimeout(_rclSaveTimer); _rclSaveTimer = null;
+    try { P.saveLocal(); } catch(e) {}
+});
 // v18.0新增：自动学习提示
 var _learnTipTimer = null;
 function showLearnTip() {
@@ -13728,7 +13759,9 @@ function renderSnapshotList() {
         html += '<tr><td colspan="5" style="padding:8px;text-align:center;color:#999;font-size:12px;">— 已加载全部 ' + _cloudSnaps.length + ' 条日志 —</td></tr>';
     }
     
-    tbody.innerHTML = html;
+    // v50.17 性能/体验：内容没变就不再重写整表。周期刷新/重复打开时重建 innerHTML 会让
+    // 弹窗内正在滑动的位置立刻跳回顶部，并触发整块重排重绘（"滑一下就卡"的直接来源之一）。
+    if (tbody.__snapSig !== html) { tbody.__snapSig = html; tbody.innerHTML = html; }
 }
 function loadMoreOlog() {
     if (_ologLoading || !_ologHasMore) return;
@@ -13738,7 +13771,7 @@ function loadMoreOlog() {
         renderSnapshotList();
         var localN = (_snapshots||[]).length;
         var cloudN = (_cloudSnaps||[]).length;
-        statusMsg.textContent = '本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
+        if (statusMsg) statusMsg.textContent = '本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
     }, true);
 }
 function doRestoreSnapshot(idx) {
@@ -16439,7 +16472,8 @@ function renderCards() {
     // 不再依赖 renderAll 的延迟批次（IndexedDB 补全路径只调 renderCards，旧版血本因此永远停在首屏的 100 局）。
     try { renderLossSimPanel(); } catch(e) { console.warn('[血本面板]渲染失败:', e.message); }
     // v36.1：渲染卡片只本地保存预测结果，不触发云端上传（否则打开页面渲染一次就误上传）
-    try { P.saveLocal(); } catch(e) {}
+    // v50.17 性能：改为节流 + 空闲执行的本地保存，渲染路径上不再有同步序列化/写盘。
+    try { scheduleLocalSave(); } catch(e) {}
 }
 function updateStats() {
     document.getElementById('totalGames').textContent=P.history.length;
@@ -20180,11 +20214,19 @@ function renderVote(){
   try{
     if(!P || !P.history || P.history.length<1){ extHide(box); return; }
     var savedAi=P._aiCache||null, savedCache=window._predCache||null;
-    var sRes=null;
-    try{ P._aiCache=null; window._predCache=null; sRes=P.predict(); }catch(e){ sRes=null; }
-    P._aiCache=savedAi; window._predCache=savedCache;
+    // v50.17 性能：这里原来无条件清空 _predCache 再整算一次 predict()。
+    // AI 裁判已移除（_aiCache 为空）时，"无 AI 结果"与缓存结果完全一致，
+    // 因此只要缓存指纹与当前历史相同就直接复用，省掉一次全量 predict（滑动/点击都受益）。
+    // AI 真的在生效、或缓存失效时才走原来的重算分支，语义不变。
+    var _vSig=(typeof computePredSig==='function')?computePredSig():null;
+    var _reuse=(!savedAi && savedCache && _vSig && savedCache.sig===_vSig)?savedCache.result:null;
+    var sRes=_reuse;
+    if(!sRes){
+        try{ P._aiCache=null; window._predCache=null; sRes=P.predict(); }catch(e){ sRes=null; }
+        P._aiCache=savedAi; window._predCache=savedCache;
+    }
     var sP=(sRes&&sRes.probabilities)?sRes.probabilities:null;
-    var aRes=(window._predCache&&window._predCache.result)?window._predCache.result:null;
+    var aRes=(sRes&&sRes.probabilities)?sRes:((window._predCache&&window._predCache.result)?window._predCache.result:null);
     if(!aRes){ try{ aRes=P.predict(); }catch(e){ aRes=null; } }
     var aP=(aRes&&aRes.probabilities)?aRes.probabilities:null;
     if(!sP||!aP){ extHide(box); return; }
@@ -20449,7 +20491,18 @@ function hookRenderAll(){
         // v50.15: 旧版吞掉主 renderAll 异常且不留日志，出错时完全静默；现记录到控制台，
         // 仍不中断扩展面板渲染（行为不变，排障可见）。
         try{ _orig.apply(this,arguments); }catch(e){ if(window.console) console.error('[renderAll]',e); }
-        setTimeout(function(){ try{ ExtOnRender(); }catch(e){} },60);
+        // v50.17 性能：滚动中不跑扩展面板。renderVote 会整算一次 predict，
+        // processHistoryTags 还会逐行读/写 DOM——叠加在滑动上就是肉眼可见的掉帧。
+        // 滚动中标记排队，交给滚动结束后 _v49 的排队渲染统一补（渲染结果不变，只是延后）。
+        setTimeout(function(){
+            requestAnimationFrame(function(){
+                if (typeof _v49IsScrolling === 'function' && _v49IsScrolling() && !window.__v49ForceRender) {
+                    _v49RenderQueued = true;
+                    return;
+                }
+                try{ ExtOnRender(); }catch(e){}
+            });
+        },60);
       };
       window._extRenderPatched=true;
     }
