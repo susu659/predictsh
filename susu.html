@@ -158,7 +158,7 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
           <button class="mini-btn danger" id="waitReapply">重新申请授权</button>
         </div>
       </div>
-      <div class="foot">管理员同意后本页自动进入，每 5 秒检查一次；被拒绝可重新申请</div>
+      <div class="foot">管理员同意后本页自动进入，每 5 秒检查一次；若对方列表为空，请让管理员点「刷新列表」</div>
     </div>
 
     <!-- 阶段 4：功能 -->
@@ -260,8 +260,25 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
  * ===================================================================== */
 'use strict';
 
-var SB_URL  = 'https://fumacbyllkdpjejrgiag.supabase.co';
-var SB_KEY  = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
+/* 云端配置与主系统完全同源：
+   管理员面板（门禁）读 mm_cloud_config_v1 且要求 v===2；云同步模块读同一键但不校验版本。
+   两边分别跟随，避免「授权表」和「数据表」落到不同项目、管理员看不到申请。 */
+var DEF_SB_URL = 'https://fumacbyllkdpjejrgiag.supabase.co';
+var DEF_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
+function readSbCfg(){
+  try{
+    var raw = localStorage.getItem('mm_cloud_config_v1');
+    if (raw){ var c = JSON.parse(raw); if (c && typeof c === 'object') return c; }
+  }catch(e){}
+  return null;
+}
+var _cf = readSbCfg();
+var _authCfgOk = !!(_cf && _cf.v === 2 && _cf.url && _cf.key);
+var _dataCfgOk = !!(_cf && _cf.url && _cf.key);
+var SB_URL  = _authCfgOk ? _cf.url : DEF_SB_URL;   // 授权表：与管理员面板一致
+var SB_KEY  = _authCfgOk ? _cf.key : DEF_SB_KEY;
+var DATA_SB_URL = _dataCfgOk ? _cf.url : DEF_SB_URL;   // 数据表：与系统云同步一致
+var DATA_SB_KEY = _dataCfgOk ? _cf.key : DEF_SB_KEY;
 var TABLE   = 'prediction_data';
 var STORE_KEY = 'mm_v190';
 var ENC_PWD_KEY = 'mm_encryption_pwd_v1';
@@ -324,7 +341,7 @@ function scoreSpanCompact(val){
   else if (v <= 0) cls += 'score-green-dark';
   else if (v <= 0.5) cls += 'score-green-light';
   else cls += 'score-white';
-  return '<span class="' + cls + '">' + val + '</span>';
+  return '<span class="' + cls + '">' + esc(val == null ? '' : val) + '</span>';
 }
 function _recDateParts(rec){
   if (!rec) return null;
@@ -447,7 +464,9 @@ function dayWindow(){
   function part(d){ return { y:d.getFullYear(), m:d.getMonth()+1, d:d.getDate(),
     label:(d.getMonth()+1) + '月' + d.getDate() + '日' }; }
   var now = new Date();
-  return { today:part(now), yest:part(new Date(now.getTime() - 86400000)) };
+  // 用日历日回退一天，不用 86400000 毫秒（跨夏令时切换日会少/多一天）
+  var yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  return { today:part(now), yest:part(yest) };
 }
 /* 返回 'today' / 'yesterday' / null；日期标签取 timeSlot 的「M月D日」，
    无月日的补录记录回退到导出日期列口径，显式年份不同则排除（防去年同月日混入）。 */
@@ -630,12 +649,13 @@ function loadScriptWithFallback(urls, onOk, onFail){
 }
 async function pullCloud(){
   if (!window.supabase || !window.supabase.createClient) throw new Error('云端组件未加载');
-  if (!_sbClient) _sbClient = window.supabase.createClient(SB_URL, SB_KEY);
+  if (!_sbClient) _sbClient = window.supabase.createClient(DATA_SB_URL, DATA_SB_KEY);
   var main = null, rows = [];
   var mres = await _sbClient.from(TABLE).select('data,updated_at').eq('id','main').maybeSingle();
   if (mres.error) throw mres.error;
   if (mres.data && mres.data.data) main = mres.data.data;
-  for (var off = 0; off < 20000; off += 1000){
+  // 不再设 2 万行硬上限：返回不足一页即到末尾；另留 500 页保护，防异常时死循环
+  for (var off = 0, pages = 0; pages < 500; off += 1000, pages++){
     var r = await _sbClient.from(TABLE).select('id,data,updated_at')
               .gte('id','rec_').lt('id','rec~').order('id',{ascending:true}).range(off, off+999);
     if (r.error) throw r.error;
@@ -645,14 +665,11 @@ async function pullCloud(){
   }
   return { ok:true, main:main, rows:rows };
 }
-function popupOpen(){
-  var a = document.getElementById('exportModal'), b = document.getElementById('dailySnapshotOverlay');
-  return (a && a.classList.contains('open')) || (b && b.classList.contains('open'));
-}
-/* 打开时拉一次，之后每 5 分钟自动拉一次；弹窗打开期间跳过本轮，下一轮补上 */
+/* 打开时拉一次，之后每 5 分钟自动拉一次。
+   buildView 只改内存与胶囊、不动弹窗 DOM，所以弹窗开着也能安全同步；
+   同步完成后再把弹窗里的条数/快照就地刷新，避免「长开弹窗就永远不更新」。 */
 async function syncFromCloud(manual){
   if (_cloudPullRunning) return false;
-  if (!manual && popupOpen()) return false;
   _cloudPullRunning = true;
   try{
     if (!window.supabase || !window.supabase.createClient){
@@ -673,6 +690,14 @@ async function syncFromCloud(manual){
     _pillOverride = '';
     // 每次重新读本机存档：同浏览器里主系统刚录的新局也能一并带上
     buildView(readLocalStore(), readViewCache(), cloud);
+    try{
+      if (document.getElementById('exportModal').classList.contains('open')){
+        document.getElementById('exportCount').textContent = resolveExportIndices().indices.length;
+      }
+      if (document.getElementById('dailySnapshotOverlay').classList.contains('open')){
+        renderDailySnapshot();
+      }
+    }catch(e){}
     if (manual) showToast(true, '同步完成', '已从系统云端拉取最新数据，共 ' + VIEW.history.length + ' 局');
     return true;
   }catch(e){
@@ -708,7 +733,7 @@ function showToast(ok, title, msg){
 
 /* =====================================================================
  * 门禁：密码 → 填写备注 → 管理员在系统「设备管理」里授权 → 功能
- * 与系统共用 access_control 表；本页用独立设备 ID（exp_ 前缀），
+ * 与系统共用 access_control 表；设备号与系统同款 dev_ 前缀但各自独立，
  * 管理员看到的备注即用户填写的内容；授权状态持久化，一次授权长期有效。
  * ===================================================================== */
 var PWD_B64 = 'c3VzdTIwMjY=';  // 导出密码摘要
@@ -751,11 +776,16 @@ function authApi(path, opt){
     throw e;
   });
 }
-function genDevId(){ return 'exp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10); }
+function genDevId(){ return 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10); }
+var _devMigrated = false;   // 旧版 exp_ 号自动换成系统同款 dev_ 号，并重新提交申请
 function getDevId(){
   var id = '';
   try{ id = localStorage.getItem(DEV_KEY) || ''; }catch(e){}
-  if (!id){ id = genDevId(); try{ localStorage.setItem(DEV_KEY, id); }catch(e){} }
+  if (!id || id.indexOf('exp_') === 0){
+    if (id) _devMigrated = true;
+    id = genDevId();
+    try{ localStorage.setItem(DEV_KEY, id); }catch(e){}
+  }
   return id;
 }
 function getDevName(){ try{ return localStorage.getItem(NAME_KEY) || ''; }catch(e){ return ''; } }
@@ -833,7 +863,14 @@ async function submitRequest(name){
       if (row.status === 'rejected' || !row.status){ body.status = 'pending'; body.authorized_at = null; }
       await authApi(AUTH_TABLE, {method:'PATCH', body:body, query:'id=eq.' + id});
     }
-    renderWait('pending');
+    // 立刻回读：只用来给一句更准确的提示，绝不因此停掉轮询。
+    // 云端 SELECT 若暂时不可用，申请其实已写入、管理员也能同意，停轮询会让人永远进不来。
+    var back = await getStatus(id);
+    if (!back || (back.status !== 'pending' && back.status !== 'rejected' && back.status !== 'authorized')){
+      renderWait('pending', '申请已提交，暂时读不到状态，正在自动重试…');
+    } else {
+      renderWait('pending');
+    }
     startPoll();
   }catch(e){
     renderWait('pending', '提交失败：' + (e && e.message ? e.message : '') + '，点「重新申请授权」重试');
@@ -854,25 +891,30 @@ function enterMain(){
   setStage('main');
   updateSyncPill();
 }
-/* 启动时后台复核一次：只有「明确被撤销/拒绝」才收回本地授权，弱网不打扰 */
+/* 后台复核授权：管理员「撤销」在主系统里是把 status 改回 pending，
+   「拒绝」是 rejected，两者都必须收回本页权限；查不到记录 / 弱网一律不打扰。 */
+var _verifyBusy = false;
 function verifyAuthedInBackground(){
+  if (_verifyBusy) return;
+  _verifyBusy = true;
   getStatus(getDevId()).then(function(row){
-    if (row && row.status === 'rejected'){
+    if (row && (row.status === 'pending' || row.status === 'rejected')){
       markAuthed(false); clearGate(); setStage('pwd');
       document.getElementById('pwdInput').value = '';
-      document.getElementById('pwdErr').textContent = '';
-      showToast(false,'授权已撤销','管理员已撤销本设备授权，请重新输入密码申请');
+      document.getElementById('pwdErr').textContent = '授权已被管理员撤销，请重新验证';
+      showToast(false,'授权已撤销','管理员已撤销或拒绝本设备，请重新输入密码申请');
     } else if (row && row.status === 'authorized'){
       markAuthed(true);
     }
-  }).catch(function(){});
+  }).catch(function(){}).then(function(){ _verifyBusy = false; });
 }
 
 /* ---- 交互 ---- */
 function afterPwd(){
   if (isAuthed()){ enterMain(); verifyAuthedInBackground(); return; }
-  var id = ''; try{ id = localStorage.getItem(DEV_KEY) || ''; }catch(e){}
+  var id = getDevId();   // 内部完成旧 exp_ 号 → 系统同款 dev_ 号迁移
   if (id && getDevName()){
+    if (_devMigrated){ submitRequest(getDevName()); return; }   // 换号后补交一次申请
     setStage('wait'); renderWait('pending', '正在核对授权状态…'); startPoll();
   } else {
     setStage('name');
@@ -1007,6 +1049,13 @@ function resolveExportIndices(){
            : (scope === 'yesterday' ? w.yest.label : w.yest.label + '-' + w.today.label);
   return { indices:hits, yest:ny, today:nt, range:'date', scope:scope, desc:desc };
 }
+/* CSV 单元格：转义逗号/引号/换行，并防止表格软件把 = + - @ 开头的值当公式执行 */
+function csvCell(v){
+  var s = String(v == null ? '' : v);
+  if (/^[=+@]/.test(s) || (s.charAt(0) === '-' && !/^-?\d+(\.\d+)?$/.test(s))) s = "'" + s;
+  if (/[",\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
 function colLetter(idx){
   var s = ''; idx++;
   while (idx > 0){ var m = (idx-1)%26; s = String.fromCharCode(65+m) + s; idx = Math.floor((idx-1)/26); }
@@ -1090,6 +1139,9 @@ function doCustomExport(){
     if (!boxes.length){ showToast(false,'导出失败','请至少选择一列要导出'); return; }
     var cols = []; for (var i=0;i<boxes.length;i++) cols.push(boxes[i].value);
     var fmt = (document.querySelector('input[name="exportFormat"]:checked') || {}).value || 'excel';
+    // XLSX 由 CDN 异步加载；刚打开页面就点导出时别让用户卡在报错上，自动改出 CSV
+    var xlsxFallback = false;
+    if (fmt === 'excel' && !window.XLSX){ fmt = 'csv'; xlsxFallback = true; }
     var now = new Date();
     var dstr = '' + now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
     var n = info.indices.length;
@@ -1102,19 +1154,20 @@ function doCustomExport(){
           '' + '\n列：' + cols.length + ' 列\n文件名：' + fname);
       }catch(e){ showToast(false,'导出失败','Excel导出出错：' + e.message); }
     } else {
-      var csv = cols.map(function(c){ return COL_NAMES[c] || c; }).join(',') + '\n';
+      var csv = cols.map(function(c){ return csvCell(COL_NAMES[c] || c); }).join(',') + '\n';
       for (var k=0;k<info.indices.length;k++){
         var d = buildRowData(info.indices[k], VIEW.history[info.indices[k]] || {});
-        csv += cols.map(function(c){ return d[c] !== undefined ? d[c] : ''; }).join(',') + '\n';
+        csv += cols.map(function(c){ return csvCell(d[c] !== undefined ? d[c] : ''); }).join(',') + '\n';
       }
       var blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8;'});
       var url = URL.createObjectURL(blob), a = document.createElement('a');
-      a.href = url; a.download = '商会预测数据_' + new Date().toISOString().slice(0,10) + '_' + info.desc + '_' + n + '条.csv';
+      a.href = url; a.download = '商会预测数据_' + dstr + '_' + info.desc + '_' + n + '条.csv';
       a.style.display = 'none'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
       closeExportModal();
       showToast(true,'导出成功','已导出 ' + n + ' 条记录\n范围：' + info.desc +
-        '' + '\n列：' + cols.length + ' 列\n请检查浏览器下载栏');
+        '' + '\n列：' + cols.length + ' 列\n请检查浏览器下载栏' +
+        (xlsxFallback ? '\n（Excel 组件尚未加载完成，已自动改用 CSV）' : ''));
     }
   }catch(e){
     showToast(false,'导出失败', e.message || String(e));
@@ -1160,7 +1213,8 @@ function renderDailySnapshot(){
   var rows = [];
   for (var i=0;i<VIEW.history.length;i++){
     var rec = VIEW.history[i], ts = splitTimeSlot(rec.timeSlot);
-    if (ts.date !== target) continue;
+    // 与导出的 dayIndexOf 用同一个 _exportRowDate：只有 date 没 timeSlot 的补录记录也能进快照
+    if (_exportRowDate(rec) !== target) continue;
     if (targetY !== null){
       var ry = _recExplicitYear(rec);
       if (ry !== null && ry !== targetY) continue;
@@ -1176,7 +1230,7 @@ function renderDailySnapshot(){
     var iv = r.rec.investWinner;
     if (iv==='大') iBig++; else if (iv==='中') iMid++; else if (iv==='小') iSmall++;
   });
-  summary.innerHTML = target + ' · 共' + rows.length + '局 · ' +
+  summary.innerHTML = esc(target) + ' · 共' + rows.length + '局 · ' +
     '<span style="color:#e74c3c;font-weight:700;">A'+cA+'</span> ' +
     '<span style="color:#3498db;font-weight:700;">B'+cB+'</span> ' +
     '<span style="color:#2ecc71;font-weight:700;">C'+cC+'</span> · ' +
@@ -1186,12 +1240,16 @@ function renderDailySnapshot(){
   var html = '';
   rows.forEach(function(row){
     var rec = row.rec, win = getWinner(rec), pf = rec.profitWinner || '', iv = rec.investWinner || '';
-    var winBadge = win ? '<span class="ds-winner-badge ds-winner-'+win+'">'+win+'</span>' : '<span style="color:#ccc;font-size:12px;">—</span>';
-    var pfBadge = pf ? '<span class="ds-profit-badge ds-profit-'+pf+'">'+pf+'</span>' : '<span style="color:#ccc;font-size:12px;">—</span>';
-    var ivBadge = iv ? '<span class="ds-invest-badge ds-invest-'+iv+'">'+iv+'</span>' : '<span style="color:#ccc;font-size:12px;">—</span>';
+    var blank = '<span style="color:#ccc;font-size:12px;">—</span>';
+    var winOk = ['A','B','C'].indexOf(win) >= 0;
+    var pfOk  = ['大','中','小'].indexOf(pf) >= 0;
+    var ivOk  = ['大','中','小'].indexOf(iv) >= 0;
+    var winBadge = winOk ? '<span class="ds-winner-badge ds-winner-'+esc(win)+'">'+esc(win)+'</span>' : blank;
+    var pfBadge  = pfOk  ? '<span class="ds-profit-badge ds-profit-'+esc(pf)+'">'+esc(pf)+'</span>' : blank;
+    var ivBadge  = ivOk  ? '<span class="ds-invest-badge ds-invest-'+esc(iv)+'">'+esc(iv)+'</span>' : blank;
     html += '<tr>' +
       '<td class="ds-num" style="color:#6c757d;">'+row.idx+'</td>' +
-      '<td style="color:#495057;font-size:12px;">'+row.time+'</td>' +
+      '<td style="color:#495057;font-size:12px;">'+esc(row.time)+'</td>' +
       '<td>'+scoreSpanCompact(rec.a)+'</td><td>'+scoreSpanCompact(rec.b)+'</td><td>'+scoreSpanCompact(rec.c)+'</td>' +
       '<td>'+winBadge+'</td><td>'+pfBadge+'</td><td>'+ivBadge+'</td></tr>';
   });
@@ -1210,11 +1268,14 @@ function renderDailySnapshot(){
     'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
     'https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
     'https://registry.npmmirror.com/xlsx-js-style/1.2.0/files/dist/xlsx.bundle.js',
-    'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+    './xlsx.bundle.js'
   ], function(){ window.XLSX = window.XLSX || null; }, function(){});
 
   // 胶囊上的「当前时间」每秒走一次（只改文案，不拉数据、不重算局数）
   setInterval(function(){ updateSyncPill(); }, 1000);
+  // 已解锁后每分钟复核一次云端授权：管理员撤销/拒绝最多 1 分钟内生效
+  setInterval(function(){ if (isAuthed() && STAGE === 'main') verifyAuthedInBackground(); }, 60000);
 
   // 打开页面即默认拉取一次云端（不等授权、不等点击），完成后启动 5 分钟自动拉取
   updateSyncPill('⏳ 正在从系统云端拉取最新数据…');
