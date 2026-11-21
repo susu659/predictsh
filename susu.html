@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="renderer" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
+<title>导出数据 · 当日快照</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI','Segoe UI Emoji',-apple-system,'PingFang SC','Microsoft YaHei','Apple Color Emoji','Noto Color Emoji',sans-serif;
+  background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);min-height:100vh;color:#333;-webkit-font-smoothing:antialiased}
+.page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 14px}
+.card{width:100%;max-width:420px;background:#fff;border-radius:24px;box-shadow:0 24px 70px rgba(8,6,30,.42);padding:30px 26px 22px;text-align:center}
+.brand{display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:700;color:#5b5478;letter-spacing:.5px;margin-bottom:14px}
+.brand i{display:inline-flex;width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,#f7b733,#fc4a1a);color:#fff;font-style:normal;font-size:12px;align-items:center;justify-content:center}
+h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom:8px}
+.subtitle{font-size:13px;color:#8b90a0;margin-bottom:16px;min-height:18px}
+.sync-pill{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:6px 13px;border-radius:999px;background:#f2f4fa;color:#4b4470;font-size:12px;font-weight:600;margin-bottom:20px;line-height:1.4}
+.sync-pill.ok{background:#e8f6ee;color:#1e7e4a}
+.sync-pill.warn{background:#fff4e2;color:#a4680a}
+.act-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:56px;border:none;border-radius:13px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:transform .18s,box-shadow .18s;margin-bottom:14px;letter-spacing:.5px}
+.act-btn:active{transform:scale(.985)}
+.act-btn .ico{display:inline-flex;width:22px;height:22px;border-radius:7px;background:rgba(255,255,255,.22);align-items:center;justify-content:center;font-size:13px;font-style:normal}
+.btn-export{background:#0a84ea;box-shadow:0 8px 20px rgba(10,132,234,.28)}
+.btn-export:hover{box-shadow:0 10px 26px rgba(10,132,234,.42);transform:translateY(-2px)}
+.btn-snapshot{background:#ff5722;box-shadow:0 8px 20px rgba(255,87,34,.26)}
+.btn-snapshot:hover{box-shadow:0 10px 26px rgba(255,87,34,.4);transform:translateY(-2px)}
+.stage{display:none}
+.stage.active{display:block;animation:stageIn .28s ease-out}
+@keyframes stageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.form-box{background:#f5f6f9;border-radius:13px;padding:16px 15px 14px;margin:2px 0 18px;text-align:center}
+.form-title{font-size:13px;color:#6c7284;margin-bottom:11px;font-weight:600}
+.form-input{width:100%;height:44px;padding:0 13px;border:1px solid #dfe3ec;border-radius:9px;font-size:14px;background:#fff;outline:none;transition:border-color .15s,box-shadow .15s}
+.form-input:focus{border-color:#0a84ea;box-shadow:0 0 0 3px rgba(10,132,234,.13)}
+.form-err{color:#d33a2c;font-size:12px;min-height:16px;margin-top:7px;text-align:left}
+.form-row{display:flex;gap:10px;margin-top:4px}
+.form-row button{flex:1;height:42px;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer}
+.form-cancel{background:#e8eaf0;color:#5b6070}
+.form-ok{background:#0a84ea;color:#fff}
+.form-ok:hover{background:#096fc8}
+.form-ok:disabled{opacity:.55;cursor:not-allowed}
+.wait-box{background:#f5f6f9;border-radius:13px;padding:18px 16px 16px;margin:2px 0 18px;text-align:left}
+.wait-title{font-size:14px;font-weight:700;color:#302b63;margin-bottom:10px;text-align:center}
+.wait-line{font-size:12.5px;color:#5b6070;line-height:1.9;word-break:break-all}
+.wait-line b{color:#302b63}
+.wait-status{margin-top:10px;padding:10px 12px;border-radius:9px;background:#fff3cd;color:#856404;font-size:12.5px;font-weight:600;line-height:1.6;text-align:center}
+.wait-status.ok{background:#d4edda;color:#155724}
+.wait-status.bad{background:#f8d7da;color:#721c24}
+.dev-id{display:block;font-family:monospace;font-size:11px;color:#9aa0b4;margin-top:6px;word-break:break-all}
+.mini-row{display:flex;gap:8px;margin-top:12px}
+.mini-row button{flex:1;height:38px;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer}
+.mini-btn{background:#e8eaf0;color:#5b6070}
+.mini-btn.primary{background:#302b63;color:#fff}
+.mini-btn.danger{background:#e74c3c;color:#fff}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(133,100,4,.3);border-top-color:#856404;border-radius:50%;vertical-align:-2px;margin-right:5px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.foot{font-size:11.5px;color:#a6aabd;line-height:1.7;margin-top:6px}
+/* ===== 通用弹窗（与主系统同款） ===== */
+.import-modal-overlay,.ds-modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.62);z-index:10000;display:none;align-items:center;justify-content:center}
+.import-modal-overlay.open,.ds-modal-overlay.open{display:flex}
+.import-modal{background:#fff;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:520px;width:92%;padding:28px 30px;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:modalIn .22s ease-out}
+@keyframes modalIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.import-modal h3{font-size:20px;color:#302b63;margin-bottom:6px}
+.import-modal .modal-sub{font-size:13px;color:#6c757d;margin-bottom:18px;line-height:1.6}
+.import-modal-actions{display:flex;gap:12px;margin-top:22px}
+.import-modal-actions button{flex:1;padding:12px 20px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer}
+.btn-modal-cancel{background:#e9ecef;color:#495057}
+.btn-modal-cancel:hover{background:#dee2e6}
+.btn-modal-confirm{background:linear-gradient(90deg,#0f0c29,#302b63);color:#fff}
+.btn-modal-confirm:hover{box-shadow:0 4px 16px rgba(48,43,99,.35)}
+/* ===== 当日快照弹窗（与主系统同款） ===== */
+.ds-modal-overlay{z-index:10001}
+.ds-modal{background:#fff;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:94%;max-width:680px;overflow:hidden;animation:modalIn .25s ease-out;display:flex;flex-direction:column;max-height:92vh}
+.ds-header{background:linear-gradient(135deg,#1a1740,#302b63);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ds-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.ds-header-right{display:flex;align-items:center;gap:8px}
+.ds-date-input{padding:6px 10px;border:none;border-radius:8px;font-size:14px;font-weight:600;color:#302b63;cursor:pointer}
+.ds-close{background:rgba(255,255,255,.15);color:#fff;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ds-close:hover{background:rgba(255,255,255,.3)}
+.ds-summary{padding:10px 20px;font-size:14px;font-weight:600;color:#302b63;background:#f8f7ff;border-bottom:1px solid #e8ecf0}
+.ds-table-wrap{overflow-y:auto;overflow-x:auto;flex:1;padding:0}
+.ds-table{width:100%;border-collapse:collapse;font-size:13px}
+.ds-table th{background:#f0efff;color:#495057;font-weight:700;padding:7px 4px;text-align:center;font-size:12px;position:sticky;top:0;z-index:1}
+.ds-table td{padding:5px 4px;text-align:center;border-bottom:1px solid #f0f2f5;white-space:nowrap}
+.ds-table tr:hover td{background:#f8f9ff}
+.ds-num{font-weight:600;font-size:13px}
+.ds-winner-badge,.ds-profit-badge,.ds-invest-badge{display:inline-block;padding:3px 10px;border-radius:6px;color:#fff;font-weight:700;font-size:13px;min-width:28px;text-align:center}
+.ds-winner-A{background:#e74c3c}.ds-winner-B{background:#3498db}.ds-winner-C{background:#2ecc71}
+.ds-profit-大{background:#e74c3c}.ds-profit-中{background:#f39c12}.ds-profit-小{background:#27ae60}
+.ds-invest-大{background:#e91e63}.ds-invest-中{background:#9c27b0}.ds-invest-小{background:#00bcd4}
+.ds-zoom-btn{background:rgba(255,255,255,.15);color:#fff;border:none;width:28px;height:28px;border-radius:6px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700}
+.ds-zoom-btn:hover{background:rgba(255,255,255,.3)}
+.ds-zoom-level{color:#fff;font-size:12px;font-weight:600;min-width:42px;text-align:center}
+.ds-empty{padding:40px;text-align:center;color:#999;font-size:14px}
+.score-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:600;font-size:12px;min-width:28px;text-align:center;line-height:1.6}
+.score-red-dark{background:#b71c1c;color:#fff}.score-red{background:#dc3545;color:#fff}
+.score-green-light{background:#c8e6c9;color:#2e7d32}.score-green-dark{background:#2e7d32;color:#fff}
+.score-white{background:#fff;color:#333;border:1px solid #dee2e6}
+/* ===== 轻提示 ===== */
+.toast{position:fixed;top:18px;left:50%;transform:translate(-50%,-16px);z-index:12000;min-width:240px;max-width:88vw;background:#fff;border-radius:12px;padding:13px 18px;box-shadow:0 12px 36px rgba(0,0,0,.24);border-left:5px solid #28a745;opacity:0;pointer-events:none;transition:all .25s;font-size:13px;line-height:1.6}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{border-left-color:#e74c3c}
+.toast strong{display:block;font-size:14px;color:#302b63;margin-bottom:3px}
+.toast div{color:#555;white-space:pre-line}
+@media(max-width:420px){
+  .card{padding:26px 20px 18px;border-radius:20px}
+  h1{font-size:24px}
+  .import-modal{padding:22px 18px;width:94%}
+  .ds-header{padding:12px 14px}
+  .ds-table{font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="card">
+    <div class="brand"><i>▦</i> 商会三竞预测系统</div>
+    <h1 id="h1Title">导出数据</h1>
+    <div class="subtitle" id="subtitle">导出前请验证密码</div>
+
+    <!-- 阶段 1：密码 -->
+    <div class="stage active" id="stagePwd">
+      <div class="form-box">
+        <div class="form-title">导出数据需要验证密码</div>
+        <input type="password" class="form-input" id="pwdInput" placeholder="请输入导出密码" autocomplete="off">
+        <div class="form-err" id="pwdErr"></div>
+        <div class="form-row"><button class="form-ok" id="pwdOk">确认</button></div>
+      </div>
+      <div class="foot">密码通过后还需一次设备授权，授权过一次即可一直使用</div>
+    </div>
+
+    <!-- 阶段 2：填写备注 -->
+    <div class="stage" id="stageName">
+      <div class="form-box">
+        <div class="form-title">请填写设备备注，供管理员辨认</div>
+        <input type="text" class="form-input" id="nameInput" placeholder="例如：小王的手机 / 前台电脑" autocomplete="off">
+        <div class="form-err" id="nameErr"></div>
+        <div class="form-row"><button class="form-ok" id="nameOk">提交授权申请</button></div>
+      </div>
+      <div class="foot">提交后请等待管理员在系统「设备管理」中同意</div>
+    </div>
+
+    <!-- 阶段 3：等待授权 -->
+    <div class="stage" id="stageWait">
+      <div class="wait-box">
+        <div class="wait-title">等待管理员授权</div>
+        <div class="wait-line">设备备注：<b id="waitName">—</b></div>
+        <div class="wait-line">设备编号：<b id="waitDevId">—</b><span class="dev-id" id="waitDevIdRaw"></span></div>
+        <div class="wait-status" id="waitStatus"><span class="spin"></span>正在提交申请…</div>
+        <div class="mini-row">
+          <button class="mini-btn primary" id="waitRefresh">↻ 立即刷新</button>
+          <button class="mini-btn" id="waitEdit">改备注</button>
+        </div>
+        <div class="mini-row" id="reapplyRow" style="display:none">
+          <button class="mini-btn danger" id="waitReapply">重新申请授权</button>
+        </div>
+      </div>
+      <div class="foot">管理员同意后本页自动进入，每 5 秒检查一次；被拒绝可重新申请</div>
+    </div>
+
+    <!-- 阶段 4：功能 -->
+    <div class="stage" id="stageMain">
+      <div class="sync-pill" id="syncPill">⏳ 正在同步系统数据…</div>
+      <button class="act-btn btn-export" id="btnExport"><span class="ico">↑</span> 导出数据</button>
+      <button class="act-btn btn-snapshot" id="btnSnapshot"><span class="ico">◎</span> 当日快照</button>
+      <div class="foot">页面打开时已自动同步并保留数据，此页可直接导出</div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 导出数据弹窗（口径与主系统完全一致） ========== -->
+<div class="import-modal-overlay" id="exportModal">
+  <div class="import-modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
+    <h3>↑ 导出数据</h3>
+    <p class="modal-sub">共 <strong id="exportCount">0</strong> 条可导出记录，可自定义导出列</p>
+
+    <div style="margin:16px 0;text-align:left;">
+      <strong style="font-size:14px;color:#333;">※ 导出范围</strong>
+      <div style="margin-top:10px;display:flex;gap:18px;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="exportScope" value="today" checked onchange="onExportScopeChange()"> 今天
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="exportScope" value="yesterday" onchange="onExportScopeChange()"> 昨天
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;">
+          <input type="radio" name="exportScope" value="both" onchange="onExportScopeChange()"> 昨天 + 今天
+        </label>
+      </div>
+    </div>
+
+    <div style="margin:16px 0;text-align:left;">
+      <strong style="font-size:14px;color:#333;">≡ 导出列（勾选要导出的字段）</strong>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="date" checked> 日期</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="time" checked> 时间</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="a" checked> A</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="b" checked> B</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="c" checked> C</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="winner" checked> 获胜方</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="profit" checked> 获胜收益</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;"><input type="checkbox" class="export-col" value="invest" checked> 获胜投资</label>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:10px;">
+        <button onclick="selectAllExportCols(true)" style="padding:4px 10px;font-size:11px;border:1px solid #302b63;background:#fff;color:#302b63;border-radius:4px;cursor:pointer;">全选</button>
+        <button onclick="selectAllExportCols(false)" style="padding:4px 10px;font-size:11px;border:1px solid #999;background:#fff;color:#666;border-radius:4px;cursor:pointer;">全不选</button>
+      </div>
+    </div>
+
+    <div style="margin:16px 0;text-align:left;">
+      <strong style="font-size:14px;color:#333;">▣ 导出格式</strong>
+      <div style="margin-top:10px;display:flex;gap:20px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="radio" name="exportFormat" value="csv"> ▤ CSV文件</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;"><input type="radio" name="exportFormat" value="excel" checked> ▦ Excel文件（.xlsx，推荐）</label>
+      </div>
+    </div>
+
+    <div class="import-modal-actions">
+      <button class="btn-modal-cancel" onclick="closeExportModal()">取消</button>
+      <button class="btn-modal-confirm" onclick="doCustomExport()" style="background:#302b63;color:#fff;">↑ 开始导出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 当日快照弹窗（与主系统同款） ========== -->
+<div class="ds-modal-overlay" id="dailySnapshotOverlay" onclick="if(event.target===this)closeDailySnapshot()">
+  <div class="ds-modal">
+    <div class="ds-header">
+      <div class="ds-title">◎ 当日快照</div>
+      <div class="ds-header-right">
+        <button class="ds-zoom-btn" onclick="dsZoom(-0.1)" title="缩小">−</button>
+        <span class="ds-zoom-level" id="dsZoomLevel">100%</span>
+        <button class="ds-zoom-btn" onclick="dsZoom(0.1)" title="放大">＋</button>
+        <input type="date" class="ds-date-input" id="dsDateInput">
+        <button class="ds-close" onclick="closeDailySnapshot()">✕</button>
+      </div>
+    </div>
+    <div class="ds-summary" id="dsSummary">—</div>
+    <div class="ds-table-wrap">
+      <table class="ds-table">
+        <thead><tr><th style="width:50px;">局号</th><th style="width:90px;">时间</th><th>A收分</th><th>B收分</th><th>C收分</th><th style="width:60px;">获胜方</th><th style="width:55px;">收益</th><th style="width:55px;">投资</th></tr></thead>
+        <tbody id="dsTableBody"></tbody>
+      </table>
+      <div class="ds-empty" id="dsEmpty" style="display:none;">当天暂无记录</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================================
+ * 独立只读页：导出数据 / 当日快照
+ * · 数据来自主系统同一份 localStorage（mm_v190）+ 同一套云端（prediction_data）
+ * · 打开页面即后台同步，结果只保留在本页专用缓存，不回写、不改动系统数据
+ * · 页面不含主系统界面与任何入口
+ * ===================================================================== */
+'use strict';
+
+var SB_URL  = 'https://fumacbyllkdpjejrgiag.supabase.co';
+var SB_KEY  = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
+var TABLE   = 'prediction_data';
+var STORE_KEY = 'mm_v190';
+var ENC_PWD_KEY = 'mm_encryption_pwd_v1';
+var SHARED_KEY  = 'prediction_history_shared';
+var VIEW_KEY    = 'mm_export_view_v1';   // 本页专用缓存，绝不写回系统
+var GATE_KEY    = 'mm_export_gate_v1';   // 密码态，仅会话内有效
+var AUTH_TABLE  = 'access_control';      // 与系统同一张设备授权表
+var DEV_KEY     = 'mm_export_device_id_v1';    // 本页独立设备 ID（不复用系统设备 ID）
+var NAME_KEY    = 'mm_export_device_name_v1';  // 本页设备备注
+var AUTH_KEY    = 'mm_export_auth_ok_v1';      // 授权一次后长期有效
+var PULL_INTERVAL_MS = 5 * 60 * 1000;         // 打开拉一次，之后每 5 分钟自动拉一次
+var GUILDS = ['A','B','C'];
+
+var VIEW = { history: [], predByRid: {}, predByIndex: [], ts: 0, source: '' };
+var _sbClient = null;
+var _cloudPullRunning = false, _cloudPullTimer = null, _nextPullAt = 0, _lastPullFailed = false;
+var _pillOverride = '';
+
+/* ---------------- 基础工具（与主系统同源复刻） ---------------- */
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function techLog(){}
+
+function xorDecrypt(encStr, pwd){
+  try{
+    var pb = new TextEncoder().encode(pwd || '');
+    if (encStr.indexOf('ENC2:') === 0){
+      var bin = atob(encStr.substring(5)), bytes = new Uint8Array(bin.length), out = new Uint8Array(bin.length);
+      for (var i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+      for (var j=0;j<bytes.length;j++) out[j] = bytes[j] ^ pb[j % pb.length];
+      return new TextDecoder().decode(out);
+    }
+    var ob = atob(encStr.substring(4)), raw = new TextDecoder('utf-8',{fatal:false}).decode(new Uint8Array(Array.from(ob, function(c){return c.charCodeAt(0);})));
+    var res = '';
+    for (var k=0;k<raw.length;k++) res += String.fromCharCode(raw.charCodeAt(k) ^ (pwd||'').charCodeAt(k % (pwd||' ').length));
+    return res;
+  }catch(e){ return null; }
+}
+function isEncrypted(s){ return typeof s === 'string' && (s.indexOf('ENC:') === 0 || s.indexOf('ENC2:') === 0); }
+
+function splitTimeSlot(timeSlot){
+  if (!timeSlot || typeof timeSlot !== 'string') return {date:'', time:''};
+  var m = timeSlot.match(/(\d{1,2}月\d{1,2}日)\s*(\d{1,2}:\d{2}(?::\d{2})?-\d{1,2}:\d{2}(?::\d{2})?)/);
+  if (m) return {date:m[1], time:m[2]};
+  var dm = timeSlot.match(/(\d{1,2}月\d{1,2}日)/);
+  var tm = timeSlot.match(/(\d{1,2}:\d{2}(?::\d{2})?-\d{1,2}:\d{2}(?::\d{2})?)/);
+  return {date: dm ? dm[1] : '', time: tm ? tm[1] : ''};
+}
+function getWinner(rec){
+  if (!rec) return '';
+  var vals = [parseFloat(rec.a)||0, parseFloat(rec.b)||0, parseFloat(rec.c)||0];
+  var mx = Math.max.apply(null, vals);
+  for (var i=0;i<3;i++) if (vals[i] === mx) return GUILDS[i];
+  return 'A';
+}
+function scoreSpanCompact(val){
+  var cls = 'score-badge ';
+  var v = parseFloat(val);
+  if (v >= 3) cls += 'score-red-dark';
+  else if (v >= 2) cls += 'score-red';
+  else if (v <= 0) cls += 'score-green-dark';
+  else if (v <= 0.5) cls += 'score-green-light';
+  else cls += 'score-white';
+  return '<span class="' + cls + '">' + val + '</span>';
+}
+function _recDateParts(rec){
+  if (!rec) return null;
+  var t = String(rec.timeSlot || ''), d = String(rec.date || ''), src = t + ' ' + d;
+  var dm = src.match(/(\d{1,2})月(\d{1,2})日/);
+  var ymd = d.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  var mon = 0, day = 0, explicitY = null;
+  if (dm){ mon = parseInt(dm[1],10); day = parseInt(dm[2],10); }
+  else if (ymd){ mon = parseInt(ymd[2],10); day = parseInt(ymd[3],10); }
+  if (ymd) explicitY = parseInt(ymd[1],10);
+  if (explicitY !== null && dm && ymd){
+    var dmd = parseInt(ymd[2],10)*100 + parseInt(ymd[3],10);
+    var smd = parseInt(dm[1],10)*100 + parseInt(dm[2],10);
+    if (dmd !== smd) explicitY = null;
+  }
+  var tm = t.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (!tm) return null;
+  return { y: explicitY, md: mon*100 + day, mins: parseInt(tm[1],10)*60 + parseInt(tm[2],10) };
+}
+function _datasetYearAnchor(history){
+  var h = history || [], maxY = 0, maxMD = 0;
+  for (var i=0;i<h.length;i++){
+    var p = _recDateParts(h[i]); if (!p) continue;
+    var y = p.y || 0;
+    if (y > maxY){ maxY = y; maxMD = p.md; }
+    else if (y === maxY && p.md > maxMD) maxMD = p.md;
+    else if (y === 0 && maxY === 0 && p.md > maxMD) maxMD = p.md;
+  }
+  if (maxY) return {y:maxY, md:maxMD};
+  var now = new Date(); return {y:now.getFullYear(), md:(now.getMonth()+1)*100 + now.getDate()};
+}
+function _recChronoMs(rec, anchor){
+  var p = _recDateParts(rec); if (!p) return null;
+  var off = 0;
+  if (anchor && anchor.y){
+    if (p.y !== null) off = p.y - anchor.y;
+    else if (p.md > anchor.md) off = -1;
+  }
+  return off*1e8 + p.md*1440 + p.mins;
+}
+function _recInsSeq(r){ var s = r && r._insSeq; return (typeof s === 'number' && isFinite(s)) ? s : null; }
+function _recExplicitYear(rec){
+  if (!rec) return null;
+  var d = String(rec.date||''), t = String(rec.timeSlot||'');
+  var m = d.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/) || t.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  return m ? parseInt(m[1],10) : null;
+}
+/* 时间有序下标（与主系统 _chronoView 同口径） */
+function chronoOrder(history, fixedAnchor){
+  var h = history || [], anchor = fixedAnchor || _datasetYearAnchor(h), arr = [], last = null, hasSeq = false;
+  for (var i=0;i<h.length;i++){
+    var t = _recChronoMs(h[i], anchor);
+    if (t === null) t = (last === null) ? (-1e9 + i) : (last + 0.001);
+    else last = t;
+    if (_recInsSeq(h[i]) !== null) hasSeq = true;
+    arr.push({i:i, t:t, r:h[i]});
+  }
+  arr.sort(function(a,b){
+    var d = a.t - b.t; if (d) return d;
+    var sa = _recInsSeq(a.r), sb = _recInsSeq(b.r);
+    if (sa !== null && sb !== null){
+      if (sa !== sb) return sa - sb;
+      var ra = String((a.r&&a.r._rid)||''), rb = String((b.r&&b.r._rid)||'');
+      if (ra !== rb) return ra < rb ? -1 : 1;
+      return a.i - b.i;
+    }
+    if (sa !== null || sb !== null) return (sa === null) ? -1 : 1;
+    if (hasSeq){
+      var rla = String((a.r&&a.r._rid)||''), rlb = String((b.r&&b.r._rid)||'');
+      if (rla !== rlb) return rla < rlb ? -1 : 1;
+    }
+    return a.i - b.i;
+  });
+  return arr.map(function(x){ return x.i; });
+}
+function _exportRecDateNum(rec){
+  if (!rec) return null;
+  var t = String(rec.timeSlot||''), d = String(rec.date||''), src = t + ' ' + d;
+  var dm = src.match(/(\d{1,2})月(\d{1,2})日/);
+  if (dm) return parseInt(dm[1],10)*100 + parseInt(dm[2],10);
+  var yd = d.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (yd) return parseInt(yd[2],10)*100 + parseInt(yd[3],10);
+  var yt = t.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (yt) return parseInt(yt[2],10)*100 + parseInt(yt[3],10);
+  return null;
+}
+function _exportDateLabel(num){ return Math.floor(num/100) + '月' + (num%100) + '日'; }
+function _exportRowDate(r){
+  var ts = r && r.timeSlot ? String(r.timeSlot).replace(/,/g,' ') : '';
+  var parts = ts.split(' '), date = parts[0] || '';
+  if (!/\d+月\d+日/.test(date)){
+    var dn = _exportRecDateNum(r);
+    date = dn !== null ? _exportDateLabel(dn) : '';
+  }
+  return date;
+}
+var _exportDateOffsetMap = null;
+function _buildExportDateOffsetMap(history){
+  var h = history || [], anchor = _datasetYearAnchor(h), map = {};
+  for (var i=0;i<h.length;i++){
+    var p = _recDateParts(h[i]); if (!p) continue;
+    var off = (p.y !== null) ? (p.y - anchor.y) : (p.md > anchor.md ? -1 : 0);
+    var lab = Math.floor(p.md/100) + '月' + (p.md%100) + '日';
+    if (map[lab] === undefined || off > map[lab]) map[lab] = off;
+  }
+  _exportDateOffsetMap = map; return map;
+}
+function _exportDateKey(label){
+  if (!label) return null;
+  var s = String(label).trim(), m = s.match(/(\d{1,2})月(\d{1,2})日/), raw = null;
+  if (m) raw = parseInt(m[1],10)*100 + parseInt(m[2],10);
+  else { var y = s.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/); if (y) raw = parseInt(y[2],10)*100 + parseInt(y[3],10); }
+  if (raw === null) return null;
+  var off = (_exportDateOffsetMap && _exportDateOffsetMap[s] !== undefined) ? _exportDateOffsetMap[s] : 0;
+  return raw + off*1e6;
+}
+/* ---- 写死口径：只认「今天 / 昨天」两天，与系统「当日快照」同规则 ---- */
+function pad2(n){ return ('0' + n).slice(-2); }
+function dayWindow(){
+  function part(d){ return { y:d.getFullYear(), m:d.getMonth()+1, d:d.getDate(),
+    label:(d.getMonth()+1) + '月' + d.getDate() + '日' }; }
+  var now = new Date();
+  return { today:part(now), yest:part(new Date(now.getTime() - 86400000)) };
+}
+/* 返回 'today' / 'yesterday' / null；日期标签取 timeSlot 的「M月D日」，
+   无月日的补录记录回退到导出日期列口径，显式年份不同则排除（防去年同月日混入）。 */
+function dayIndexOf(rec, w){
+  w = w || dayWindow();
+  if (!rec) return null;
+  var t = String(rec.timeSlot || ''), d = String(rec.date || '');
+  var m = (t + ' ' + d).match(/(\d{1,2})月(\d{1,2})日/);
+  var lab = m ? (parseInt(m[1],10) + '月' + parseInt(m[2],10) + '日') : _exportRowDate(rec);
+  if (!lab) return null;
+  var ry = _recExplicitYear(rec);
+  if (lab === w.today.label && (ry === null || ry === w.today.y)) return 'today';
+  if (lab === w.yest.label && (ry === null || ry === w.yest.y)) return 'yesterday';
+  return null;
+}
+var _dayCountCache = { key:'', srcTs:-1, val:null };
+function countTodayYesterday(){
+  var w = dayWindow(), key = w.today.y + '-' + w.today.m + '-' + w.today.d;
+  if (_dayCountCache.key === key && _dayCountCache.srcTs === VIEW.ts && _dayCountCache.val) return _dayCountCache.val;
+  var val = { yest:0, today:0 };
+  for (var i=0; i<VIEW.history.length; i++){
+    var k = dayIndexOf(VIEW.history[i], w);
+    if (k === 'today') val.today++; else if (k === 'yesterday') val.yest++;
+  }
+  _dayCountCache = { key:key, srcTs:VIEW.ts, val:val };
+  return val;
+}
+function recKey(r){
+  if (!r) return '';
+  var s = function(v){ return (v===null||v===undefined) ? '' : String(v); };
+  return s(r.timeSlot) + '|' + s(r.a) + '|' + s(r.b) + '|' + s(r.c) + '|' + s(r.profitWinner) + '|' + s(r.investWinner);
+}
+function mergeKey(r){ return r && r._rid ? ('rid:' + r._rid) : ('key:' + recKey(r)); }
+function recScore(r){ return (r && r._dirtyLocal ? 1e15 : 0) + (Number(r && r._ua) || 0); }
+
+/* ---------------- 数据读取与合并 ---------------- */
+function readLocalStore(){
+  var out = null;
+  try{
+    var raw = localStorage.getItem(STORE_KEY);
+    if (raw){
+      if (isEncrypted(raw)) raw = xorDecrypt(raw, localStorage.getItem(ENC_PWD_KEY) || '');
+      if (raw){
+        var o = JSON.parse(raw);
+        if (o && Array.isArray(o.history)) out = o;
+      }
+    }
+  }catch(e){}
+  if (out && out.history.length) return out;
+  // 兜底：系统每小时写入的共享数据表
+  try{
+    var sh = JSON.parse(localStorage.getItem(SHARED_KEY) || 'null');
+    if (Array.isArray(sh) && sh.length){
+      return { history: sh.map(function(x){
+        return { a:x.a, b:x.b, c:x.c, timeSlot: x.timeSlot || (x.date + ' ' + x.time),
+                 profitWinner: x.profitWinner || x.profit || '', investWinner: x.investWinner || x.invest || '' };
+      }), predHistory: [] };
+    }
+  }catch(e){}
+  return out;
+}
+function readViewCache(){
+  try{
+    var o = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
+    if (o && Array.isArray(o.history)) return o;
+  }catch(e){}
+  return null;
+}
+function saveViewCache(){
+  try{
+    localStorage.setItem(VIEW_KEY, JSON.stringify({
+      history: VIEW.history, predByRid: VIEW.predByRid, ts: VIEW.ts, source: VIEW.source
+    }));
+  }catch(e){ /* 配额不足时仅内存保留 */ }
+}
+function ingestPreds(hist, preds, map){
+  if (!Array.isArray(hist) || !Array.isArray(preds) || !preds.length) return;
+  var off = hist.length - preds.length;
+  for (var i=0;i<preds.length;i++){
+    var p = preds[i]; if (!p) continue;
+    var r = hist[i + off];
+    var rid = p.rid || (r && r._rid);
+    if (rid && !map[rid]) map[rid] = { guild:p.guild||'', probs:p.probs||null, source:p.source||'' };
+  }
+}
+/* 以本地系统数据为基准顺序；云端缺失记录追加；同 rid 按版本号取新；墓碑删除 */
+function buildView(local, cached, cloud){
+  var map = {}, order = [], predMap = {}, tombs = {}, baseKeys = {};
+  function put(r, rank){
+    if (!r || typeof r !== 'object') return;
+    var k = mergeKey(r);
+    if (!map[k]){ map[k] = r; order.push(k); return; }
+    if (recScore(r) + rank*1e-6 >= recScore(map[k])) map[k] = r;
+  }
+  var base = null;
+  if (local && Array.isArray(local.history) && local.history.length) base = local;
+  else if (cached && Array.isArray(cached.history) && cached.history.length) base = cached;
+  if (base){
+    base.history.forEach(function(r){ baseKeys[mergeKey(r)] = 1; put(r, 3); });
+    ingestPreds(base.history, base.predHistory, predMap);
+    if (base.predByRid) for (var pk in base.predByRid) if (!predMap[pk]) predMap[pk] = base.predByRid[pk];
+  }
+  // 本页上次保留的数据（补全本地可能被清理的部分）
+  if (cached && Array.isArray(cached.history)){
+    cached.history.forEach(function(r){ put(r, 2); });
+    if (cached.predByRid) for (var ck in cached.predByRid) if (!predMap[ck]) predMap[ck] = cached.predByRid[ck];
+  }
+  // 云端主快照
+  var main = cloud && cloud.main;
+  if (main && Array.isArray(main.history)){
+    main.history.forEach(function(r){ put(r, 4); });
+    ingestPreds(main.history, main.predHistory, predMap);
+  }
+  // 云端增量行（最新优先）
+  (cloud && cloud.rows || []).forEach(function(row){
+    var d = row && row.data;
+    if (!d) return;
+    var rid = String(row.id || '').slice(4);
+    if (d.del === 1 || d.del === true){ tombs[rid] = 1; return; }
+    if (d.r){
+      if (!d.r._rid) d.r._rid = rid;
+      if (!d.r._ua && row.updated_at){ try{ d.r._ua = new Date(row.updated_at).getTime(); }catch(e){} }
+      put(d.r, 5);
+    }
+    if (d.p && rid && !predMap[rid]) predMap[rid] = { guild:d.p.guild||'', probs:d.p.probs||null, source:d.p.source||'' };
+  });
+  // 应用墓碑
+  Object.keys(tombs).forEach(function(rid){ delete map['rid:' + rid]; delete predMap[rid]; });
+  var live = order.filter(function(k){ return !!map[k]; });
+  var head = live.filter(function(k){ return !!baseKeys[k]; });
+  var tail = live.filter(function(k){ return !baseKeys[k]; });
+  if (tail.length > 1){
+    var allAnchor = _datasetYearAnchor(live.map(function(k){ return map[k]; }));
+    var tmp = tail.map(function(k){ return map[k]; });
+    tail = chronoOrder(tmp, allAnchor).map(function(i){ return tail[i]; });
+  }
+  var hist = head.concat(tail).map(function(k){ return map[k]; });
+  // 无本机基准时（纯云端/纯缓存）整体按时间序排列
+  if (!base && hist.length) hist = chronoOrder(hist).map(function(i){ return hist[i]; });
+
+  var byIndex = hist.map(function(r){ return predMap[r && r._rid] || null; });
+  VIEW.history = hist; VIEW.predByRid = predMap; VIEW.predByIndex = byIndex;
+  VIEW.ts = Date.now();
+  VIEW.source = cloud && cloud.ok ? '云端已同步' : (base ? '本机系统数据' : '本页保留数据');
+  _buildExportDateOffsetMap(hist);
+  saveViewCache();
+  updateSyncPill();
+}
+function updateSyncPill(extra){
+  var el = document.getElementById('syncPill');
+  if (extra !== undefined) _pillOverride = extra || '';   // 无参调用（如每秒刷新）不清除临时文案
+  if (_pillOverride){ el.className = 'sync-pill warn'; el.textContent = _pillOverride; return; }
+  var c = countTodayYesterday(), now = new Date();
+  var hh = pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds());
+  var nx = _nextPullAt
+    ? ' · 每5分钟自动同步（下次 ' + pad2(new Date(_nextPullAt).getHours()) + ':' + pad2(new Date(_nextPullAt).getMinutes()) + '）'
+    : '';
+  var body = '昨天 ' + c.yest + ' 局 · 今天 ' + c.today + ' 局 · 当前 ' + hh + nx;
+  el.className = 'sync-pill ' + (_lastPullFailed ? 'warn' : 'ok');
+  el.textContent = (_lastPullFailed ? '⚠️ 上次云端同步失败 · ' : '☁️ ' + VIEW.source + ' · ') + body;
+}
+
+/* ---------------- 云端同步（只读） ---------------- */
+function loadScriptWithFallback(urls, onOk, onFail){
+  var idx = 0;
+  function next(){
+    if (idx >= urls.length){ onFail && onFail(); return; }
+    var s = document.createElement('script'), done = false;
+    var timer = setTimeout(function(){
+      if (done) return; done = true;
+      try{ s.onload = s.onerror = null; if (s.parentNode) s.parentNode.removeChild(s); }catch(e){}
+      idx++; next();
+    }, 4000);
+    s.src = urls[idx];
+    s.onload = function(){ if (done) return; done = true; clearTimeout(timer); onOk && onOk(); };
+    s.onerror = function(){ if (done) return; done = true; clearTimeout(timer); idx++; next(); };
+    document.head.appendChild(s);
+  }
+  next();
+}
+async function pullCloud(){
+  if (!window.supabase || !window.supabase.createClient) throw new Error('云端组件未加载');
+  if (!_sbClient) _sbClient = window.supabase.createClient(SB_URL, SB_KEY);
+  var main = null, rows = [];
+  var mres = await _sbClient.from(TABLE).select('data,updated_at').eq('id','main').maybeSingle();
+  if (mres.error) throw mres.error;
+  if (mres.data && mres.data.data) main = mres.data.data;
+  for (var off = 0; off < 20000; off += 1000){
+    var r = await _sbClient.from(TABLE).select('id,data,updated_at')
+              .gte('id','rec_').lt('id','rec~').order('id',{ascending:true}).range(off, off+999);
+    if (r.error) throw r.error;
+    var part = r.data || [];
+    rows = rows.concat(part);
+    if (part.length < 1000) break;
+  }
+  return { ok:true, main:main, rows:rows };
+}
+function popupOpen(){
+  var a = document.getElementById('exportModal'), b = document.getElementById('dailySnapshotOverlay');
+  return (a && a.classList.contains('open')) || (b && b.classList.contains('open'));
+}
+/* 打开时拉一次，之后每 5 分钟自动拉一次；弹窗打开期间跳过本轮，下一轮补上 */
+async function syncFromCloud(manual){
+  if (_cloudPullRunning) return false;
+  if (!manual && popupOpen()) return false;
+  _cloudPullRunning = true;
+  try{
+    if (!window.supabase || !window.supabase.createClient){
+      if (!manual) updateSyncPill('⏳ 正在恢复云端连接…');
+      await new Promise(function(resolve){
+        loadScriptWithFallback([
+          'https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+          'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+          'https://registry.npmmirror.com/@supabase/supabase-js@2.45.0/files/dist/umd/supabase.js',
+          './supabase.js'
+        ], resolve, function(){ resolve(false); });
+      });
+      if (!window.supabase || !window.supabase.createClient) throw new Error('云端组件未加载');
+    }
+    if (manual) updateSyncPill('⏳ 正在从系统云端拉取最新数据…');
+    var cloud = await pullCloud();
+    _lastPullFailed = false;
+    _pillOverride = '';
+    // 每次重新读本机存档：同浏览器里主系统刚录的新局也能一并带上
+    buildView(readLocalStore(), readViewCache(), cloud);
+    if (manual) showToast(true, '同步完成', '已从系统云端拉取最新数据，共 ' + VIEW.history.length + ' 局');
+    return true;
+  }catch(e){
+    var msg = (e && e.message) ? e.message : String(e);
+    _lastPullFailed = true;
+    _pillOverride = '';
+    updateSyncPill();
+    if (manual) showToast(false, '同步失败', msg + '\n已保留现有数据，5 分钟后会自动重试');
+    return false;
+  }finally{
+    _cloudPullRunning = false;
+  }
+}
+function scheduleAutoPull(){
+  if (_cloudPullTimer){ clearInterval(_cloudPullTimer); _cloudPullTimer = null; }
+  _nextPullAt = Date.now() + PULL_INTERVAL_MS;
+  _cloudPullTimer = setInterval(function(){
+    _nextPullAt = Date.now() + PULL_INTERVAL_MS;
+    syncFromCloud(false);
+  }, PULL_INTERVAL_MS);
+  updateSyncPill();
+}
+
+/* ---------------- 提示 ---------------- */
+var _toastTimer = 0;
+function showToast(ok, title, msg){
+  var t = document.getElementById('toast');
+  t.className = 'toast show' + (ok ? '' : ' err');
+  t.innerHTML = '<strong>' + esc(title) + '</strong><div>' + esc(msg) + '</div>';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ t.className = 'toast' + (ok ? '' : ' err'); }, 4600);
+}
+
+/* =====================================================================
+ * 门禁：密码 → 填写备注 → 管理员在系统「设备管理」里授权 → 功能
+ * 与系统共用 access_control 表；本页用独立设备 ID（exp_ 前缀），
+ * 管理员看到的备注即用户填写的内容；授权状态持久化，一次授权长期有效。
+ * ===================================================================== */
+var PWD_B64 = 'c3VzdTIwMjY=';  // 导出密码摘要
+function pwdOk(v){ try{ return btoa(String(v)) === PWD_B64; }catch(e){ return false; } }
+
+var STAGE = 'pwd', _authPoll = null, _authBusy = false;
+var STAGE_EL = {pwd:'stagePwd', name:'stageName', wait:'stageWait', main:'stageMain'};
+function setStage(s){
+  STAGE = s;
+  for (var k in STAGE_EL){
+    var e = document.getElementById(STAGE_EL[k]);
+    if (e) e.classList.toggle('active', k === s);
+  }
+  var h = document.getElementById('h1Title'), sub = document.getElementById('subtitle');
+  if (s === 'pwd'){ h.textContent = '导出数据'; sub.textContent = '导出前请验证密码'; }
+  else if (s === 'name'){ h.textContent = '设备授权'; sub.textContent = '首次使用 · 请填写备注'; }
+  else if (s === 'wait'){ h.textContent = '设备授权'; sub.textContent = '等待管理员在系统里同意'; }
+  else { h.textContent = '导出数据'; sub.textContent = '已解锁 · 导出数据 / 当日快照'; }
+}
+function clearGate(){ try{ sessionStorage.removeItem(GATE_KEY); }catch(e){} }
+
+/* ---- 与系统 api() 同构的 REST 调用（不依赖 SDK，授权流程更稳） ---- */
+function authApi(path, opt){
+  var h = {'apikey':SB_KEY, 'Authorization':'Bearer ' + SB_KEY, 'Content-Type':'application/json'};
+  var q = path + (opt && opt.query ? ((path.indexOf('?') >= 0 ? '&' : '?') + String(opt.query).replace(/^\?/,'')) : '');
+  var ctrl = new AbortController();
+  var timer = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 15000);
+  return fetch(SB_URL + '/rest/v1/' + q, {
+    method: (opt && opt.method) || 'GET', headers: h,
+    body: (opt && opt.body) ? JSON.stringify(opt.body) : undefined,
+    signal: ctrl.signal
+  }).then(function(r){
+    clearTimeout(timer);
+    if (!r.ok) return r.text().then(function(t){ throw new Error('HTTP ' + r.status + ' ' + t); });
+    if (r.status === 204) return null;
+    return r.text().then(function(t){ return t ? JSON.parse(t) : null; });
+  }).catch(function(e){
+    clearTimeout(timer);
+    if (e && e.name === 'AbortError') throw new Error('请求超时，请检查网络');
+    throw e;
+  });
+}
+function genDevId(){ return 'exp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10); }
+function getDevId(){
+  var id = '';
+  try{ id = localStorage.getItem(DEV_KEY) || ''; }catch(e){}
+  if (!id){ id = genDevId(); try{ localStorage.setItem(DEV_KEY, id); }catch(e){} }
+  return id;
+}
+function getDevName(){ try{ return localStorage.getItem(NAME_KEY) || ''; }catch(e){ return ''; } }
+function setDevName(v){ try{ localStorage.setItem(NAME_KEY, v || ''); }catch(e){} }
+function isAuthed(){ try{ return localStorage.getItem(AUTH_KEY) === '1'; }catch(e){ return false; } }
+function markAuthed(v){ try{ if (v) localStorage.setItem(AUTH_KEY,'1'); else localStorage.removeItem(AUTH_KEY); }catch(e){} }
+function getStatus(id){
+  return authApi(AUTH_TABLE + '?id=eq.' + id + '&select=status,device_name')
+    .then(function(d){ return (d && d[0]) ? d[0] : null; });
+}
+
+/* ---- 等待授权页 ---- */
+function stopPoll(){ if (_authPoll){ clearInterval(_authPoll); _authPoll = null; } }
+function renderWait(state, extra){
+  var name = getDevName() || '—', id = getDevId();
+  document.getElementById('waitName').textContent = name;
+  document.getElementById('waitDevId').textContent = id.slice(0, 12) + '…';
+  document.getElementById('waitDevIdRaw').textContent = id;
+  var s = document.getElementById('waitStatus'), re = document.getElementById('reapplyRow');
+  if (state === 'authorized'){
+    s.className = 'wait-status ok'; s.textContent = '✅ 管理员已授权，正在进入…';
+    re.style.display = 'none';
+  } else if (state === 'rejected'){
+    s.className = 'wait-status bad'; s.textContent = '❌ 已被管理员拒绝，可点下方重新申请';
+    re.style.display = 'flex';
+  } else {
+    s.className = 'wait-status';
+    s.innerHTML = '<span class="spin"></span>' + esc(extra || '等待管理员授权中…（每 5 秒自动刷新）');
+    re.style.display = 'none';
+  }
+}
+async function checkAuthStatus(){
+  if (_authBusy) return;
+  _authBusy = true;
+  try{
+    var row = await getStatus(getDevId());
+    var st = row && row.status;
+    if (st === 'authorized'){
+      markAuthed(true);
+      if (row.device_name) setDevName(row.device_name);
+      stopPoll(); renderWait('authorized');
+      setTimeout(enterMain, 600);
+      return;
+    }
+    if (st === 'rejected'){ markAuthed(false); renderWait('rejected'); return; }
+    renderWait('pending');
+  }catch(e){
+    renderWait('pending', '云端暂时连不上，正在重试…（' + (e && e.message ? e.message : '') + '）');
+  }finally{ _authBusy = false; }
+}
+function startPoll(){
+  stopPoll();
+  checkAuthStatus();
+  _authPoll = setInterval(checkAuthStatus, 5000);
+}
+async function submitRequest(name){
+  var id = getDevId();
+  setDevName(name);
+  setStage('wait'); renderWait('pending', '正在提交申请…');
+  try{
+    var row = await getStatus(id);
+    if (row && row.status === 'authorized'){
+      markAuthed(true); renderWait('authorized'); setTimeout(enterMain, 600); return;
+    }
+    if (!row){
+      try{
+        await authApi(AUTH_TABLE, {method:'POST', body:{
+          id:id, device_name:name, status:'pending', created_at:new Date().toISOString()
+        }});
+      }catch(e){
+        if (!/409|duplicate/i.test(e.message || '')) throw e;
+      }
+    } else {
+      var body = {device_name:name};
+      if (row.status === 'rejected' || !row.status){ body.status = 'pending'; body.authorized_at = null; }
+      await authApi(AUTH_TABLE, {method:'PATCH', body:body, query:'id=eq.' + id});
+    }
+    renderWait('pending');
+    startPoll();
+  }catch(e){
+    renderWait('pending', '提交失败：' + (e && e.message ? e.message : '') + '，点「重新申请授权」重试');
+    document.getElementById('reapplyRow').style.display = 'flex';
+  }
+}
+async function reapply(){
+  try{
+    await authApi(AUTH_TABLE, {method:'PATCH', body:{
+      status:'pending', authorized_at:null, device_name:getDevName()
+    }, query:'id=eq.' + getDevId()});
+  }catch(e){}
+  renderWait('pending', '已重新提交申请，等待管理员授权…');
+  startPoll();
+}
+function enterMain(){
+  stopPoll();
+  setStage('main');
+  updateSyncPill();
+}
+/* 启动时后台复核一次：只有「明确被撤销/拒绝」才收回本地授权，弱网不打扰 */
+function verifyAuthedInBackground(){
+  getStatus(getDevId()).then(function(row){
+    if (row && row.status === 'rejected'){
+      markAuthed(false); clearGate(); setStage('pwd');
+      document.getElementById('pwdInput').value = '';
+      document.getElementById('pwdErr').textContent = '';
+      showToast(false,'授权已撤销','管理员已撤销本设备授权，请重新输入密码申请');
+    } else if (row && row.status === 'authorized'){
+      markAuthed(true);
+    }
+  }).catch(function(){});
+}
+
+/* ---- 交互 ---- */
+function afterPwd(){
+  if (isAuthed()){ enterMain(); verifyAuthedInBackground(); return; }
+  var id = ''; try{ id = localStorage.getItem(DEV_KEY) || ''; }catch(e){}
+  if (id && getDevName()){
+    setStage('wait'); renderWait('pending', '正在核对授权状态…'); startPoll();
+  } else {
+    setStage('name');
+    var ni = document.getElementById('nameInput');
+    ni.value = getDevName() || '';
+    document.getElementById('nameErr').textContent = '';
+    setTimeout(function(){ ni.focus(); }, 80);
+  }
+}
+function onPwdOk(){
+  var v = document.getElementById('pwdInput').value;
+  if (!pwdOk(v)){ document.getElementById('pwdErr').textContent = '密码错误，请重新输入'; return; }
+  try{ sessionStorage.setItem(GATE_KEY, '1'); }catch(e){}
+  document.getElementById('pwdErr').textContent = '';
+  afterPwd();
+}
+function onNameOk(){
+  var name = document.getElementById('nameInput').value.trim();
+  if (!name){ document.getElementById('nameErr').textContent = '请填写备注，方便管理员辨认'; return; }
+  if (name.length > 40){ document.getElementById('nameErr').textContent = '备注请控制在 40 字以内'; return; }
+  document.getElementById('nameErr').textContent = '';
+  var btn = document.getElementById('nameOk');
+  btn.disabled = true; btn.textContent = '提交中…';
+  submitRequest(name).then(function(){ btn.disabled = false; btn.textContent = '提交授权申请'; });
+}
+function onWaitEdit(){
+  stopPoll();
+  setStage('name');
+  var ni = document.getElementById('nameInput');
+  ni.value = getDevName();
+  document.getElementById('nameErr').textContent = '';
+  var btn = document.getElementById('nameOk');
+  btn.disabled = false; btn.textContent = '保存并重新提交';
+  setTimeout(function(){ ni.focus(); }, 80);
+}
+function guardAction(kind){
+  if (STAGE !== 'main' || !isAuthed()){
+    clearGate(); setStage('pwd');
+    document.getElementById('pwdInput').value = '';
+    document.getElementById('pwdErr').textContent = '请先完成验证与授权';
+    return;
+  }
+  if (!VIEW.history.length){ showToast(false,'暂无数据','尚未读取到系统数据，请确认网络后刷新页面重试'); return; }
+  if (kind === 'snapshot') openDailySnapshot(); else openExportModal();
+}
+document.getElementById('pwdInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') onPwdOk(); });
+document.getElementById('nameInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') onNameOk(); });
+document.getElementById('pwdOk').addEventListener('click', onPwdOk);
+document.getElementById('nameOk').addEventListener('click', onNameOk);
+document.getElementById('waitRefresh').addEventListener('click', checkAuthStatus);
+document.getElementById('waitEdit').addEventListener('click', onWaitEdit);
+document.getElementById('waitReapply').addEventListener('click', reapply);
+document.getElementById('btnExport').addEventListener('click', function(){ guardAction('export'); });
+document.getElementById('btnSnapshot').addEventListener('click', function(){ guardAction('snapshot'); });
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  closeExportModal(); closeDailySnapshot();
+});
+(function initGate(){
+  var sessionOk = false;
+  try{ sessionOk = sessionStorage.getItem(GATE_KEY) === '1'; }catch(e){}
+  if (sessionOk){
+    if (isAuthed()){ enterMain(); verifyAuthedInBackground(); }
+    else afterPwd();
+  } else {
+    setStage('pwd');
+    setTimeout(function(){ document.getElementById('pwdInput').focus(); }, 100);
+  }
+})();
+
+/* ---------------- 导出数据 ---------------- */
+function currentScope(){
+  var r = document.querySelector('input[name="exportScope"]:checked');
+  return r ? r.value : 'today';
+}
+function onExportScopeChange(){
+  try{ document.getElementById('exportCount').textContent = resolveExportIndices().indices.length; }catch(e){}
+}
+function selectAllExportCols(checked){
+  var cols = document.querySelectorAll('.export-col');
+  for (var i=0;i<cols.length;i++) cols[i].checked = checked;
+}
+function closeExportModal(){ document.getElementById('exportModal').classList.remove('open'); }
+function openExportModal(){
+  if (!VIEW.history.length){ showToast(false,'导出失败','当前没有数据可导出'); return; }
+  var def = document.querySelector('input[name="exportScope"][value="today"]');
+  if (def) def.checked = true;                       // 每次打开都默认今天
+  document.getElementById('exportCount').textContent = resolveExportIndices().indices.length;
+  document.getElementById('exportModal').classList.add('open');
+}
+
+var COL_NAMES = { index:'局号', date:'日期', time:'时间', a:'A', b:'B', c:'C',
+  winner:'获胜方', profit:'获胜收益', invest:'获胜投资',
+  predGuild:'预测方', predProb:'预测概率', correct:'对错', source:'规律来源' };
+
+function buildRowData(i, r){
+  var pred = (r && r._rid && VIEW.predByRid[r._rid]) || VIEW.predByIndex[i] || null;
+  var ts = r.timeSlot ? String(r.timeSlot).replace(/,/g,' ') : '';
+  var parts = ts.split(' '), date = parts[0] || '', time = parts[1] || '';
+  if (!/\d+月\d+日/.test(date)){
+    var old = date; date = _exportRowDate(r);
+    if (!time && old) time = old;
+  }
+  var winner = ''; try{ winner = getWinner(r) || ''; }catch(e){}
+  var predProb = '';
+  if (pred && pred.probs && pred.guild && pred.probs[pred.guild] !== undefined){
+    var pv = parseFloat(pred.probs[pred.guild]);
+    predProb = isNaN(pv) ? '' : (pv*100).toFixed(1) + '%';
+  }
+  return {
+    index: i+1, date: date, time: time,
+    a: r.a !== undefined ? r.a : '', b: r.b !== undefined ? r.b : '', c: r.c !== undefined ? r.c : '',
+    winner: winner, profit: r.profitWinner || '', invest: r.investWinner || '',
+    predGuild: pred && pred.guild ? pred.guild : '',
+    predProb: predProb,
+    correct: pred && pred.guild ? (pred.guild === winner ? '✓' : '✗') : '',
+    source: pred && pred.source ? pred.source : ''
+  };
+}
+/* 可导出日期仅这两天，按系统时间序排列；scope: today / yesterday / both */
+function resolveExportIndices(){
+  var w = dayWindow(), scope = currentScope(), hits = [], ny = 0, nt = 0;
+  for (var i=0; i<VIEW.history.length; i++){
+    var k = dayIndexOf(VIEW.history[i], w);
+    if (k === 'yesterday' && scope !== 'today'){ hits.push(i); ny++; }
+    else if (k === 'today' && scope !== 'yesterday'){ hits.push(i); nt++; }
+  }
+  var ord = chronoOrder(VIEW.history), rank = {};
+  for (var oi=0; oi<ord.length; oi++) rank[ord[oi]] = oi;
+  hits.sort(function(x,y){ return (rank[x] === undefined ? x : rank[x]) - (rank[y] === undefined ? y : rank[y]); });
+  var desc = scope === 'today' ? w.today.label
+           : (scope === 'yesterday' ? w.yest.label : w.yest.label + '-' + w.today.label);
+  return { indices:hits, yest:ny, today:nt, range:'date', scope:scope, desc:desc };
+}
+function colLetter(idx){
+  var s = ''; idx++;
+  while (idx > 0){ var m = (idx-1)%26; s = String.fromCharCode(65+m) + s; idx = Math.floor((idx-1)/26); }
+  return s;
+}
+function writeExcel(indices, selectedCols, fname){
+  var XLSX = window.XLSX;
+  if (!XLSX) throw new Error('Excel库未加载成功，请检查网络后刷新页面，或选择CSV格式导出');
+  var excelData = indices.map(function(i){
+    var row = {}, d = buildRowData(i, VIEW.history[i] || {});
+    for (var c=0;c<selectedCols.length;c++){
+      var k = selectedCols[c]; row[COL_NAMES[k] || k] = d[k] !== undefined ? d[k] : '';
+    }
+    return row;
+  });
+  var ws = XLSX.utils.json_to_sheet(excelData);
+  var headerStyle = { font:{name:'微软雅黑',sz:11,bold:true,color:{rgb:'FFFFFFFF'}},
+    fill:{patternType:'solid',fgColor:{rgb:'FF302B63'}}, alignment:{horizontal:'center',vertical:'center',wrapText:true} };
+  var evenFill = {patternType:'solid',fgColor:{rgb:'FFFAFBFC'}};
+  var cellStyle = { font:{name:'微软雅黑',sz:10,color:{rgb:'FF333333'}}, alignment:{horizontal:'center',vertical:'center'} };
+  var wIdx = selectedCols.indexOf('winner'), cIdx = selectedCols.indexOf('correct');
+  var aIdx = selectedCols.indexOf('a'), bIdx = selectedCols.indexOf('b'), cI = selectedCols.indexOf('c');
+  var pIdx = selectedCols.indexOf('profit'), iIdx = selectedCols.indexOf('invest');
+  for (var h=0; h<selectedCols.length; h++){
+    var addr = colLetter(h)+'1'; if (ws[addr]) ws[addr].s = headerStyle;
+  }
+  for (var ri=0; ri<excelData.length; ri++){
+    var ro = excelData[ri];
+    for (var cj=0; cj<selectedCols.length; cj++){
+      var a = colLetter(cj) + (ri+2); if (!ws[a]) continue;
+      var st = JSON.parse(JSON.stringify(cellStyle));
+      if ((ri+1)%2 === 0) st.fill = evenFill;
+      if (cj === wIdx && ro['获胜方']){
+        st.font.bold = true;
+        var w = String(ro['获胜方']).trim().toUpperCase();
+        if (w==='A') st.font.color={rgb:'FFE74C3C'}; else if (w==='B') st.font.color={rgb:'FF3498DB'}; else if (w==='C') st.font.color={rgb:'FF2ECC71'};
+      }
+      if (cj === cIdx && ro['对错']){
+        st.font.bold = true;
+        st.font.color = {rgb: String(ro['对错']).trim()==='✓' ? 'FF2E7D32' : 'FFE74C3C'};
+      }
+      if (cj === aIdx || cj === bIdx || cj === cI){
+        var cn = (cj===aIdx) ? 'A' : (cj===bIdx ? 'B' : 'C');
+        var sv = parseFloat(ro[cn]);
+        if (!isNaN(sv)){
+          st.font.bold = true;
+          if (sv >= 3){ st.fill={patternType:'solid',fgColor:{rgb:'FFB71C1C'}}; st.font.color={rgb:'FFFFFFFF'}; }
+          else if (sv >= 2){ st.fill={patternType:'solid',fgColor:{rgb:'FFDC3545'}}; st.font.color={rgb:'FFFFFFFF'}; }
+          else if (sv <= 0){ st.fill={patternType:'solid',fgColor:{rgb:'FF2E7D32'}}; st.font.color={rgb:'FFFFFFFF'}; }
+          else if (sv <= 0.5){ st.fill={patternType:'solid',fgColor:{rgb:'FFC8E6C9'}}; st.font.color={rgb:'FF2E7D32'}; }
+          else { st.fill={patternType:'solid',fgColor:{rgb:'FFFFFFFF'}}; st.font.color={rgb:'FF333333'}; }
+        }
+      }
+      if (cj === pIdx && ro['获胜收益']){
+        var pv = String(ro['获胜收益']).trim(); st.font.bold = true;
+        if (pv==='大'){ st.fill={patternType:'solid',fgColor:{rgb:'FFF8D7DA'}}; st.font.color={rgb:'FF721C24'}; }
+        else if (pv==='中'){ st.fill={patternType:'solid',fgColor:{rgb:'FFFFF3CD'}}; st.font.color={rgb:'FF856404'}; }
+        else if (pv==='小'){ st.fill={patternType:'solid',fgColor:{rgb:'FFD4EDDA'}}; st.font.color={rgb:'FF155724'}; }
+      }
+      if (cj === iIdx && ro['获胜投资']){
+        var iv = String(ro['获胜投资']).trim(); st.font.bold = true;
+        if (iv==='大'){ st.fill={patternType:'solid',fgColor:{rgb:'FFFCE4EC'}}; st.font.color={rgb:'FF880E4F'}; }
+        else if (iv==='中'){ st.fill={patternType:'solid',fgColor:{rgb:'FFF3E5F5'}}; st.font.color={rgb:'FF4A148C'}; }
+        else if (iv==='小'){ st.fill={patternType:'solid',fgColor:{rgb:'FFE0F7FA'}}; st.font.color={rgb:'FF006064'}; }
+      }
+      ws[a].s = st;
+    }
+  }
+  ws['!cols'] = selectedCols.map(function(){ return {wch:14}; });
+  ws['!rows'] = [{hpt:28}];
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '历史记录');
+  XLSX.writeFile(wb, fname);
+}
+function doCustomExport(){
+  try{
+    if (!VIEW.history.length){ showToast(false,'导出失败','当前没有数据可导出'); return; }
+    var info = resolveExportIndices();
+    if (!info.indices.length){ showToast(false,'导出失败','所选范围暂无数据可导出'); return; }
+    var boxes = document.querySelectorAll('.export-col:checked');
+    if (!boxes.length){ showToast(false,'导出失败','请至少选择一列要导出'); return; }
+    var cols = []; for (var i=0;i<boxes.length;i++) cols.push(boxes[i].value);
+    var fmt = (document.querySelector('input[name="exportFormat"]:checked') || {}).value || 'excel';
+    var now = new Date();
+    var dstr = '' + now.getFullYear() + ('0'+(now.getMonth()+1)).slice(-2) + ('0'+now.getDate()).slice(-2);
+    var n = info.indices.length;
+    if (fmt === 'excel'){
+      try{
+        var fname = '商会预测数据_' + dstr + '_' + info.desc + '_' + n + '条.xlsx';
+        writeExcel(info.indices, cols, fname);
+        closeExportModal();
+        showToast(true,'导出成功','已导出 ' + n + ' 条记录到Excel\n范围：' + info.desc +
+          '' + '\n列：' + cols.length + ' 列\n文件名：' + fname);
+      }catch(e){ showToast(false,'导出失败','Excel导出出错：' + e.message); }
+    } else {
+      var csv = cols.map(function(c){ return COL_NAMES[c] || c; }).join(',') + '\n';
+      for (var k=0;k<info.indices.length;k++){
+        var d = buildRowData(info.indices[k], VIEW.history[info.indices[k]] || {});
+        csv += cols.map(function(c){ return d[c] !== undefined ? d[c] : ''; }).join(',') + '\n';
+      }
+      var blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8;'});
+      var url = URL.createObjectURL(blob), a = document.createElement('a');
+      a.href = url; a.download = '商会预测数据_' + new Date().toISOString().slice(0,10) + '_' + info.desc + '_' + n + '条.csv';
+      a.style.display = 'none'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      closeExportModal();
+      showToast(true,'导出成功','已导出 ' + n + ' 条记录\n范围：' + info.desc +
+        '' + '\n列：' + cols.length + ' 列\n请检查浏览器下载栏');
+    }
+  }catch(e){
+    showToast(false,'导出失败', e.message || String(e));
+  }
+}
+
+/* ---------------- 当日快照（与主系统同款） ---------------- */
+var _dsZoom = null;
+function openDailySnapshot(){
+  var d = new Date();
+  var ymd = d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+  var inp = document.getElementById('dsDateInput');
+  inp.value = ymd; inp.onchange = renderDailySnapshot;
+  _dsZoom = null;
+  document.getElementById('dailySnapshotOverlay').classList.add('open');
+  renderDailySnapshot();
+}
+function closeDailySnapshot(){ document.getElementById('dailySnapshotOverlay').classList.remove('open'); }
+function applyDsAutoZoom(rowCount){
+  var wrap = document.querySelector('.ds-table-wrap'); if (!wrap) return;
+  var availH = window.innerHeight * 0.92 - 56 - 40, needH = rowCount*30 + 36, zoom = 1;
+  if (needH > availH){ zoom = availH/needH; if (zoom < 0.5) zoom = 0.5; }
+  if (_dsZoom !== null) zoom = _dsZoom;
+  wrap.style.zoom = zoom;
+  document.getElementById('dsZoomLevel').textContent = Math.round(zoom*100) + '%';
+}
+function dsZoom(delta){
+  var wrap = document.querySelector('.ds-table-wrap'); if (!wrap) return;
+  var cur = parseFloat(wrap.style.zoom) || 1, nz = Math.max(0.4, Math.min(2, cur + delta));
+  _dsZoom = nz; wrap.style.zoom = nz;
+  document.getElementById('dsZoomLevel').textContent = Math.round(nz*100) + '%';
+}
+function renderDailySnapshot(){
+  var sel = document.getElementById('dsDateInput').value;
+  var tbody = document.getElementById('dsTableBody');
+  var summary = document.getElementById('dsSummary');
+  var empty = document.getElementById('dsEmpty');
+  tbody.innerHTML = ''; empty.style.display = 'none';
+  if (!sel){ summary.textContent = '请选择日期'; return; }
+  var p = sel.split('-');
+  var target = parseInt(p[1]) + '月' + parseInt(p[2]) + '日';
+  var targetY = /^\d{4}$/.test(p[0]) ? parseInt(p[0],10) : null;
+  var rows = [];
+  for (var i=0;i<VIEW.history.length;i++){
+    var rec = VIEW.history[i], ts = splitTimeSlot(rec.timeSlot);
+    if (ts.date !== target) continue;
+    if (targetY !== null){
+      var ry = _recExplicitYear(rec);
+      if (ry !== null && ry !== targetY) continue;
+    }
+    rows.push({ idx:i+1, rec:rec, time: ts.time ? ts.time.split('-')[0] : '' });
+  }
+  var cA=0,cB=0,cC=0,cBig=0,cMid=0,cSmall=0,iBig=0,iMid=0,iSmall=0;
+  rows.forEach(function(r){
+    var w = getWinner(r.rec);
+    if (w==='A') cA++; else if (w==='B') cB++; else if (w==='C') cC++;
+    var pf = r.rec.profitWinner;
+    if (pf==='大') cBig++; else if (pf==='中') cMid++; else if (pf==='小') cSmall++;
+    var iv = r.rec.investWinner;
+    if (iv==='大') iBig++; else if (iv==='中') iMid++; else if (iv==='小') iSmall++;
+  });
+  summary.innerHTML = target + ' · 共' + rows.length + '局 · ' +
+    '<span style="color:#e74c3c;font-weight:700;">A'+cA+'</span> ' +
+    '<span style="color:#3498db;font-weight:700;">B'+cB+'</span> ' +
+    '<span style="color:#2ecc71;font-weight:700;">C'+cC+'</span> · ' +
+    '💰大'+cBig+' 中'+cMid+' 小'+cSmall +
+    (iBig+iMid+iSmall > 0 ? ' · <span style="color:#9c27b0;font-weight:700;">💎大'+iBig+' 中'+iMid+' 小'+iSmall+'</span>' : '');
+  if (!rows.length){ empty.style.display = 'block'; return; }
+  var html = '';
+  rows.forEach(function(row){
+    var rec = row.rec, win = getWinner(rec), pf = rec.profitWinner || '', iv = rec.investWinner || '';
+    var winBadge = win ? '<span class="ds-winner-badge ds-winner-'+win+'">'+win+'</span>' : '<span style="color:#ccc;font-size:12px;">—</span>';
+    var pfBadge = pf ? '<span class="ds-profit-badge ds-profit-'+pf+'">'+pf+'</span>' : '<span style="color:#ccc;font-size:12px;">—</span>';
+    var ivBadge = iv ? '<span class="ds-invest-badge ds-invest-'+iv+'">'+iv+'</span>' : '<span style="color:#ccc;font-size:12px;">—</span>';
+    html += '<tr>' +
+      '<td class="ds-num" style="color:#6c757d;">'+row.idx+'</td>' +
+      '<td style="color:#495057;font-size:12px;">'+row.time+'</td>' +
+      '<td>'+scoreSpanCompact(rec.a)+'</td><td>'+scoreSpanCompact(rec.b)+'</td><td>'+scoreSpanCompact(rec.c)+'</td>' +
+      '<td>'+winBadge+'</td><td>'+pfBadge+'</td><td>'+ivBadge+'</td></tr>';
+  });
+  tbody.innerHTML = html;
+  applyDsAutoZoom(rows.length);
+}
+
+/* ---------------- 启动：先读本机，再后台同步云端 ---------------- */
+(function init(){
+  var local = readLocalStore(), cached = readViewCache();
+  buildView(local, cached, { ok:false, main:null, rows:[] });
+  if (!VIEW.history.length) updateSyncPill('⏳ 正在从系统云端同步数据…');
+  else updateSyncPill('☁️ 已读取本机 ' + VIEW.history.length + ' 局，正在同步云端…');
+
+  loadScriptWithFallback([
+    'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
+    'https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
+    'https://registry.npmmirror.com/xlsx-js-style/1.2.0/files/dist/xlsx.bundle.js',
+    'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+  ], function(){ window.XLSX = window.XLSX || null; }, function(){});
+
+  // 胶囊上的「当前时间」每秒走一次（只改文案，不拉数据、不重算局数）
+  setInterval(function(){ updateSyncPill(); }, 1000);
+
+  // 打开页面即默认拉取一次云端（不等授权、不等点击），完成后启动 5 分钟自动拉取
+  updateSyncPill('⏳ 正在从系统云端拉取最新数据…');
+  syncFromCloud(false).then(function(){ scheduleAutoPull(); });
+})();
+</script>
+</body>
+</html>
