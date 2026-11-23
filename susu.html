@@ -172,7 +172,7 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
 </div>
 
 <!-- ========== 导出数据弹窗（口径与主系统完全一致） ========== -->
-<div class="import-modal-overlay" id="exportModal">
+<div class="import-modal-overlay" id="exportModal" onclick="if(event.target===this)closeExportModal()">
   <div class="import-modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
     <h3>↑ 导出数据</h3>
     <p class="modal-sub">共 <strong id="exportCount">0</strong> 条可导出记录，可自定义导出列</p>
@@ -291,6 +291,10 @@ var NAME_KEY    = 'mm_export_device_name_v1';  // 本页设备备注
 var AUTH_KEY    = 'mm_export_auth_ok_v1';      // 授权一次后长期有效
 var PULL_INTERVAL_MS = 5 * 60 * 1000;         // 打开拉一次，之后每 5 分钟自动拉一次
 var GUILDS = ['A','B','C'];
+/* 导出日志保留策略（声明前置，openExportModal / doCustomExport 都可能提前引用） */
+var EXPORT_LOG_KEEP = 100;
+var _logPruneDisabled = false;   // DELETE 不可用或「删了但行还在」时，本次会话不再空转
+var _logPruneRunning  = false;   // 防连点导出时多条裁剪链并发
 
 var VIEW = { history: [], predByRid: {}, predByIndex: [], ts: 0, source: '' };
 var _sbClient = null;
@@ -817,6 +821,7 @@ function renderWait(state, extra){
     re.style.display = 'none';
   }
 }
+var _noRowHits = 0;   // 连续查不到记录的次数（POST 刚写完可能有短暂读延迟，不误报）
 async function checkAuthStatus(){
   if (_authBusy) return;
   _authBusy = true;
@@ -824,27 +829,41 @@ async function checkAuthStatus(){
     var row = await getStatus(getDevId());
     var st = row && row.status;
     if (st === 'authorized'){
+      _noRowHits = 0;
       markAuthed(true);
       if (row.device_name) setDevName(row.device_name);
       stopPoll(); renderWait('authorized');
       setTimeout(enterMain, 600);
       return;
     }
-    if (st === 'rejected'){ markAuthed(false); renderWait('rejected'); return; }
+    if (st === 'rejected'){ _noRowHits = 0; markAuthed(false); renderWait('rejected'); return; }
+    if (row === null){
+      // 记录被管理员从表里删掉：连续 2 次确认后才给「重新申请」出口，避免写入延迟误报
+      _noRowHits++;
+      renderWait('pending', _noRowHits >= 2
+        ? '未找到本设备的申请记录，请点下方「重新申请授权」'
+        : '正在核对授权状态…');
+      if (_noRowHits >= 2) document.getElementById('reapplyRow').style.display = 'flex';
+      return;
+    }
+    _noRowHits = 0;
     renderWait('pending');
   }catch(e){
     renderWait('pending', '云端暂时连不上，正在重试…（' + (e && e.message ? e.message : '') + '）');
   }finally{ _authBusy = false; }
 }
-function startPoll(){
+/* skipImmediate=true：提交/回读刚做完一次查询时不再立刻重复查一遍，
+   也避免 checkAuthStatus 的提示把「提交失败 / 正在自动重试」文案覆盖掉。 */
+function startPoll(skipImmediate){
   stopPoll();
-  checkAuthStatus();
+  if (!skipImmediate) checkAuthStatus();
   _authPoll = setInterval(checkAuthStatus, 5000);
 }
 async function submitRequest(name){
   var id = getDevId();
   setDevName(name);
   setStage('wait'); renderWait('pending', '正在提交申请…');
+  _noRowHits = 0;
   try{
     var row = await getStatus(id);
     if (row && row.status === 'authorized'){
@@ -856,35 +875,58 @@ async function submitRequest(name){
           id:id, device_name:name, status:'pending', created_at:new Date().toISOString()
         }});
       }catch(e){
-        if (!/409|duplicate/i.test(e.message || '')) throw e;
+        // 409 = 记录已被别处建好，等同于提交成功
+        if (!/409|duplicate/i.test(e && e.message ? e.message : '')) throw e;
       }
     } else {
       var body = {device_name:name};
       if (row.status === 'rejected' || !row.status){ body.status = 'pending'; body.authorized_at = null; }
       await authApi(AUTH_TABLE, {method:'PATCH', body:body, query:'id=eq.' + id});
     }
-    // 立刻回读：只用来给一句更准确的提示，绝不因此停掉轮询。
-    // 云端 SELECT 若暂时不可用，申请其实已写入、管理员也能同意，停轮询会让人永远进不来。
+  }catch(e){
+    renderWait('pending', '提交失败：' + (e && e.message ? e.message : '') + '，点「重新申请授权」重试');
+    document.getElementById('reapplyRow').style.display = 'flex';
+    // v50.36-fix: 提交失败也要起轮询。管理员若已在别处手动同意，页面仍能自动进入；
+    // 否则用户只能干等，必须手动刷新页面。跳过立即检查，保留上面的失败提示。
+    startPoll(true);
+    return;
+  }
+  // 回读只用来给一句更准确的提示，单独吞掉异常，绝不影响启动轮询。
+  // 云端 SELECT 若暂时不可用，申请其实已写入、管理员也能同意，停轮询会让人永远进不来。
+  try{
     var back = await getStatus(id);
     if (!back || (back.status !== 'pending' && back.status !== 'rejected' && back.status !== 'authorized')){
       renderWait('pending', '申请已提交，暂时读不到状态，正在自动重试…');
     } else {
       renderWait('pending');
     }
-    startPoll();
   }catch(e){
-    renderWait('pending', '提交失败：' + (e && e.message ? e.message : '') + '，点「重新申请授权」重试');
-    document.getElementById('reapplyRow').style.display = 'flex';
+    renderWait('pending', '申请已提交，状态回读失败，正在自动重试…');
   }
+  startPoll(true);   // 无论回读成败，5 秒轮询一定起来（回读刚查过，不立刻重复）
 }
 async function reapply(){
+  var id = getDevId(), name = getDevName(), ok = false;
   try{
-    await authApi(AUTH_TABLE, {method:'PATCH', body:{
-      status:'pending', authorized_at:null, device_name:getDevName()
-    }, query:'id=eq.' + getDevId()});
+    // PATCH 对「不存在的行」返回成功但影响 0 条，会让用户一直等；先查再决定重建还是更新。
+    var row = await getStatus(id).catch(function(){ return undefined; });
+    if (row === null){
+      try{
+        await authApi(AUTH_TABLE, {method:'POST', body:{
+          id:id, device_name:name, status:'pending', created_at:new Date().toISOString()
+        }});
+        ok = true;
+      }catch(e){ if (/409|duplicate/i.test(e && e.message ? e.message : '')) ok = true; }
+    } else {
+      await authApi(AUTH_TABLE, {method:'PATCH', body:{
+        status:'pending', authorized_at:null, device_name:name
+      }, query:'id=eq.' + id});
+      ok = true;
+    }
   }catch(e){}
-  renderWait('pending', '已重新提交申请，等待管理员授权…');
-  startPoll();
+  _noRowHits = 0;
+  renderWait('pending', ok ? '已重新提交申请，等待管理员授权…' : '重新提交未成功，请检查网络后再点一次');
+  startPoll(true);
 }
 function enterMain(){
   stopPoll();
@@ -957,7 +999,12 @@ function guardAction(kind){
     document.getElementById('pwdErr').textContent = '请先完成验证与授权';
     return;
   }
-  if (!VIEW.history.length){ showToast(false,'暂无数据','尚未读取到系统数据，请确认网络后刷新页面重试'); return; }
+  if (!VIEW.history.length){
+    showToast(false,'暂无数据', _cloudPullRunning
+      ? '正在从系统云端同步数据，请稍等几秒再试'
+      : '尚未读取到系统数据，请确认网络后刷新页面重试');
+    return;
+  }
   if (kind === 'snapshot') openDailySnapshot(); else openExportModal();
 }
 document.getElementById('pwdInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') onPwdOk(); });
@@ -1000,6 +1047,7 @@ function selectAllExportCols(checked){
 function closeExportModal(){ document.getElementById('exportModal').classList.remove('open'); }
 function openExportModal(){
   if (!VIEW.history.length){ showToast(false,'导出失败','当前没有数据可导出'); return; }
+  _logPruneDisabled = false;   // 管理员后来补了 DELETE 权限时，下次导出能自动恢复裁剪
   var def = document.querySelector('input[name="exportScope"][value="today"]');
   if (def) def.checked = true;                       // 每次打开都默认今天
   document.getElementById('exportCount').textContent = resolveExportIndices().indices.length;
@@ -1130,6 +1178,79 @@ function writeExcel(indices, selectedCols, fname){
   XLSX.utils.book_append_sheet(wb, ws, '历史记录');
   XLSX.writeFile(wb, fname);
 }
+/* ---------------- 导出日志上报（旁路：写失败绝不影响导出） ----------------
+ * 写入 prediction_data 的独立 elog_ 前缀行，主系统管理员面板读取。
+ * 用 authApi（与授权表同一套云配置），index.html 管理员面板的 api() 同源。
+ * 日志只保留最近 100 条：每次写完自动删掉第 101 条起的旧记录。
+ * 状态变量已在文件顶部配置区声明。 */
+/* 只查「第 101 条起」的 id（不拉要保留的那 100 条），分批删，循环到没有多余行。
+   · 删除失败、或删完下一轮查到的仍是同一批（RLS 静默不允许删除）→ 立刻停，不空转
+   · 全程旁路：任何异常都不抛出、不影响导出，也不误报成「上报失败」 */
+function pruneExportLogs(round, prevKey){
+  round = round || 0;
+  if (_logPruneDisabled || _logPruneRunning || round > 20) return Promise.resolve(null);
+  _logPruneRunning = true;
+  var q = TABLE + '?select=id&id=gte.elog_&id=lt.elog~&order=id.desc&limit=200&offset=' + EXPORT_LOG_KEEP;
+  var failed = false;
+  return authApi(q).then(function(rows){
+    var ids = (rows || []).map(function(r){ return String((r && r.id) || ''); })
+                          .filter(function(x){ return /^elog_[A-Za-z0-9_]+$/.test(x); });
+    if (!ids.length) return null;
+    var key = ids.join('|');
+    if (prevKey && key === prevKey){ _logPruneDisabled = true; return null; }  // 删了没生效，别再试
+    var chain = Promise.resolve();
+    for (var i=0; i<ids.length; i+=50){
+      (function(batch){
+        chain = chain.then(function(){
+          if (failed) return null;
+          return authApi(TABLE + '?id=in.(' + batch.join(',') + ')', {method:'DELETE'})
+            .catch(function(){ failed = true; _logPruneDisabled = true; return null; });
+        });
+      })(ids.slice(i, i+50));
+    }
+    return chain.then(function(){ return failed ? null : key; });
+  }).catch(function(e){
+    try{ console.warn('[导出日志] 清理旧日志失败（不影响导出）：', e && e.message ? e.message : e); }catch(_){}
+    _logPruneDisabled = true;
+    return null;
+  }).then(function(nextKey){
+    _logPruneRunning = false;
+    return nextKey ? pruneExportLogs(round+1, nextKey) : null;
+  });
+}
+function writeExportLog(info, cols, fmtName, fname, fallback){
+  try{
+    var id = 'elog_' + ('0000000000000' + Date.now()).slice(-13) + '_' + Math.random().toString(36).slice(2,10);
+    var body = {
+      id: id,
+      data: {
+        time: new Date().toISOString(),
+        source: 'susu.html',
+        device: getDevName() || '未命名设备',
+        devId: getDevId(),
+        scope: info.scope === 'today' ? '今天' : (info.scope === 'yesterday' ? '昨天' : '昨天 + 今天'),
+        desc: info.desc,
+        count: info.indices.length,
+        yest: info.yest,
+        today: info.today,
+        cols: cols.map(function(c){ return COL_NAMES[c] || c; }),
+        format: fmtName,
+        filename: fname || '',
+        fallback: !!fallback
+      },
+      updated_at: new Date().toISOString()
+    };
+    return authApi(TABLE, {method:'POST', body:body}).then(function(){
+      // 裁剪自带完整容错：不 await、不让它把「上报成功」误判成失败
+      try{ pruneExportLogs(); }catch(_){}
+      return true;
+    }).catch(function(e){
+      try{ console.warn('[导出日志] 上报失败（不影响导出）：', e && e.message ? e.message : e); }catch(_){}
+      return null;
+    });
+  }catch(e){ return Promise.resolve(null); }
+}
+
 function doCustomExport(){
   try{
     if (!VIEW.history.length){ showToast(false,'导出失败','当前没有数据可导出'); return; }
@@ -1149,6 +1270,7 @@ function doCustomExport(){
       try{
         var fname = '商会预测数据_' + dstr + '_' + info.desc + '_' + n + '条.xlsx';
         writeExcel(info.indices, cols, fname);
+        writeExportLog(info, cols, 'Excel', fname, false);
         closeExportModal();
         showToast(true,'导出成功','已导出 ' + n + ' 条记录到Excel\n范围：' + info.desc +
           '' + '\n列：' + cols.length + ' 列\n文件名：' + fname);
@@ -1161,9 +1283,11 @@ function doCustomExport(){
       }
       var blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8;'});
       var url = URL.createObjectURL(blob), a = document.createElement('a');
-      a.href = url; a.download = '商会预测数据_' + dstr + '_' + info.desc + '_' + n + '条.csv';
+      var csvFname = '商会预测数据_' + dstr + '_' + info.desc + '_' + n + '条.csv';
+      a.href = url; a.download = csvFname;
       a.style.display = 'none'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      writeExportLog(info, cols, 'CSV', csvFname, xlsxFallback);
       closeExportModal();
       showToast(true,'导出成功','已导出 ' + n + ' 条记录\n范围：' + info.desc +
         '' + '\n列：' + cols.length + ' 列\n请检查浏览器下载栏' +
