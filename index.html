@@ -14,7 +14,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v50.37（四盘协同调优 · 导出日志 · 发布目标可选 · 复查加固）</title>
+<title>商会三竞预测系统 v50.38（最终口径 A/B 对照 · 结论唯一化 · 冲突不下注）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -904,12 +904,12 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.37</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.38</span></h1>
 <p class="subtitle"><span>四盘协同 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.37 完整版）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.38 完整版）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
-<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v50.37 之前的累计修复）</summary>
+<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v50.38 之前的累计修复）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
 </details>
 </header>
@@ -1278,7 +1278,10 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="tab-content" id="tab-backtest" style="display:none;">
 <div class="backtest-panel open" style="display:block;">
 <h2 class="section-title"><span class="ico" aria-hidden="true" style="background-color:#2E7D32">↗</span> 回测分析</h2>
-<p style="font-size:13px;color:#6c757d;margin-bottom:12px;">基于已有历史数据进行滚动回测，评估模型预测能力。</p>
+<p style="font-size:13px;color:#6c757d;margin-bottom:8px;">基于已有历史数据进行滚动回测，评估模型预测能力。</p>
+<div style="font-size:12px;line-height:1.7;color:#856404;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:8px 12px;margin-bottom:12px;">
+⚠️ <b>下方 Top1 / Brier 是「窗口层集成模型」的回测，不是最终预测</b>——它没有走四盘协同、统计因子、二次融合、冷门补偿与校准。
+判断「最终到底准不准」请用页面下方的 <b>⚖️ 新旧口径对照</b>，那个才逐局跑完整的 <code>predict()</code> 链。</div>
 <div class="backtest-grid" id="backtestGrid">
 <div class="backtest-card"><div class="bt-title">总回测局数</div><div class="bt-value" id="btTotal">—</div></div>
 <div class="backtest-card"><div class="bt-title">Top1准确率</div><div class="bt-value" id="btAcc1">—</div></div>
@@ -1287,6 +1290,31 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="backtest-card" style="background:linear-gradient(135deg,#fff3cd,#ffeaa7);"><div class="bt-title"><span class="ico" aria-hidden="true" style="background-color:#E67E22">¥</span> 收益预测准确率</div><div class="bt-value" id="btProfitAcc" style="color:#e67e22;">—</div></div>
 <div class="backtest-card" style="background:linear-gradient(135deg,#fff3cd,#ffeaa7);"><div class="bt-title"><span class="ico" aria-hidden="true" style="background-color:#E67E22">¥</span> 收益Brier(↓)</div><div class="bt-value" id="btProfitBrier" style="color:#e67e22;">—</div></div>
 <div class="backtest-card" style="background:linear-gradient(135deg,#fff3cd,#ffeaa7);"><div class="bt-title"><span class="ico" aria-hidden="true" style="background-color:#E67E22">¥</span> 收益回测局数</div><div class="bt-value" id="btProfitCount" style="color:#e67e22;">—</div></div>
+</div>
+<!-- ========== v50.37: 最终预测口径 A/B 对照 ========== -->
+<div style="margin-top:20px;padding:14px 16px;background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:2px solid #a5d6a7;border-radius:12px;">
+  <h3 style="margin:0 0 6px;font-size:15px;color:#1b5e20;"><span class="ico" aria-hidden="true" style="background-color:#2E7D32">⚖️</span> 新旧口径对照（最终预测）</h3>
+  <div style="font-size:12px;color:#555;line-height:1.7;margin-bottom:10px;">
+    同一份历史、同一份模型状态，只切换融合口径，逐局跑 <b>完整 predict()</b> 两遍：<br>
+    <b>v50.36 原版</b> = 相似盘跨层计权两次 + 二次融合 0.62 + 冲突不降置信度；
+    <b>当前生效口径</b> = 直接读取现在的 CONFIG（默认只多了「冲突时下调置信度」，<b>不改变预测排序</b>）。<br>
+    结果以 <b>Top1 准确率</b> 为主、<b>Brier（越低越好）</b> 为辅。跑的时候界面可能略卡，属正常。<br>
+    <span style="color:#856404;">🔬 实验：另有「跨层去重 + 降二次融合」组合可用，但 1440 局构造数据基准显示它会把 Top1 从 55.76% 降到 54.72%、Brier 从 0.2819 升到 0.3065，故<b>默认未启用</b>。想用自己真实数据验证，控制台执行：
+    <code style="background:#fff;padding:1px 5px;border-radius:3px;">CONFIG.dedupSimAcrossLayers=true; CONFIG.fusionRefineBlend=0.35; renderAll();</code>
+    再回来点开始对照即可。</span>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+    <label style="font-size:13px;color:#333;">样本：</label>
+    <select id="abSampleN" style="padding:5px 10px;border:1px solid #a5d6a7;border-radius:6px;font-size:13px;">
+      <option value="40">最近 40 局</option>
+      <option value="60" selected>最近 60 局</option>
+      <option value="100">最近 100 局</option>
+      <option value="200">最近 200 局（较慢）</option>
+    </select>
+    <button id="abRunBtn" style="width:auto;min-width:auto;flex:0 0 auto;padding:8px 18px;background:#2e7d32;color:#fff;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;">▶ 开始对照</button>
+    <span id="abProgress" style="font-size:12px;color:#666;"></span>
+  </div>
+  <div id="abResult" style="font-size:13px;color:#555;line-height:1.8;">尚未运行。</div>
 </div>
 <h3 style="margin-top:18px;margin-bottom:8px;font-size:15px;"><span class="ico" aria-hidden="true" style="background-color:#1976D2">▦</span> 预测概率 vs 实际频率（校准曲线）</h3>
 <div style="font-size:12px;color:#6c757d;margin-bottom:4px;">每个概率区间的预测频率 vs 实际频率</div>
@@ -1432,7 +1460,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <div class="import-modal-overlay" id="snapshotModalOverlay">
 <div class="import-modal" style="max-width:680px;">
 <h3><span class="ico" aria-hidden="true" style="background-color:#546E7A">▤</span> 操作日志（跨设备快照回滚）</h3>
-<p class="modal-sub">自动保存每次操作前的快照，可一键回滚；日志已同步云端，各设备操作都会显示。</p>
+<p class="modal-sub">自动保存每次操作前的快照，可一键回滚；日志已同步云端，各设备操作都会显示。<b>只保留最近 100 条</b>。</p>
 <div style="display:flex;align-items:center;gap:8px;margin:0 0 10px;">
 <p id="snapshotStatusMsg" style="font-size:13px;margin:0;min-height:18px;flex:1;"></p>
 <button onclick="refreshOlog()" style="background:#1a73e8;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap;"><span class="ico" aria-hidden="true" style="background-color:#2196F3">↻</span> 刷新</button>
@@ -2219,16 +2247,21 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v50.37'; // v50.36: 四盘协同调优 + 导出日志 + 发布目标可选 + 新增功能复查加固
+  var APP_VERSION = 'v50.38'; // v50.37: 最终口径 A/B 对照 + 结论唯一化 + 冲突不下注
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v50.37 完整更新说明（本轮全部改动）：\n' +
+  var APP_UPDATE_DESC_RECENT = 'v50.38 完整更新说明（累积交付，包含本轮全部改动）：\n' +
     '①【四盘一致 / 三盘一致最近不太准】定位到四条根因：四盘高度共线（同一段历史被数四次）、②③④ 严格口径丢掉了新近度、长度权重超线性让单条长片段独裁、命中率定权偏短期。现把 simLenExp 2.6→1.8、simQualityBlend 0.30→0.50、fourWayPriorN 6→20、fourWayConsensusMin 0.60→0.75，并新增 fourWayMinTopProb=0.42：每盘 Top 概率低于 42% 记「弃权」，不再进共识、不再凑出假的「四盘一致」，融合权重压到 35%。②③④ 补齐质量票，让时间新近度真正进概率；只剩 1 张有效票时四盘占比上限再压到 0.20。「四盘协同分析」面板摊开各盘 Top 概率、有效票 N/4、门槛值、弃权盘名单。\n' +
     '②【管理员可查导出日志】独立页 susu.html 每次导出会写一行 elog_ 记录，主系统「管理员面板 → 查看导出记录」显示：谁（设备备注+设备号）、什么时间、导出了什么（今天/昨天/两天、条数、昨今分项、勾选的列、Excel 还是 CSV、完整文件名、Excel 组件未就绪自动降级 CSV 的标记）。日志只保留最近 100 条，导出页写完即裁、管理员打开面板时兜底再裁一次；删除权限不足时静默降级，不影响导出，也不误报「上报失败」。支持「刷新日志 / 清空日志」，清空后会复查，避免假报成功。\n' +
     '③【发布时可明确选更新到哪个文件】点「▲ 发布到GitHub」先弹窗选目标：index.html / susu.html / draw.html / xlsx.bundle.js，也可手填任意根目录静态文件，并记住上次选择。本机文件名可以与目标不同、可以是中文；.js/.css 等也能发。成功提示写明「目标文件 + 本机来源」，防止把 index 的内容误发到 susu。\n' +
     '④【发布版本号只对主系统生效 / token 失效可自愈】发布目标选 index.html 时仍按老习惯弹「新版本号」窗口，默认小版本+1；只精准替换主系统当前版本标识（title、h1 徽标、APP_VERSION、更新说明标题与常量、使用提示），不再做全文 split/join，源码注释里的历史版本留痕一律保留。选 susu.html / draw.html / xlsx.bundle.js 或任意其它目标时完全不弹版本号、内容原样上传。目标选择弹窗新增「🔑 更换 Token」；遇到 Bad credentials 自动清除失效 token 并给出可执行指引，不用再手动去 localStorage 删配置。\n' +
-    '⑤【新增功能复查加固】修掉「主盘弃权把整份四盘结论带崩」「一致徽标绑死概率第一名」「提交授权后回读失败会停掉 5 秒轮询」「设备记录被删后重新申请空转」「管理员撤销/拒绝收回权限」「清空日志假报成功」「DELETE 被 RLS 静默拦截时空转」「快照表格未转义」等边界问题；导出列只留 8 项、快速预设隐藏、导出范围三选默认今天、胶囊显示昨天/今天局数与当前时间，均按约定实现。\n' +
-    '⚠️ 使用提示：五个四盘参数不进跨端同步字段，所有设备请一起换成 v50.37，混用旧版会用不同口径算同一份历史、跨端结论分叉。换版后建议点一次「☁️ 全量上传」固化；predHistory / 命中率是旧口径算的，前几局准确率会新旧混着算，想干净就点「↻ 强制重新学习」。';
-  var APP_UPDATE_DESC_HISTORY = '历史归档（v50.37 之前的累计修复，均已包含在当前版本）：\n' +
+    '⑤【操作日志也只保留近 100 条】旧版云端留 500 条、本地留 200 条、面板能一直翻页，三者口径不一致，而且打开面板时 syncLocalToCloud() 会把本地全量 upsert 回云端，只裁云端会被立刻推回来。现在云端 / 本地 / 面板统一 100 条：每次上传日志后自动裁（分批删除、循环到干净、历史遗留 500 条也能一次收敛），打开面板与点「刷新」再兜底裁一次；面板状态栏、底部、首页小组件都标明「只保留最近 100 条」。清理全程旁路：DELETE 被权限策略拦截时静默停用并自愈重试，不影响录入、回滚与快照生成；清空日志后会复查，不再假报「已清空」。与导出日志 elog_ 是两套独立前缀，互不影响。\n' +
+    '⑥【安全加固：操作日志字段全部转义】prediction_data 的 anon 策略允许公开写入，而旧版「操作日志」表格与首页小组件把 reason / count / 非法 time 直接拼进 innerHTML（devCell 早有转义，这几处漏了），构造一条 olog_ 行即可注入脚本。现在时间、备注、局数、设备名统一转义 + 数字规范化；导出日志面板本来已转义。同时把「清空导出日志」等 6 处引导执行 using(true) 全开删除权限的提示改成按前缀收窄的安全指引 —— 全开会让任何人删掉 id=main 主快照。\n' +
+    '⑦【新增功能复查加固】修掉「主盘弃权把整份四盘结论带崩」「一致徽标绑死概率第一名」「提交授权后回读失败会停掉 5 秒轮询」「设备记录被删后重新申请空转」「管理员撤销/拒绝收回权限」「刷新导出日志不自愈」「连点打开操作日志重复发几百个幂等 upsert」「清空日志假报成功」「DELETE 被 RLS 静默拦截时空转」「同步兜底 timer 累积」等边界问题；导出列只留 8 项、快速预设隐藏、导出范围三选默认今天、胶囊显示昨天/今天局数与当前时间，均按约定实现。\n' +
+    '⑧【按实测数据决定是否改算法：默认不改坏准确率】先定位到融合链里相似盘被跨层计权两次（四盘层近8局窗口 + 二次融合 multiDimFusion 近6局窗口，再乘 blend=0.62），一度准备去重。随后用 6 种数据形态 × 3 种子 × 80 局 = 1440 局跑完整 predict() 消融：全关(旧版) Top1 55.76% / Brier 0.2819；只开去重 54.37% / 0.3124（明显变差，强周期形态尤甚）；只降 blend 55.69% / 0.2888（几乎中性略差）；只开冲突收缩 55.76% / 0.2821（Top1 不变、概率更诚实）。结论：相似盘重复计权在强规律数据上是有效置信度来源，强行去重会压掉置信度 —— 因此【默认保留 v50.36 融合口径】，两项改动只留作可实验开关，不擅自改坏准确率。真正默认启用的只有 conflictDampen：当「系统推 B 赢而血本盘推 B 是0分方」「相似盘与最终预测相反」等冲突出现时，用 p\'=1/3+(p-1/3)(1-λ) 朝均匀收缩（单调变换，排序不变，只压掉过度自信）。出手建议把冲突与「前三名差<2个百分点」列为硬闸门，一律建议跳过 —— 不改变预测准头，但避免在自相矛盾的局里硬赌。三个参数都进了 computePredSig，改参数不会被 predict() 的 memo 缓存吞掉。\n' +
+    '⑨【能真正验证「准不准」的 A/B 对照 + 结论唯一化】旧「回测分析」的 Top1 其实只测 _ensemblePredict（窗口层），没走四盘协同 / 统计因子 / 二次融合 / 冷门补偿 / 校准，不能用来判断最终预测准不准，页面已明确标注。回测 Tab 新增「⚖️ 新旧口径对照」：同一份历史、同一份模型状态，逐局跑完整 predict() 两遍（临时 Predictor 实例、异步分帧、绝不污染主实例、CONFIG 完整恢复），给出「v50.36 原版 vs 当前生效口径」的 Top1 / Top2 / Brier / 平均最高概率与差值、预测不同的局数，并直接给结论与临时回退命令 —— 准不准由你自己的 4000+ 局真实数据判定。展示层同步收敛：融合框把「🎯 最终融合结果（唯一结论）」置顶、窗口层五行收进可折叠 details 并写明「第1层中间量，不是结论」及完整 9 层修正链；结论行把「相似盘 41.8%」降为小字参考并注明「分母是这 N 个片段，与全局归一化概率口径不同，不可直接比大小」；「两盘一致」统一带方向与票数，「预测血本」明确标成反向信号，三方胶着时第一名改显示「⚖️三方胶着」；冲突横幅改用本轮 predict() 的权威标记。\n' +
+    '⚠️ 使用提示：四盘五项 + 融合链三项共八个参数不进跨端同步字段，所有设备请一起换成 v50.38，混用旧版会用不同口径算同一份历史、跨端结论分叉。换版后建议点一次「☁️ 全量上传」固化；predHistory / 命中率是旧口径算的，前几局准确率会新旧混着算，想干净就点「↻ 强制重新学习」。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」跑一次最近 100 局。';
+  var APP_UPDATE_DESC_HISTORY = '历史归档（v50.38 之前的累计修复，均已包含在当前版本）：\n' +
+    '· v50.36：四盘协同调优（长度指数 / 质量票 / 命中率收缩 / 强度门槛）、导出日志面板与 100 条保留、发布目标可选与版本号只对 index 生效、操作日志统一 100 条、操作日志字段 XSS 转义、全开 DELETE 提示收窄、以及新增功能多轮复查加固。\n' +
     '· v50.35：跨端重复收敛（_dev 设备指纹）、全模块移动端、所有二级弹窗右上角关闭 / 遮罩 / ESC 关闭、在线设备列表防卡、「⋯ 更多」菜单自动收起、性能与绘制隔离修复。\n' +
     '· 预测与算法：十模型融合、权重自适应、三盘一致跨端统一、样本外证据与漂移检测、中间插入定位与预测快照重建。\n' +
     '· 同步与数据安全：增量实时同步、云端墓碑与脏行收敛、设备备注 PATCH 过滤、覆盖导入保留权重、备份恢复失败不再谎报成功、共享数据表字段对齐。\n' +
@@ -2240,7 +2273,7 @@ function syncBrief(){
     if(r) r.textContent = APP_UPDATE_DESC_RECENT;
     if(h) h.textContent = APP_UPDATE_DESC_HISTORY;
   } catch(e){} })();
-  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v50.37 完整更新说明。';
+  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v50.38 完整更新说明。';
 
   // ========== v50.35：弹窗「交互优先」通道 ==========
   // 复现（4178 局 + 真实鼠标）：弹窗显示时后台只要有一个 400ms 长任务，
@@ -2812,7 +2845,10 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
     var _elogBtn = document.getElementById('adminExportLogBtn');
     if (_elogBtn) _elogBtn.onclick = toggleExportLogArea;
     var _elogRefresh = document.getElementById('adminExportLogRefreshBtn');
-    if (_elogRefresh) _elogRefresh.onclick = loadExportLogs;
+  // v50.36-fix: 旧版直接绑 loadExportLogs，而 loadExportLogs 不复位 _elogPruneDisabled。
+  // 网络抖动 / 权限临时失败把裁剪禁用后，点「刷新日志」永远不会自愈，必须收起再展开才发现。
+    // 与操作日志的 refreshOlog 对齐：每次刷新都复位，权限补上即自动重试。
+    if (_elogRefresh) _elogRefresh.onclick = function(){ _elogPruneDisabled = false; loadExportLogs(); };
     var _elogClear = document.getElementById('adminExportLogClearBtn');
     if (_elogClear) _elogClear.onclick = clearExportLogs;
     // v26.4：一键全部同意/撤销
@@ -2924,15 +2960,21 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
   }
   function clearExportLogs() {
     if (!confirm('确定清空全部导出日志？此操作不可恢复。')) return;
-    var rlsHint = '\n\n云端未开放删除权限。请到 Supabase SQL Editor 执行：\n'
-                + 'create policy "public delete" on prediction_data for delete using (true);';
+    // v50.36-fix: 旧提示让用户执行 using(true) 全开删除，等于任何人都能删 id='main' 主快照，
+    // 与已经给出的「按前缀收窄」策略自相矛盾。改为只指路、不给危险 SQL。
+    var rlsHint = '\n\n请到 Supabase SQL Editor 检查 prediction_data 的 DELETE 策略：'
+                + '需要允许删除 elog_ / olog_ / rec_ / backup_ 等前缀行，但不要用 using(true) 全开'
+                + '（全开会把 id=main 主快照也暴露成可删）。';
     api('prediction_data?id=gte.elog_&id=lt.elog~', {method:'DELETE'})
       .then(function(){
         // RLS 可能静默拦掉 DELETE（返回成功但行还在），复查一次再说「已清空」
         return api('prediction_data?select=id&id=gte.elog_&id=lt.elog~&limit=1');
       })
       .then(function(left){
-        if (left && left.length) {
+        // v50.36-fix: 复查查询自身失败 / 返回空响应时，不能默认当成「删干净了」
+        if (!left || !Array.isArray(left)) {
+          showRecordResult(false, '清空状态未能确认', '复查云端日志时没有拿到有效结果，请点「↻ 刷新日志」确认是否已删除。');
+        } else if (left.length) {
           showRecordResult(false, '清空未生效', '云端仍留有日志，删除请求被权限策略拦截了。' + rlsHint);
         } else {
           showRecordResult(true, '已清空', '导出日志已全部删除');
@@ -3665,8 +3707,21 @@ const CONFIG = {
     fourWayPriorN: 20,       // v50.36: 命中率收缩先验 6→20，短期连中不再把某盘权重顶爆
     fourWayConsensusMin: 0.75, // v50.36: 分歧判定 0.60→0.75，少给伪共识放权
     fourWayMinTopProb: 0.42, // v50.36: 每盘 Top 概率低于此值记「弃权」，噪声 argmax 不再凑四盘一致
-    // 以上四盘参数不在 _CONFIG_SYNC_FIELDS 内：不写进本地存档/云端快照，
+    // ===== v50.37 融合链参数（控制台可改，改完执行 renderAll() 生效）=====
+    // 曾用 6 形态 × 3 种子 × 80 局 = 1440 局做消融（完整 predict() 全链）：
+    //   全关(旧版)      Top1 55.76%  Brier 0.2819
+    //   只开跨层去重    Top1 54.37%  Brier 0.3124  ← 明显变差，强周期形态尤甚
+    //   只降 blend      Top1 55.69%  Brier 0.2888  ← 几乎中性、略差
+    //   只开冲突收缩    Top1 55.76%  Brier 0.2821  ← Top1 不变，概率更诚实
+    // 结论：相似盘被计两次在强规律数据上是有效置信度来源，不是纯重复计权，
+    // 强行去重会压掉置信度。按「只要预测准」原则，默认保留旧版融合口径，
+    // 只留不损准确率的冲突收缩；另两项留作可实验开关，由真实数据 A/B 裁决。
+    dedupSimAcrossLayers: false, // 实验项：相似盘只在四盘层计权一次（实测降准，默认关）
+    fusionRefineBlend: 0.62,     // 实验项：二次融合比例（0.35 实测略差，默认保留 0.62）
+    conflictDampen: true,        // 信号自相矛盾时朝均匀收缩，降置信度（Top1 不变，排序不变）
+    // 以上参数（含四盘五项）不在 _CONFIG_SYNC_FIELDS 内：不写进本地存档/云端快照，
     // 所有端加载同一版 index.html 后取值必然一致；混用旧版会算出不同结论，需一起换版。
+    // 但必须进 computePredSig 的 cfgSig，否则 predict() 的 memo 缓存会让改参数不生效。
 };
 function reloadConfig() {
     CONFIG.streakDecayMax = parseFloat(document.getElementById('cfgStreakDecayMax').value) || 0.18;
@@ -3792,7 +3847,7 @@ function lengthWeight(matchLen) {
 // ========== v16: Multi-dimensional fusion signal ==========
 // Combines: trend (recent score delta), hot/cold (temp vs long-term freq),
 // streak (tail strength), pattern detector output, similarity vote.
-function multiDimFusion(history) {
+function multiDimFusion(history, opts) {
     var n = history.length;
     if (n < 4) return null;
     var result = {A:0, B:0, C:0};
@@ -3869,7 +3924,10 @@ function multiDimFusion(history) {
         totalW += pw;
     }
     // 5) v17: Similarity — 相似盘信号（新增维度，权重最高）
-    if (n >= 8) {
+    // v50.37: predict() 主链已在「四盘协同融合」层对相似盘计过权（近8局窗口）。
+    // 这里再扫一次近6局窗口会让同一信号跨层重复计权，默认跳过；
+    // 传 {skipSimilar:false} 可回到旧口径（新旧口径 A/B 对照用）。
+    if (n >= 8 && !(opts && opts.skipSimilar)) {
         var simWindow = history.slice(-6);
         var simResult = predictFromSimilarPattern(simWindow, history);
         if (simResult && simResult.confidence >= 0.30) {  // v30.22降低门槛，更多相似盘信号入选
@@ -3884,11 +3942,13 @@ function multiDimFusion(history) {
     return normalizeProbs(fused);
 }
 // ========== v16: Apply fusion as a refinement layer ==========
-function applyFusionRefinement(finalProbs, history) {
-    var fusion = multiDimFusion(history);
+function applyFusionRefinement(finalProbs, history, opts) {
+    var fusion = multiDimFusion(history, opts);
     if (!fusion) return finalProbs;
-    // Fusion is a refinement: blend at 30% max
-    var blend = 0.62;  // v30.22加强融合修正
+    // v50.37: 混合比例改成可配。旧版固定 0.62 —— 最终概率有 62% 来自另一套融合，
+    // 等于把前面窗口层、三个统计因子、四盘协同的结果整体盖掉，是「结论跳变」的主因。
+    var blend = (typeof CONFIG !== 'undefined' && isFinite(CONFIG.fusionRefineBlend))
+        ? Math.max(0, Math.min(0.90, Number(CONFIG.fusionRefineBlend))) : 0.35;
     return normalizeProbs({
         A: finalProbs.A * (1 - blend) + fusion.A * blend,
         B: finalProbs.B * (1 - blend) + fusion.B * blend,
@@ -3938,8 +3998,12 @@ function computePredSig(inst) {
         var mw = p.modelWeights || {};
         var mwSig = Object.keys(mw).sort().map(function(k){ return k + ':' + Number(mw[k] || 0).toFixed(5); }).join(',');
         var C = (typeof CONFIG !== 'undefined' && CONFIG) ? CONFIG : {};
+        // v50.37: 融合链参数必须进指纹，否则切换新旧口径做 A/B 时 predict() 的
+        // _predMemoMap 会命中同一份缓存，两遍结果一模一样、对照失效，主界面改参数也不生效。
         var cfgSig = ['win6W','win7W','win8W','win10W','globalW','learnRate','learnDecay',
-                      'patternThreshold','streakDecayMax','coldBonusCap','minData','learnIters','rollbackWindow']
+                      'patternThreshold','streakDecayMax','coldBonusCap','minData','learnIters','rollbackWindow',
+                      'simLenExp','simQualityBlend','fourWayPriorN','fourWayConsensusMin','fourWayMinTopProb',
+                      'fusionRefineBlend','dedupSimAcrossLayers','conflictDampen','fusionSimW']
             .map(function(k){ return Math.round((Number(C[k]) || 0) * 10000); }).join('-');
         var ap = p.advancedModelPerf || {};
         var apSig = ['similar','loss','profit','invest','markov','bayes','trend','rebound']
@@ -7819,7 +7883,8 @@ class Predictor {
         } // end if (!this._fastRebuild) — v31.0: 跳过高级模型
         finalProbs = normalizeProbs(finalProbs);
         // v16: multi-dimensional fusion refinement
-        finalProbs = applyFusionRefinement(finalProbs, this.history);
+        finalProbs = applyFusionRefinement(finalProbs, this.history,
+            { skipSimilar: (typeof CONFIG === 'undefined') || CONFIG.dedupSimAcrossLayers !== false });
         var rankInfo = computeRank(finalProbs);
         // 冷门补偿
         var ts2 = getTailStreak(this.history);
@@ -7901,6 +7966,31 @@ class Predictor {
             }
         }
     } catch(e) { console.warn('[校准]失败:', e.message); }
+    // ===== v50.37: 信号自相矛盾 → 朝均匀分布收缩（只降置信度，不改排序）=====
+    // 旧版冲突只写进「扩展诊断」横幅，概率照旧给满，于是出现「系统推 B 赢、
+    // 血本盘同时推 B 是 0 分方」却仍显示 34% 最高。这里用标准温度平滑
+    // p' = 1/3 + (p - 1/3)(1-λ)，单调变换保持排序不变，只把过度自信压回去。
+    var _conflictFlags = [];
+    try {
+        var _twC = this._threeWayAnalysis;
+        var _pgC = rankInfo.predictedGuild;
+        if (_twC) {
+            if (_twC.lossSide && _twC.lossSide === _pgC)
+                _conflictFlags.push('血本盘推 ' + _pgC + ' 为 0 分方，与最终预测相反');
+            if (_twC.lossTop && _twC.simTop && _twC.lossTop !== _twC.simTop)
+                _conflictFlags.push('血本盘与胜方盘方向不一致');
+            if (_twC.simTop && _twC.simTop !== _pgC)
+                _conflictFlags.push('相似盘倾向 ' + _twC.simTop + '，最终预测 ' + _pgC);
+        }
+        if ((typeof CONFIG === 'undefined' || CONFIG.conflictDampen !== false) && _conflictFlags.length) {
+            var _lamC = Math.min(0.30, 0.10 * _conflictFlags.length);
+            ['A','B','C'].forEach(function(g){
+                finalProbs[g] = 1/3 + (finalProbs[g] - 1/3) * (1 - _lamC);
+            });
+            finalProbs = normalizeProbs(finalProbs);
+            rankInfo = computeRank(finalProbs);
+        }
+    } catch(e) { _conflictFlags = []; }
     // v14: 相似盘来源标注更清晰
         var sourceLabel = source === 'similar' ? '🔍相似盘规律' :
                          source === 'win6' ? '近6局规律' :
@@ -7961,6 +8051,13 @@ class Predictor {
             // v29.0: 各子模型首选
             modelPicks: modelPicks,
             signalSplit: signalSplit,  // v32.0: 信号分裂标记
+            conflictFlags: _conflictFlags.slice(),  // v50.37: 供出手建议 / 冲突横幅 / 卡片标注使用
+            fusionMode: {
+                dedupSim: (typeof CONFIG === 'undefined') || CONFIG.dedupSimAcrossLayers !== false,
+                refineBlend: (typeof CONFIG !== 'undefined' && isFinite(CONFIG.fusionRefineBlend))
+                    ? Number(CONFIG.fusionRefineBlend) : 0.35,
+                conflictDampen: (typeof CONFIG === 'undefined') || CONFIG.conflictDampen !== false
+            },
             // v49.3 T2: 本次 predict 的三盘结论随结果返回。renderCards 命中 _predCache
             // 时不重算，但 result.threeWay 是本端用当前历史算的，getThreeWay() 优先采用。
             threeWay: this._threeWayAnalysis ? Object.assign({}, this._threeWayAnalysis) : null,
@@ -8444,6 +8541,11 @@ class Predictor {
         var probs = pred.probabilities;
         var lead = pred.predictedGuild;
         var maxP = probs[lead];
+        // v50.37: 先把「不可下注」的硬条件挑出来。旧版冲突只写诊断横幅，
+        // 概率照给满、建议照出手；现在冲突/胶着一律降级，宁可少下注也不硬赌。
+        var _cf = (pred.conflictFlags && pred.conflictFlags.length) ? pred.conflictFlags : [];
+        var _ps = [probs.A, probs.B, probs.C].slice().sort(function(a,b){ return b-a; });
+        var _tight = (_ps.length >= 3 && (_ps[0] - _ps[2]) < 0.02);
         // 1. 概率分桶校准：历史上"最高概率落在同一桶"时实际命中率
         var edges = [0.36,0.40,0.44,0.50];
         var bucket = -1;
@@ -8479,6 +8581,18 @@ class Predictor {
         } catch(e) {}
         // 3. 决策
         var edge = calibRate - 1/3;
+        // v50.37: 冲突与胶着是硬闸门，优先级高于「校准命中率」——
+        // 桶内历史命中再高，也不能覆盖本局自相矛盾的证据。
+        if (_cf.length) {
+            return {action:'skip', label:'⏭️ 信号冲突 · 建议跳过',
+                reason:'本局 ' + _cf.length + ' 处信号自相矛盾（' + _cf[0] + '），已下调置信度',
+                rate:calibRate};
+        }
+        if (_tight) {
+            return {action:'skip', label:'⏭️ 三方胶着 · 建议跳过',
+                reason:'前三名概率仅差 ' + ((_ps[0]-_ps[2])*100).toFixed(1) + ' 个百分点，无可用优势',
+                rate:calibRate};
+        }
         if (regimeStrong && calibRate>=0.38) return {action:'bet', label:'✅ 建议出手'+lead, reason:regimeName+'强信号，校准命中'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
         if (edge>=0.09) return {action:'bet', label:'✅ 建议出手'+lead, reason:'概率优势明显，校准命中'+(100*calibRate).toFixed(0)+'% (n='+tot+')', rate:calibRate};
         if (edge>=0.05) return {action:'caution', label:'⚠️ 可小注/观望', reason:'优势不大，校准命中'+(100*calibRate).toFixed(0)+'%', rate:calibRate};
@@ -8510,6 +8624,11 @@ class Predictor {
             }
             var _skNeed = (_skMaxLen >= 8 && _skExact >= 2) ? 2 : (_skMaxLen >= 8 ? 3 : 5);
             if (!simR || simMatchN < _skNeed) reasons.push('相似盘匹配不足' + _skNeed + '条');
+            // v50.37 条件4：前三名概率差 < 2 个百分点 —— 三名胶着时不给强结论
+            var _skPs = [pred.probabilities.A, pred.probabilities.B, pred.probabilities.C]
+                        .slice().sort(function(a,b){ return b-a; });
+            if ((_skPs[0] - _skPs[2]) < 0.02)
+                reasons.push('前三名仅差 ' + ((_skPs[0]-_skPs[2])*100).toFixed(1) + ' 个百分点，三方胶着');
             // 条件3：近10局命中率≤0.33（和随机持平，模型没学到东西）
             if (this.accuracy.length >= 10) {
                 var recent10 = this.accuracy.slice(-10);
@@ -10606,6 +10725,13 @@ var _lastImportSnapshotIdx = -1;
 // v26.5：本地快照回滚（操作日志）
 var SNAPSHOT_KEY = 'mm_snapshots_v1';
 var _snapshots = [];
+/* v50.36: 操作日志与「导出日志」同口径，云端 / 本地 / 面板都只保留最近 100 条。
+   旧版云端留 500 条、本地留 200 条，且 syncLocalToCloud() 每次打开面板会把本地全量
+   upsert 回云端 —— 若只裁云端，刚删掉的旧日志会被立刻推回来，裁剪等于白做。
+   三处必须一起改成同一个数。 */
+var OLOG_KEEP = 100;
+var _ologPruneDisabled = false;   // DELETE 不可用或「删了但行还在」时，本次会话不再空转
+var _ologPruneRunning  = false;   // 防多局连录 / 连点刷新时多条裁剪链并发
 function loadSnapshots() {
     // v44.30-fix5: 统一成"旧→新"升序、末尾=最新。
     // 旧版 sort 成降序(new→old) 后 slice(-200) 取到的是【最旧】200条，
@@ -10629,10 +10755,10 @@ function loadSnapshots() {
             stored.forEach(put);
             var merged = Object.keys(existing).map(function(k){ return existing[k]; });
             merged.sort(function(a,b){ return new Date(a.time) - new Date(b.time); }); // 升序 旧→新
-            _snapshots = merged.slice(-200); // 保留最新200条
+            _snapshots = merged.slice(-OLOG_KEEP); // v50.36: 只保留最新 100 条
         } else if (_snapshots && _snapshots.length) {
             _snapshots.sort(function(a,b){ return new Date(a.time) - new Date(b.time); });
-            _snapshots = _snapshots.slice(-200);
+            _snapshots = _snapshots.slice(-OLOG_KEEP);
         }
     } catch(e) { /* 保留内存中的 _snapshots */ }
 }
@@ -10644,7 +10770,7 @@ function saveSnapshots() {
     // （用户列表里只剩最早那条能塞进去的 9/23 日志）。
     // 现在：优先保住"日志条目永远不丢"，完整 data 只保留最近若干条；
     // 写不下就逐级减少带 data 的条数，最后只写元数据，云端仍有全量。
-    var all = (_snapshots || []).slice(-200);
+    var all = (_snapshots || []).slice(-OLOG_KEEP);
     function meta(s, withData) {
         var o = { time: s.time, reason: s.reason, count: s.count, device: s.device || '' };
         if (withData && s.data) o.data = s.data;
@@ -10658,12 +10784,12 @@ function saveSnapshots() {
         try { localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(payload)); return true; }
         catch(e) { return false; }
     }
-    for (var n = 3; n >= 1; n--) { if (write(n, 200)) return; }
-    if (write(0, 200)) {
+    for (var n = 3; n >= 1; n--) { if (write(n, OLOG_KEEP)) return; }
+    if (write(0, OLOG_KEEP)) {
         if (!_snapQuotaWarned) { console.warn('[快照] 本地空间不足：仅保存日志元数据，完整回滚数据请从云端加载'); _snapQuotaWarned = true; }
         return;
     }
-    // 极端情况：连 200 条元数据都写不下，缩到 50 条
+    // 极端情况：连 100 条元数据都写不下，缩到 50 条（空间兜底，仍不超过 100）
     if (write(0, 50)) { if (!_snapQuotaWarned) { console.warn('[快照] 本地空间紧张：仅保留最近50条日志元数据'); _snapQuotaWarned = true; } return; }
     if (!_snapQuotaWarned) { console.error('[快照] localStorage 写入失败，日志仅保留在内存中，请检查浏览器存储权限'); _snapQuotaWarned = true; }
 }
@@ -10821,8 +10947,8 @@ function pushOlogToCloud(snap, retry) {
             data: snap,
             updated_at: new Date().toISOString()
         }, {onConflict: "id"}).then(function(){
-            // v34.5：保留数从100提到500，避免历史日志被自动清空
-            pruneOldOlogRows(500);
+            // v50.36: 云端保留数统一回落到 100（与导出日志同口径）
+            pruneOldOlogRows(OLOG_KEEP);
             // v34.9：每次上传日志顺便更新心跳，不依赖定时器
             try {
                 var _api2 = window._cloudApi;
@@ -10874,19 +11000,57 @@ function flushPendingOlog() {
     _pendingOlogUploads = [];
     _savePendingOlog();
     pend.forEach(function(snap){ pushOlogToCloud(snap); });
+    // v50.36: 批量补传时多条 push 几乎同时完成，裁剪运行锁会挡掉后到的调用，
+    // 若所有 upsert 在锁释放前就写完了，可能漏裁一轮。延迟 3 秒再兜底裁一次，
+    // 保证云端最终收敛到 100 条（不阻塞补传，也不影响录入）。
+    try { setTimeout(function(){ pruneOldOlogRows(OLOG_KEEP); }, 3000); } catch(e) {}
 }
-// 保留最近 maxKeep 条云端快照，删掉更老的独立行
-function pruneOldOlogRows(maxKeep) {
+/* 保留最近 maxKeep 条云端操作日志，删掉更老的 olog_ 独立行。
+   v50.36 加固（与导出日志 elog_ 同款容错）：
+   · 只查「第 101 条起」的 id（不拉要保留的 100 条），每轮最多 200 条，循环到干净为止
+     —— 历史遗留 500 条也能一次收敛到 100，不会只删一批就停
+   · 删除失败、或删完下一轮查到的仍是同一批（RLS 静默不允许 DELETE）→ 立刻停，不空转
+   · 并发运行锁；全程旁路，任何异常都不影响录入 / 回滚 / 快照生成
+   · v46.1 沿用：主键范围 [olog_, olog~) 走索引，避免 like 全表扫描超时 */
+function pruneOldOlogRows(maxKeep, round, prevKey) {
+    maxKeep = maxKeep || OLOG_KEEP;
+    round = round || 0;
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    // v34.5：limit 从200提到 maxKeep+200，确保能查到要保留的边界
-    // v46.1：like 'olog_%' 改为主键范围 [olog_, olog~)，避免全表扫描语句超时
-    supabaseClient.from(CLOUD_TABLE).select('id').gte('id', 'olog_').lt('id', 'olog~').order('id', {ascending: false}).limit(maxKeep + 200).then(function(res){
-        var rows = (res && res.data) ? res.data : [];
-        if (rows.length <= maxKeep) return;
-        var oldRows = rows.slice(maxKeep);
-        var ids = oldRows.map(function(r){ return r.id; });
-        supabaseClient.from(CLOUD_TABLE).delete().in('id', ids).then(function(){}, function(){});
-    }).catch(function(){});
+    if (_ologPruneDisabled || _ologPruneRunning || round > 20) return;
+    _ologPruneRunning = true;
+    var failed = false;
+    supabaseClient.from(CLOUD_TABLE).select('id')
+        .gte('id', 'olog_').lt('id', 'olog~')
+        .order('id', {ascending: false})
+        .range(maxKeep, maxKeep + 199)
+        .then(function(res){
+            var rows = (res && res.data) ? res.data : [];
+            var ids = rows.map(function(r){ return String((r && r.id) || ''); })
+                          .filter(function(x){ return /^olog_[A-Za-z0-9_]+$/.test(x); });
+            if (!ids.length) return null;
+            var key = ids.join('|');
+            if (prevKey && key === prevKey){ _ologPruneDisabled = true; return null; }  // 删了没生效，别再试
+            var chain = Promise.resolve();
+            for (var i = 0; i < ids.length; i += 50) {
+                (function(batch){
+                    chain = chain.then(function(){
+                        if (failed) return null;
+                        return supabaseClient.from(CLOUD_TABLE).delete().in('id', batch)
+                            .then(function(){}, function(){ failed = true; _ologPruneDisabled = true; });
+                    });
+                })(ids.slice(i, i + 50));
+            }
+            return chain.then(function(){ return failed ? null : key; });
+        })
+        .catch(function(e){
+            try { console.warn('[操作日志] 清理旧日志失败（不影响录入）：', e && e.message ? e.message : e); } catch(_){}
+            _ologPruneDisabled = true;
+            return null;
+        })
+        .then(function(nextKey){
+            _ologPruneRunning = false;
+            if (nextKey) pruneOldOlogRows(maxKeep, round + 1, nextKey);
+        });
 }
 // v30.22：分页加载 + 列表瘦身（只取基本字段，不加载完整大data）
 // v34.9：直接用原生fetch，避免闭包_api对URL的编码问题；用encodeURIComponent编码select
@@ -10899,6 +11063,14 @@ function fetchOlogFromCloud(cb, append) {
     _ologLoading = true;
     if (!append) { _ologPage = 0; _cloudSnaps = []; }
     var offset = _ologPage * _ologPageSize;
+    // v50.36: 面板最多加载 100 条。旧版能一直「加载更多」翻到 500 条，
+    // 与云端裁剪口径不一致（权限不足降级时尤其明显）。
+    if (offset >= OLOG_KEEP) {
+        _ologLoading = false; _ologHasMore = false;
+        cb && cb();
+        return;
+    }
+    var _rangeEnd = Math.min(offset + _ologPageSize - 1, OLOG_KEEP - 1);
     // v47.9修复: 改用 supabaseClient 客户端查询（自动携带 apikey 请求头）。
     // 旧版裸 fetch 的 _sbKey 兜底为空字符串，当 sbUrl/sbKey 变量在本作用域不可见时
     // 请求头 apikey 为空 → HTTP 401「No API key found in request」→ 操作日志面板永远停在「正在同步」。
@@ -10913,7 +11085,7 @@ function fetchOlogFromCloud(cb, append) {
         .select('id,data->>time,data->>reason,data->>device,data->>count')
         .gte('id', 'olog_').lt('id', 'olog~')
         .order('id', { ascending: false })
-        .range(offset, offset + _ologPageSize - 1)
+        .range(offset, _rangeEnd)
         .then(function(res) {
             if (res && res.error) throw new Error('HTTP ' + (res.error.code || '') + ' ' + (res.error.message || ''));
             return (res && res.data) ? res.data : [];
@@ -10939,7 +11111,7 @@ function fetchOlogFromCloud(cb, append) {
                 var k = s.time + '|' + s.reason + '|' + (s.device||'');
                 if (!existingKeys[k]) { _cloudSnaps.push(s); existingKeys[k] = 1; }
             });
-            _ologHasMore = (rows.length >= _ologPageSize);
+            _ologHasMore = (rows.length >= (_rangeEnd - offset + 1)) && (offset + rows.length < OLOG_KEEP);
             _ologPage++;
         } else {
             _ologHasMore = false;
@@ -10974,7 +11146,7 @@ function loadOlogFullData(snap, cb) {
 function syncOlogToCloud() {
     // 把本地快照逐条 upsert 到云端（不存在才写，不覆盖其他设备）
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    (_snapshots||[]).forEach(function(snap){
+    (_snapshots||[]).slice(-OLOG_KEEP).forEach(function(snap){
         supabaseClient.from(CLOUD_TABLE).upsert({
             id: ologRowId(snap),
             data: snap,
@@ -10991,12 +11163,34 @@ function clearAllSnapshots() {
     try { localStorage.removeItem(SNAPSHOT_KEY); } catch(e) {}
     if (typeof supabaseClient !== 'undefined' && supabaseClient) {
         // v46.1：like 改为主键范围，避免全表扫描超时
-        supabaseClient.from(CLOUD_TABLE).delete().gte('id', 'olog_').lt('id', 'olog~').then(function(){}, function(){});
+        // v50.36: RLS 可能静默拦掉 DELETE（返回成功但行还在），复查一次再说「已清空」
+        supabaseClient.from(CLOUD_TABLE).delete().gte('id', 'olog_').lt('id', 'olog~')
+            .then(function(){
+                return supabaseClient.from(CLOUD_TABLE).select('id').gte('id','olog_').lt('id','olog~').limit(1);
+            })
+            .then(function(left){
+                var msg2 = document.getElementById('snapshotStatusMsg');
+                if (left && left.error) {
+                    if (msg2) msg2.textContent = '⚠️ 清空状态未能复查，请点「刷新」确认云端日志是否已删除';
+                } else if (left && left.data && left.data.length) {
+                    if (msg2) msg2.textContent = '⚠️ 清空未生效：云端仍留有日志，删除请求被权限策略拦截了（请检查 prediction_data 的 DELETE 策略）';
+                } else {
+                    if (msg2) msg2.textContent = '✅ 已清空全部操作日志';
+                }
+            })
+            .catch(function(){
+                var msg2 = document.getElementById('snapshotStatusMsg');
+                if (msg2) msg2.textContent = '⚠️ 清空请求失败，请检查云端 DELETE 权限后重试';
+            });
         supabaseClient.from(CLOUD_TABLE).delete().eq('id', OLOG_ID).then(function(){}, function(){});
     }
     renderSnapshotList();
     var msg = document.getElementById('snapshotStatusMsg');
-    if (msg) msg.textContent = '✅ 已清空全部操作日志';
+    if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+        if (msg) msg.textContent = '正在清空云端日志…';
+    } else {
+        if (msg) msg.textContent = '✅ 已清空本机全部操作日志（未连接云端）';
+    }
 }
 function deleteSnapshot(idx) {
     var s = _viewSnaps && _viewSnaps[idx];
@@ -11077,7 +11271,7 @@ function createSnapshot(reason) {
             })
         };
         _snapshots.push(snap);
-        if (_snapshots.length > 200) _snapshots = _snapshots.slice(-200);
+        if (_snapshots.length > OLOG_KEEP) _snapshots = _snapshots.slice(-OLOG_KEEP);
         saveSnapshots();
         // v39.6修复：延迟800ms再push，让_finalizeLastSnapCount有机会先把count改成操作后值，
         // 避免"createSnapshot push旧count"与"_finalize push新count"两次upsert同一行发生网络竞态，
@@ -13178,10 +13372,10 @@ async function compactCloudRecRows(reason) {
         }
         if (_delIds.length) {
             if (_delShort) {
-                console.warn('[压缩] 实际删除', deleted, '/', _delIds.length, '条（过期墓碑', _tombDel, '条）——大概率 Supabase 未开放 DELETE 权限（RLS），请在后台执行：create policy "allow delete" on prediction_data for delete to anon using (true);');
+                console.warn('[压缩] 实际删除', deleted, '/', _delIds.length, '条（过期墓碑', _tombDel, '条）——大概率 Supabase 未开放 DELETE 权限（RLS）。请检查 prediction_data 的 DELETE 策略是否覆盖 rec_ 前缀；不要用 using(true) 全开，那会连 id=main 主快照一起暴露成可删。');
                 // v47.15: 提升到状态栏可见——delete 权限缺失会导致旧增量行/过期墓碑无法清理、
                 // 持续堆积，每轮轮询重复下载全部残留行（重复/卡顿），用户此前无感知
-                try { updateCloudStatus('online', '⚠️ 云端删除权限缺失：请在 Supabase SQL Editor 执行 create policy "public delete" on prediction_data for delete using (true);'); } catch(e) {}
+                try { updateCloudStatus('online', '⚠️ 云端删除权限缺失：请检查 prediction_data 的 DELETE 策略（需覆盖 rec_/elog_/olog_/backup_ 前缀，勿用 using(true) 全开）'); } catch(e) {}
             } else {
                 techLog('[压缩] 已清理已入快照的增量行', deleted, '条（过期墓碑', _tombDel, '条）· 触发：' + reason);
                 // v47.13: 全量上传后输出"增量归零"确认（数据行数 = 总行数 - 墓碑数，两次轻量 count）
@@ -13271,7 +13465,7 @@ async function resetCloudIncrRows(mainLen, baselineRids) {
         } catch(e) {}
         try { localStorage.removeItem(REC_SEEN_KEY); } catch(e) {}
         if (_deleted < _ids.length) {
-            console.warn('[增量归零] 实际删除 ' + _deleted + '/' + _ids.length + ' 条——大概率 Supabase 未开放 DELETE 权限(RLS)，请在后台执行 create policy "allow delete" on prediction_data for delete to anon using (true);');
+            console.warn('[增量归零] 实际删除 ' + _deleted + '/' + _ids.length + ' 条——大概率 Supabase 未开放 DELETE 权限(RLS)。请检查 DELETE 策略是否覆盖 rec_ 前缀；勿用 using(true) 全开。');
             try { updateCloudStatus('online', '⚠️ 全量已上传（' + mainLen + ' 局），但云端增量行删除权限缺失，请在 Supabase 开启 delete 策略'); } catch(e) {}
         } else {
             techLog('[增量归零] 全量基线 ' + mainLen + ' 局 · 已清空云端旧增量行 ' + _deleted +
@@ -13331,10 +13525,10 @@ async function cleanupCloudRecRowsNow() {
             }
         }
         if (_delIds.length && deleted < _delIds.length) {
-            console.warn('[清理历史增量] 实际删除 ' + deleted + '/' + _delIds.length + ' 条——大概率 Supabase 未开放 DELETE 权限（RLS）。请到 Supabase 后台执行：create policy "allow delete" on prediction_data for delete to anon using (true);');
+            console.warn('[清理历史增量] 实际删除 ' + deleted + '/' + _delIds.length + ' 条——大概率 Supabase 未开放 DELETE 权限（RLS）。请检查 DELETE 策略是否覆盖 rec_ 前缀；勿用 using(true) 全开，那会连主快照一起暴露成可删。');
         }
         if (_delShort) {
-            showRecordResult(deleted > 0, deleted > 0 ? '部分清理' : '清理未生效', '实际删除 ' + deleted + '/' + _delIds.length + ' 条。\n\n大概率是数据库未开放 DELETE 权限（RLS）。\n请管理员到 Supabase 后台 SQL 执行：\ncreate policy "allow delete" on prediction_data\nfor delete to anon using (true);');
+            showRecordResult(deleted > 0, deleted > 0 ? '部分清理' : '清理未生效', '实际删除 ' + deleted + '/' + _delIds.length + ' 条。\n\n大概率是数据库未开放 DELETE 权限（RLS）。\n请管理员检查 prediction_data 的 DELETE 策略：需覆盖 rec_/elog_/olog_/backup_ 前缀，\n不要执行 using(true) 全开（会把 id=main 主快照也暴露成可删）。');
         } else {
             showRecordResult(true, '清理完成', '已删除 ' + deleted + ' 条历史增量行\n保留墓碑 ' + _tombKept + ' 条、快照后新数据 ' + _recentKept + ' 条\n\n云端现为：main 快照（完整数据）+ 少量必要增量行');
         }
@@ -14197,7 +14391,7 @@ function bindCloudEvents() {
                         if (_rawVer === null) { btn.disabled = false; btn.textContent = orig; return; }
                         inputVer = _rawVer.trim() || _defVer;
                         if (!/^v\d+\.\d+(?:\.\d+)?$/.test(inputVer)) {
-                            showRecordResult(false, '发布失败', '版本号格式不合法：' + inputVer + '\n请填 v50.37 这种格式，重新点发布即可。');
+                            showRecordResult(false, '发布失败', '版本号格式不合法：' + inputVer + '\n请填 v50.38 这种格式，重新点发布即可。');
                             btn.disabled = false; btn.textContent = orig; return;
                         }
                         // 精准替换：只动「当前版本标识」，注释里的 /* v50.xx ... */ 一律不碰
@@ -14418,25 +14612,57 @@ function closeBackupModal() {
     document.getElementById('backupModalOverlay').classList.remove('open');
 }
 // v26.5：操作日志/快照回滚
-function syncLocalToCloud() {
+var _lastOlogSyncKey = '', _lastOlogSyncAt = 0;
+function syncLocalToCloud(onDone) {
     // v30.22: 逐条 upsert，不再读-改-写整个 oplog 数组（避免覆盖其他设备记录）
-    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
-    (_snapshots||[]).forEach(function(snap){
-        supabaseClient.from(CLOUD_TABLE).upsert({
-            id: ologRowId(snap),
-            data: snap,
-            updated_at: new Date().toISOString()
-        }, {onConflict: 'id'}).then(function(){}, function(){});
+    // v50.36: 本地也只留 100 条；全部补传完成后再触发一次云端裁剪，
+    // 避免「刚裁掉 101 条起的旧行，打开面板又被本地全量推回来」的竞态。
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) { if (onDone) onDone(); return; }
+    var snaps = (_snapshots || []).slice(-OLOG_KEEP);
+    if (!snaps.length) { if (onDone) onDone(); return; }
+    /* v50.36-fix: 快速连点打开「操作日志」时，openSnapshotModal 的两次异步源
+       （设备别名 + 云端分页）会让 _onReady 被调用 2~3 次，每次都全量 upsert 100 条。
+       upsert 是幂等的，不会弄坏数据，但白白多发几百个请求。同一批快照 5 秒内只发一轮；
+       回调照常触发（兜底裁剪仍跑），渲染也不受影响。5 秒的窗口足够覆盖一次正常打开，
+       又不会让真正的新快照被跳过（新快照会改变 key）。 */
+    var _syncKey = '';
+    try { _syncKey = snaps.map(function(x){ return ologRowId(x); }).join('|'); } catch(e) {}
+    var _nowSync = Date.now();
+    if (_syncKey && _syncKey === _lastOlogSyncKey && (_nowSync - _lastOlogSyncAt) < 5000) {
+        if (onDone) onDone();
+        return;
+    }
+    _lastOlogSyncKey = _syncKey; _lastOlogSyncAt = _nowSync;
+    var pend = snaps.length, settled = false, guardTimer = null;
+    function finish() {
+        if (settled) return;
+        settled = true;
+        if (guardTimer) { try { clearTimeout(guardTimer); } catch(e){} guardTimer = null; }
+        if (onDone) onDone();
+    }
+    function one() { pend--; if (pend <= 0) finish(); }
+    snaps.forEach(function(snap){
+        try {
+            supabaseClient.from(CLOUD_TABLE).upsert({
+                id: ologRowId(snap),
+                data: snap,
+                updated_at: new Date().toISOString()
+            }, {onConflict: 'id'}).then(one, one);
+        } catch(e) { one(); }
     });
+    // 单个请求挂起也不让回调永远不来（8 秒兜底）；完成后由 finish 清掉，避免反复开关面板累积 timer
+    guardTimer = setTimeout(finish, 8000);
 }
 function refreshOlog() {
     var msg = document.getElementById('snapshotStatusMsg');
     if (msg) msg.textContent = '正在刷新...';
+    _ologPruneDisabled = false;   // 权限补上后，点刷新可自愈重试裁剪
     fetchOlogFromCloud(function(){
+        pruneOldOlogRows(OLOG_KEEP);   // 兜底：把历史遗留的第 101 条起删掉
         renderSnapshotList();
         var localN = (_snapshots||[]).length;
         var cloudN = (_cloudSnaps||[]).length;
-        if (msg) msg.textContent = '已刷新 · 本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
+        if (msg) msg.textContent = '已刷新 · 本机 ' + localN + ' 条，云端 ' + cloudN + ' 条 · 只保留最近 ' + OLOG_KEEP + ' 条';
     }, false);
 }
 // ========== 在线用户心跳与列表 ==========
@@ -14696,7 +14922,8 @@ function openSnapshotModal() {
     function _onReady() {
         _pending--;
         if (_pending > 0) return;
-        syncLocalToCloud();
+        _ologPruneDisabled = false;   // 管理员补了 DELETE 权限后，打开面板可自愈重试
+        syncLocalToCloud(function(){ pruneOldOlogRows(OLOG_KEEP); });
         renderAliasManager();
         renderSnapshotList();
         var cmsg = document.getElementById('snapshotStatusMsg');
@@ -14705,6 +14932,7 @@ function openSnapshotModal() {
             var cloudN = (_cloudSnaps||[]).length;
             var txt = '本机 ' + localN + ' 条，云端 ' + cloudN + ' 条';
             if (cloudN === 0 && localN > 0) txt += '（其他设备需升级到 v29.2+ 并做一次录入/撤销后才会上传日志）';
+            txt += ' · 只保留最近 ' + OLOG_KEEP + ' 条';
             cmsg.textContent = txt;
         }
     }
@@ -15052,17 +15280,23 @@ function renderSnapshotList() {
     if (filterDev) {
         filtered = merged.filter(function(s){ return (s.device||'本机') === filterDev; });
     }
-    _viewSnaps = filtered;
-    
-    if (filtered.length === 0) {
+    // v50.36: 面板与云端同口径，最新在前，只显示最近 100 条
+    // （deleteSnapshot / doRestoreSnapshot 用 _viewSnaps 下标，slice 后仍然对齐）
+    _viewSnaps = filtered.slice(0, OLOG_KEEP);
+    var shown = _viewSnaps;
+
+    if (shown.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" style="padding:16px;color:#999;">暂无快照' + (filterDev ? '（该设备暂无日志）' : '（录入/撤销/清空后自动生成）') + '</td></tr>';
         return;
     }
     var html = '';
-    for (var i = 0; i < filtered.length; i++) {
-        var s = filtered[i];
+    for (var i = 0; i < shown.length; i++) {
+        var s = shown[i];
         var t = new Date(s.time);
-        var tStr = t.toLocaleString('zh-CN');
+        // v50.36-fix: 云端 olog_ 行是公开可写的（anon key + insert/update using(true)），
+        // reason / count / 非法 time 都可能带 HTML。devCell 早就转义了，这三处漏了 —— 补齐。
+        var tStr = isNaN(t.getTime()) ? escHtml(String(s.time == null ? '—' : s.time))
+                                       : escHtml(t.toLocaleString('zh-CN'));
         var localDev = (typeof devName === 'function') ? devName() : '';
         var dev = s.device || '本机';
         var alias = getDeviceAlias(dev);
@@ -15071,11 +15305,12 @@ function renderSnapshotList() {
         var devCell = escHtml(disp);
         if (alias) devCell += ' <span style="color:#999;font-size:10px;">(' + escHtml(dev) + ')</span>';
         if (isLocal) devCell += ' <span style="color:#2e7d32;font-size:10px;">(本机)</span>';
+        var countTxt = escHtml(String(Number(s.count) || 0));
         html += '<tr>' +
             '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
             '<td style="padding:8px;font-size:12px;">' + devCell + '</td>' +
-            '<td style="padding:8px;font-size:12px;">' + s.reason + '</td>' +
-            '<td style="padding:8px;font-size:12px;">' + s.count + ' 局</td>' +
+            '<td style="padding:8px;font-size:12px;">' + escHtml(String(s.reason == null ? '操作' : s.reason)) + '</td>' +
+            '<td style="padding:8px;font-size:12px;">' + countTxt + ' 局</td>' +
             '<td style="padding:8px;white-space:nowrap;">' +
                 '<button onclick="doRestoreSnapshot(' + i + ')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:4px;">回滚</button>' +
                 '<button onclick="deleteSnapshot(' + i + ')" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
@@ -15087,8 +15322,8 @@ function renderSnapshotList() {
         html += '<tr><td colspan="5" style="padding:10px;text-align:center;">' +
             '<button onclick="loadMoreOlog()" style="background:#f0f0f0;color:#1a73e8;border:1px solid #1a73e8;padding:6px 20px;border-radius:4px;cursor:pointer;font-size:13px;">加载更多 ↓</button>' +
             '</td></tr>';
-    } else if (_cloudSnaps.length > 0 && !filterDev) {
-        html += '<tr><td colspan="5" style="padding:8px;text-align:center;color:#999;font-size:12px;">— 已加载全部 ' + _cloudSnaps.length + ' 条日志 —</td></tr>';
+    } else if (!filterDev) {
+        html += '<tr><td colspan="5" style="padding:8px;text-align:center;color:#999;font-size:12px;">— 共 ' + shown.length + ' 条 · 只保留最近 ' + OLOG_KEEP + ' 条 —</td></tr>';
     }
     
     // v50.35 性能/体验：内容没变就不再重写整表。周期刷新/重复打开时重建 innerHTML 会让
@@ -17190,6 +17425,12 @@ function renderCards() {
         } else { fb.style.display = 'none'; }
     } catch(e) {}
     var _tw = getThreeWay();   // v49.3 T2/T3: 统一取当前历史对应的三盘结论
+    // v50.37: 前三名只差 2 个百分点以内时，不再给「🥇最高」这种强结论式标签。
+    var _tightCards = false;
+    try {
+        var _sps = sorted.map(function(x){ return x[1]; });
+        _tightCards = (_sps.length >= 3 && (_sps[0] - _sps[2]) < 0.02);
+    } catch(e) {}
     for (var si=0; si<sorted.length; si++) {
         var g=sorted[si][0], r=si+1, prob=sorted[si][1];
         var card=document.getElementById('card'+g);
@@ -17200,14 +17441,18 @@ function renderCards() {
         if (skipInfo.skip && r !== 1) card.style.opacity = '0.75';
         else card.style.opacity = '';
         document.getElementById('winProb'+g).textContent=(prob*100).toFixed(1)+'%';
-        document.getElementById('detail'+g).textContent='概率'+(prob*100).toFixed(1)+'% · '+(skipInfo.skip?'观望':rankLabel(r));
+        document.getElementById('detail'+g).textContent='概率'+(prob*100).toFixed(1)+'% · '+
+            (skipInfo.skip?'观望':(_tightCards && r===1?'⚖️ 三方胶着':rankLabel(r)));
         // v49.0: 旧版「innerHTML='' + 逐项 appendChild」，DOM 守卫会拦住清空却拦不住
         // append → 徽标每渲染一轮就多一份（实测 streakA 从 1 个变 2 个），且每次都
         // 触发 childList 重排。改为拼好字符串一次性写入，守卫可完整命中。
         var se=document.getElementById('streak'+g);
-        var seHtml='<span class="rank-badge rank-badge-'+r+'">'+rankLabel(r)+'</span>';
+        var seHtml='<span class="rank-badge rank-badge-'+r+'">'+
+            (_tightCards && r===1 ? '⚖️三方胶着' : rankLabel(r))+'</span>';
         if (_tw && _tw.lossSide === g) {
-            seHtml += '<span class="streak-badge" style="background:#fce4ec;color:#ad1457;font-weight:700">🩸 预测血本</span>';
+            // v50.37: 明确标成反向信号，避免「系统推 B 赢」和「预测血本」贴在同一张卡上被读成看好 B
+            seHtml += '<span class="streak-badge" style="background:#fce4ec;color:#ad1457;font-weight:700" '+
+                'title="血本盘推 '+escHtml(g)+' 为 0 分方，是反向信号，不代表看好">🩸 预测血本（反向·推'+escHtml(g)+'为0分方）</span>';
         }
         // v50.36-fix: 徽标定位到「基准方向那张卡片」，不再绑死 si===0（第一名）。
         // 基准方向可能不是概率第一名，旧口径会让三/四盘一致徽标整块消失。
@@ -17217,7 +17462,8 @@ function renderCards() {
             var _c = calcThreeWay(_tw);
             if (_c.abstainAll || _c.signalWeak) seHtml += '<span class="streak-badge" style="background:#eceff1;color:#607d8b;font-weight:700">⚪四盘信号不足</span>';
             else if (_c.level >= 3) seHtml += '<span class="streak-badge" style="background:#e8f5e9;color:#2e7d32;font-weight:700">' + fourWayLabel(_c) + '</span>';
-            else if (_c.level === 2) seHtml += '<span class="streak-badge" style="background:#e3f2fd;color:#1565c0;font-weight:700">🔵两盘一致</span>';
+            else if (_c.level === 2) seHtml += '<span class="streak-badge" style="background:#e3f2fd;color:#1565c0;font-weight:700">🔵两盘一致→' +
+                escHtml(_c.simTop) + '（' + _c.validN + '/4 有效票，观察项非推荐）</span>';
         }
         if (ts.guild===g && ts.count>0) {
             seHtml += '<span class="streak-badge '+(ts.count>=3?'streak-hot':'streak-cold')+'">'+ts.count+'连胜</span>';
@@ -17643,7 +17889,7 @@ function renderCards() {
             // v25.8: 显示窗口加权平均（不含后续修正）
             var wAvg2 = {A:0,B:0,C:0};
             result.fusionDetail.forEach(function(fd){ wAvg2.A+=fd.probs.A*fd.weight; wAvg2.B+=fd.probs.B*fd.weight; wAvg2.C+=fd.probs.C*fd.weight; });
-            html += '<br><span style="color:#888;font-size:11px;">窗口加权平均（修正前）：A:'+(wAvg2.A*100).toFixed(1)+'% B:'+(wAvg2.B*100).toFixed(1)+'% C:'+(wAvg2.C*100).toFixed(1)+'% → 含多维融合/强势保护/冷门补偿修正</span>';
+            html += '<br><span style="color:#888;font-size:11px;">窗口加权平均（<b>第1层中间量，非结论</b>）：A:'+(wAvg2.A*100).toFixed(1)+'% B:'+(wAvg2.B*100).toFixed(1)+'% C:'+(wAvg2.C*100).toFixed(1)+'% → 经 9 层修正后才是最终概率（见「🎯 最终融合结果」）</span>';
         }
         modelDetail.innerHTML=html;
     }
@@ -17972,10 +18218,31 @@ function renderCards() {
             });
             lines.push('</div>');
         }
-        // v19: 多模型融合计算详情
+        // v50.37: 旧版把「窗口层五行」和「最终概率」平铺在同一框里，五行各自倾向C、
+        // 最后一行却是 B，看着像算错。现在把最终结论置顶，中间过程收进 <details>，
+        // 并明确写出中间隔着多少层修正、窗口层数字不是结论。
         if (result.fusionDetail && result.fusionDetail.length > 0) {
-            lines.push('<div class="sim-fusion-box" style="margin-top:8px;padding:8px 10px;background:#f3e5f5;border-radius:6px;font-size:12px;line-height:1.8;">');
-            lines.push('<strong>📐 多模型融合计算详情：</strong><br>');
+            var wAvg = {A:0,B:0,C:0};
+            result.fusionDetail.forEach(function(fd){ wAvg.A+=fd.probs.A*fd.weight; wAvg.B+=fd.probs.B*fd.weight; wAvg.C+=fd.probs.C*fd.weight; });
+            var wTop = 'A';
+            if (wAvg.B > wAvg[wTop]) wTop = 'B';
+            if (wAvg.C > wAvg[wTop]) wTop = 'C';
+            var fp = result.probabilities;
+            lines.push('<div class="sim-fusion-box" style="margin-top:8px;padding:10px 12px;background:#f3e5f5;border-radius:6px;font-size:12px;line-height:1.8;">');
+            lines.push('<strong style="font-size:13px;">🎯 最终融合结果（唯一结论）</strong>　' +
+                '<strong style="font-size:18px;color:'+(result.predictedGuild==='A'?'#e74c3c':result.predictedGuild==='B'?'#3498db':'#2ecc71')+'">' +
+                escHtml(result.predictedGuild)+'</strong>　' +
+                'A:'+(fp.A*100).toFixed(1)+'% B:'+(fp.B*100).toFixed(1)+'% C:'+(fp.C*100).toFixed(1)+'%<br>');
+            lines.push('<span style="color:#666;font-size:11px;">由 窗口层 → 强势保护 → 3个统计因子 → 四盘协同 → 二次融合 → 冷门补偿 → 强势校正 → 概率校准 → 冲突收缩 <b>共9层</b>得到；' +
+                '窗口层当时倾向 <b>'+wTop+'</b>（加权平均 A:'+(wAvg.A*100).toFixed(1)+'% B:'+(wAvg.B*100).toFixed(1)+'% C:'+(wAvg.C*100).toFixed(1)+'%），' +
+                '<b>只是第1层的中间量，不是结论</b>，后续任一层微调都能改变第一名。</span>');
+            if (result.conflictFlags && result.conflictFlags.length) {
+                lines.push('<div style="margin-top:6px;padding:6px 8px;background:#fff3cd;border-radius:5px;color:#856404;font-size:11px;">' +
+                    '⚠️ 本局 ' + result.conflictFlags.length + ' 处信号冲突：' + escHtml(result.conflictFlags.join('；')) +
+                    ' → 已朝均匀分布收缩，置信度下调（排序未变）</div>');
+            }
+            lines.push('<details style="margin-top:8px;"><summary style="cursor:pointer;color:#6a1b9a;font-size:12px;font-weight:600;">' +
+                '📐 展开窗口层中间过程（' + result.fusionDetail.length + ' 个窗口 · 非最终结论）</summary><div style="margin-top:6px;">');
             result.fusionDetail.forEach(function(fd) {
                 var top = 'A';
                 if (fd.probs.B > fd.probs[top]) top = 'B';
@@ -17983,25 +18250,25 @@ function renderCards() {
                 var contribA = (fd.probs.A * fd.weight * 100).toFixed(1);
                 var contribB = (fd.probs.B * fd.weight * 100).toFixed(1);
                 var contribC = (fd.probs.C * fd.weight * 100).toFixed(1);
-                lines.push('<span style="display:inline-block;min-width:60px;">'+fd.window+'</span> ');
+                lines.push('<span style="display:inline-block;min-width:60px;">'+escHtml(fd.window)+'</span> ');
                 lines.push('权重<b>'+(fd.weight*100).toFixed(0)+'%</b> | ');
                 lines.push('预测 A:'+(fd.probs.A*100).toFixed(1)+'% B:'+(fd.probs.B*100).toFixed(1)+'% C:'+(fd.probs.C*100).toFixed(1)+'% | ');
                 lines.push('贡献 A:'+contribA+' B:'+contribB+' C:'+contribC+'');
                 lines.push(' → 倾向<b style="color:'+(top==='A'?'#e74c3c':top==='B'?'#3498db':'#2ecc71')+'">'+top+'</b><br>');
             });
-            lines.push('<strong>融合后最终概率：</strong> A:'+(result.probabilities.A*100).toFixed(1)+'% B:'+(result.probabilities.B*100).toFixed(1)+'% C:'+(result.probabilities.C*100).toFixed(1)+'%');
-            // v25.8: 显示窗口加权平均（不含后续修正），让权重逻辑透明
-            var wAvg = {A:0,B:0,C:0};
-            result.fusionDetail.forEach(function(fd){ wAvg.A+=fd.probs.A*fd.weight; wAvg.B+=fd.probs.B*fd.weight; wAvg.C+=fd.probs.C*fd.weight; });
-            lines.push('<br><span style="color:#888;font-size:11px;">窗口加权平均（修正前）：A:'+(wAvg.A*100).toFixed(1)+'% B:'+(wAvg.B*100).toFixed(1)+'% C:'+(wAvg.C*100).toFixed(1)+'% → 经多维融合/强势保护/冷门补偿修正后得到最终概率</span>');
-            lines.push('</div>');
+            lines.push('</div></details></div>');
         }
         // 最终结论
-        lines.push('<div class="sim-conclusion" style="margin-top:8px;padding:6px 10px;background:#e8daef;border-radius:6px;">'+
-            '<strong>✅ 结论：</strong>基于'+si.similarCount+'个相似盘的综合投票，相似盘倾向 <strong style="font-size:16px;color:#6a1b9a;">'+
-            simBestG2+'</strong>（概率 '+(siProbs[simBestG2]*100).toFixed(1)+
-            '%，置信度 '+(result.patternConf*100).toFixed(0)+'%）；系统最终预测 <strong style="font-size:16px;color:#6a1b9a;">'+
-            result.predictedGuild+'</strong>（融合多模型后，A:'+(result.probabilities.A*100).toFixed(1)+'% B:'+(result.probabilities.B*100).toFixed(1)+'% C:'+(result.probabilities.C*100).toFixed(1)+'%）</div>');
+        // v50.37: 旧版把「相似盘 41.8%」和「最终 34.0%」并排写，视觉上像大数输给小数。
+        // 实际上前者是 N 个片段的内部投票占比，后者是全局归一化概率，分母不同、不能比大小。
+        lines.push('<div class="sim-conclusion" style="margin-top:8px;padding:8px 12px;background:#e8daef;border-radius:6px;">'+
+            '<strong>✅ 结论：</strong>系统最终预测 <strong style="font-size:18px;color:#6a1b9a;">'+
+            escHtml(result.predictedGuild)+'</strong>　A:'+(result.probabilities.A*100).toFixed(1)+
+            '% B:'+(result.probabilities.B*100).toFixed(1)+'% C:'+(result.probabilities.C*100).toFixed(1)+'%<br>'+
+            '<span style="font-size:11px;color:#666;line-height:1.7;">参考证据：'+si.similarCount+
+            ' 个相似片段的内部投票倾向 <b>'+escHtml(simBestG2)+'</b>，占比 '+(siProbs[simBestG2]*100).toFixed(1)+
+            '%（置信度 '+(result.patternConf*100).toFixed(0)+'%）。<b>该占比的分母是这 '+si.similarCount+
+            ' 个片段，与上方全局归一化概率口径不同，不可直接比大小</b>；它只是融合链中的一路证据，不参与最终排名。</span></div>');
         simBody.innerHTML = lines.join('');
     } else {
         simPanel.style.display = 'none';
@@ -18861,6 +19128,184 @@ function renderLearnTab() {
         }
     }
 }
+/* ================= v50.37 最终预测口径 A/B 对照 =================
+ * 现有 runBacktest() 只测 _ensemblePredict（窗口层），不是最终预测。
+ * 这里逐局跑完整 predict() 两遍，同一份历史 / 同一份模型状态，只切 CONFIG，
+ * 因此差异 100% 来自口径，是可信的对照。
+ * 用临时 Predictor 实例（绝不改 window.P），异步分帧避免卡死 UI；
+ * 每局换 history 后必须清 _predMemoMap 与 _cachedStrength，否则会命中旧结果。
+ * CONFIG 在 finally 语义里恢复，任何异常都不会把主界面留在中间口径。 */
+function runFusionAB(sampleN, onProgress, onDone) {
+    var _saved = null;
+    var _finish = function(m, err) {
+        if (_saved) {
+            CONFIG.dedupSimAcrossLayers = _saved.dedup;
+            CONFIG.fusionRefineBlend    = _saved.blend;
+            CONFIG.conflictDampen       = _saved.dampen;
+            _saved = null;
+        }
+        try { if (window._predCache) window._predCache = null; } catch(e) {}
+        if (onDone) onDone(m, err);
+    };
+    try {
+        var src = window.P;
+        var H = (src && src.history) ? src.history.slice() : [];
+        var n = H.length;
+        if (!src || n < 30) { _finish(null, '历史不足 30 局，无法对照'); return; }
+        _saved = {
+            dedup:  CONFIG.dedupSimAcrossLayers,
+            blend:  CONFIG.fusionRefineBlend,
+            dampen: CONFIG.conflictDampen
+        };
+        // LEGACY = v50.36 原样（三项全关）；CURRENT = 当前实际生效的 CONFIG，
+        // 这样在控制台改了参数再跑对照，比较的就是「你改的口径 vs 原版」，而不是写死的两套。
+        var LEGACY  = { dedup:false, blend:0.62, dampen:false };
+        var CURRENT = { dedup: CONFIG.dedupSimAcrossLayers,
+                        blend:  CONFIG.fusionRefineBlend,
+                        dampen: CONFIG.conflictDampen };
+        var want = Math.max(1, Math.min(Number(sampleN) || 60, n - 16));
+        var start = Math.max(16, n - want);
+
+        function _cfg(c) {
+            CONFIG.dedupSimAcrossLayers = c.dedup;
+            CONFIG.fusionRefineBlend    = c.blend;
+            CONFIG.conflictDampen       = c.dampen;
+        }
+        function _mkInst() {
+            var t = new Predictor();
+            t.modelWeights = Object.assign({}, src.modelWeights || {});
+            t.modelPerf    = Object.assign({}, src.modelPerf || {});
+            var ap = src.advancedModelPerf || {};
+            ['similar','loss','profit','invest','markov','bayes','trend','rebound'].forEach(function(k){
+                t.advancedModelPerf[k] = (ap[k] || []).slice();
+            });
+            var wp = src.windowPerf || {};
+            ['win6','win7','win8','win10','global'].forEach(function(k){
+                t.windowPerf[k] = (wp[k] || []).slice();
+            });
+            t.patternHitCache       = Object.assign({}, src.patternHitCache || {});
+            t._calibrationT         = src._calibrationT || 1;
+            t._aiStrength           = (typeof src._aiStrength === 'number') ? src._aiStrength : 0.6;
+            t._driftState           = src._driftState || 'stable';
+            t._stateTransition      = Object.assign({}, src._stateTransition || {});
+            t._calibrationBuckets   = (src._calibrationBuckets || []).slice();
+            t._evidenceLog          = (src._evidenceLog || []).slice();
+            t._lastSource           = src._lastSource || 'global';
+            return t;
+        }
+        var instL = _mkInst(), instN = _mkInst();
+        var m = {
+            n:0, disagree:0,
+            legacy:  { hit:0, top2:0, brier:0, maxP:0 },
+            current: { hit:0, top2:0, brier:0, maxP:0 }
+        };
+        function _score(o, r, actual) {
+            var p = r.probabilities, g = r.predictedGuild;
+            var b = 0;
+            ['A','B','C'].forEach(function(x){ var v = (x === actual) ? 1 : 0; b += (p[x]-v)*(p[x]-v); });
+            o.hit   += (g === actual) ? 1 : 0;
+            var rk = r.rank || computeRank(p).rank;
+            o.top2  += (rk[actual] <= 2) ? 1 : 0;
+            o.brier += b / 2;              // 与现有 runBacktest 口径一致，便于对照
+            o.maxP  += p[g];
+        }
+        var i = start;
+        function _step() {
+            try {
+                var end = Math.min(i + 2, n);   // 每帧 2 局，保持界面可响应
+                for (; i < end; i++) {
+                    var hist = H.slice(0, i);
+                    var actual = getWinner(H[i]);
+                    if (!actual) continue;
+                    var rL = null, rN = null;
+                    _cfg(LEGACY);
+                    instL.history = hist; instL._cachedStrength = null; instL._predMemoMap = {};
+                    try { rL = instL.predict(); } catch(e) {}
+                    _cfg(CURRENT);
+                    instN.history = hist; instN._cachedStrength = null; instN._predMemoMap = {};
+                    try { rN = instN.predict(); } catch(e) {}
+                    if (!rL || !rL.probabilities || !rN || !rN.probabilities) continue;
+                    m.n++;
+                    _score(m.legacy,  rL, actual);
+                    _score(m.current, rN, actual);
+                    if (rL.predictedGuild !== rN.predictedGuild) m.disagree++;
+                }
+                if (onProgress) onProgress(i - start, n - start);
+                if (i < n) { setTimeout(_step, 0); return; }
+                ['legacy','current'].forEach(function(k){
+                    var o = m[k];
+                    if (m.n) { o.acc1=o.hit/m.n; o.acc2=o.top2/m.n; o.brier/=m.n; o.maxP/=m.n; }
+                    else     { o.acc1=0; o.acc2=0; o.brier=0; o.maxP=0; }
+                });
+                _finish(m, null);
+            } catch(e) {
+                _finish(null, e && e.message ? e.message : String(e));
+            }
+        }
+        setTimeout(_step, 0);
+    } catch(e) {
+        _finish(null, e && e.message ? e.message : String(e));
+    }
+}
+function renderABResult(m, err) {
+    var box = document.getElementById('abResult');
+    if (!box) return;
+    if (err || !m || !m.n) {
+        box.innerHTML = '<span style="color:#c62828;">⚠️ 对照未完成：' +
+            escHtml(err || '样本不足') + '</span>';
+        return;
+    }
+    var L = m.legacy, N = m.current;
+    var dA = (N.acc1 - L.acc1) * 100, dB = L.brier - N.brier;
+    function abRow(name, o, hl) {
+        return '<tr' + (hl ? ' style="background:#fffde7;font-weight:700;"' : '') + '>' +
+            '<td style="padding:6px 10px;">' + name + '</td>' +
+            '<td style="padding:6px 10px;text-align:right;">' + (o.acc1*100).toFixed(1) + '%</td>' +
+            '<td style="padding:6px 10px;text-align:right;">' + (o.acc2*100).toFixed(1) + '%</td>' +
+            '<td style="padding:6px 10px;text-align:right;">' + o.brier.toFixed(4) + '</td>' +
+            '<td style="padding:6px 10px;text-align:right;">' + (o.maxP*100).toFixed(1) + '%</td></tr>';
+    }
+    var verdict, vcolor;
+    if (dA > 1.5) { verdict = '✅ 当前口径更准（Top1 高 ' + dA.toFixed(1) + ' 个百分点），保持当前设置。'; vcolor = '#1b5e20'; }
+    else if (dA < -1.5) { verdict = '⚠️ v50.36 原版更准（Top1 高 ' + (-dA).toFixed(1) + ' 个百分点）。建议回退，见下方命令。'; vcolor = '#c62828'; }
+    else {
+        verdict = (dB > 0.002 ? '⚖️ Top1 基本持平，当前口径 Brier 更低（置信度更诚实），保持当前设置。'
+                              : '⚖️ 两者在样本内差异不显著，保持当前设置；样本再多些可复测。');
+        vcolor = '#856404';
+    }
+    var cmd = 'CONFIG.dedupSimAcrossLayers=false; CONFIG.fusionRefineBlend=0.62; CONFIG.conflictDampen=false; renderAll();';
+    box.innerHTML =
+        '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:13px;background:#fff;border-radius:8px;">' +
+        '<thead><tr style="background:#e8f5e9;"><th style="padding:6px 10px;text-align:left;">口径</th>' +
+        '<th style="padding:6px 10px;text-align:right;">Top1</th><th style="padding:6px 10px;text-align:right;">Top2</th>' +
+        '<th style="padding:6px 10px;text-align:right;">Brier↓</th><th style="padding:6px 10px;text-align:right;">平均最高概率</th></tr></thead><tbody>' +
+        abRow('v50.36 原版', L, false) + abRow('当前生效口径', N, true) + '</tbody></table></div>' +
+        '<div style="margin-top:8px;">共 <b>' + m.n + '</b> 局，两口径预测不同的有 <b>' + m.disagree + '</b> 局（' +
+        (m.disagree/m.n*100).toFixed(0) + '%）。</div>' +
+        '<div style="margin-top:6px;font-weight:700;color:' + vcolor + ';">' + verdict + '</div>' +
+        '<div style="margin-top:6px;font-size:11px;color:#777;line-height:1.7;">' +
+        '若想临时回到 v50.36 原版，控制台执行（仅本次会话有效，刷新后回默认）：<br>' +
+        '<code style="background:#f1f8e9;padding:2px 6px;border-radius:4px;">' + escHtml(cmd) + '</code><br>' +
+        '若对照长期显示旧口径更准，把结果发我，我改源码默认值（避免多端口径分叉，未写成持久化开关）。</div>';
+}
+function startFusionAB() {
+    var btn = document.getElementById('abRunBtn');
+    var pr  = document.getElementById('abProgress');
+    var box = document.getElementById('abResult');
+    var sel = document.getElementById('abSampleN');
+    if (!btn || btn.disabled) return;
+    var want = parseInt(sel ? sel.value : '60', 10) || 60;
+    btn.disabled = true; btn.textContent = '⏳ 运行中…';
+    if (box) box.innerHTML = '正在逐局跑完整预测链，请稍候…';
+    runFusionAB(want,
+        function(done, total){ if (pr) pr.textContent = '进度 ' + done + ' / ' + total; },
+        function(m, err){
+            if (btn) { btn.disabled = false; btn.textContent = '▶ 开始对照'; }
+            if (pr) pr.textContent = m && m.n ? ('完成 · ' + m.n + ' 局') : '';
+            renderABResult(m, err);
+        });
+}
+
 // ========== 回测Tab（v24性能优化：批量innerHTML渲染，减少DOM操作）==========
 function renderBacktestTab() {
     var metrics=P.runBacktest();
@@ -18909,6 +19354,11 @@ function renderBacktestTab() {
     }
     document.getElementById('btDetailBody').innerHTML=rowsHtml;
 }
+// v50.37: 对照按钮只绑一次（renderBacktestTab 会被反复调用，不能每次都 addEventListener）
+(function(){
+    var _abBtn = document.getElementById('abRunBtn');
+    if (_abBtn && !_abBtn.__abBound) { _abBtn.__abBound = 1; _abBtn.addEventListener('click', startFusionAB); }
+})();
 // ========== CSV & Excel 导入 ==========
 document.getElementById('btnImport').addEventListener('click',function(){document.getElementById('excelInput').click();});
 // ========== v26.5：数据导出 ==========
@@ -22894,7 +23344,17 @@ function renderConflict(){
       if(res) finalG=res.predictedGuild||topG(res.probabilities);
     }catch(e){}
     var msgs=[];
+    // v50.37: 优先用本轮 predict() 算出的权威冲突标记，避免旧口径用 simTop 当「最终方向」误判
+    try{
+      var _cfRes=(window._predCache&&window._predCache.result)?window._predCache.result:null;
+      if(_cfRes&&_cfRes.conflictFlags&&_cfRes.conflictFlags.length){
+        _cfRes.conflictFlags.forEach(function(f){ msgs.push(escHtml(f)); });
+        extSet(box,'⚠️ <b>信号冲突，已下调置信度</b><div style="margin-top:4px;font-weight:500;">'+msgs.join('<br>')+'</div>',true);
+        return;
+      }
+    }catch(e){}
     if(sim&&side&&sim===side) msgs.push('相似盘推 <b>'+sim+'</b> 赢，血本盘却同时推 <b>'+side+'</b> 输（方向自相矛盾）');
+    if(finalG&&side&&finalG===side) msgs.push('系统推 <b>'+finalG+'</b> 赢，血本盘同时推 <b>'+side+'</b> 为 0 分方（自相矛盾）');
     if(sim&&prof&&sim!==prof) msgs.push('相似盘指向 <b>'+sim+'</b>，收益信号指向 <b>'+prof+'</b>');
     if(loss&&sim&&loss!==sim) msgs.push('血本反推指向 <b>'+loss+'</b>，与相似盘 <b>'+sim+'</b> 不一致');
     if(finalG&&sim&&finalG!==sim) msgs.push('最终融合指向 <b>'+finalG+'</b>，与相似盘 <b>'+sim+'</b> 相反');
@@ -23402,6 +23862,13 @@ function renderSnapList(fromCloud){
     if(!fromCloud && typeof fetchOlogFromCloud==='function'){
       try{ fetchOlogFromCloud(function(){ renderSnapList(true); }); }catch(e){}
     }
+    // v50.36-fix: 与操作日志面板同源，云端行公开可写，这里也必须全部转义。
+    // w2 是独立 script 块，escHtml 是全局 var（可用），仍留一份兜底防止将来被包进 IIFE。
+    var _w2Esc = (typeof escHtml === 'function') ? escHtml : function(x){
+      return String(x == null ? '' : x).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+      });
+    };
     var map = {};
     function put(s){
       if(!s || !s.time) return;
@@ -23418,16 +23885,18 @@ function renderSnapList(fromCloud){
     snaps.slice(0,30).forEach(function(s, idx){
       var t = new Date(s.time);
       // v44.30-fix5: 补年份——旧版只显示 9/23 20:50，跨月/跨年后无法判断是哪一年
-      var ts = isNaN(t) ? s.time : t.getFullYear()+'/'+w2Pad(t.getMonth()+1)+'/'+w2Pad(t.getDate())+' '+w2Pad(t.getHours())+':'+w2Pad(t.getMinutes());
+      var tsRaw = isNaN(t.getTime()) ? String(s.time == null ? '—' : s.time)
+                  : t.getFullYear()+'/'+w2Pad(t.getMonth()+1)+'/'+w2Pad(t.getDate())+' '+w2Pad(t.getHours())+':'+w2Pad(t.getMinutes());
+      var ts = _w2Esc(tsRaw);
       var thinTag = (!s.data && !s._hasFullData) ? '<span title="本地空间不足仅存日志元数据，完整数据存于云端" style="font-size:10px;color:#6c757d;margin-left:4px;">☁ 云端完整</span>' : '';
       html += '<div class="w2-snap-row">'+
-        '<div class="w2-snap-meta"><b>'+ts+'</b> · '+(s.reason||'操作')+' · '+(s.count||'?')+'局'+thinTag+
-        '<div style="font-size:11px;color:#999;">'+(s.device||'本机')+'</div></div>'+
+        '<div class="w2-snap-meta"><b>'+ts+'</b> · '+_w2Esc(s.reason||'操作')+' · '+_w2Esc(String(Number(s.count)||0))+'局'+thinTag+
+        '<div style="font-size:11px;color:#999;">'+_w2Esc(s.device||'本机')+'</div></div>'+
         '<div><button class="w2-mini" data-view="'+idx+'">👁 查看</button>'+
         '<button class="w2-mini" data-roll="'+idx+'">⏪ 回滚</button></div></div>';
     });
     // v44.30-fix5: 合并云端后条数可能远超30，明确告知总量与查看完整日志的入口
-    if(snaps.length > 30) html += '<div style="font-size:11px;color:#888;padding:6px 2px;">共 '+snaps.length+' 条日志，当前显示最新 30 条；完整分页见顶部「📜 操作日志」面板。</div>';
+    if(snaps.length > 30) html += '<div style="font-size:11px;color:#888;padding:6px 2px;">共 '+snaps.length+' 条日志（只保留最近 100 条），当前显示最新 30 条；完整列表见顶部「📜 操作日志」面板。</div>';
     box.innerHTML = html;
     box.querySelectorAll('[data-view]').forEach(function(btn){
       btn.addEventListener('click', function(){ w2SnapView(parseInt(btn.getAttribute('data-view'),10)); });
