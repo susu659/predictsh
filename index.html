@@ -14,7 +14,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v50.38（最终口径 A/B 对照 · 结论唯一化 · 冲突不下注）</title>
+<title>商会三竞预测系统 v50.41（实际 24 态 · 没1优先 · 代际隔离）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -904,12 +904,12 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.38</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.41</span></h1>
 <p class="subtitle"><span>四盘协同 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.38 完整版）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.41 完整版）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
-<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v50.38 之前的累计修复）</summary>
+<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v50.41 之前的累计修复）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
 </details>
 </header>
@@ -1296,14 +1296,21 @@ create policy "ac update" on access_control for update using (true);</textarea><
   <h3 style="margin:0 0 6px;font-size:15px;color:#1b5e20;"><span class="ico" aria-hidden="true" style="background-color:#2E7D32">⚖️</span> 新旧口径对照（最终预测）</h3>
   <div style="font-size:12px;color:#555;line-height:1.7;margin-bottom:10px;">
     同一份历史、同一份模型状态，只切换融合口径，逐局跑 <b>完整 predict()</b> 两遍：<br>
-    <b>v50.36 原版</b> = 相似盘跨层计权两次 + 二次融合 0.62 + 冲突不降置信度；
-    <b>当前生效口径</b> = 直接读取现在的 CONFIG（默认只多了「冲突时下调置信度」，<b>不改变预测排序</b>）。<br>
+    <b>v50.36 原版</b> = 相似盘跨层计权两次 + 二次融合 0.62 + 冲突不降置信度 + 无完整盘面模型；
+    <b>当前生效口径</b> = 直接读取现在的 CONFIG（多了「冲突时下调置信度」与「完整盘面 24 态第13信号」）。<br>
+    切到「完整盘面模型」维度则只开关 <code>CONFIG.useMarginModel</code>，其它参数完全不动 —— <b>这是判断新模型到底有没有帮到忙的唯一依据</b>。<br>
     结果以 <b>Top1 准确率</b> 为主、<b>Brier（越低越好）</b> 为辅。跑的时候界面可能略卡，属正常。<br>
+    <span style="color:#856404;">⚠️ 第13信号有样本门槛：当前盘面只有不含 1 的 12 态，历史里这部分少于约 80~150 局时它会<b>主动弃权不投票</b>，此时开/关结果必然完全相同 —— 这是保守设计，不是故障。「🧠 学习状态 → 📐 第13信号」会显示当前是投票还是弃权、用了哪一层、代际与样本数。</span><br>
     <span style="color:#856404;">🔬 实验：另有「跨层去重 + 降二次融合」组合可用，但 1440 局构造数据基准显示它会把 Top1 从 55.76% 降到 54.72%、Brier 从 0.2819 升到 0.3065，故<b>默认未启用</b>。想用自己真实数据验证，控制台执行：
     <code style="background:#fff;padding:1px 5px;border-radius:3px;">CONFIG.dedupSimAcrossLayers=true; CONFIG.fusionRefineBlend=0.35; renderAll();</code>
     再回来点开始对照即可。</span>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
+    <label style="font-size:13px;color:#333;">对照维度：</label>
+    <select id="abMode" style="padding:5px 10px;border:1px solid #a5d6a7;border-radius:6px;font-size:13px;">
+      <option value="fusion" selected>新旧融合口径</option>
+      <option value="margin">完整盘面模型 开/关</option>
+    </select>
     <label style="font-size:13px;color:#333;">样本：</label>
     <select id="abSampleN" style="padding:5px 10px;border:1px solid #a5d6a7;border-radius:6px;font-size:13px;">
       <option value="40">最近 40 局</option>
@@ -2247,9 +2254,9 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v50.38'; // v50.37: 最终口径 A/B 对照 + 结论唯一化 + 冲突不下注
+  var APP_VERSION = 'v50.41'; // v50.40: 盘面收敛为 24 态 + 没1优先总结 + 代际隔离
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v50.38 完整更新说明（累积交付，包含本轮全部改动）：\n' +
+  var APP_UPDATE_DESC_RECENT = 'v50.41 完整更新说明（累积交付，包含本轮全部改动）：\n' +
     '①【四盘一致 / 三盘一致最近不太准】定位到四条根因：四盘高度共线（同一段历史被数四次）、②③④ 严格口径丢掉了新近度、长度权重超线性让单条长片段独裁、命中率定权偏短期。现把 simLenExp 2.6→1.8、simQualityBlend 0.30→0.50、fourWayPriorN 6→20、fourWayConsensusMin 0.60→0.75，并新增 fourWayMinTopProb=0.42：每盘 Top 概率低于 42% 记「弃权」，不再进共识、不再凑出假的「四盘一致」，融合权重压到 35%。②③④ 补齐质量票，让时间新近度真正进概率；只剩 1 张有效票时四盘占比上限再压到 0.20。「四盘协同分析」面板摊开各盘 Top 概率、有效票 N/4、门槛值、弃权盘名单。\n' +
     '②【管理员可查导出日志】独立页 susu.html 每次导出会写一行 elog_ 记录，主系统「管理员面板 → 查看导出记录」显示：谁（设备备注+设备号）、什么时间、导出了什么（今天/昨天/两天、条数、昨今分项、勾选的列、Excel 还是 CSV、完整文件名、Excel 组件未就绪自动降级 CSV 的标记）。日志只保留最近 100 条，导出页写完即裁、管理员打开面板时兜底再裁一次；删除权限不足时静默降级，不影响导出，也不误报「上报失败」。支持「刷新日志 / 清空日志」，清空后会复查，避免假报成功。\n' +
     '③【发布时可明确选更新到哪个文件】点「▲ 发布到GitHub」先弹窗选目标：index.html / susu.html / draw.html / xlsx.bundle.js，也可手填任意根目录静态文件，并记住上次选择。本机文件名可以与目标不同、可以是中文；.js/.css 等也能发。成功提示写明「目标文件 + 本机来源」，防止把 index 的内容误发到 susu。\n' +
@@ -2259,8 +2266,17 @@ function syncBrief(){
     '⑦【新增功能复查加固】修掉「主盘弃权把整份四盘结论带崩」「一致徽标绑死概率第一名」「提交授权后回读失败会停掉 5 秒轮询」「设备记录被删后重新申请空转」「管理员撤销/拒绝收回权限」「刷新导出日志不自愈」「连点打开操作日志重复发几百个幂等 upsert」「清空日志假报成功」「DELETE 被 RLS 静默拦截时空转」「同步兜底 timer 累积」等边界问题；导出列只留 8 项、快速预设隐藏、导出范围三选默认今天、胶囊显示昨天/今天局数与当前时间，均按约定实现。\n' +
     '⑧【按实测数据决定是否改算法：默认不改坏准确率】先定位到融合链里相似盘被跨层计权两次（四盘层近8局窗口 + 二次融合 multiDimFusion 近6局窗口，再乘 blend=0.62），一度准备去重。随后用 6 种数据形态 × 3 种子 × 80 局 = 1440 局跑完整 predict() 消融：全关(旧版) Top1 55.76% / Brier 0.2819；只开去重 54.37% / 0.3124（明显变差，强周期形态尤甚）；只降 blend 55.69% / 0.2888（几乎中性略差）；只开冲突收缩 55.76% / 0.2821（Top1 不变、概率更诚实）。结论：相似盘重复计权在强规律数据上是有效置信度来源，强行去重会压掉置信度 —— 因此【默认保留 v50.36 融合口径】，两项改动只留作可实验开关，不擅自改坏准确率。真正默认启用的只有 conflictDampen：当「系统推 B 赢而血本盘推 B 是0分方」「相似盘与最终预测相反」等冲突出现时，用 p\'=1/3+(p-1/3)(1-λ) 朝均匀收缩（单调变换，排序不变，只压掉过度自信）。出手建议把冲突与「前三名差<2个百分点」列为硬闸门，一律建议跳过 —— 不改变预测准头，但避免在自相矛盾的局里硬赌。三个参数都进了 computePredSig，改参数不会被 predict() 的 memo 缓存吞掉。\n' +
     '⑨【能真正验证「准不准」的 A/B 对照 + 结论唯一化】旧「回测分析」的 Top1 其实只测 _ensemblePredict（窗口层），没走四盘协同 / 统计因子 / 二次融合 / 冷门补偿 / 校准，不能用来判断最终预测准不准，页面已明确标注。回测 Tab 新增「⚖️ 新旧口径对照」：同一份历史、同一份模型状态，逐局跑完整 predict() 两遍（临时 Predictor 实例、异步分帧、绝不污染主实例、CONFIG 完整恢复），给出「v50.36 原版 vs 当前生效口径」的 Top1 / Top2 / Brier / 平均最高概率与差值、预测不同的局数，并直接给结论与临时回退命令 —— 准不准由你自己的 4000+ 局真实数据判定。展示层同步收敛：融合框把「🎯 最终融合结果（唯一结论）」置顶、窗口层五行收进可折叠 details 并写明「第1层中间量，不是结论」及完整 9 层修正链；结论行把「相似盘 41.8%」降为小字参考并注明「分母是这 N 个片段，与全局归一化概率口径不同，不可直接比大小」；「两盘一致」统一带方向与票数，「预测血本」明确标成反向信号，三方胶着时第一名改显示「⚖️三方胶着」；冲突横幅改用本轮 predict() 的权威标记。\n' +
-    '⚠️ 使用提示：四盘五项 + 融合链三项共八个参数不进跨端同步字段，所有设备请一起换成 v50.38，混用旧版会用不同口径算同一份历史、跨端结论分叉。换版后建议点一次「☁️ 全量上传」固化；predHistory / 命中率是旧口径算的，前几局准确率会新旧混着算，想干净就点「↻ 强制重新学习」。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」跑一次最近 100 局。';
-  var APP_UPDATE_DESC_HISTORY = '历史归档（v50.38 之前的累计修复，均已包含在当前版本）：\n' +
+    '⑩【v50.39 的中间做法，已由 ⑭ 全部替换】当时把第13信号改成「完整盘面条件频率」，并加了盘面体检与录入软提示（这两项保留，见 ⑫）；但当时状态数是按「5 选 3」推出来的，后来你给出实际的 24 组盘面清单，证明其中多算了 3 个现实中不存在的组合。**⑩ 原文里关于状态数、幅度档位与回退层数的具体数字全部作废**，一律以 ⑭ 的 24 态与 ⑮ 的代际隔离为准，这里不再重复展开以免误导。\n' +
+    '⑫【盘面总结 + 录入软提示】学习状态面板新增「🎲 盘面总结」：合规 N 局 / 异常 M 局 / 已出现 X 种合法盘面（上限 24），异常局列出前 8 条的局号与 ABC 值及原因 —— 只提示、不自动改历史、不阻止录入，因为存量数据和特殊局由你自己判断。录入确认弹窗同样加软提示。同时展示第13信号当前用的是哪一层、样本几条、当前盘面键与幅度，方便确认它有没有真在工作。\n' +
+    '⑬【ALGO_VER 自动递增示范】预测算法每次变更，按 ⑪ 定的机制把 ALGO_VER 递增（v50.38-margin → v50.39-board42 → 本版 v50.40-board24）：上一版算出的 predHistory 自动变成「旧口径」，校准、定权、出手建议不再读它们，短期命中率数组也会在首次打开本版时惰性清空一次 —— 不需要手动点「强制重新学习」，这正是这套机制该起作用的地方。\n' +
+    '⑭【盘面收敛为实际 24 态 · 优先总结没 1 的】你给出的实际盘面清单是 24 组：{0,1,3} {0,0.5,3} {0,1,2} {0,0.5,2} 四个取值组合各 6 种排列。比 ⑩ 的 42 态少 3 个组合，因为每局必须同时有 0（一个输光方）和一个 2/3（一个赢家），第三个数只能是 0.5 或 1；{0,0.5,1}（无赢家）、{0.5,1,2}/{0.5,1,3}（无输光方）这 18 种在实际里不存在，全部剔除。赢家唯一、0 分方必有且唯一，与既有 getWinner / getLossSide 的假设刚好对齐；幅度只剩 1 / 1.5 / 2 / 2.5 四档。**你说「1 现在基本不出现」，所以学习状态面板把不含 1 的 12 态（{0,0.5,2} / {0,0.5,3}）摊开成主体表格：每种盘面出现几次、之后下一局 A·B·C 各几次、经验众数是谁；从未出现过的态也列出来标灰方便对照。含 1 的 12 态是旧时代数据，折进 `<details>` 只给汇总，不占注意力。**\n' +
+    '⑮【代际隔离：不让旧时代规律污染现在的预测】这是本版最关键的一刀。含 1 的盘面既然基本不再出现，就属于风格漂移前的旧样本；第13信号原先的 L3 粗态键只有「赢家|赢家档」，会把 no1 与 with1 混在一起回退 —— 等于用旧规律预测现在。现在 `struct` / `coarse` 两个键都带上 tier（no1 / with1），当前盘面只与同代历史比对，跨代永不混用。L1 精确态天然分代；不含1的当前态只有 12 种、样本密度高，L1 门槛从 8 放宽到 6，含1的旧态维持 8/16/28 避免小样本硬推。面板里第13信号状态会显示当前代际与「只与同代历史比对」。\n' +
+    '⑪【跨版本预测记录隔离 _algoVer】predHistory / accuracy 从 v50.35 一路攒到 v50.37，算法口径变了三次，但校准分桶、命中率定权、出手建议、漂移降权、智能修正全在把三套口径的记录混着统计。现在每条新预测写 _algoVer = ALGO_VER（与 APP_VERSION 解耦：纯 UI/文案发布不清空统计，只有算法口径变才递增），校准分桶与云端瘦身白名单同步保留该字段；所有「决策型」读取统一走 getCurAlgoPredIdxs / getCurAlgoAccuracy —— **只过滤、绝不物理删改**，因为 predHistory 与 history 按下标对齐，删一条会让整条索引链错位。展示层（总准确率、历史表、趋势图）仍看全历史战绩，并在「学习状态」面板标出「同口径 N 条 / 旧口径 M 条」。短期命中率数组（modelPerf / advancedModelPerf / windowPerf / 校准分桶）不带逐条版本，改为首次以本版打开时惰性一次性清空（存档带 perfAlgoVer，刷新不重复）；这些数组不与 history 下标对齐，清空安全，且所有读取点都有样本不足兜底。升级后同口径样本从 0 开始，概率校准与出手建议会自动回退到模型自身概率，属正常冷启动，攒够 20 条即恢复。\n' +
+    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v50.41，混用旧版会用不同口径算同一份历史、跨端结论分叉；本版 ALGO_VER 已递增到 v50.40-board24，旧预测记录会自动隔离，无需手动强制重新学习。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据，可自行核对。换版后建议点一次「☁️ 全量上传」固化。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。';
+  var APP_UPDATE_DESC_HISTORY = '历史归档（v50.41 之前的累计修复，均已包含在当前版本）：\n' +
+    '· v50.39（已由 v50.40 收敛）：把第13信号改成「完整盘面条件频率」并加盘面体检与录入软提示，但当时按 5 选 3 推成 42 态（7 组合 × 6 排列、幅度五档、结构态 15 类/粗态 9 类），多算了 3 个实际不存在的组合；本版按你给的 24 组清单收敛为 4 组合 × 6 排列、幅度四档，并新增「没1优先总结 + 代际隔离」。\n' +
+    '· v50.38（已由 v50.39 修正）：初版「分差幅度」第13信号 + _algoVer 跨版本预测隔离 + 回测 A/B 可开关；初版用连续 margin 切桶并引用了不合规盘面示例，本版按真实规则重写为 42 态精确条件频率。\n' +
+    '· v50.37：最终融合结果唯一化（窗口层收进折叠、口径不可比数字标清、血本标反向、胶着标胶着）、可跑完整 predict() 的新旧口径 A/B 对照、冲突/胶着硬闸门不下注；按 1440 局消融回退了「跨层去重 + 降二次融合」默认值。\n' +
     '· v50.36：四盘协同调优（长度指数 / 质量票 / 命中率收缩 / 强度门槛）、导出日志面板与 100 条保留、发布目标可选与版本号只对 index 生效、操作日志统一 100 条、操作日志字段 XSS 转义、全开 DELETE 提示收窄、以及新增功能多轮复查加固。\n' +
     '· v50.35：跨端重复收敛（_dev 设备指纹）、全模块移动端、所有二级弹窗右上角关闭 / 遮罩 / ESC 关闭、在线设备列表防卡、「⋯ 更多」菜单自动收起、性能与绘制隔离修复。\n' +
     '· 预测与算法：十模型融合、权重自适应、三盘一致跨端统一、样本外证据与漂移检测、中间插入定位与预测快照重建。\n' +
@@ -2273,7 +2289,7 @@ function syncBrief(){
     if(r) r.textContent = APP_UPDATE_DESC_RECENT;
     if(h) h.textContent = APP_UPDATE_DESC_HISTORY;
   } catch(e){} })();
-  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v50.38 完整更新说明。';
+  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v50.41 完整更新说明。';
 
   // ========== v50.35：弹窗「交互优先」通道 ==========
   // 复现（4178 局 + 真实鼠标）：弹窗显示时后台只要有一个 400ms 长任务，
@@ -3719,10 +3735,65 @@ const CONFIG = {
     dedupSimAcrossLayers: false, // 实验项：相似盘只在四盘层计权一次（实测降准，默认关）
     fusionRefineBlend: 0.62,     // 实验项：二次融合比例（0.35 实测略差，默认保留 0.62）
     conflictDampen: true,        // 信号自相矛盾时朝均匀收缩，降置信度（Top1 不变，排序不变）
+    useMarginModel: true,        // v50.40: 第13信号「完整盘面 24 态 + 代际隔离」条件频率模型（可 A/B 关闭）
     // 以上参数（含四盘五项）不在 _CONFIG_SYNC_FIELDS 内：不写进本地存档/云端快照，
     // 所有端加载同一版 index.html 后取值必然一致；混用旧版会算出不同结论，需一起换版。
     // 但必须进 computePredSig 的 cfgSig，否则 predict() 的 memo 缓存会让改参数不生效。
 };
+// ===== v50.38: 算法口径版本（与 APP_VERSION 解耦）=====
+// 只有「预测算法/统计口径」变化才改它；纯 UI、文案、发布流程不动，避免每次发版都清空校准统计。
+// 旧 predHistory / accuracy / _calibrationBuckets 条目没有 _algoVer，一律视为 legacy 并排除出
+// 所有「决策型」统计（校准、命中率定权、出手建议、漂移、智能修正）。展示型统计仍看全量历史战绩。
+var ALGO_VER = 'v50.40-board24';  // 盘面收敛为 24 态 + 代际隔离 → 口径变更，旧预测记录自动隔离
+
+// 同版本判定：只认完全相等，缺字段 = 旧口径
+function isCurrentAlgoPh(ph) { return !!(ph && ph._algoVer === ALGO_VER); }
+function isCurrentAlgoBucket(b) { return !!(b && b.v === ALGO_VER); }
+
+// 同版本、已判定的预测下标（保留原始下标！predHistory 与 history 的对齐由各调用点自己负责，
+// 这里绝不重排、绝不物理删改 —— 删一条会让整条 history/predHistory 索引链错位）。
+function getCurAlgoPredIdxs(P) {
+    var out = [], ph = (P && P.predHistory) || [], acc = (P && P.accuracy) || [];
+    var n = Math.min(ph.length, acc.length);
+    for (var i = 0; i < n; i++) {
+        if (!isCurrentAlgoPh(ph[i])) continue;
+        if (ph[i].isTie || !ph[i].probs) continue;
+        if (acc[i] !== true && acc[i] !== false) continue;
+        out.push(i);
+    }
+    return out;
+}
+// 同版本的 accuracy 视图（只用于求均值/近N局/连错，不做下标映射）
+function getCurAlgoAccuracy(P) {
+    var out = [], ph = (P && P.predHistory) || [], acc = (P && P.accuracy) || [];
+    var n = Math.min(ph.length, acc.length);
+    for (var i = 0; i < n; i++) {
+        if (!isCurrentAlgoPh(ph[i])) continue;
+        if (acc[i] !== true && acc[i] !== false) continue;
+        out.push(acc[i] === true);
+    }
+    return out;
+}
+function countAlgoRecords(P) {
+    var ph = (P && P.predHistory) || [], cur = 0;
+    for (var i = 0; i < ph.length; i++) if (isCurrentAlgoPh(ph[i])) cur++;
+    return { cur: cur, legacy: ph.length - cur, total: ph.length };
+}
+// 短期命中率数组的跨版本隔离：这些数组不与 history 下标对齐，清空是安全的，
+// 且所有读取点都有「样本不足」兜底（_advAcc→0.5 / _reliability→先验 / 动态裁判→不调整 / _winAcc→0.5）。
+// 惰性一次性执行：loadLocal 恢复旧存档后第一次 predict() 触发，之后存档带 perfAlgoVer，不再重复。
+function ensureAlgoPerf(P) {
+    if (!P || P._perfAlgoVer === ALGO_VER) return false;
+    P._perfAlgoVer = ALGO_VER;
+    P.modelPerf = {};
+    P.advancedModelPerf = {similar:[],loss:[],profit:[],invest:[],markov:[],bayes:[],trend:[],rebound:[]};
+    P.windowPerf = {win6:[],win7:[],win8:[],win10:[],global:[]};
+    P._calibrationBuckets = [];
+    try { if (P._predMemoMap) P._predMemoMap = {}; window._predCache = null; } catch(e) {}
+    try { techLog('[算法版本] 已隔离跨版本短期命中率，当前口径 ' + ALGO_VER); } catch(e) {}
+    return true;
+}
+
 function reloadConfig() {
     CONFIG.streakDecayMax = parseFloat(document.getElementById('cfgStreakDecayMax').value) || 0.18;
     CONFIG.coldBonusCap   = parseFloat(document.getElementById('cfgColdBonusCap').value)   || 0.025;
@@ -3972,6 +4043,153 @@ function getWinner(rec) {
 }
 // v29.8: 血本方——ABC中得0分的那一方（有效局只有一个0分）
 function _isZeroScore(v) { return v === 0 || v === '0'; } // 不把 null/undefined/'' 误判为 0
+
+// ===== v50.40: 盘面硬规则（用户确认的实际盘面，共 24 态）=====
+// 分数语义：0 输光 / 0.5 亏一半 / 1 保本 / 2 挣一倍 / 3 正两倍。
+// 每局 A/B/C 三个分数满足：
+//   ① 取值 ∈ {0, 0.5, 1, 2, 3}，且三个数字互不重复
+//   ② 2 与 3 不同局出现（一局只有一个正收益档）
+//   ③ 必须有 0（一局必有一个输光方 —— 血本方）
+//   ④ 必须有且仅有一个 2 或 3（一局必有一个赢家）
+// 由 ③④ 推出：第三个数只能是 0.5 或 1，所以取值组合只有 4 种，每种 6 排列 = 24 态：
+//   {0,1,3}   含1·正两倍   {0,0.5,3}  不含1·正两倍
+//   {0,1,2}   含1·挣一倍   {0,0.5,2}  不含1·挣一倍
+// 上一版按「5选3去2&3同局」推成 42 态，多算了 3 个组合（{0,0.5,1} 无赢家、
+// {0.5,1,2} / {0.5,1,3} 无输家），这些在实际盘面里根本不存在，本版全部剔除。
+// 赢家唯一（拿 2 或 3 的那家），与 getWinner 取最大分完全一致；0 分方必有且唯一，
+// 与 _isZeroScore / getLossSide 的既有假设刚好对齐。
+// 【1 现在基本不出现】含 1 的 12 态是旧时代数据，不含 1 的 12 态才是当前盘面。
+// 两者必须分开统计：L2/L3 回退若不分组，就会用旧时代的下一局规律预测现在。
+var BOARD_VALUES = [0, 0.5, 1, 2, 3];
+// v50.40-fix: 只接受 number 或「0/0.5/1/2/3」字面字符串。
+// 旧版 raw.map(Number) 会把 false→0、[2]→2、"2e0"→2 都当成合法分数，
+// 导入 Excel/JSON 出现脏类型时会污染 24 态统计，这里统一挡掉。
+function _parseBoardVals(rec) {
+    if (!rec) return null;
+    var raw = [rec.a, rec.b, rec.c], v = [];
+    for (var i = 0; i < 3; i++) {
+        var x = raw[i];
+        if (typeof x === 'number') {
+            if (!isFinite(x) || BOARD_VALUES.indexOf(x) < 0) return null;
+            v.push(x);
+        } else if (typeof x === 'string') {
+            var t = x.trim();
+            if (!/^(?:0|0\.5|1|2|3)$/.test(t)) return null;
+            v.push(Number(t));
+        } else return null;   // boolean / array / object / null / undefined 一律拒绝
+    }
+    return v;
+}
+function boardOf(rec) {
+    if (!rec) return null;
+    var g = ['A','B','C'];
+    var v = _parseBoardVals(rec);
+    if (!v) return null;                                                                           // ①取值/类型
+    for (var i = 0; i < 3; i++) for (var j = i + 1; j < 3; j++) if (v[i] === v[j]) return null;  // ①不重复
+    if (v.indexOf(2) >= 0 && v.indexOf(3) >= 0) return null;                                      // ②
+    if (v.indexOf(0) < 0) return null;                                                             // ③必输光
+    var hi = v.indexOf(2) >= 0 ? 2 : (v.indexOf(3) >= 0 ? 3 : -1);
+    if (hi < 0) return null;                                                                        // ④必赢家
+    var third = v.filter(function(x){ return x !== 0 && x !== hi; })[0];                          // 0.5 或 1
+    var sorted = v.slice().sort(function(a,b){ return b - a; });
+    var has1 = (v.indexOf(1) >= 0);
+    var tier = has1 ? 'with1' : 'no1';   // 当前主流 = no1；含1 = 旧时代
+    var w = g[v.indexOf(hi)];
+    var exact = g.map(function(x,i){ return x + v[i]; }).join('|');       // 24 态精确键
+    return {
+        v: v, w: w, hi: hi, third: third, has1: has1, tier: tier,
+        f: hi,                                   // 赢家档 2 / 3
+        second: sorted[1],                      // 次高分 = third（0.5 或 1）
+        margin: hi - sorted[1],                 // 只可能 1 / 1.5 / 2 / 2.5
+        zero: g[v.indexOf(0)],                  // 0 分方必有且唯一
+        exact: exact,                                            // 24 态（L1）
+        struct: w + '|' + hi + '|' + third + '|' + tier,         // L2：赢家|档|第三值|代际
+        coarse: w + '|' + hi + '|' + tier,                        // L3：赢家|档|代际（关键：不混代）
+        family: '{0,' + third + ',' + hi + '}'
+    };
+}
+// 给用户看的体检：不阻止录入、不改历史，只把不合规的局标出来供核对。
+function boardIssue(rec) {
+    if (!rec) return '缺记录';
+    var raw = [rec.a, rec.b, rec.c];
+    if (raw.some(function(x){ return x === undefined || x === null || x === ''; })) return '有空分数';
+    var v = _parseBoardVals(rec);
+    if (!v) return '含非法值（只认数字 0/0.5/1/2/3，不接受布尔/数组/科学计数）';
+    for (var i = 0; i < 3; i++) for (var j = i + 1; j < 3; j++) if (v[i] === v[j]) return '三个数字有重复';
+    if (v.indexOf(2) >= 0 && v.indexOf(3) >= 0) return '2 与 3 同时出现';
+    if (v.indexOf(0) < 0) return '没有 0（每局必有一个输光方）';
+    if (v.indexOf(2) < 0 && v.indexOf(3) < 0) return '没有 2 或 3（每局必有一个赢家）';
+    return null;
+}
+// ===== v50.40: 盘面体检 + 「优先总结没1的」 =====
+// 不含 1 的 12 态是当前盘面，单独摊开每种的「出现次数 → 下一局谁赢」分布；
+// 含 1 的 12 态基本不再出现，只给汇总数字，不占用注意力。
+function boardAudit(P) {
+    var out = { ok:0, bad:0, badList:[], states:0, stateSet:{}, skippedNext:0,
+                no1Count:0, with1Count:0, no1States:0, with1States:0,
+                no1Summary:[], with1Summary:[] };
+    var h = (P && P.history) || [], map = {};
+    // v50.40-fix: 一次解析全历史，避免 boardOf 被调用 2n 次（3655 局实测省一半）
+    var parsed = h.map(boardOf);
+    function slot(b) {
+        var k = b.exact;
+        if (!map[k]) map[k] = { key:k, family:b.family, tier:b.tier, w:b.w,
+                                count:0, next:{A:0,B:0,C:0}, nNext:0 };
+        return map[k];
+    }
+    for (var i = 0; i < h.length; i++) {
+        var b = parsed[i];
+        if (!b) {
+            out.bad++;
+            if (out.badList.length < 8) out.badList.push({ n:i+1, a:h[i].a, b:h[i].b, c:h[i].c, why:boardIssue(h[i]) });
+            continue;
+        }
+        out.ok++; out.stateSet[b.exact] = 1;
+        if (b.tier === 'no1') out.no1Count++; else out.with1Count++;
+        var sl = slot(b);
+        sl.count++;
+        // v50.40-fix: 下一局也必须是 24 态合法盘面，否则整条转移丢弃。
+        // 旧版用 getWinner(h[i+1]) 回退，会把 [2,2,1] 这类坏数据按并列规则算成 A 赢并计入，
+        // 让「下局 A/B/C 次数 / 偏向」混进假票，与「当前局不合规就跳过」的口径自相矛盾。
+        if (i + 1 < h.length) {
+            var nb = parsed[i+1];
+            if (nb) { sl.next[nb.w]++; sl.nNext++; }
+            else out.skippedNext++;
+        }
+    }
+    out.states = Object.keys(out.stateSet).length;
+    function finish(sl) {
+        // v50.40-fix: 没有有效转移样本时 top 不该默认是 'A'（会误导下游调用方）
+        var top = '-', best = -1;
+        if (sl.nNext > 0) {
+            ['A','B','C'].forEach(function(g){ if (sl.next[g] > best) { best = sl.next[g]; top = g; } });
+        }
+        sl.top = top;
+        sl.topRate = sl.nNext ? best / sl.nNext : 0;
+        return sl;
+    }
+    var all = Object.keys(map).map(function(k){ return finish(map[k]); });
+    out.no1Summary   = all.filter(function(x){ return x.tier === 'no1'; })
+                          .sort(function(a,b){ return b.count - a.count; });
+    out.with1Summary = all.filter(function(x){ return x.tier === 'with1'; })
+                          .sort(function(a,b){ return b.count - a.count; });
+    out.no1States   = out.no1Summary.length;
+    out.with1States = out.with1Summary.length;
+    return out;
+}
+// 「没1的」12 态固定清单（用于面板里把从未出现过的态也列出来，方便对照）
+var BOARD_NO1_KEYS = (function(){
+    var g = ['A','B','C'], out = [];
+    [[0,0.5,2],[0,0.5,3]].forEach(function(combo){
+        // 6 排列
+        for (var i=0;i<3;i++) for (var j=0;j<3;j++) for (var k=0;k<3;k++) {
+            if (i===j||j===k||i===k) continue;
+            var v=[combo[i],combo[j],combo[k]];
+            out.push(g[0]+v[0]+'|'+g[1]+v[1]+'|'+g[2]+v[2]);
+        }
+    });
+    return out;
+})();
 // v45.3: 预测结果指纹——renderCards 展示缓存与 Predictor.predict() 结果复用共用同一份。
 // 含全历史 32 位滚动哈希（编辑/删除中间局、导入对齐、云合并都能感知）、全量模型权重、
 // CONFIG、窗口/高级模型命中率、AI 修正、校准 T、漂移态。3655 局实测约 0.3ms。
@@ -4003,7 +4221,7 @@ function computePredSig(inst) {
         var cfgSig = ['win6W','win7W','win8W','win10W','globalW','learnRate','learnDecay',
                       'patternThreshold','streakDecayMax','coldBonusCap','minData','learnIters','rollbackWindow',
                       'simLenExp','simQualityBlend','fourWayPriorN','fourWayConsensusMin','fourWayMinTopProb',
-                      'fusionRefineBlend','dedupSimAcrossLayers','conflictDampen','fusionSimW']
+                      'fusionRefineBlend','dedupSimAcrossLayers','conflictDampen','fusionSimW','useMarginModel']
             .map(function(k){ return Math.round((Number(C[k]) || 0) * 10000); }).join('-');
         var ap = p.advancedModelPerf || {};
         var apSig = ['similar','loss','profit','invest','markov','bayes','trend','rebound']
@@ -4016,7 +4234,8 @@ function computePredSig(inst) {
                 Number(p._aiStrength || 0).toFixed(4),
                 Number(p._calibrationT || 1).toFixed(4),
                 (typeof p._driftState === 'string' ? p._driftState :
-                 (p._driftState && p._driftState.state) || '')].join('|');
+                 (p._driftState && p._driftState.state) || ''),
+                ALGO_VER, p._perfAlgoVer || 'legacy'].join('|');
     } catch(e) { return 'err:' + (++_predSigErrN); } // 出错时每次都不同 → 安全降级为不复用
 }
 function getLossSide(rec) {
@@ -6636,6 +6855,7 @@ class Predictor {
     similarPattern: 0.25,
     profitPattern: 0.09,  // v25.5: 新增收益规律模型
     stateTransition: 0.08, // v44.1: 盘面状态转移（第12信号）
+    margin: 0.06,          // v50.40: 完整盘面 24 态条件频率（第13信号，权重由自适应学习决定）
     aiModel: 0.0  // v45.7: AI功能已禁用，权重设为0
 };
         this.modelPerf = {};
@@ -6672,6 +6892,7 @@ class Predictor {
         this._evidenceLog = []; // 冻结快照，录入时补actual，永不回看修改
         this._driftState = 'stable'; // stable / observing / rolledback
         this._driftObserveStart = null; // 观察模式开始时的权重快照+LogLoss基线
+        this._perfAlgoVer = ALGO_VER;    // v50.38: 短期命中率数组所属算法口径（新建实例即当前版本）
     }
     // v44.1: 盘面状态编码——A/B/C得分按字母序组成key
     _encodeState(rec) {
@@ -6723,6 +6944,65 @@ class Predictor {
         total = scores.A + scores.B + scores.C;
         if (total === 0) return null;
         return {A: scores.A/total, B: scores.B/total, C: scores.C/total};
+    }
+    // ===== v50.40: 第13信号 —— 完整盘面（24 态）+ 代际隔离条件频率 =====
+    // 合法盘面只有 24 态（4 个取值组合 × 6 排列），且含 1 的 12 态基本不再出现。
+    // 【代际隔离是这轮最重要的一刀】struct / coarse 都带 tier：当前盘面(no1)只跟 no1 的
+    // 历史样本比，绝不回退到含 1 的旧时代样本上——否则「1 不出现了」的风格漂移会把旧规律
+    // 混进现在的预测。L1 精确态天然分代，L2/L3 由键里的 tier 保证。
+    //   L1 精确态 A3|B0.5|C0（24 态）→ L2 赢家|档|第三值|代 → L3 赢家|档|代
+    // 样本门槛：当前主流 no1 只有 12 态、样本密度高，L1 门槛放到 6；含1 的旧态维持 8/16/28，
+    // 避免用少量陈旧样本硬推。纯数据驱动，权重仍由 modelWeights + modelPerf 自适应决定。
+    _modelMargin(records) {
+        var n = records ? records.length : 0;
+        if (n < 24) {
+            this._lastMarginInfo = { layer:'弃权', sample:0, why:'历史不足 24 局' };
+            return null;
+        }
+        // v50.40-fix: 一次解析全历史（boardOf 调用从 2n 降到 n，3655 局冷预测明显更快）
+        var parsed = new Array(n);
+        for (var i = 0; i < n; i++) parsed[i] = boardOf(records[i]);
+        var cur = parsed[n - 1];
+        if (!cur) { this._lastMarginInfo = { layer:'弃权', sample:0, why:'本局盘面不合规' }; return null; }
+        var c1 = {A:0,B:0,C:0}, t1 = 0, c2 = {A:0,B:0,C:0}, t2 = 0, c3 = {A:0,B:0,C:0}, t3 = 0;
+        for (var i = 0; i < n - 1; i++) {
+            var b = parsed[i];
+            if (!b) continue;
+            var nb = parsed[i + 1];
+            if (!nb) continue;   // 下一局不合规：整条转移丢弃，不用 getWinner 硬算坏数据
+            var nw = nb.w;
+            if (b.exact  === cur.exact)  { c1[nw]++; t1++; }
+            if (b.struct === cur.struct) { c2[nw]++; t2++; }
+            if (b.coarse === cur.coarse) { c3[nw]++; t3++; }
+        }
+        var curIsNo1 = (cur.tier === 'no1');
+        var minL1 = curIsNo1 ? 6 : 8;
+        var use = null, sample = 0, layer = '';
+        if      (t1 >= minL1) { use = c1; sample = t1; layer = '精确盘面(24态)'; }
+        else if (t2 >= 16)    { use = c2; sample = t2; layer = '结构态'; }
+        else if (t3 >= 28)    { use = c3; sample = t3; layer = '粗态'; }
+        else {
+            this._lastMarginInfo = { layer:'弃权', sample:t3, why:'同代样本不足', key:cur.exact, tier:cur.tier };
+            return null;
+        }
+        this._lastMarginInfo = { layer:layer, sample:sample, key:cur.exact, tier:cur.tier,
+                                 margin:cur.margin, f:cur.f, no1:curIsNo1 };
+        // 贝叶斯收缩到均匀先验（priorN=6），样本少自动接近 1/3
+        var prior = 6, out = {A:0,B:0,C:0}, sum = 0;
+        GUILDS.forEach(function(g) { out[g] = (use[g] + prior / 3) / (sample + prior); sum += out[g]; });
+        var sharp = Math.min(1, sample / 30);
+        GUILDS.forEach(function(g) { out[g] = 1/3 + (out[g] / sum - 1/3) * sharp; });
+        // 防御：单路模型不该一票独裁，朝均匀线性缩放，最高方向封顶 0.55
+        out = normalizeProbs(out);
+        var _mx = Math.max(out.A, out.B, out.C), _mn = Math.min(out.A, out.B, out.C);
+        if (_mx > 0.55) {
+            var _f = (0.55 - 1/3) / (_mx - 1/3);
+            GUILDS.forEach(function(g) { out[g] = 1/3 + (out[g] - 1/3) * _f; });
+        } else if (_mn < 0.10) {
+            var _f2 = (1/3 - 0.10) / (1/3 - _mn);
+            GUILDS.forEach(function(g) { out[g] = 1/3 - (1/3 - out[g]) * _f2; });
+        }
+        return normalizeProbs(out);
     }
     _modelStreak(records) {
         var ts = getTailStreak(records);
@@ -7113,8 +7393,9 @@ class Predictor {
         var dataFactor = 0.75 + Math.min(Math.max(n - 500, 0) / 1500, 1) * 0.42;
         // ④ 漂移降权：近30局准确率比早期基准低≥15%时×0.7（相似盘可能过拟合近期）
         var driftFactor = 1.0;
-        if (this.accuracy && this.accuracy.length >= 60) {
-            var acc = this.accuracy;
+        var _swAcc = getCurAlgoAccuracy(this);
+        if (_swAcc.length >= 60) {
+            var acc = _swAcc;
             var recent = acc.slice(-30);
             var base = acc.slice(0, Math.max(30, acc.length - 30));
             function _avg(a) { return a.length ? a.filter(Boolean).length / a.length : 0; }
@@ -7128,6 +7409,11 @@ class Predictor {
         if (n === 0) return null;
         // v34.2性能优化：小窗口（<20局）跳过similarPattern/multiWindow等需要大量历史的模型，减少O(n²)计算
         var _isSmallWindow = n < 20;
+        // v50.40-fix: 关掉开关后必须把状态改成「已关闭」，否则 _lastMarginInfo 残留上一次的
+        // 「精确盘面(24态) 样本 N 条」，面板会继续谎报模型在工作。
+        if (typeof CONFIG !== 'undefined' && CONFIG.useMarginModel === false) {
+            this._lastMarginInfo = { layer:'已关闭', sample:0, why:'CONFIG.useMarginModel=false，不参与融合' };
+        }
         var models = {
             global: this._modelGlobal(records),
             multiWindow: _isSmallWindow ? null : this._modelMultiWindow(records),
@@ -7140,6 +7426,7 @@ class Predictor {
             similarPattern: _isSmallWindow ? null : this._modelSimilarPattern(records),
             profitPattern: this._modelProfitPattern(records),
             stateTransition: _isSmallWindow ? null : this._modelStateTransition(records), // v44.1: 第12信号
+            margin: (typeof CONFIG === 'undefined' || CONFIG.useMarginModel !== false) ? this._modelMargin(records) : null, // v50.38: 第13信号
             ngram: this._modelNGram(records),
             aiModel: this._modelAIPrediction()  // v41.0: AI预测模型
         };
@@ -7160,6 +7447,7 @@ class Predictor {
             similarPattern: models.similarPattern ? (_gw('similarPattern') * this._simWeightFactor()) : 0,
             profitPattern: models.profitPattern ? _gw('profitPattern') : 0,
             stateTransition: models.stateTransition ? _gw('stateTransition') : 0, // v44.1
+            margin: models.margin ? _gw('margin') : 0,   // v50.40: 完整盘面 24 态，权重同样受 modelPerf 动态裁判约束
             aiModel: models.aiModel ? _gw('aiModel') : 0,  // v41.0: AI模型权重
             ngram: models.ngram ? 0.08 : 0  // v37.0修复: ngram权重纳入归一化，之前漏算导致贡献被稀释约8%
         };
@@ -7170,7 +7458,7 @@ class Predictor {
             // learnIters=4：每局录入 learnFromResult 内部 iters 循环会 push 4 次 modelPerf，
             // 所以 _DYN_WIN=80 对应"最近20局"，_DYN_MIN=40 对应"最近10局才参与动态调整"。
             var _DYN_WIN = 80, _DYN_MIN = 40, _DYN_BASE = 0.33;
-            var _dynKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel'];
+            var _dynKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','margin','aiModel'];
             var _dynLog = [];
             var _selfDyn = this;
             _dynKeys.forEach(function(name){
@@ -7188,7 +7476,7 @@ class Predictor {
             });
             if (window._debugDynWeights) techLog('[动态裁判]', _dynLog.join(' | '));
         } catch(_dynE) { console.warn('[动态裁判] 计算失败，按原权重:', _dynE.message); }
-        var wsum = w.global + w.multiWindow + w.score + w.streak + w.rotation + w.alternation + w.trend + w.regression + w.similarPattern + w.profitPattern + w.stateTransition + w.ngram;
+        var wsum = w.global + w.multiWindow + w.score + w.streak + w.rotation + w.alternation + w.trend + w.regression + w.similarPattern + w.profitPattern + w.stateTransition + w.margin + w.ngram;
         if (wsum === 0) wsum = 1;
         for (var k in w) w[k] /= wsum;
         var combined = {A:0, B:0, C:0};
@@ -7209,6 +7497,7 @@ class Predictor {
         addModel('相似盘', models.similarPattern, w.similarPattern);
         addModel('收益规律', models.profitPattern, w.profitPattern);
         addModel('状态转移', models.stateTransition, w.stateTransition); // v44.1
+        addModel('完整盘面', models.margin, w.margin); // v50.40
         addModel('短程转移', models.ngram, w.ngram);  // v37.0修复: 使用归一化后的ngram权重
         var norm = normalizeProbs(combined);
         // 连胜衰减
@@ -7227,6 +7516,8 @@ class Predictor {
     // ===== 主预测：五级窗口优先级 =====
     // v43.42: 包装predict()——不管原来的predict从哪个分支return，都统一在这里应用AI修正
     predict() {
+        // v50.38: 旧存档恢复后第一次预测做一次性跨版本命中率隔离（新实例构造时已是当前口径，直接返回）
+        try { ensureAlgoPerf(this); } catch(e) {}
         // v45.3: 一次 renderAll 里 predict() 会被调用 5 次（renderCards / _shouldSkipBet /
         // _bettingAdvice / updateStats 取 source / 扩展 renderVote），3655 局实测累计 683ms。
         // 按「状态指纹」复用：状态没变直接返回，状态一变自动重算。
@@ -7935,10 +8226,13 @@ class Predictor {
     }
     // v31.4: 预测校准——统计最近30局"预测概率 vs 实际命中率"，过度自信则自动收缩最高概率
     try {
-        var _calN = Math.min(30, this.predHistory.length, this.accuracy.length);
+        // v50.38: 校准只看同算法口径的记录；升级后样本不足 20 条时整段跳过（安全兜底）
+        var _calIdxs = getCurAlgoPredIdxs(this);
+        var _calN = Math.min(30, _calIdxs.length);
         if (_calN >= 20) {
             var _sumP = 0, _hits = 0, _used = 0;
-            for (var _ci = this.predHistory.length - _calN; _ci < this.predHistory.length; _ci++) {
+            for (var _cj = 0; _cj < _calN; _cj++) {
+                var _ci = _calIdxs[_calIdxs.length - _calN + _cj];
                 var _ph = this.predHistory[_ci];
                 if (!_ph || !_ph.probs || !_ph.guild) continue;
                 var _p = _ph.probs[_ph.guild];
@@ -8011,7 +8305,7 @@ class Predictor {
         // v14: 返回时附带完整相似盘结果（如果有的话）
         var simInfo = this._lastSimResult || null;
         // v29.0: 记录每个子模型首选，供长期命中率统计
-        var _mpKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+        var _mpKeys = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','margin'];
         var modelPicks = {};
         if (predAll && predAll.models) {
             for (var _mki = 0; _mki < _mpKeys.length; _mki++) {
@@ -8118,7 +8412,7 @@ class Predictor {
             }
         } catch(e) {}
         // v44.0: 子模型列表（全局定义，循环外只更新一次）
-        var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','stateTransition','aiModel'];
+        var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','stateTransition','margin','aiModel']; // v50.38: 第13信号纳入自适应学习
         // v44.0: 子模型权重更新——每局只做一次，Hedge乘法更新替代加法
         try {
             var histAllPre = this.history.slice(0, gameIdx);
@@ -8236,8 +8530,9 @@ class Predictor {
         // v44.0: 紧急模式加门禁——连续3错只是硬触发，还需近10局命中率<0.25（显著低于随机1/3）才真正紧急
         // 否则只是随机波动（三分类连续3错概率约30%），不触发权重大回滚
         var _recent10Gate = 0.33;
-        if (this.accuracy.length >= 10) {
-            var _r10 = this.accuracy.slice(-10);
+        var _lrAcc = getCurAlgoAccuracy(this);
+        if (_lrAcc.length >= 10) {
+            var _r10 = _lrAcc.slice(-10);
             _recent10Gate = _r10.filter(function(x){return x;}).length / _r10.length;
         }
         if (this.consecutiveErrors >= 3 && !this.emergencyMode && _recent10Gate < 0.25) {
@@ -8262,7 +8557,7 @@ class Predictor {
             normalizeWindowWeights();
             this.reflectionLog.unshift({
                 gameIdx: gameIdx + 1, type: 'emergency_adjust',
-                reason: '连续' + this.consecutiveErrors + '局错误+近10局命中率' + (this.accuracy.length>=10 ? (this.accuracy.slice(-10).filter(function(x){return x;}).length*10).toFixed(0)+'%' : '不足10局') + '，触发紧急调整：权重回归默认+相似盘降权40%+全局提升',
+                reason: '连续' + this.consecutiveErrors + '局错误+近10局命中率' + (_lrAcc.length>=10 ? (_lrAcc.slice(-10).filter(function(x){return x;}).length*10).toFixed(0)+'%' : '不足10局') + '，触发紧急调整：权重回归默认+相似盘降权40%+全局提升',
                 timestamp: Date.now()
             });
             if (this.reflectionLog.length > 200) this.reflectionLog.length = 200; // v30.22
@@ -8290,8 +8585,9 @@ class Predictor {
         }
         // 回滚保护：检查最近 N 局准确率是否严重退化
         var rw = CONFIG.rollbackWindow;
-        if (this.accuracy.length >= rw) {
-            var recent = this.accuracy.slice(-rw);
+        var _rbAcc = getCurAlgoAccuracy(this);
+        if (_rbAcc.length >= rw) {
+            var recent = _rbAcc.slice(-rw);
             var acc = recent.filter(function(x){return x;}).length / recent.length;
             // v44.0: 回滚阈值从0.30降到0.20——0.30在随机基线(1/3)附近，约46%概率误触发"白学回滚"
         // 只有真正灾难性退化（近N局准确率<20%）才回滚，0.20-0.33之间属于正常随机波动
@@ -8556,7 +8852,10 @@ class Predictor {
             if (bk<0) bk=edges.length; return bk===bucket;
         }
         var hit=0, tot=0;
-        for (var i=0;i<this.predHistory.length;i++){
+        // v50.38: 只统计同算法口径的预测记录，旧口径不再混进校准命中率
+        var _algoIdxs = getCurAlgoPredIdxs(this);
+        for (var _ai=0;_ai<_algoIdxs.length;_ai++){
+            var i=_algoIdxs[_ai];
             var ph=this.predHistory[i];
             if (ph.isTie||!ph.probs) continue;
             var mp=Math.max(ph.probs.A,ph.probs.B,ph.probs.C);
@@ -8630,11 +8929,12 @@ class Predictor {
             if ((_skPs[0] - _skPs[2]) < 0.02)
                 reasons.push('前三名仅差 ' + ((_skPs[0]-_skPs[2])*100).toFixed(1) + ' 个百分点，三方胶着');
             // 条件3：近10局命中率≤0.33（和随机持平，模型没学到东西）
-            if (this.accuracy.length >= 10) {
-                var recent10 = this.accuracy.slice(-10);
+            var _skAcc = getCurAlgoAccuracy(this);
+            if (_skAcc.length >= 10) {
+                var recent10 = _skAcc.slice(-10);
                 var hits = recent10.filter(function(x){return x;}).length;
                 var acc10 = hits / recent10.length;
-                if (acc10 <= 0.33) reasons.push('近10局命中率' + (acc10*100).toFixed(0) + '%，与随机持平');
+                if (acc10 <= 0.33) reasons.push('近10局命中率' + (acc10*100).toFixed(0) + '%，与随机持平（同口径）');
             }
             return {skip: reasons.length > 0, reasons: reasons};
         } catch(e) { return {skip: false, reasons: []}; }
@@ -8643,14 +8943,16 @@ class Predictor {
     smartFix() {
         try {
             var result = {T: this._calibrationT || 1.0, scheme: '当前', brier: 0};
-            var n = this.predHistory.length;
-            if (n < 10) return {T: this._calibrationT || 1.0, scheme: '数据不足', brier: 0};
+            var _sfIdxs = getCurAlgoPredIdxs(this);
+            var n = _sfIdxs.length;
+            if (n < 10) return {T: this._calibrationT || 1.0, scheme: '数据不足（同口径样本不足10局）', brier: 0};
             // 1) 网格搜索T值
             var bestT = 1.0, bestBrier = 999;
             var _histN = Math.min(30, n);
             for (var t = 0.7; t <= 1.51; t += 0.05) {
                 var bs = 0, cnt = 0;
-                for (var i = n - _histN; i < n; i++) {
+                for (var _sfi = n - _histN; _sfi < n; _sfi++) {
+                    var i = _sfIdxs[_sfi];
                     var ph = this.predHistory[i];
                     if (!ph || !ph.probs) continue;
                     var act = getWinner(this.history[i + 1]);
@@ -8675,7 +8977,7 @@ class Predictor {
             result.T = bestT;
             result.brier = bestBrier;
             // 2) 留出回测比较三组权重（简化：用近20局Brier对比）
-            var _defaultW = {global:0.10,multiWindow:0.13,score:0.11,streak:0.10,rotation:0.07,alternation:0.06,trend:0.05,regression:0.04,similarPattern:0.25,profitPattern:0.09,stateTransition:0.08};
+            var _defaultW = {global:0.10,multiWindow:0.13,score:0.11,streak:0.10,rotation:0.07,alternation:0.06,trend:0.05,regression:0.04,similarPattern:0.25,profitPattern:0.09,stateTransition:0.08,margin:0.06};
             var schemes = [
                 {name: '当前', mw: Object.assign({}, this.modelWeights)},
                 {name: '默认', mw: Object.assign({}, _defaultW)},
@@ -8848,6 +9150,7 @@ class Predictor {
             if (winner) {
                 // 非平局：存入对这局的预测，并记录准确率、执行学习
                 this.predHistory.push({
+                    _algoVer: ALGO_VER,   // v50.38: 逐条算法口径，决策型统计只认同版本
                     guild: prevPrediction.predictedGuild,
                     probs: {A: prevPrediction.probabilities.A, B: prevPrediction.probabilities.B, C: prevPrediction.probabilities.C},
                     rank: {A: prevPrediction.rank.A, B: prevPrediction.rank.B, C: prevPrediction.rank.C},
@@ -8870,7 +9173,7 @@ class Predictor {
                 // v44.20: 概率校准分桶记录
                 try {
                     var _maxP = Math.max(prevPrediction.probabilities.A, prevPrediction.probabilities.B, prevPrediction.probabilities.C);
-                    this._calibrationBuckets.push({maxP: +_maxP.toFixed(3), correct: (winner === prevPrediction.predictedGuild)});
+                    this._calibrationBuckets.push({v: ALGO_VER, maxP: +_maxP.toFixed(3), correct: (winner === prevPrediction.predictedGuild)});
                     if (this._calibrationBuckets.length > 500) this._calibrationBuckets.shift();
                 } catch(e) {}
                 // v44.30: 证据表补录实际结果（冻结快照，不修改历史权重）
@@ -9018,6 +9321,7 @@ class Predictor {
             } else {
                 // 平局：存入对这局的预测，标记isTie，不参与学习
                 this.predHistory.push({
+                    _algoVer: ALGO_VER,   // v50.38: 平局条目同样打标
                     guild: prevPrediction.predictedGuild,
                     probs: {A: prevPrediction.probabilities.A, B: prevPrediction.probabilities.B, C: prevPrediction.probabilities.C},
                     rank: {A: prevPrediction.rank.A, B: prevPrediction.rank.B, C: prevPrediction.rank.C},
@@ -9131,7 +9435,7 @@ class Predictor {
         if (this.predHistory.length > 0 && (!this.modelPerf || Object.keys(this.modelPerf).length === 0)) {
             techLog('[重建] modelPerf为空，从predHistory重建...');
             this.modelPerf = {};
-            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
+            var modelNames = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','margin']; // v50.38
             modelNames.forEach(function(name) { this.modelPerf[name] = []; }, this);
             for (var j = 0; j < this.predHistory.length; j++) {
                 var ph2 = this.predHistory[j];
@@ -9247,7 +9551,7 @@ class Predictor {
         // v37.0修复: 补全遗漏的稀疏数组重置
         this.profitBrierHistory = [];
         this.investAccuracy = [];
-        this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27,profitPattern:0.09,stateTransition:0.08}; // v44.1: 加stateTransition
+        this.modelWeights = {global:0.15,multiWindow:0.15,score:0.13,streak:0.09,rotation:0.07,alternation:0.06,trend:0.04,regression:0.04,similarPattern:0.27,profitPattern:0.09,stateTransition:0.08,margin:0.06}; // v44.1: 加stateTransition
         this.modelPerf = {};
         this.advancedModelPerf = {similar:[], loss:[], profit:[], invest:[], markov:[], bayes:[], trend:[], rebound:[]};
         this.patternHitCache = {};
@@ -9578,6 +9882,7 @@ class Predictor {
                 // 刷新/换端恢复后立即显示与最近计算端一致的结论，避免各端标签不一致
                 threeWayAnalysis: this._threeWayAnalysis || null,
                 _syncEpoch: this._syncEpoch || 0,
+                perfAlgoVer: this._perfAlgoVer || ALGO_VER, // v50.38: 短期命中率数组口径
                 _adminOverride: this._adminOverride || null
             };
             // v27.4：完整数据异步存IndexedDB（大容量，不截断）
@@ -9773,6 +10078,8 @@ class Predictor {
                 localStorage.setItem(ENC_KEY, '1');
             }
             var p = JSON.parse(raw);
+            // v50.38: 存档明确标记了别的算法口径时，第一次 predict 会隔离短期命中率
+            if (p.perfAlgoVer && p.perfAlgoVer !== ALGO_VER) this._perfAlgoVer = 'legacy';
             if (Array.isArray(p.history)) {
                 this.clearAll();
                 // v26优化：优先直接恢复已保存的计算结果，跳过逐条addRecord重建（大幅提升加载速度）
@@ -12150,6 +12457,7 @@ function buildBackupSaveData() {
         runtimeState: snapshotRuntimeState(P), // v42: 备份一并保存学习状态/局间隔
         threeWayAnalysis: P._threeWayAnalysis || null, // v50.8: 三盘分析结论
         _syncEpoch: P._syncEpoch || 0,
+        perfAlgoVer: P._perfAlgoVer || ALGO_VER,
         // v50.1: 与 main 快照同源的三项小学习态（aiStrength 留本地）
         stateTransition: (P._stateTransition && typeof P._stateTransition === 'object') ? P._stateTransition : {},
         driftState: (typeof P._driftState === 'string') ? P._driftState : 'stable',
@@ -13784,7 +14092,8 @@ async function cloudSave(manual, skipPrecheck) {
                 isTie: _ph.isTie,
                 profitCorrect: _ph.profitCorrect,
                 profitBrier: _ph.profitBrier,
-                investCorrect: _ph.investCorrect
+                investCorrect: _ph.investCorrect,
+                _algoVer: _ph._algoVer || 'legacy'   // v50.38: 必须随云端同步保留，否则隔离失效
             };
             // 收益/投资预测只保留 predicted（历史表列要用），裁掉 probs 三向数组与 confidence
             if (_ph.profitPrediction && _ph.profitPrediction.predicted) {
@@ -13831,6 +14140,7 @@ async function cloudSave(manual, skipPrecheck) {
             // v50.8: 三盘分析结论跨端同步——各端「三盘一致/两盘一致」标签以最近同步的结论为准
             threeWayAnalysis: P._threeWayAnalysis || null,
             _syncEpoch: P._syncEpoch || 0,
+            perfAlgoVer: P._perfAlgoVer || ALGO_VER,
             _adminOverride: _isAdmin ? { at: Date.now() } : (P._adminOverride || null),
             // v50.1: 跨端对齐的本地学习态（AI 已停用，aiStrength 仅留本地不上云；evidenceLog / calibrationBuckets 亦不上云）
             stateTransition: (P._stateTransition && typeof P._stateTransition === 'object') ? P._stateTransition : {},
@@ -14391,7 +14701,7 @@ function bindCloudEvents() {
                         if (_rawVer === null) { btn.disabled = false; btn.textContent = orig; return; }
                         inputVer = _rawVer.trim() || _defVer;
                         if (!/^v\d+\.\d+(?:\.\d+)?$/.test(inputVer)) {
-                            showRecordResult(false, '发布失败', '版本号格式不合法：' + inputVer + '\n请填 v50.38 这种格式，重新点发布即可。');
+                            showRecordResult(false, '发布失败', '版本号格式不合法：' + inputVer + '\n请填 v50.41 这种格式，重新点发布即可。');
                             btn.disabled = false; btn.textContent = orig; return;
                         }
                         // 精准替换：只动「当前版本标识」，注释里的 /* v50.xx ... */ 一律不碰
@@ -15706,6 +16016,18 @@ function deleteBackup(backupId) {
 // UI 渲染
 // ============================================================
 var P = new Predictor();
+// v50.38: 旧存档的短期命中率数组（modelPerf / advancedModelPerf / windowPerf / 校准分桶）
+// 不带算法口径，混着 v50.35~v50.37 三套算法算出来的命中率。首次以本版打开时打标，
+// 由 predict() 里的 ensureAlgoPerf() 惰性清空一次；之后存档带 perfAlgoVer，刷新不再重复。
+(function(){
+    try {
+        var _k = 'mm_algo_epoch_v1';
+        if (localStorage.getItem(_k) !== ALGO_VER) {
+            P._perfAlgoVer = 'legacy';
+            localStorage.setItem(_k, ALGO_VER);
+        }
+    } catch(e) {}
+})();
 function rankLabel(r) { return r===1?'🥇最高':r===2?'🥈第二':'🥉最低'; }
 function rankClass(r) { return r===1?'tag-rank1':r===2?'tag-rank2':'tag-rank3'; }
 // v45.3: 导入/旧数据/云合并后 predHistory 条目可能缺 sorted，旧版直接 .map 会让整表崩掉
@@ -15862,6 +16184,7 @@ function recalcPredSnapshots() {
                 var h = P.history[histIdx];
                 var pred = (histIdx > 0 || recalcP.history.length > 0) ? recalcP.predict() : null;
                 snaps[i] = pred ? {
+                    _algoVer: ALGO_VER,   // v50.38: 本次重算的快照才归当前口径
                     guild: pred.predictedGuild,
                     probs: {A: pred.probabilities.A, B: pred.probabilities.B, C: pred.probabilities.C},
                     rank: {A: pred.rank.A, B: pred.rank.B, C: pred.rank.C},
@@ -15945,6 +16268,8 @@ function recalcPredSnapshots() {
                     snap.correct = null;
                 }
                 snap.rid = P.history[histIdx]._rid;
+                // v50.38: 旧快照保持原标记（缺 _algoVer 即 legacy），绝不能在这里补成当前口径，
+                // 否则「重新计算最近 N 局」会把没重算的旧局误算进同版本统计。
                 P.predHistory.push(snap);
             }
             if (P.predHistory.length > 100000) P.predHistory = P.predHistory.slice(-100000);
@@ -15966,13 +16291,14 @@ function recalcPredSnapshots() {
 }
 
 // ===== v29.0: 子模型长期命中率 + 联合信号 + 数据健康 =====
-var _MODEL_KEYS = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern'];
-var _MODEL_LABELS = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律',aiModel:'🤖 AI预测'};
+var _MODEL_KEYS = ['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','margin'];
+var _MODEL_LABELS = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益规律',margin:'完整盘面',aiModel:'🤖 AI预测'};
 function _alignWinners() {
     var off = P.history.length - P.predHistory.length;
     var arr = [];
     for (var i = 0; i < P.predHistory.length; i++) {
         var ph = P.predHistory[i];
+        if (!isCurrentAlgoPh(ph)) continue;   // v50.38: 模型命中率定权不混旧口径
         if (ph.isTie) continue;
         var hi = i + off;
         if (hi < 0 || hi >= P.history.length) continue;
@@ -17940,7 +18266,7 @@ function renderCards() {
     } catch(e) { console.warn('[证据表渲染]失败:', e.message); }
     // ===== v44.20: 概率校准分桶 =====
     try {
-        var buckets = P._calibrationBuckets || [];
+        var buckets = (P._calibrationBuckets || []).filter(isCurrentAlgoBucket);  // v50.38
         if (buckets.length >= 10) {
             var bDefs = [{lo:0,hi:0.30,label:'<30%'},{lo:0.30,hi:0.40,label:'30-40%'},{lo:0.40,hi:0.50,label:'40-50%'},{lo:0.50,hi:1.01,label:'>50%'}];
             var bHtml = '<div style="margin-top:8px;padding:8px 10px;background:#f8f9fa;border-radius:6px;font-size:11px;"><strong>🎯 概率校准：</strong>';
@@ -17982,6 +18308,83 @@ function renderCards() {
                 if (learnEl3) _learnExtra += cHtml;
             }
         }
+    } catch(e) {}
+    // v50.38: 展示层看全历史战绩，但明确标出「决策型统计」只认同算法口径的样本
+    try {
+        var _ar = countAlgoRecords(P);
+        _learnExtra += '<div style="margin-top:6px;padding:6px 9px;background:#e8f5e9;border-radius:6px;font-size:11px;color:#1b5e20;line-height:1.7;">' +
+            '🔬 <b>算法口径隔离（' + escHtml(ALGO_VER) + '）</b>：同口径预测 <b>' + _ar.cur + '</b> 条 / 旧口径 <b>' + _ar.legacy +
+            '</b> 条。校准分桶、命中率定权、出手建议、漂移与智能修正<b>只使用同口径记录</b>；上方总准确率仍是全历史战绩，不受影响。' +
+            (_ar.cur < 20 ? '<br>⚠️ 同口径样本不足 20 条，概率校准与出手建议暂时回退到模型自身概率，属正常冷启动。' : '') +
+            '</div>';
+    } catch(e) {}
+    // v50.40: 「优先总结没1的」——不含1的 12 态是当前盘面，展开成主体；
+    // 含1的 12 态基本不再出现，折叠起来只给汇总，不占注意力。
+    try {
+        var _bd = boardAudit(P);
+        var _mi = P._lastMarginInfo;
+        var _bdHtml = '<div style="margin-top:6px;padding:8px 10px;background:#fff8e1;border-radius:6px;font-size:11px;color:#6d4c41;line-height:1.7;">' +
+            '🎲 <b>盘面总结（24 态）</b>：合规 <b>' + _bd.ok + '</b> 局 / 异常 <b>' + _bd.bad + '</b> 局，已出现 <b>' + _bd.states + '</b> / 24 种。' +
+            '<b>不含 1 的 <span style="color:#1b5e20;">' + _bd.no1Count + '</span> 局（当前主流，优先看下面）</b> / 含 1 的 ' + _bd.with1Count + ' 局（旧时代，基本不再出现）。' +
+            '<br>规则：取值 0(输光)/0.5(亏一半)/1(保本)/2(挣一倍)/3(正两倍)，互不重复，2 与 3 不同局；每局必有 0 和一个 2/3，故组合只有 {0,0.5,2} {0,0.5,3} {0,1,2} {0,1,3} 四种 × 6 排列 = 24 态。' +
+            (_bd.skippedNext ? '<br>ℹ️ 有 <b>' + _bd.skippedNext + '</b> 条「下一局不合规」的转移已跳过，不计入下表（坏数据不投假票）。' : '');
+
+        // ===== 优先：不含 1 的 12 态逐态总结（含从未出现的，方便对照）=====
+        var _no1Map = {};
+        _bd.no1Summary.forEach(function(x){ _no1Map[x.key] = x; });
+        var _rows = '';
+        (typeof BOARD_NO1_KEYS !== 'undefined' ? BOARD_NO1_KEYS : []).forEach(function(k){
+            var x = _no1Map[k];
+            var cnt = x ? x.count : 0;
+            var dim = cnt ? '' : 'color:#aaa;';
+            var nx = x ? x.next : {A:0,B:0,C:0};
+            var nn = x ? x.nNext : 0;
+            var top = (x && nn) ? x.top : '-';
+            var rate = (x && nn) ? Math.round(x.topRate*100) : 0;
+            _rows += '<tr style="' + dim + '">' +
+                '<td style="padding:2px 6px;white-space:nowrap;font-family:monospace;">' + escHtml(k.replace(/\|/g,' ')) + '</td>' +
+                '<td style="padding:2px 6px;text-align:right;">' + cnt + '</td>' +
+                '<td style="padding:2px 6px;text-align:center;">' + nx.A + ' / ' + nx.B + ' / ' + nx.C + '</td>' +
+                '<td style="padding:2px 6px;text-align:center;font-weight:700;">' + (nn ? escHtml(top) + ' ' + rate + '%' : '—') + '</td>' +
+                '</tr>';
+        });
+        _bdHtml += '<div style="margin-top:6px;padding:6px 8px;background:#fff;border:1px solid #ffe0b2;border-radius:6px;">' +
+            '<b>✅ 没 1 的 12 态（优先总结）</b>　<span style="color:#777;">盘面 / 出现次数 / 下一局 A·B·C 次数 / 最常见下家</span>' +
+            '<div style="max-height:210px;overflow:auto;"><table style="border-collapse:collapse;width:100%;font-size:11px;margin-top:3px;">' +
+            '<thead><tr style="background:#f1f8e9;position:sticky;top:0;"><th style="padding:2px 6px;text-align:left;">盘面 A B C</th>' +
+            '<th style="padding:2px 6px;text-align:right;">次数</th><th style="padding:2px 6px;">下局 A/B/C</th><th style="padding:2px 6px;">偏向</th></tr></thead>' +
+            '<tbody>' + _rows + '</tbody></table></div>' +
+            '<div style="margin-top:3px;color:#777;">灰色 = 该态尚未出现过；「偏向」是这一种盘面之后下一局赢家的经验众数，仅作观察，不是推荐。</div>' +
+            '</div>';
+
+        // ===== 含 1 的：折叠，不占注意力 =====
+        _bdHtml += '<details style="margin-top:5px;"><summary style="cursor:pointer;color:#8d6e63;">含 1 的 12 态（旧时代，' +
+            _bd.with1Count + ' 局 / 已出现 ' + _bd.with1States + ' 态）—— 点开看</summary>' +
+            '<div style="padding:4px 6px;font-family:monospace;">' +
+            (_bd.with1Summary.length
+                ? _bd.with1Summary.map(function(x){ return escHtml(x.key.replace(/\|/g,' ')) + ' ×' + x.count +
+                    ' → 下局 ' + x.next.A + '/' + x.next.B + '/' + x.next.C; }).join('<br>')
+                : '无记录') +
+            '</div></details>';
+
+        if (_bd.bad > 0) {
+            _bdHtml += '<br>⚠️ 异常局（最多列 8 条，不自动改数据）：' + _bd.badList.map(function(x){
+                return '第' + x.n + '局 ' + escHtml(String(x.a)) + '/' + escHtml(String(x.b)) + '/' + escHtml(String(x.c)) + '（' + escHtml(x.why) + '）';
+            }).join('；');
+        }
+        if (_mi) {
+            _bdHtml += '<br>📐 第13信号：' + escHtml(_mi.layer) +
+                (_mi.layer === '已关闭' ? ' <b style="color:#c62828;">不参与融合</b>' : '') +
+                // v50.40-fix: 弃权/已关闭时优先给原因。旧版只要 sample>0 就显示「样本 N 条」，
+                // 弃权状态会显示成「弃权，样本 1 条」，看着像在工作，其实一票没投。
+                ((_mi.layer === '弃权' || _mi.layer === '已关闭')
+                    ? '（' + escHtml(_mi.why || '') + (_mi.sample ? '，同代样本 ' + _mi.sample + ' 条' : '') + '）'
+                    : '，样本 ' + _mi.sample + ' 条') +
+                (_mi.tier ? '，代际 ' + (_mi.tier === 'no1' ? '不含1（当前）' : '含1（旧）') + '，只与同代历史比对' : '') +
+                (_mi.key ? '，当前盘面 <code>' + escHtml(_mi.key) + '</code> 幅度 ' + _mi.margin : '');
+        }
+        _bdHtml += '</div>';
+        _learnExtra += _bdHtml;
     } catch(e) {}
     learnEl.innerHTML = _learnBase + _learnExtra;   // v49.1 F6: 本节点本轮唯一一次写入
     // ===== v44.20: 仓位建议（观望模式下不重复显示）=====
@@ -18507,7 +18910,7 @@ function updateStats() {
             else diag.push('➡️ 近20局命中率 <b>'+(r20hit*100).toFixed(0)+'%</b>，与全局 <b>'+(allHit*100).toFixed(0)+'%</b> 持平');
         }
         // 最准/最差模型
-        var mlabels = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益'};
+        var mlabels = {global:'全局',multiWindow:'多窗口',score:'分数',streak:'连胜',rotation:'轮换',alternation:'交替',trend:'趋势',regression:'回归',similarPattern:'相似盘',profitPattern:'收益',margin:'完整盘面'};
         var mstats = [];
         Object.keys(P.modelPerf||{}).forEach(function(k){
             var arr = P.modelPerf[k].slice(-20);
@@ -18875,7 +19278,7 @@ function renderLearnTab() {
     });
     document.getElementById('learnBestWindow').textContent=bestWin+' ('+(bestRate*100).toFixed(0)+'%)';
     var modelLabels={global:'全局胜率',multiWindow:'多窗口滑动',score:'分数加权',streak:'连胜/断连',rotation:'轮换检测',alternation:'交替模式',trend:'分数趋势',regression:'均值回归',similarPattern:'相似盘模式',profitPattern:'收益规律',aiModel:'🤖 AI预测'};
-    var modelNames=['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','aiModel'];
+    var modelNames=['global','multiWindow','score','streak','rotation','alternation','trend','regression','similarPattern','profitPattern','margin','aiModel']; // v50.38
     var html='<table style="width:100%;border-collapse:separate;border-spacing:0;"><tr><th style="text-align:left;padding:8px 10px;border-bottom:2px solid #dee2e6;">模型</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">近10局准确率</th><th style="text-align:center;padding:8px 10px;border-bottom:2px solid #dee2e6;">当前权重</th><th style="text-align:left;padding:8px 10px;border-bottom:2px solid #dee2e6;">表现</th></tr>';
     modelNames.forEach(function(name){
         var perf=P.modelPerf[name]||[]; var recent=perf.slice(-10);
@@ -19135,13 +19538,15 @@ function renderLearnTab() {
  * 用临时 Predictor 实例（绝不改 window.P），异步分帧避免卡死 UI；
  * 每局换 history 后必须清 _predMemoMap 与 _cachedStrength，否则会命中旧结果。
  * CONFIG 在 finally 语义里恢复，任何异常都不会把主界面留在中间口径。 */
-function runFusionAB(sampleN, onProgress, onDone) {
+function runFusionAB(sampleN, onProgress, onDone, mode) {
+    mode = (mode === 'margin') ? 'margin' : 'fusion';
     var _saved = null;
     var _finish = function(m, err) {
         if (_saved) {
             CONFIG.dedupSimAcrossLayers = _saved.dedup;
             CONFIG.fusionRefineBlend    = _saved.blend;
             CONFIG.conflictDampen       = _saved.dampen;
+            CONFIG.useMarginModel       = _saved.margin;
             _saved = null;
         }
         try { if (window._predCache) window._predCache = null; } catch(e) {}
@@ -19155,14 +19560,24 @@ function runFusionAB(sampleN, onProgress, onDone) {
         _saved = {
             dedup:  CONFIG.dedupSimAcrossLayers,
             blend:  CONFIG.fusionRefineBlend,
-            dampen: CONFIG.conflictDampen
+            dampen: CONFIG.conflictDampen,
+            margin: CONFIG.useMarginModel
         };
-        // LEGACY = v50.36 原样（三项全关）；CURRENT = 当前实际生效的 CONFIG，
-        // 这样在控制台改了参数再跑对照，比较的就是「你改的口径 vs 原版」，而不是写死的两套。
-        var LEGACY  = { dedup:false, blend:0.62, dampen:false };
-        var CURRENT = { dedup: CONFIG.dedupSimAcrossLayers,
-                        blend:  CONFIG.fusionRefineBlend,
-                        dampen: CONFIG.conflictDampen };
+        // fusion: LEGACY = v50.36 原样（三项全关 + 无第13信号）；CURRENT = 当前实际生效的 CONFIG
+        // margin: 只开关 useMarginModel，其余参数与当前完全一致（隔离出新增模型的净贡献）
+        var BASE = { dedup: _saved.dedup, blend: _saved.blend, dampen: _saved.dampen, margin: _saved.margin };
+        var LEGACY, CURRENT, labelA, labelB;
+        if (mode === 'margin') {
+            LEGACY  = Object.assign({}, BASE, { margin: false });
+            CURRENT = Object.assign({}, BASE, { margin: true  });
+            labelA  = '关闭完整盘面模型';
+            labelB  = '开启完整盘面模型';
+        } else {
+            LEGACY  = { dedup:false, blend:0.62, dampen:false, margin:false };
+            CURRENT = Object.assign({}, BASE);
+            labelA  = 'v50.36 原版';
+            labelB  = '当前生效口径';
+        }
         var want = Math.max(1, Math.min(Number(sampleN) || 60, n - 16));
         var start = Math.max(16, n - want);
 
@@ -19170,6 +19585,7 @@ function runFusionAB(sampleN, onProgress, onDone) {
             CONFIG.dedupSimAcrossLayers = c.dedup;
             CONFIG.fusionRefineBlend    = c.blend;
             CONFIG.conflictDampen       = c.dampen;
+            CONFIG.useMarginModel       = c.margin;
         }
         function _mkInst() {
             var t = new Predictor();
@@ -19195,7 +19611,7 @@ function runFusionAB(sampleN, onProgress, onDone) {
         }
         var instL = _mkInst(), instN = _mkInst();
         var m = {
-            n:0, disagree:0,
+            n:0, disagree:0, mode:mode, labels:{ a:labelA, b:labelB },
             legacy:  { hit:0, top2:0, brier:0, maxP:0 },
             current: { hit:0, top2:0, brier:0, maxP:0 }
         };
@@ -19266,21 +19682,38 @@ function renderABResult(m, err) {
             '<td style="padding:6px 10px;text-align:right;">' + (o.maxP*100).toFixed(1) + '%</td></tr>';
     }
     var verdict, vcolor;
-    if (dA > 1.5) { verdict = '✅ 当前口径更准（Top1 高 ' + dA.toFixed(1) + ' 个百分点），保持当前设置。'; vcolor = '#1b5e20'; }
-    else if (dA < -1.5) { verdict = '⚠️ v50.36 原版更准（Top1 高 ' + (-dA).toFixed(1) + ' 个百分点）。建议回退，见下方命令。'; vcolor = '#c62828'; }
+    var _isMargin = (m.mode === 'margin');
+    var _silent = (_isMargin && m.disagree === 0);
+    var _subjA = _isMargin ? '关闭完整盘面' : 'v50.36 原版';
+    var _subjB = _isMargin ? '开启完整盘面' : '当前口径';
+    // dA = 当前组(开启 / 当前口径) - 对照组的 Top1 差，正值代表 B 组更准
+    if (dA > 1.5) {
+        verdict = (_isMargin
+            ? '✅ 完整盘面模型在样本内更准（Top1 高 ' + dA.toFixed(1) + ' 个百分点），保持开启。'
+            : '✅ 当前口径更准（Top1 高 ' + dA.toFixed(1) + ' 个百分点），保持当前设置。');
+        vcolor = '#1b5e20';
+    }
+    else if (dA < -1.5) {
+        verdict = (_isMargin
+            ? '⚠️ 完整盘面模型在样本内更差（Top1 低 ' + (-dA).toFixed(1) + ' 个百分点）。建议关掉：CONFIG.useMarginModel=false; renderAll();'
+            : '⚠️ v50.36 原版更准（Top1 高 ' + (-dA).toFixed(1) + ' 个百分点）。建议回退，见下方命令。');
+        vcolor = '#c62828';
+    }
     else {
-        verdict = (dB > 0.002 ? '⚖️ Top1 基本持平，当前口径 Brier 更低（置信度更诚实），保持当前设置。'
-                              : '⚖️ 两者在样本内差异不显著，保持当前设置；样本再多些可复测。');
+        verdict = (dB > 0.002 ? '⚖️ Top1 基本持平，' + _subjB + ' Brier 更低（置信度更诚实），保持当前设置。'
+                              : '⚖️ 两者在样本内差异不显著，保持当前设置；样本再多些可复测（建议 100~200 局）。');
         vcolor = '#856404';
     }
+    if (_silent) verdict += '（两口径预测 0 局不同：第13信号很可能因样本不足处于弃权状态，请到「🧠 学习状态 → 📐 第13信号」确认；先用更多历史再测。）';
     var cmd = 'CONFIG.dedupSimAcrossLayers=false; CONFIG.fusionRefineBlend=0.62; CONFIG.conflictDampen=false; renderAll();';
     box.innerHTML =
         '<div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;font-size:13px;background:#fff;border-radius:8px;">' +
         '<thead><tr style="background:#e8f5e9;"><th style="padding:6px 10px;text-align:left;">口径</th>' +
         '<th style="padding:6px 10px;text-align:right;">Top1</th><th style="padding:6px 10px;text-align:right;">Top2</th>' +
         '<th style="padding:6px 10px;text-align:right;">Brier↓</th><th style="padding:6px 10px;text-align:right;">平均最高概率</th></tr></thead><tbody>' +
-        abRow('v50.36 原版', L, false) + abRow('当前生效口径', N, true) + '</tbody></table></div>' +
-        '<div style="margin-top:8px;">共 <b>' + m.n + '</b> 局，两口径预测不同的有 <b>' + m.disagree + '</b> 局（' +
+        abRow(escHtml(m.labels ? m.labels.a : 'v50.36 原版'), L, false) +
+        abRow(escHtml(m.labels ? m.labels.b : '当前生效口径'), N, true) + '</tbody></table></div>' +
+        '<div style="margin-top:8px;">对照维度：<b>' + escHtml(_isMargin ? '完整盘面模型 开/关' : '新旧融合口径') + '</b>　共 <b>' + m.n + '</b> 局，两口径预测不同的有 <b>' + m.disagree + '</b> 局（' +
         (m.disagree/m.n*100).toFixed(0) + '%）。</div>' +
         '<div style="margin-top:6px;font-weight:700;color:' + vcolor + ';">' + verdict + '</div>' +
         '<div style="margin-top:6px;font-size:11px;color:#777;line-height:1.7;">' +
@@ -19293,8 +19726,10 @@ function startFusionAB() {
     var pr  = document.getElementById('abProgress');
     var box = document.getElementById('abResult');
     var sel = document.getElementById('abSampleN');
+    var modeSel = document.getElementById('abMode');
     if (!btn || btn.disabled) return;
     var want = parseInt(sel ? sel.value : '60', 10) || 60;
+    var mode = modeSel ? modeSel.value : 'fusion';
     btn.disabled = true; btn.textContent = '⏳ 运行中…';
     if (box) box.innerHTML = '正在逐局跑完整预测链，请稍候…';
     runFusionAB(want,
@@ -19303,7 +19738,7 @@ function startFusionAB() {
             if (btn) { btn.disabled = false; btn.textContent = '▶ 开始对照'; }
             if (pr) pr.textContent = m && m.n ? ('完成 · ' + m.n + ' 局') : '';
             renderABResult(m, err);
-        });
+        }, mode);
 }
 
 // ========== 回测Tab（v24性能优化：批量innerHTML渲染，减少DOM操作）==========
@@ -21487,6 +21922,12 @@ document.getElementById('btnAddRecord').addEventListener('click', function(){
         var _dupFromOther = !!(_dupRec && _dupRec._dev && _dupRec._dev !== _entryDeviceId());
         var _baseMsg = 'A：' + a + '分\nB：' + b + '分\nC：' + c + '分\n' +
             (pW ? '获胜商会收益：' + pW : '获胜商会收益：未选') + (iW ? '\n获胜商会投资：' + iW : '');
+        // v50.40: 盘面 24 态软提示——只提醒，不阻止（历史/特殊局由用户自己判断）
+        var _boardHint = '';
+        try {
+            var _bi = boardIssue({a:a, b:b, c:c});
+            if (_bi) _boardHint = '\n\n⚠️ 盘面不符常规：' + _bi + '。\n常规为互不重复的 0/0.5/1/2/3，2 与 3 不同局，且每局必有一个 0 和一个 2/3（共 24 种合法盘面）；若确实如此可照常录入。';
+        } catch(e) {}
         var _syncHint = '';
         try {
             var _ago = cloudLastSync ? (Date.now() - new Date(cloudLastSync).getTime()) / 1000 : null;
@@ -21497,12 +21938,12 @@ document.getElementById('btnAddRecord').addEventListener('click', function(){
         var _cMsg;
         if (_dupFromOther) {
             _cMsg = _baseMsg + '\n\n本地第' + (_dupIdx+1) + '局与本次完全相同，且来自另一台设备。\n\n' +
-                '若那是同一局，请点「取消」并先拉取云端；若同一时段确实又开了一局需要连录，点「仍要录入」会追加一条。' + _syncHint;
+                '若那是同一局，请点「取消」并先拉取云端；若同一时段确实又开了一局需要连录，点「仍要录入」会追加一条。' + _boardHint + _syncHint;
         } else if (_dupIdx >= 0) {
             _cMsg = _baseMsg + '\n\n与本机第' + (_dupIdx+1) + '局完全相同（时段+比分+收益+投资）。\n\n' +
-                '同一时段连录两局相同比分请点「仍要录入」；若只是重复点了，请点「取消」。' + _syncHint;
+                '同一时段连录两局相同比分请点「仍要录入」；若只是重复点了，请点「取消」。' + _boardHint + _syncHint;
         } else {
-            _cMsg = _baseMsg + '\n\n点「确定录入」保存，点「取消」返回修改。' + _syncHint;
+            _cMsg = _baseMsg + _boardHint + '\n\n点「确定录入」保存，点「取消」返回修改。' + _syncHint;
         }
         // 5) 一个页面内确认弹窗：非原生 confirm，不会被浏览器拦截、不会静默吞掉点击
         showRecordConfirm(_cTitle, _cMsg,
