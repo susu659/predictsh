@@ -6,7 +6,7 @@
 <meta name="renderer" content="webkit">
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>导出数据 · 当日快照</title>
+<title>导出数据 · 当日快照 · Excel 增量导入</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI','Segoe UI Emoji',-apple-system,'PingFang SC','Microsoft YaHei','Apple Color Emoji','Noto Color Emoji',sans-serif;
@@ -27,6 +27,8 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
 .btn-export:hover{box-shadow:0 10px 26px rgba(10,132,234,.42);transform:translateY(-2px)}
 .btn-snapshot{background:#ff5722;box-shadow:0 8px 20px rgba(255,87,34,.26)}
 .btn-snapshot:hover{box-shadow:0 10px 26px rgba(255,87,34,.4);transform:translateY(-2px)}
+.btn-import{background:#00a878;box-shadow:0 8px 20px rgba(0,168,120,.26)}
+.btn-import:hover{box-shadow:0 10px 26px rgba(0,168,120,.42);transform:translateY(-2px)}
 .stage{display:none}
 .stage.active{display:block;animation:stageIn .28s ease-out}
 @keyframes stageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -98,6 +100,26 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
 .score-red-dark{background:#b71c1c;color:#fff}.score-red{background:#dc3545;color:#fff}
 .score-green-light{background:#c8e6c9;color:#2e7d32}.score-green-dark{background:#2e7d32;color:#fff}
 .score-white{background:#fff;color:#333;border:1px solid #dee2e6}
+/* ===== Excel 增量导入 / 备份还原 ===== */
+.ib-box{text-align:left;font-size:13px;color:#444;line-height:1.7}
+.ib-file{width:100%;padding:10px;border:1px dashed #b9c2d8;border-radius:9px;background:#f8f9ff;font-size:13px;cursor:pointer}
+.ib-info{margin-top:12px;padding:10px 12px;background:#f5f6f9;border-radius:8px;font-size:12.5px;color:#5b6070;line-height:1.75;white-space:pre-line}
+.ib-info.good{background:#e8f6ee;color:#1e7e4a}
+.ib-info.bad{background:#fdecea;color:#a4281b}
+.ib-detail{margin-top:10px;max-height:260px;overflow:auto;border:1px solid #e6e9f2;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.75;display:none}
+.ib-detail.show{display:block}
+.ib-detail.ok{background:#f6fbf7;border-color:#bfe3c8}
+.ib-detail.bad{background:#fff8f7;border-color:#f3c7c1}
+.ib-seq{font-family:monospace;display:inline-block;min-width:104px;margin:1px 8px 1px 0}
+.ib-new{color:#e67e22;font-weight:700}
+.ib-hit{color:#2e7d32}
+.ib-skip{color:#aaa}
+.ib-note{margin-top:12px;padding:9px 12px;background:#fff8e1;border:1px solid #ffe0a3;border-radius:8px;color:#7a5b00;font-size:12px;line-height:1.7}
+.ib-progress{height:7px;background:#eef0f6;border-radius:99px;overflow:hidden;margin-top:12px;display:none}
+.ib-progress.show{display:block}
+.ib-progress > i{display:block;height:100%;width:0;background:linear-gradient(90deg,#00a878,#4f8cff);transition:width .2s}
+.ib-result{margin-top:10px;font-size:12px;line-height:1.7;color:#5b6070;white-space:pre-line}
+.ib-result.ok{color:#1e7e4a}.ib-result.bad{color:#a4281b}
 /* ===== 轻提示 ===== */
 .toast{position:fixed;top:18px;left:50%;transform:translate(-50%,-16px);z-index:12000;min-width:240px;max-width:88vw;background:#fff;border-radius:12px;padding:13px 18px;box-shadow:0 12px 36px rgba(0,0,0,.24);border-left:5px solid #28a745;opacity:0;pointer-events:none;transition:all .25s;font-size:13px;line-height:1.6}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -166,7 +188,8 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
       <div class="sync-pill" id="syncPill">⏳ 正在同步系统数据…</div>
       <button class="act-btn btn-export" id="btnExport"><span class="ico">↑</span> 导出数据</button>
       <button class="act-btn btn-snapshot" id="btnSnapshot"><span class="ico">◎</span> 当日快照</button>
-      <div class="foot">页面打开时已自动同步并保留数据，此页可直接导出</div>
+      <button class="act-btn btn-import" id="btnImport"><span class="ico">⬇</span> Excel 增量导入</button>
+      <div class="foot">页面打开时已自动同步并保留数据；导入只做增量，每次导入前自动在云端做全量备份，需还原请到主系统「▣ 云端备份与恢复」</div>
     </div>
   </div>
 </div>
@@ -249,6 +272,26 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
   </div>
 </div>
 
+<!-- ========== Excel 增量导入弹窗 ========== -->
+<div class="import-modal-overlay" id="importModal" onclick="if(event.target===this)closeImportModal()">
+  <div class="import-modal" style="max-width:600px">
+    <h3>⬇️ Excel 增量导入</h3>
+    <p class="modal-sub">只做增量：用系统<strong>最后 10 局</strong>的 ABC 连续序列在文件里定位锚点，锚点之后的新局才导入。每次导入前自动创建一份<strong>云端全量备份</strong>（云端仅保留最近 <strong>5 份</strong>，更早的自动清理），并把「谁 / 时间 / 几局到几局 / 共几条」记入云端日志，需还原或单份删除请到主系统「▣ 云端备份与恢复」。</p>
+    <div class="ib-box">
+      <input type="file" class="ib-file" id="importFile" accept=".xlsx,.xls,.csv">
+      <div class="ib-info" id="importParseInfo">请选择 .xlsx / .xls / .csv 文件。兼容多种表头：A/B/C（或商会A/B/C、盐行/宝阁/粮堂），可选「日期」「时间段」「获胜收益」（收益/挣）、「获胜投资」（资金/通宝/本金）等列；日期也支持分组行写法。</div>
+      <div class="ib-detail" id="importAnchorDetail"></div>
+      <div class="ib-note">📦 <b>导入前自动全量备份</b>：把当前全部局数与系统状态整份存到云端（前缀 <code>susubak_</code>）。备份失败则<b>中止导入</b>，绝不先改数据。备份在主系统「▣ 云端备份与恢复」→「susu 导入备份」里列出、<b>单份手动删除</b>或还原；云端自动只保留最近 5 份。还原会精确撤销本页导入的新局，其他设备录入的局保留。</div>
+      <div class="ib-progress" id="importProgress"><i id="importProgressBar"></i></div>
+      <div class="ib-result" id="importResult"></div>
+    </div>
+    <div class="import-modal-actions">
+      <button class="btn-modal-cancel" onclick="closeImportModal()">关闭</button>
+      <button class="btn-modal-confirm" id="importConfirmBtn" onclick="doImport()" disabled style="background:#00a878;color:#fff;">⬇️ 确认增量导入</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -256,7 +299,8 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
  * 独立只读页：导出数据 / 当日快照
  * · 数据来自主系统同一份 localStorage（mm_v190）+ 同一套云端（prediction_data）
  * · 打开页面即后台同步，结果只保留在本页专用缓存，不回写、不改动系统数据
- * · 页面不含主系统界面与任何入口
+ * · 页面不含主系统界面与任何入口；导入前自动创建云端全量备份，还原入口在主系统
+ *   「▣ 云端备份与恢复」→「susu 导入备份」（本页不提供备份/还原界面）
  * ===================================================================== */
 'use strict';
 
@@ -295,6 +339,24 @@ var GUILDS = ['A','B','C'];
 var EXPORT_LOG_KEEP = 100;
 var _logPruneDisabled = false;   // DELETE 不可用或「删了但行还在」时，本次会话不再空转
 var _logPruneRunning  = false;   // 防连点导出时多条裁剪链并发
+/* 导入日志：与导出日志并列的独立 ilog_ 前缀，主系统管理员面板合并显示
+   谁 / 什么时间 / 几局到几局 / 共几条；各保留最近 100 条，互不裁剪 */
+var IMPORT_LOG_PREFIX = 'ilog_';
+var IMPORT_LOG_KEEP   = 100;
+var _impLogPruneDisabled = false;
+var _impLogPruneRunning  = false;
+/* ===== Excel 增量导入 / 云端全量备份（v1.1）===== */
+var IMPORT_ANCHOR_LEN = 10;      // 与主系统 index.html 的 IMPORT_ANCHOR_LEN 一致
+var IMPORT_MIN_ANCHOR = 3;       // 少于 3 局无法安全锚定
+var VALID_VALUES_IMP  = [0, 0.5, 1, 2, 3];   // 与主系统 VALID_VALUES 一致
+var BACKUP_PREFIX     = 'susubak_';           // 独立前缀：不落入系统 backup_/rec_/olog_/elog_ 清理范围
+var BACKUP_KEEP       = 5;                    // 云端仅保留最近 5 份导入备份，导入成功后自动裁剪
+var _bakPruneDisabled = false;                // DELETE 不可用或「删了行还在」时本会话不再空转
+var _bakPruneRunning  = false;                // 防并发裁剪
+var INTERVAL_KEY_IMP  = 'mengmeng_game_interval_minutes';  // 与主系统同一键
+var _impState = { recs:null, align:null, source:'', timeInferred:false, fileName:'',
+                  skipped:0, skippedRows:[], busy:false, lastBackupId:'' };
+
 
 var VIEW = { history: [], predByRid: {}, predByIndex: [], ts: 0, source: '' };
 var _sbClient = null;
@@ -701,6 +763,11 @@ async function syncFromCloud(manual){
       if (document.getElementById('dailySnapshotOverlay').classList.contains('open')){
         renderDailySnapshot();
       }
+      // 后台自动同步后，导入预览必须按最新云端数据重算，避免基于旧锚点导入
+      if (document.getElementById('importModal').classList.contains('open') &&
+          _impState.recs && !_impState.busy){
+        renderImportPreview();
+      }
     }catch(e){}
     if (manual) showToast(true, '同步完成', '已从系统云端拉取最新数据，共 ' + VIEW.history.length + ' 局');
     return true;
@@ -723,6 +790,795 @@ function scheduleAutoPull(){
     syncFromCloud(false);
   }, PULL_INTERVAL_MS);
   updateSyncPill();
+}
+
+
+/* =====================================================================
+ * Excel 增量导入 + 云端全量备份 / 还原   (susu.html v1.1)
+ * ---------------------------------------------------------------------
+ * 规则与主系统 index.html 完全一致：
+ *   · 列名映射 / 值校验 / 日期时间段 / 收益投资清洗 / 无时间列倒推，逐条复刻
+ *   · 增量 = 尾局锚点对齐：系统最后 10 局 ABC 连续序列在文件里定位，锚点之后的
+ *     新局才导入；匹配不上 / 历史不足 3 局一律禁止，绝不「猜着导」
+ *   · 只写云端 rec_ 增量行，不碰 main（管理员权威基线）、不写本机 mm_v190，
+ *     主系统按既有增量协议自动拉到新局
+ *   · 每次导入前先写一份 susubak_ 全量备份；备份失败即中止，数据不会被改动
+ *   · 还原 = 覆盖 main 为备份时完整状态 + 把备份之后本页导入的 rec_ 行墓碑化；
+ *     其他设备在这期间录入的局不带 _susuImport 标记，保留不误删
+ * ===================================================================== */
+
+/* ---------- 基础工具（与主系统同源复刻） ---------- */
+function _impTodayISO(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function _impGameInterval(){
+  try { return localStorage.getItem(INTERVAL_KEY_IMP) === '60' ? 60 : 30; } catch(e){ return 30; }
+}
+function _impParseTimeSlot(str){
+  if (!str || typeof str !== 'string') return null;
+  var m = str.match(/(\d{1,2})月(\d{1,2})日\s*(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (!m) return null;
+  var now = new Date(), sec = m[5] ? parseInt(m[5],10) : 0;
+  var d = new Date(now.getFullYear(), parseInt(m[1],10)-1, parseInt(m[2],10),
+                   parseInt(m[3],10), parseInt(m[4],10), sec);
+  if (d.getTime() - now.getTime() > 300*24*3600*1000) d.setFullYear(d.getFullYear()-1);
+  return d;
+}
+function _impGetTimeSlot(date, align){
+  date = date || new Date();
+  align = (align === undefined) ? true : align;
+  var gi = _impGameInterval();
+  var mo = date.getMonth()+1, da = date.getDate(), hh = date.getHours(), mm = date.getMinutes(), ss = date.getSeconds();
+  var sm = align ? ((gi === 30) ? (mm < 30 ? 0 : 30) : 0) : mm;
+  var sSec = align ? 0 : ss;
+  var end = hh*3600 + sm*60 + sSec + gi*60;
+  var p2 = function(x){ return (x<10?'0':'') + x; };
+  return mo + '月' + da + '日 ' + p2(hh)+':'+p2(sm)+':'+p2(sSec) + '-' +
+         p2(Math.floor(end/3600)%24) + ':' + p2(Math.floor((end%3600)/60)) + ':' + p2(end%60);
+}
+function _impGetTimeSlotHoursAgo(roundsAgo, baseDate){
+  baseDate = baseDate || new Date();
+  var per = (_impGameInterval()*60 + 30) * 1000;
+  return _impGetTimeSlot(new Date(baseDate.getTime() - roundsAgo*per), false);
+}
+function _impGetTimeSlotAfterLast(roundsAfter, hist){
+  var base = new Date();
+  if (hist && hist.length){ var p = _impParseTimeSlot(hist[hist.length-1].timeSlot); if (p) base = p; }
+  var per = (_impGameInterval()*60 + 30) * 1000;
+  return _impGetTimeSlot(new Date(base.getTime() + roundsAfter*per), false);
+}
+function _impExcelSerialToDateStr(serial){
+  if (typeof serial !== 'number' || isNaN(serial) || serial < 1) return '';
+  var d = new Date((serial-25569)*86400*1000);
+  if (isNaN(d.getTime())) return '';
+  return (d.getUTCMonth()+1) + '月' + d.getUTCDate() + '日';
+}
+function _impNormalizeDateStr(val){
+  if (val === null || val === undefined || val === '') return '';
+  if (typeof val === 'number'){ var s1=_impExcelSerialToDateStr(val); if(s1) return s1; }
+  var s = String(val).trim();
+  if (!s) return '';
+  if (/^\d+(\.\d+)?$/.test(s)){ var s2=_impExcelSerialToDateStr(parseFloat(s)); if(s2) return s2; }
+  if (/^\d{1,2}月\d{1,2}日$/.test(s)) return s;
+  var m = s.match(/(\d{1,2})[\-\/\.](\d{1,2})/);
+  if (m){ var mo=parseInt(m[1],10), da=parseInt(m[2],10);
+          if (mo>=1&&mo<=12&&da>=1&&da<=31) return mo+'月'+da+'日'; }
+  return s;
+}
+function _impCombineTimeSlot(d, t){
+  d = (d||'').trim(); t = (t||'').trim();
+  if (d && t) return d + ' ' + t;
+  return d || t || '';
+}
+function _impCleanWinValue(v){
+  if (!v) return '';
+  var s = String(v).trim().replace(/[\uff01-\uff5e]/g, function(ch){ return String.fromCharCode(ch.charCodeAt(0)-0xfee0); }).trim();
+  if (s === '1') return '大';
+  if (s === '2') return '中';
+  if (s === '3') return '小';
+  if (s.indexOf('大') >= 0) return '大';
+  if (s.indexOf('中') >= 0 || s.indexOf('平') >= 0) return '中';
+  if (s.indexOf('小') >= 0) return '小';
+  return '';
+}
+function _impParseCell(c){
+  if (c === null || c === undefined || c === '') return null;
+  if (typeof c === 'number') return Math.round(c*10)/10;
+  if (typeof c === 'string'){
+    var t = c.trim(); if (!t) return null;
+    if (t === '0.5' || t === '.5') return 0.5;
+    var n = Number(t); return isNaN(n) ? null : Math.round(n*10)/10;
+  }
+  return null;
+}
+function _impValidateRecord(r){
+  var e = [], a=r.a, b=r.b, c=r.c;
+  if (VALID_VALUES_IMP.indexOf(a) < 0) e.push('A分数'+a+'无效');
+  if (VALID_VALUES_IMP.indexOf(b) < 0) e.push('B分数'+b+'无效');
+  if (VALID_VALUES_IMP.indexOf(c) < 0) e.push('C分数'+c+'无效');
+  if (a === b) e.push('A和B分数重复');
+  if (a === c) e.push('A和C分数重复');
+  if (b === c) e.push('B和C分数重复');
+  var h2 = (a===2||b===2||c===2), h3 = (a===3||b===3||c===3);
+  if (h2 && h3) e.push('2分和3分不能同时出现');
+  return e;
+}
+function _impDateFromSlot(dStr){
+  if (!dStr) return '';
+  var s = String(dStr).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  var m = s.match(/(\d{1,2})月(\d{1,2})日/);
+  if (!m) return '';
+  var mo=parseInt(m[1],10), da=parseInt(m[2],10), now=new Date(), y=now.getFullYear();
+  if (mo*100+da > (now.getMonth()+1)*100+now.getDate()) y--;
+  return y+'-'+String(mo).padStart(2,'0')+'-'+String(da).padStart(2,'0');
+}
+function _impGenRid(i){
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,7) + '_' + String(i||0);
+}
+function _impDevFingerprint(){
+  try { return localStorage.getItem('mm_entry_dev_v1') || getDevId(); } catch(e){ return getDevId(); }
+}
+
+/* ---------- 尾局锚点对齐（与主系统 alignByTail 逐行一致） ---------- */
+function _impAbcSame(r1, r2){
+  return !!r1 && !!r2 && r1.a === r2.a && r1.b === r2.b && r1.c === r2.c;
+}
+function _impAbcStr(r){ return r ? ('A=' + r.a + ' B=' + r.b + ' C=' + r.c) : '无'; }
+function _impSeqMatchAt(recs, start, tail){
+  for (var k=0;k<tail.length;k++) if (!_impAbcSame(recs[start+k], tail[k])) return false;
+  return true;
+}
+function _impTailEndDiag(newRecs, history){
+  var n = Math.min(newRecs.length, history.length, IMPORT_ANCHOR_LEN), m = 0;
+  for (var i=1;i<=n;i++){
+    if (_impAbcSame(newRecs[newRecs.length-i], history[history.length-i])) m++;
+    else break;
+  }
+  return m;
+}
+function impAlignByTail(newRecs, history){
+  var histLen = history ? history.length : 0;
+  if (histLen === 0) return {matched:false, canIncrement:false, reason:'empty', tailLen:0};
+  var tailLen = Math.min(IMPORT_ANCHOR_LEN, histLen);
+  if (histLen < IMPORT_MIN_ANCHOR) return {matched:false, canIncrement:false, reason:'too-few', tailLen:tailLen};
+  var tail = history.slice(histLen - tailLen);
+  var found = -1;
+  for (var s = newRecs.length - tailLen; s >= 0; s--){
+    if (_impSeqMatchAt(newRecs, s, tail)){ found = s; break; }
+  }
+  if (found < 0) return {matched:false, canIncrement:false, reason:'no-anchor', tailLen:tailLen,
+                          endMatch:_impTailEndDiag(newRecs, history)};
+  var anchorEnd = found + tailLen;
+  return {matched:true, canIncrement:true, reason:'ok', tailLen:tailLen,
+          anchorIndex:found, anchorEnd:anchorEnd, overlapCount:anchorEnd,
+          newRecs:newRecs.slice(anchorEnd)};
+}
+function impReconcileHtml(align, recs){
+  var maxRows = 60, showN = Math.min(recs.length, maxRows), h = '';
+  h += '<div style="font-weight:700;margin:6px 0 4px;">📋 对账表（<span class="ib-new">亮绿=将导入</span>，中绿=锚点对齐，灰=系统已有跳过）</div>';
+  h += '<div style="max-height:180px;overflow:auto;font-family:monospace;font-size:11.5px;line-height:1.7;border:1px solid #e6e9f2;border-radius:6px;">';
+  for (var i=0;i<showN;i++){
+    var r = recs[i], cls;
+    if (i >= align.anchorEnd) cls = 'ib-new';
+    else if (i >= align.anchorIndex) cls = 'ib-hit';
+    else cls = 'ib-skip';
+    h += '<div style="padding:1px 8px;" class="' + cls + '">第' + (i+1) + '行｜' + esc(r.a) + ', ' + esc(r.b) + ', ' + esc(r.c) + '</div>';
+  }
+  if (recs.length > maxRows) h += '<div style="padding:2px 8px;color:#999;">…其余 ' + (recs.length-maxRows) + ' 行略（共' + recs.length + '行）</div>';
+  return h + '</div>';
+}
+
+/* ---------- 数据表 REST（与 authApi 同款，但固定指向数据表配置） ----------
+   注意：authApi 走 SB_URL（授权表，要求 v===2），数据同步走 DATA_SB_URL；
+   导入必须用 DATA_SB_URL，否则旧配置下会把局写进另一个项目。 */
+function dataApi(path, opt){
+  var h = {'apikey':DATA_SB_KEY, 'Authorization':'Bearer ' + DATA_SB_KEY, 'Content-Type':'application/json'};
+  if (opt && opt.prefer) h['Prefer'] = opt.prefer;
+  var q = path + (opt && opt.query ? ((path.indexOf('?')>=0?'&':'?') + String(opt.query).replace(/^\?/,'')) : '');
+  var ctrl = new AbortController();
+  var timer = setTimeout(function(){ try{ ctrl.abort(); }catch(e){} }, 15000);
+  return fetch(DATA_SB_URL + '/rest/v1/' + q, {
+    method: (opt && opt.method) || 'GET', headers: h,
+    body: (opt && opt.body) ? JSON.stringify(opt.body) : undefined,
+    signal: ctrl.signal
+  }).then(function(r){
+    clearTimeout(timer);
+    if (!r.ok) return r.text().then(function(t){ throw new Error('HTTP ' + r.status + ' ' + t); });
+    if (r.status === 204) return null;
+    return r.text().then(function(t){ return t ? JSON.parse(t) : null; });
+  }).catch(function(e){
+    clearTimeout(timer);
+    if (e && e.name === 'AbortError') throw new Error('请求超时，请检查网络');
+    throw e;
+  });
+}
+/* PostgREST upsert：on_conflict=id + Prefer: resolution=merge-duplicates,return=minimal */
+function dataUpsert(rows){
+  return dataApi(TABLE + '?on_conflict=id',
+    {method:'POST', prefer:'resolution=merge-duplicates,return=minimal', body:rows});
+}
+/* 导入/备份/还原专用：必须拿到此刻云端最新数据，不能复用 5 分钟缓存，
+   也不能被后台自动同步的 _cloudPullRunning 节流挡回去（页面刚打开时最容易撞上，
+   旧实现会误报「云端同步失败，已中止」，实际什么都没做）。 */
+async function refreshViewFromCloud(){
+  await ensureDataClient();
+  var cloud = await pullCloud();
+  _lastPullFailed = false;
+  buildView(readLocalStore(), readViewCache(), cloud);
+  return cloud;
+}
+async function ensureDataClient(){
+  if (!window.supabase || !window.supabase.createClient){
+    await new Promise(function(resolve){
+      loadScriptWithFallback([
+        'https://unpkg.com/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.js',
+        'https://registry.npmmirror.com/@supabase/supabase-js@2.45.0/files/dist/umd/supabase.js',
+        './supabase.js'
+      ], function(){ resolve(true); }, function(){ resolve(false); });
+    });
+    if (!window.supabase || !window.supabase.createClient) throw new Error('云端组件未加载，请检查网络后重试');
+  }
+  if (!_sbClient) _sbClient = window.supabase.createClient(DATA_SB_URL, DATA_SB_KEY);
+  return _sbClient;
+}
+
+/* ---------- 文件解析（列名/校验/时间口径与主系统一致） ---------- */
+var XLSX_URLS_IMP = [
+  'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
+  'https://unpkg.com/xlsx-js-style@1.2.0/dist/xlsx.bundle.js',
+  'https://registry.npmmirror.com/xlsx-js-style/1.2.0/files/dist/xlsx.bundle.js',
+  'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  './xlsx.bundle.js'
+];
+function ensureXlsx(){
+  if (window.XLSX && window.XLSX.read && window.XLSX.utils && window.XLSX.utils.sheet_to_json)
+    return Promise.resolve(true);
+  return new Promise(function(resolve){
+    loadScriptWithFallback(XLSX_URLS_IMP,
+      function(){ resolve(!!(window.XLSX && window.XLSX.read)); },
+      function(){ resolve(false); });
+  });
+}
+function _impReadAs(file, how){
+  return new Promise(function(resolve, reject){
+    var fr = new FileReader();
+    fr.onload = function(ev){ resolve(ev.target.result); };
+    fr.onerror = function(){ reject(new Error('文件读取失败')); };
+    if (how === 'text') fr.readAsText(file, 'UTF-8'); else fr.readAsArrayBuffer(file);
+  });
+}
+function _impParseCSVLine(line){
+  var r=[], c='', q=false;
+  for (var i=0;i<line.length;i++){
+    var ch=line[i];
+    if (ch==='"' && line[i+1]==='"'){ c+='"'; i++; }
+    else if (ch==='"') q=!q;
+    else if (ch===',' && !q){ r.push(c.trim()); c=''; }
+    else c+=ch;
+  }
+  r.push(c.trim()); return r;
+}
+/* =====================================================================
+ * v51.0 导入格式兼容层（index.html 与 susu.html 逐行一致）
+ * 解决：不同来源的表头叫法不同（盐行/宝阁/粮堂、资金/通宝/本金…）、
+ *       等级列无表头时按位置推断、日期以「分组行」形式出现时向下填充。
+ * 纯函数，不依赖两端各自的清洗函数；返回值由调用方按自己的口径处理。
+ * ===================================================================== */
+var IMP_ALIASES = {
+  'A':  ['a','商会a','商會a','guilda','guild_a','盐行','盐','甲','甲方','商会1','第一商会'],
+  'B':  ['b','商会b','商會b','guildb','guild_b','宝阁','宝','乙','乙方','商会2','第二商会'],
+  'C':  ['c','商会c','商會c','guildc','guild_c','粮堂','粮','丙','丙方','商会3','第三商会'],
+  'TIME':['时间段','时间','time','timeslot','时段','开奖时间','局时间','时间段(分组)','time_range','开奖时段'],
+  'DATE':['日期','date','年月日','开奖日期','局日期','day','日期(分组)'],
+  'PW': ['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner',
+         '挣','获利','赢利','盈利','收益等级','profit','winner_profit','赢家收益'],
+  'PA': ['a收益','商会a收益','商會a收益','profita','profit_a'],
+  'PB': ['b收益','商会b收益','商會b收益','profitb','profit_b'],
+  'PC': ['c收益','商会c收益','商會c收益','profitc','profit_c'],
+  'IW': ['获胜投资','获胜商会投资','获胜通宝','通宝','投资','winnerinvest','invest_winner',
+         '资金','获胜资金','获胜的资金','本金','本钱','获胜本钱','押注','下注','投入',
+         '获胜投入','投资额','下注额','fund','capital','invest','investment','stake','bet']
+};
+function _impIsScore(v){
+  if (v===null||v===undefined||v==='') return false;
+  var n = (typeof v==='number') ? v : Number(String(v).trim());
+  return [0,0.5,1,2,3].indexOf(Math.round(n*10)/10) >= 0 && !isNaN(n);
+}
+function _impIsGrade(v){
+  if (v===null||v===undefined||v==='') return false;
+  var s=String(v).trim();
+  if (/^[123]$/.test(s)) return true;                 // 大/中/小 的数字编码
+  return s.indexOf('大')>=0 || s.indexOf('中')>=0 || s.indexOf('小')>=0 || s.indexOf('平')>=0;
+}
+/* 表头别名 + 位置兜底：表头没认出 PW/IW 时，从第4列起找「大/中/小」列按顺序补齐 */
+function _impBuildColMap(header, rows, startFrom){
+  var colMap={}, labels={}, H=[];
+  for (var i=0;i<(header||[]).length;i++)
+    H.push(String(header[i]===null||header[i]===undefined?'':header[i]).trim().toLowerCase());
+  Object.keys(IMP_ALIASES).forEach(function(g){
+    IMP_ALIASES[g].forEach(function(n){
+      var idx=H.indexOf(n);
+      if (idx>=0 && colMap[g]===undefined){
+        colMap[g]=idx;
+        labels[g]=String(header[idx]===null||header[idx]===undefined?'':header[idx]).trim();
+      }
+    });
+  });
+  if (colMap.A===undefined){colMap.A=0;labels.A='第1列(位置)';}
+  if (colMap.B===undefined){colMap.B=1;labels.B='第2列(位置)';}
+  if (colMap.C===undefined){colMap.C=2;labels.C='第3列(位置)';}
+  var used={}; Object.keys(colMap).forEach(function(g){ used[colMap[g]]=1; });
+  var lastABC=Math.max(colMap.A,colMap.B,colMap.C), maxCol=0;
+  for (var r=startFrom;r<Math.min(rows.length,startFrom+40);r++)
+    if (rows[r] && rows[r].length>maxCol) maxCol=rows[r].length;
+  var gradeCols=[];
+  for (var ci=lastABC+1;ci<maxCol;ci++){
+    if (used[ci]) continue;
+    var hit=0,tot=0;
+    for (var r2=startFrom;r2<Math.min(rows.length,startFrom+40);r2++){
+      var row=rows[r2]; if (!row||ci>=row.length) continue;
+      var v=row[ci]; if (v===null||v===undefined||String(v).trim()==='') continue;
+      tot++; if (_impIsGrade(v)) hit++;
+    }
+    if (tot>=3 && hit/tot>=0.6){ gradeCols.push(ci); used[ci]=1; }
+  }
+  if (colMap.PW===undefined && gradeCols.length){
+    colMap.PW=gradeCols.shift(); labels.PW='第'+(colMap.PW+1)+'列(推断)';
+  }
+  if (colMap.IW===undefined && gradeCols.length){
+    colMap.IW=gradeCols.shift(); labels.IW='第'+(colMap.IW+1)+'列(推断)';
+  }
+  return {colMap:colMap, labels:labels, extraGradeCols:gradeCols};
+}
+/* 识别日期标记：dd/mm/yyyy、X月X日、YYYY-MM-DD。
+   注意：不认 5 位整数。真实文件第7列混有 46033/46064/46334 等批次号，
+   差值 28~120 天不连续，当成 Excel 日期序列号会把局写成 1月/8月，污染导出与时段效应。
+   Excel 序列号日期只在「日期列」里由各自的 normalizeDateStr 处理，不参与分组扫描。 */
+function _impLooksDate(v){
+  if (v===null||v===undefined||v==='') return '';
+  var s=String(v).trim(); if (!s) return '';
+  var m=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (m){
+    var x=parseInt(m[1],10), y=parseInt(m[2],10), mo, da;
+    if (x>12 && y<=12){ da=x; mo=y; }            // 23/10/2026 → 日/月/年
+    else if (y>12 && x<=12){ da=y; mo=x; }        // 10/23/2026 → 月/日/年
+    else { da=x; mo=y; }                          // 有歧义时按中文习惯日/月
+    if (mo>=1&&mo<=12&&da>=1&&da<=31) return mo+'月'+da+'日';
+  }
+  if (/^\d{1,2}月\d{1,2}日$/.test(s)) return s;
+  var m2=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m2){ var mo2=parseInt(m2[2],10), da2=parseInt(m2[3],10);
+           if (mo2>=1&&mo2<=12&&da2>=1&&da2<=31) return mo2+'月'+da2+'日'; }
+  return '';
+}
+function _impLooksTime(v){
+  if (v===null||v===undefined) return '';
+  var s=String(v).trim();
+  if (/^\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?$/.test(s)) return s;
+  return '';
+}
+/* 扫描「日期/时间段分组行」：非数据行扫全部单元格，数据行只扫未映射列，避免误判分数/等级 */
+function _impScanGroups(rows, colMap, startFrom){
+  var n=rows.length, dateByRow=new Array(n), timeByRow=new Array(n);
+  var curD='', curT='', nd=0, nt=0;
+  var mapped={}; Object.keys(colMap).forEach(function(g){ mapped[colMap[g]]=1; });
+  for (var i=0;i<n;i++){
+    var row=rows[i]||[];
+    var isData = i>=startFrom &&
+      _impIsScore(row[colMap.A]) && _impIsScore(row[colMap.B]) && _impIsScore(row[colMap.C]);
+    for (var ci=0;ci<row.length;ci++){
+      if (isData && mapped[ci]) continue;
+      var d=_impLooksDate(row[ci]); if (d){ if (d!==curD){ curD=d; nd++; } }
+      var t=_impLooksTime(row[ci]); if (t){ if (t!==curT){ curT=t; nt++; } }
+    }
+    dateByRow[i]=curD; timeByRow[i]=curT;
+  }
+  return {dateByRow:dateByRow, timeByRow:timeByRow, dateCount:nd, timeCount:nt};
+}
+
+function _impRowsToRecs(json){
+  var header = json[0] || [];
+  // 首行是否本身就是数据（无表头）：按前三列位置判断，与旧版一致
+  var start = header.some(function(c){ return c !== null && c !== undefined && c !== ''; }) ? 1 : 0;
+  if (start === 1 &&
+      VALID_VALUES_IMP.indexOf(_impParseCell(header[0])) >= 0 &&
+      VALID_VALUES_IMP.indexOf(_impParseCell(header[1])) >= 0 &&
+      VALID_VALUES_IMP.indexOf(_impParseCell(header[2])) >= 0) start = 0;
+  var _built = _impBuildColMap(header, json, start);
+  var colMap = _built.colMap;
+  var hasTimeCol = (colMap.TIME !== undefined);
+  var hasDateCol = (colMap.DATE !== undefined);
+  var hasSeparateCols = hasTimeCol && hasDateCol;
+  var hasProfitCols = (colMap.PW !== undefined) || (colMap.PA !== undefined);
+  var groups = _impScanGroups(json, colMap, start);
+  var recs = [], skipped = 0, skippedRows = [], recRowIdx = [];
+  for (var i=start;i<json.length;i++){
+    var row = json[i];
+    if (!row || row.every(function(c){ return c === null || c === undefined || c === ''; })){
+      skipped++; skippedRows.push(i+1); continue;
+    }
+    var a = _impParseCell(row[colMap.A]), b = _impParseCell(row[colMap.B]), c = _impParseCell(row[colMap.C]);
+    if (![a,b,c].every(function(v){ return VALID_VALUES_IMP.indexOf(v) >= 0; })){
+      skipped++; skippedRows.push(i+1); continue;
+    }
+    if (_impValidateRecord({a:a,b:b,c:c}).length){ skipped++; skippedRows.push(i+1); continue; }
+    var rec = {a:a,b:b,c:c}, slotD = '';
+    if (hasSeparateCols){
+      var dStr = _impNormalizeDateStr(row[colMap.DATE]); slotD = dStr;
+      var tStr = row[colMap.TIME] ? String(row[colMap.TIME]).trim() : '';
+      if (dStr || tStr) rec.timeSlot = _impCombineTimeSlot(dStr, tStr);
+    } else if (hasTimeCol && row[colMap.TIME]){
+      rec.timeSlot = String(row[colMap.TIME]).trim();
+    }
+    if (slotD) rec.date = _impDateFromSlot(slotD);
+    if (hasProfitCols){
+      rec.profitWinner = colMap.PW !== undefined ? _impCleanWinValue(row[colMap.PW]) : '';
+      rec.profitA = colMap.PA !== undefined ? String(row[colMap.PA] || '').trim() : '';
+      rec.profitB = colMap.PB !== undefined ? String(row[colMap.PB] || '').trim() : '';
+      rec.profitC = colMap.PC !== undefined ? String(row[colMap.PC] || '').trim() : '';
+    }
+    // 获胜投资：表头别名（资金/通宝/本金…）或位置推断，不再依赖单一叫法
+    rec.investWinner = colMap.IW !== undefined ? _impCleanWinValue(row[colMap.IW]) : '';
+    recs.push(rec); recRowIdx.push(i);
+  }
+  var timeInferred = (!hasTimeCol && !hasSeparateCols);
+  var groupApplied = 0;
+  if (timeInferred){
+    // 与主系统 v50.24 一致：以本地末局为基准倒推，重复导入时间线不平移
+    var base = new Date();
+    if (VIEW.history && VIEW.history.length){
+      var lt = _impParseTimeSlot(VIEW.history[VIEW.history.length-1].timeSlot);
+      if (lt) base = lt;
+    }
+    for (var ti=0;ti<recs.length;ti++) recs[ti].timeSlot = _impGetTimeSlotHoursAgo(recs.length-1-ti, base);
+    // 文件里若用「日期分组行 / 额外日期列」标了日期，把推算时间线的月日替换成真实日期。
+    // 分组行本身不是合法数据行，不会变成 rec，故导入条数与尾局锚定完全不变。
+    for (var gi=0;gi<recs.length;gi++){
+      var gd = groups.dateByRow[recRowIdx[gi]] || '', gt = groups.timeByRow[recRowIdx[gi]] || '';
+      if (gd){
+        recs[gi].timeSlot = String(recs[gi].timeSlot).replace(/^\d{1,2}月\d{1,2}日/, gd);
+        if (gt) recs[gi].timeSlot = gd + ' ' + gt;
+        recs[gi].date = _impDateFromSlot(gd);
+        groupApplied++;
+      }
+    }
+  }
+  var diag = {
+    A:_built.labels.A||'', B:_built.labels.B||'', C:_built.labels.C||'',
+    PW:_built.labels.PW||'（无）', IW:_built.labels.IW||'（无）',
+    extra:_built.extraGradeCols.map(function(x){ return '第'+(x+1)+'列'; }).join('、'),
+    groupDateApplied:groupApplied, groupDateCount:groups.dateCount,
+    groupTimeCount:groups.timeCount
+  };
+  try { window.__impLastDiag = diag; } catch(e) {}
+  return {recs:recs, skipped:skipped, skippedRows:skippedRows,
+          timeInferred:timeInferred, colDiag:diag};
+}
+
+async function parseImportFile(file){
+  if (!file) throw new Error('请先选择文件');
+  var name = String(file.name || '').toLowerCase();
+  var isCsv = /\.csv$/i.test(name) || (file.type && String(file.type).indexOf('csv') >= 0);
+  var json;
+  if (isCsv){
+    var txt = await _impReadAs(file, 'text');
+    txt = txt.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    var lines = txt.split('\n').filter(function(l){ return l.trim() !== ''; });
+    if (lines.length < 2) throw new Error('CSV 至少需要表头 + 1 行数据');
+    json = lines.map(_impParseCSVLine);
+  } else {
+    var ok = await ensureXlsx();
+    if (!ok) throw new Error('Excel 组件未加载成功，请检查网络后重试，或改用同内容的 .csv 文件');
+    var buf = await _impReadAs(file, 'array');
+    var XLSX = window.XLSX;
+    var wb = XLSX.read(new Uint8Array(buf), {type:'array'});
+    if (!wb || !wb.SheetNames || !wb.SheetNames.length) throw new Error('Excel 里没有工作表');
+    json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:null});
+  }
+  var out = _impRowsToRecs(json || []);
+  if (!out.recs.length) throw new Error('文件里没有有效数据（已剔除 ' + out.skipped + ' 行空白/非法行）');
+  out.source = isCsv ? 'csv' : 'excel';
+  out.fileName = file.name || '';
+  return out;
+}
+
+/* ---------- 云端全量备份 / 还原 ---------- */
+function _impStamp(){
+  var d = new Date(), p2=function(x){ return (x<10?'0':'')+x; };
+  return '' + d.getFullYear() + p2(d.getMonth()+1) + p2(d.getDate()) + '_' +
+         p2(d.getHours()) + p2(d.getMinutes()) + p2(d.getSeconds());
+}
+async function createFullBackup(reason, extra){
+  var cloud = await refreshViewFromCloud();            // main + 全部 rec_ 行，并刷新 VIEW
+  var hist = VIEW.history.slice();
+  var main = cloud.main || null, mainRest = {};
+  if (main && typeof main === 'object'){
+    for (var k in main){
+      if (Object.prototype.hasOwnProperty.call(main,k) && k !== 'history' && k !== 'predHistory')
+        mainRest[k] = main[k];
+    }
+  }
+  var recIds = [], susuRids = [];
+  (cloud.rows || []).forEach(function(row){
+    var id = String(row.id || '');
+    if (id.indexOf('rec_') !== 0) return;
+    recIds.push(id);
+    var d = row.data;
+    if (d && d.r && d.r._susuImport) susuRids.push(id);
+  });
+  var id = BACKUP_PREFIX + _impStamp() + '_' + Math.random().toString(36).slice(2,7);
+  var payload = {
+    _kind:'susu_full_backup', _v:1,
+    time:new Date().toISOString(), reason:reason || '',
+    device:getDevName() || '未命名设备', devId:getDevId(),
+    count:hist.length, _count:hist.length,
+    history:hist,
+    predHistory:(main && Array.isArray(main.predHistory)) ? main.predHistory : [],
+    mainRest:mainRest, recIds:recIds, susuRids:susuRids,
+    importInfo:extra || null
+  };
+  await dataUpsert([{id:id, data:payload}]);
+  return {id:id, count:hist.length, payload:payload};
+}
+async function listBackups(){
+  await ensureDataClient();
+  var rows = await dataApi(TABLE +
+    '?select=id,data,updated_at&id=gte.' + BACKUP_PREFIX +
+    '&id=lt.' + BACKUP_PREFIX.slice(0,-1) + '~&order=updated_at.desc&limit=200');
+  return (rows || []).filter(function(r){ return r && r.id && r.data && r.data._kind === 'susu_full_backup'; });
+}
+/* 导入备份只保留最近 5 份：每次导入写完备份后旁路调用。
+   · 用 dataApi（与 createFullBackup 同一数据表配置），按 updated_at 倒序，删第 6 份起
+   · keepId = 本次刚创建的备份，绝不删自己
+   · DELETE 被 RLS 静默拦截（返回成功但行还在）时复查一次即停用，不空转
+   · 全程旁路：任何异常都不抛出、不阻塞导入、不改导入结果 */
+async function pruneSusuBackups(keepId){
+  if (_bakPruneDisabled || _bakPruneRunning) return;
+  _bakPruneRunning = true;
+  try{
+    var rows = await dataApi(TABLE +
+      '?select=id,updated_at&id=gte.' + BACKUP_PREFIX +
+      '&id=lt.' + BACKUP_PREFIX.slice(0,-1) + '~&order=updated_at.desc&limit=200');
+    var all = (rows || []).filter(function(r){
+      return r && /^susubak_[A-Za-z0-9_]+$/.test(String(r.id || ''));
+    });
+    all.sort(function(a, b){
+      var ta = String(a.updated_at || ''), tb = String(b.updated_at || '');
+      if (ta !== tb) return tb > ta ? 1 : -1;
+      return String(b.id).localeCompare(String(a.id));   // 同一时间戳时按 id 倒序兜底
+    });
+    var old = all.slice(BACKUP_KEEP).map(function(r){ return String(r.id); })
+                 .filter(function(id){ return id !== keepId; });
+    if (!old.length) return;
+    for (var i = 0; i < old.length; i += 50){
+      await dataApi(TABLE + '?id=in.(' + old.slice(i, i+50).join(',') + ')', {method:'DELETE'});
+    }
+    // 复查一批：RLS 静默不生效就停用本会话，避免每次导入白发一批请求
+    var left = await dataApi(TABLE + '?select=id&id=in.(' + old.slice(0, 50).join(',') + ')');
+    if (Array.isArray(left) && left.length) _bakPruneDisabled = true;
+  }catch(e){
+    _bakPruneDisabled = true;
+    try{ console.warn('[导入备份] 自动裁剪失败（不影响导入）：', e && e.message ? e.message : e); }catch(_){}
+  }finally{ _bakPruneRunning = false; }
+}
+/* ---------- 导入弹窗 UI ---------- */
+function _impSetInfo(text, cls){
+  var el = document.getElementById('importParseInfo');
+  el.className = 'ib-info' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+}
+function _impSetProgress(text, pct){
+  var box = document.getElementById('importProgress'), bar = document.getElementById('importProgressBar');
+  box.classList.add('show');
+  bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  var res = document.getElementById('importResult');
+  if (text){ res.className = 'ib-result'; res.textContent = text; }
+}
+function openImportModal(){
+  _impState.recs = null; _impState.align = null;
+  _impState.busy = false; _impState.lastBackupId = '';
+  var f = document.getElementById('importFile'); if (f) f.value = '';
+  _impSetInfo('请选择 .xlsx / .xls / .csv 文件。兼容多种表头：A/B/C（或商会A/B/C、盐行/宝阁/粮堂），可选「日期」「时间段」「获胜收益」（收益/挣）、「获胜投资」（资金/通宝/本金）等列；日期也支持分组行写法。', '');
+  var d = document.getElementById('importAnchorDetail');
+  d.className = 'ib-detail'; d.innerHTML = '';
+  var res = document.getElementById('importResult');
+  res.className = 'ib-result'; res.textContent = '';
+  document.getElementById('importProgress').classList.remove('show');
+  document.getElementById('importProgressBar').style.width = '0%';
+  document.getElementById('importConfirmBtn').disabled = true;
+  document.getElementById('importModal').classList.add('open');
+}
+function closeImportModal(){
+  if (_impState.busy) { showToast(false, '正在导入', '请等待本次导入结束，避免写入一半的数据'); return; }
+  document.getElementById('importModal').classList.remove('open');
+}
+async function onImportFileChange(ev){
+  var file = ev.target && ev.target.files && ev.target.files[0];
+  if (!file) return;
+  _impState.busy = true;
+  document.getElementById('importConfirmBtn').disabled = true;
+  _impSetInfo('⏳ 正在拉取系统最新数据并解析文件…', '');
+  var d = document.getElementById('importAnchorDetail');
+  d.className = 'ib-detail'; d.innerHTML = '';
+  try{
+    // 预览必须基于云端最新，不能用 5 分钟前的缓存
+    await refreshViewFromCloud();
+    var out = await parseImportFile(file);
+    _impState.recs = out.recs; _impState.source = out.source;
+    _impState.timeInferred = out.timeInferred; _impState.fileName = out.fileName;
+    _impState.skipped = out.skipped; _impState.skippedRows = out.skippedRows;
+    renderImportPreview();
+  }catch(e){
+    _impSetInfo('❌ ' + (e && e.message ? e.message : String(e)), 'bad');
+    document.getElementById('importConfirmBtn').disabled = true;
+  }finally{ _impState.busy = false; }
+}
+function renderImportPreview(){
+  var recs = _impState.recs, hist = VIEW.history;
+  if (!recs) return;
+  // 后台 5 分钟自动同步会按最新云端数据重算预览，始终只用系统最后 10 局自动锚定
+  var align = impAlignByTail(recs, hist);
+  _impState.align = align;
+  var d = document.getElementById('importAnchorDetail');
+  var head = '文件：' + _impState.fileName + '（' + (_impState.source === 'csv' ? 'CSV' : 'Excel') + '）· 有效 ' + recs.length + ' 条' +
+             (_impState.skipped ? '，已剔除 ' + _impState.skipped + ' 行空白/非法数据' : '') +
+             ' · 当前系统 ' + hist.length + ' 局';
+  if (_impState.timeInferred) head += '\n⚠️ 文件没有日期/时间列：新增局的时间按系统末局顺延推算（与系统导入口径一致），非真实开奖时间。';
+  var _cd = (typeof window !== 'undefined' && window.__impLastDiag) || _impState.colDiag;
+  if (_cd){
+    head += '\n🧩 列识别：A/B/C ← ' + esc(_cd.A) + '/' + esc(_cd.B) + '/' + esc(_cd.C) +
+            '；获胜收益 ← ' + esc(_cd.PW) + '；获胜投资 ← ' + esc(_cd.IW);
+    if (_cd.extra) head += '；另有未映射等级列 ' + esc(_cd.extra) + '（系统无对应字段，已忽略）';
+    if (_cd.groupDateApplied) head += '\n📅 已按文件内 ' + _cd.groupDateCount +
+            ' 个日期分组，还原 ' + _cd.groupDateApplied + ' 局的日期（时间仍为推算）';
+  }
+  if (!align.matched){
+    var why = '';
+    if (align.reason === 'empty') why = '系统当前没有任何数据，无法做尾局锚定。请到主系统先建库。';
+    else if (align.reason === 'too-few') why = '系统只有 ' + hist.length + ' 局（不足 ' + IMPORT_MIN_ANCHOR + ' 局），无法安全锚定。';
+    else {
+      why = '未在文件中找到与系统最后 ' + align.tailLen + ' 局 ABC 完全一致的连续记录，已禁止增量导入。';
+      if (align.endMatch > 0) why += '\n诊断：文件末尾与系统末尾只有 ' + align.endMatch + ' 局连续一致（需要 ' + align.tailLen + ' 局）。';
+      why += '\n文件末局：' + _impAbcStr(recs[recs.length-1]) + '　系统末局：' + _impAbcStr(hist[hist.length-1]);
+    }
+    _impSetInfo(head + '\n\n❌ ' + why, 'bad');
+    d.className = 'ib-detail show bad';
+    d.innerHTML = '<b>⛔ 增量校验未通过，数据不会被改动</b><br>' + esc(why).replace(/\n/g,'<br>') +
+      '<br><br>常见原因：选错文件 / 文件缺少最近几局 / 行顺序被打乱。本页只按系统最后 10 局自动锚定，不提供覆盖导入；请改用包含最近几局的完整文件重新选择。';
+    document.getElementById('importConfirmBtn').disabled = true;
+    return;
+  }
+  var nNew = align.newRecs.length;
+  var rowsDesc = '文件第 ' + (align.anchorIndex+1) + '–' + align.anchorEnd + ' 行';
+  var tailTxt = '✅ 已匹配系统最后 ' + align.tailLen + ' 局（' + rowsDesc + '）与文件完全一致' +
+    '；其后 ' + nNew + ' 局为新增，将只导入这 ' + nNew + ' 局。';
+  if (!nNew) tailTxt += '\n文件没有比系统更新的局，无需导入。';
+  _impSetInfo(head + '\n\n' + tailTxt, nNew ? 'good' : '');
+  var html = '<b>🔗 尾局锚点：系统最后 ' + align.tailLen + ' 局 = ' + rowsDesc + '</b><br>';
+  var tail = hist.slice(hist.length - align.tailLen);
+  for (var ti=0;ti<tail.length;ti++){
+    html += '<span class="ib-seq">' + (ti+1) + '. ' + esc(tail[ti].a) + ', ' + esc(tail[ti].b) + ', ' + esc(tail[ti].c) + '</span>' +
+            '<span class="ib-hit">第' + (align.anchorIndex+ti+1) + '行 ✓</span><br>';
+  }
+  if (nNew){
+    html += '<div class="ib-new" style="margin-top:6px;">➡️ 将新增 ' + nNew + ' 局：</div>';
+    for (var ni=0;ni<Math.min(nNew,20);ni++){
+      var nr = align.newRecs[ni];
+      html += '<span class="ib-seq ib-new">· ' + esc(nr.a) + ', ' + esc(nr.b) + ', ' + esc(nr.c) + '</span>';
+    }
+    if (nNew > 20) html += '<span class="ib-new">…还有 ' + (nNew-20) + ' 局</span>';
+  }
+  html += impReconcileHtml(align, recs);
+  d.className = 'ib-detail show ok';
+  d.innerHTML = html;
+  document.getElementById('importConfirmBtn').disabled = (nNew === 0);
+}
+function _impBuildRows(addRecs, hist){
+  var batchId = 'si_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6);
+  var maxSeq = 0;
+  (hist || []).forEach(function(r){
+    var v = r && r._insSeq;
+    if (typeof v === 'number' && isFinite(v) && v > maxSeq) maxSeq = v;
+  });
+  var dev = _impDevFingerprint(), now = Date.now();
+  return addRecs.map(function(r, i){
+    var rid = _impGenRid(i);
+    var rec = {
+      a:r.a, b:r.b, c:r.c,
+      timeSlot:r.timeSlot || '', date:r.date || _impTodayISO(),
+      profitWinner:r.profitWinner || '',
+      profitA:r.profitA || '', profitB:r.profitB || '', profitC:r.profitC || '',
+      investWinner:r.investWinner || '',
+      _rid:rid, _insSeq:maxSeq + i + 1, _dev:dev, _ua:now + i,
+      _susuImport:1, _susuBatch:batchId
+    };
+    return {id:'rec_' + rid, data:{r:rec}};
+  });
+}
+async function doImport(){
+  if (_impState.busy) return;
+  if (!_impState.recs || !_impState.align || !_impState.align.matched) return;
+  _impState.busy = true;
+  var btn = document.getElementById('importConfirmBtn');
+  btn.disabled = true;
+  var res = document.getElementById('importResult');
+  try{
+    _impSetProgress('① 正在拉取系统最新数据，重新核对锚点…', 5);
+    await refreshViewFromCloud();
+    var recs = _impState.recs, hist = VIEW.history;
+    var align = impAlignByTail(recs, hist);
+    if (!align.matched) throw new Error('系统数据在预览后发生变化，尾局锚点不再匹配，已中止（数据未改动）。请重新选择文件。');
+    var addRecs = align.newRecs.slice();
+    if (_impState.timeInferred){
+      addRecs = addRecs.map(function(r, i){
+        return Object.assign({}, r, {timeSlot:_impGetTimeSlotAfterLast(i+1, hist)});
+      });
+    }
+    if (!addRecs.length) throw new Error('系统已有全部数据，无需导入（数据未改动）');
+    _impSetProgress('② 正在创建云端全量备份…', 25);
+    var _before = hist.length, _added = addRecs.length, _after = _before + _added;
+    var bak = await createFullBackup('Excel 增量导入前自动备份', {
+      file:_impState.fileName, source:_impState.source, added:_added,
+      before:_before, after:_after,
+      anchorTail:align.tailLen, anchorRow:align.anchorIndex+1,
+      skipped:_impState.skipped, timeInferred:_impState.timeInferred
+    });
+    _impState.lastBackupId = bak.id;
+    // 旁路裁剪：云端只保留最近 5 份导入备份，绝不删本次刚建的这份
+    try { pruneSusuBackups(bak.id); } catch(_) {}
+    _impSetProgress('③ 已备份 ' + bak.count + ' 局，正在写入 ' + addRecs.length + ' 条新局…', 45);
+    var rows = _impBuildRows(addRecs, hist);
+    for (var i=0;i<rows.length;i+=50){
+      await dataUpsert(rows.slice(i, i+50));
+      _impSetProgress('③ 正在写入新局 ' + Math.min(i+50, rows.length) + '/' + rows.length + '…',
+                      45 + Math.round(45 * Math.min(i+50, rows.length) / rows.length));
+    }
+    _impSetProgress('④ 正在刷新本页数据…', 94);
+    await refreshViewFromCloud();
+    document.getElementById('importProgressBar').style.width = '100%';
+    res.className = 'ib-result ok';
+    res.textContent = '✅ 已增量导入 ' + _added + ' 局，当前共 ' + VIEW.history.length + ' 局。\n' +
+      '📝 已记入日志：' + _before + ' 局 → ' + _after + ' 局，共 ' + _added + ' 条（管理员面板可查谁 / 时间）。\n' +
+      '📦 全量备份：' + bak.id + '（备份时 ' + bak.count + ' 局）\n' +
+      '云端导入备份只保留最近 5 份，更早的已自动清理；如需单份删除或撤销，到主系统「▣ 云端备份与恢复」→「susu 导入备份」。';
+    // 旁路写云端导入日志：失败绝不影响已完成的导入，也不阻塞结果展示
+    try {
+      writeImportLog({
+        type:'import', ok:true, action:'Excel 增量导入',
+        before:_before, after:_after, cloudAfter:VIEW.history.length, count:_added,
+        file:_impState.fileName, format:(_impState.source === 'csv' ? 'CSV' : 'Excel'),
+        anchorTail:align.tailLen, anchorRow:align.anchorIndex+1,
+        skipped:_impState.skipped, timeInferred:_impState.timeInferred,
+        backupId:bak.id
+      });
+    } catch(_) {}
+    _impSetInfo('✅ 导入完成 · 只新增了锚点之后的 ' + _added + ' 局 · 备份与日志已写入', 'good');
+    var f = document.getElementById('importFile'); if (f) f.value = '';
+    _impState.align = null; _impState.recs = null;
+    var d = document.getElementById('importAnchorDetail'); d.className = 'ib-detail'; d.innerHTML = '';
+  }catch(e){
+    var msg = (e && e.message) ? e.message : String(e);
+    res.className = 'ib-result bad';
+    res.textContent = '❌ 导入中止：' + msg + '\n' +
+      (_impState.lastBackupId
+        ? '⚠️ 备份 ' + _impState.lastBackupId + ' 已创建，但写入可能只完成了一部分。请先到主系统「▣ 云端备份与恢复」还原这份备份，再重新导入。'
+        : '数据未被改动。');
+    _impSetInfo('❌ ' + msg, 'bad');
+    try {
+      writeImportLog({
+        type:'import', ok:false, action:'Excel 增量导入（中止）',
+        before:VIEW.history.length, after:VIEW.history.length, count:0,
+        file:_impState.fileName, format:(_impState.source === 'csv' ? 'CSV' : 'Excel'),
+        backupId:_impState.lastBackupId || '', error:msg
+      });
+    } catch(_) {}
+  }finally{
+    _impState.busy = false;
+    btn.disabled = true;
+  }
 }
 
 /* ---------------- 提示 ---------------- */
@@ -1005,7 +1861,9 @@ function guardAction(kind){
       : '尚未读取到系统数据，请确认网络后刷新页面重试');
     return;
   }
-  if (kind === 'snapshot') openDailySnapshot(); else openExportModal();
+  if (kind === 'import') openImportModal();
+  else if (kind === 'snapshot') openDailySnapshot();
+  else openExportModal();
 }
 document.getElementById('pwdInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') onPwdOk(); });
 document.getElementById('nameInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') onNameOk(); });
@@ -1016,9 +1874,11 @@ document.getElementById('waitEdit').addEventListener('click', onWaitEdit);
 document.getElementById('waitReapply').addEventListener('click', reapply);
 document.getElementById('btnExport').addEventListener('click', function(){ guardAction('export'); });
 document.getElementById('btnSnapshot').addEventListener('click', function(){ guardAction('snapshot'); });
+document.getElementById('btnImport').addEventListener('click', function(){ guardAction('import'); });
+document.getElementById('importFile').addEventListener('change', onImportFileChange);
 document.addEventListener('keydown', function(e){
   if (e.key !== 'Escape') return;
-  closeExportModal(); closeDailySnapshot();
+  closeExportModal(); closeDailySnapshot(); closeImportModal();
 });
 (function initGate(){
   var sessionOk = false;
@@ -1246,6 +2106,62 @@ function writeExportLog(info, cols, fmtName, fname, fallback){
       return true;
     }).catch(function(e){
       try{ console.warn('[导出日志] 上报失败（不影响导出）：', e && e.message ? e.message : e); }catch(_){}
+      return null;
+    });
+  }catch(e){ return Promise.resolve(null); }
+}
+
+/* ---------------- 导入日志上报（旁路：写失败绝不影响导入） ----------------
+ * 与导出日志 elog_ 并列的 ilog_ 独立前缀；主系统管理员面板「导出 / 导入记录」读取。
+ * 用 authApi（与授权表同一套云配置），与主系统 api() 同源，保证管理员一定读得到。
+ * 每条记录含：谁（设备备注 + 设备号）、什么时间、几局到几局、共几条、文件、备份 ID。
+ * 只保留最近 100 条；DELETE 不可用 / 删了仍在时静默停用，不空转、不误报。 */
+function pruneImportLogs(round, prevKey){
+  round = round || 0;
+  if (_impLogPruneDisabled || _impLogPruneRunning || round > 20) return Promise.resolve(null);
+  _impLogPruneRunning = true;
+  var q = TABLE + '?select=id&id=gte.ilog_&id=lt.ilog~&order=id.desc&limit=200&offset=' + IMPORT_LOG_KEEP;
+  var failed = false;
+  return authApi(q).then(function(rows){
+    var ids = (rows || []).map(function(r){ return String((r && r.id) || ''); })
+                          .filter(function(x){ return /^ilog_[A-Za-z0-9_]+$/.test(x); });
+    if (!ids.length) return null;
+    var key = ids.join('|');
+    if (prevKey && key === prevKey){ _impLogPruneDisabled = true; return null; }
+    var chain = Promise.resolve();
+    for (var i=0; i<ids.length; i+=50){
+      (function(batch){
+        chain = chain.then(function(){
+          if (failed) return null;
+          return authApi(TABLE + '?id=in.(' + batch.join(',') + ')', {method:'DELETE'})
+            .catch(function(){ failed = true; _impLogPruneDisabled = true; return null; });
+        });
+      })(ids.slice(i, i+50));
+    }
+    return chain.then(function(){ return failed ? null : key; });
+  }).catch(function(e){
+    try{ console.warn('[导入日志] 清理旧日志失败（不影响导入）：', e && e.message ? e.message : e); }catch(_){}
+    _impLogPruneDisabled = true;
+    return null;
+  }).then(function(nextKey){
+    _impLogPruneRunning = false;
+    return nextKey ? pruneImportLogs(round+1, nextKey) : null;
+  });
+}
+function writeImportLog(info){
+  try{
+    var now = new Date().toISOString();
+    var id = IMPORT_LOG_PREFIX + ('0000000000000' + Date.now()).slice(-13) + '_' + Math.random().toString(36).slice(2,10);
+    var d = Object.assign({
+      time:now, source:'susu.html',
+      device:getDevName() || '未命名设备', devId:getDevId()
+    }, info || {});
+    var body = { id:id, data:d, updated_at:now };
+    return authApi(TABLE, {method:'POST', body:body}).then(function(){
+      try{ pruneImportLogs(); }catch(_){}
+      return true;
+    }).catch(function(e){
+      try{ console.warn('[导入日志] 上报失败（不影响导入）：', e && e.message ? e.message : e); }catch(_){}
       return null;
     });
   }catch(e){ return Promise.resolve(null); }
