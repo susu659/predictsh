@@ -14,7 +14,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v50.41（实际 24 态 · 没1优先 · 代际隔离）</title>
+<title>商会三竞预测系统 v51.1（24 态盘面 · 四盘融合 · Excel 增量导入 · 备份与日志 · 还原防竞态）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -880,13 +880,13 @@ a .ico,.tab-btn .ico{margin-right:.3em}
         </div>
         <div id="adminAuthorizedList" style="text-align:left;max-height:200px;overflow-y:auto;"></div>
         <button id="adminRefreshBtn" style="margin-top:15px;"><span class="ico" aria-hidden="true" style="background-color:#2196F3">↻</span> 刷新列表</button>
-        <!-- 导出日志：导出日志（记录 susu.html 每次导出的人员 / 时间 / 内容） -->
+        <!-- 导出 / 导入日志：susu.html 每次导出写 elog_，每次导入/还原写 ilog_ -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin:18px 0 8px;gap:8px;">
-          <h3 style="text-align:left;color:#302b63;margin:0;white-space:nowrap;">📤 导出日志</h3>
-          <button id="adminExportLogBtn" style="width:auto;background:#5b4bb7;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">查看导出记录</button>
+          <h3 style="text-align:left;color:#302b63;margin:0;white-space:nowrap;">📤 导出 / ⬇️ 导入日志</h3>
+          <button id="adminExportLogBtn" style="width:auto;background:#5b4bb7;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;white-space:nowrap;">查看导出 / 导入记录</button>
         </div>
         <div id="adminExportLogArea" style="display:none;text-align:left;">
-          <div style="font-size:11px;color:#888;margin-bottom:6px;">谁 · 什么时间 · 导出了什么数据（只保留最近 100 条）</div>
+          <div style="font-size:11px;color:#888;margin-bottom:6px;">谁 · 什么时间 · 导出/导入了什么（导入含几局到几局、共几条）· 各保留最近 100 条</div>
           <div id="adminExportLogList" style="max-height:280px;overflow-y:auto;border:1px solid #eee;border-radius:8px;background:#fafafe;"></div>
           <div style="display:flex;gap:8px;margin-top:8px;">
             <button id="adminExportLogRefreshBtn" style="flex:1;width:auto;background:#2196F3;color:#fff;border:none;padding:7px 0;border-radius:6px;cursor:pointer;font-size:12px;">↻ 刷新日志</button>
@@ -904,12 +904,12 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v50.41</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v51.1</span></h1>
 <p class="subtitle"><span>四盘协同 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v50.41 完整版）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v51.1 完整版）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
-<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v50.41 之前的累计修复）</summary>
+<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v51.1 之前的累计修复）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
 </details>
 </header>
@@ -1099,7 +1099,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <input type="file" id="excelInput" accept=".xlsx,.xls,.csv">
 <span id="learningIndicator"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习中...</span>
 </div>
-<div class="excel-tip"><span class="ico" aria-hidden="true" style="background-color:#F9A825">✦</span> Excel格式：列名含A/商会A、B/商会B、C/商会C（值0/0.5/1/2/3）；可选"日期"列（如"8月25日"）+"时间"列（如"15:00-16:00"或"15:00-15:30"），或合并的"时间段"列；<strong>收益列支持：获胜的商会收益、A收益、B收益、C收益（值大/中/小）；投资列支持：获胜投资（值大/中/小）</strong>；无时间列时自动按导入时间往前推算（按当前局间隔：半小时/一小时）；导入时可选择增量/追加/覆盖三种模式</div>
+<div class="excel-tip"><span class="ico" aria-hidden="true" style="background-color:#F9A825">✦</span> Excel格式：列名含A/商会A、B/商会B、C/商会C（值0/0.5/1/2/3）；可选"日期"列（如"8月25日"）+"时间"列（如"15:00-16:00"或"15:00-15:30"），或合并的"时间段"列；<strong>收益列支持：获胜的商会收益、A收益、B收益、C收益（值大/中/小）；投资列支持：获胜投资 / 资金 / 通宝 / 本金（值大/中/小）；商会列也支持盐行/宝阁/粮堂；日期支持分组行写法</strong>；无时间列时自动按导入时间往前推算（按当前局间隔：半小时/一小时）；导入时可选择增量/追加/覆盖三种模式</div>
 <div id="importStatus" class="import-status"></div>
 </div>
 <div class="prediction-section">
@@ -1456,6 +1456,27 @@ create policy "ac update" on access_control for update using (true);</textarea><
 <tr><td colspan="3" style="padding:16px;color:#999;">加载中...</td></tr>
 </tbody>
 </table>
+</div>
+<!-- ========== susu.html Excel 增量导入备份（每次导入前自动创建） ========== -->
+<div id="susuBakArea" style="margin-top:18px;padding:12px 14px;background:#f3f8ff;border-left:4px solid #0a84ea;border-radius:0 8px 8px 0;text-align:left;">
+<div style="font-weight:700;font-size:14px;color:#0a5bb5;margin-bottom:6px;"><span class="ico" aria-hidden="true" style="background-color:#0a84ea">⬇</span> susu 导入备份（每次 Excel 增量导入前自动创建）</div>
+<div style="font-size:12px;color:#5b6070;line-height:1.75;margin-bottom:10px;">
+独立前缀 <code>susubak_</code>，<b>不参与</b>上方「清理旧备份」（上方只保留最近 4 份）。云端<b>只保留最近 5 份</b>导入备份，每次导入后自动清理更早的，打开本面板再兜底裁一次；每行也都可<b>单份手动删除</b>。还原会撤销该备份之后 <b>susu.html 导入</b>的新局；其他设备在这期间录入的局<b>保留</b>。本区沿用本面板的管理员密码校验。
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+<button onclick="loadSusuBakList()" style="background:#2196F3;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;">↻ 刷新列表</button>
+<button onclick="cleanupSusuBak()" style="background:#e65100;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;">🧹 清理旧备份(保留最近<span id="susuBakKeepCount">5</span>份)</button>
+</div>
+<p id="susuBakStatusMsg" style="font-size:12px;line-height:1.7;margin:0 0 10px;min-height:16px;white-space:pre-line;"></p>
+<div style="max-height:260px;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #d6e4f7;border-radius:6px;background:#fff;">
+<table class="pred-history-table" style="font-size:12px;">
+<thead><tr><th style="padding:6px;">备份时间 / 来源</th><th style="padding:6px;">局数</th><th style="padding:6px;">操作</th></tr></thead>
+<tbody id="susuBakListBody">
+<tr><td colspan="3" style="padding:14px;color:#999;">验证通过后加载…</td></tr>
+</tbody>
+</table>
+</div>
+<p id="susuBakStatusFoot" style="font-size:12px;line-height:1.7;margin:10px 0 0;min-height:16px;white-space:pre-line;color:#302b63;"></p>
 </div>
 <div class="import-modal-actions" style="margin-top:16px;">
 <button class="btn-modal-cancel" onclick="closeBackupModal()">关闭</button>
@@ -2254,9 +2275,9 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v50.41'; // v50.40: 盘面收敛为 24 态 + 没1优先总结 + 代际隔离
+  var APP_VERSION = 'v51.1';  // v51.0: v50.35~v50.41 全部累积功能定版归一；算法口径 ALGO_VER 未变
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v50.41 完整更新说明（累积交付，包含本轮全部改动）：\n' +
+  var APP_UPDATE_DESC_RECENT = 'v51.1 完整更新说明（v50.35 ~ v50.41 累积交付的全部功能，已定版归一）：\n' +
     '①【四盘一致 / 三盘一致最近不太准】定位到四条根因：四盘高度共线（同一段历史被数四次）、②③④ 严格口径丢掉了新近度、长度权重超线性让单条长片段独裁、命中率定权偏短期。现把 simLenExp 2.6→1.8、simQualityBlend 0.30→0.50、fourWayPriorN 6→20、fourWayConsensusMin 0.60→0.75，并新增 fourWayMinTopProb=0.42：每盘 Top 概率低于 42% 记「弃权」，不再进共识、不再凑出假的「四盘一致」，融合权重压到 35%。②③④ 补齐质量票，让时间新近度真正进概率；只剩 1 张有效票时四盘占比上限再压到 0.20。「四盘协同分析」面板摊开各盘 Top 概率、有效票 N/4、门槛值、弃权盘名单。\n' +
     '②【管理员可查导出日志】独立页 susu.html 每次导出会写一行 elog_ 记录，主系统「管理员面板 → 查看导出记录」显示：谁（设备备注+设备号）、什么时间、导出了什么（今天/昨天/两天、条数、昨今分项、勾选的列、Excel 还是 CSV、完整文件名、Excel 组件未就绪自动降级 CSV 的标记）。日志只保留最近 100 条，导出页写完即裁、管理员打开面板时兜底再裁一次；删除权限不足时静默降级，不影响导出，也不误报「上报失败」。支持「刷新日志 / 清空日志」，清空后会复查，避免假报成功。\n' +
     '③【发布时可明确选更新到哪个文件】点「▲ 发布到GitHub」先弹窗选目标：index.html / susu.html / draw.html / xlsx.bundle.js，也可手填任意根目录静态文件，并记住上次选择。本机文件名可以与目标不同、可以是中文；.js/.css 等也能发。成功提示写明「目标文件 + 本机来源」，防止把 index 的内容误发到 susu。\n' +
@@ -2272,8 +2293,16 @@ function syncBrief(){
     '⑭【盘面收敛为实际 24 态 · 优先总结没 1 的】你给出的实际盘面清单是 24 组：{0,1,3} {0,0.5,3} {0,1,2} {0,0.5,2} 四个取值组合各 6 种排列。比 ⑩ 的 42 态少 3 个组合，因为每局必须同时有 0（一个输光方）和一个 2/3（一个赢家），第三个数只能是 0.5 或 1；{0,0.5,1}（无赢家）、{0.5,1,2}/{0.5,1,3}（无输光方）这 18 种在实际里不存在，全部剔除。赢家唯一、0 分方必有且唯一，与既有 getWinner / getLossSide 的假设刚好对齐；幅度只剩 1 / 1.5 / 2 / 2.5 四档。**你说「1 现在基本不出现」，所以学习状态面板把不含 1 的 12 态（{0,0.5,2} / {0,0.5,3}）摊开成主体表格：每种盘面出现几次、之后下一局 A·B·C 各几次、经验众数是谁；从未出现过的态也列出来标灰方便对照。含 1 的 12 态是旧时代数据，折进 `<details>` 只给汇总，不占注意力。**\n' +
     '⑮【代际隔离：不让旧时代规律污染现在的预测】这是本版最关键的一刀。含 1 的盘面既然基本不再出现，就属于风格漂移前的旧样本；第13信号原先的 L3 粗态键只有「赢家|赢家档」，会把 no1 与 with1 混在一起回退 —— 等于用旧规律预测现在。现在 `struct` / `coarse` 两个键都带上 tier（no1 / with1），当前盘面只与同代历史比对，跨代永不混用。L1 精确态天然分代；不含1的当前态只有 12 种、样本密度高，L1 门槛从 8 放宽到 6，含1的旧态维持 8/16/28 避免小样本硬推。面板里第13信号状态会显示当前代际与「只与同代历史比对」。\n' +
     '⑪【跨版本预测记录隔离 _algoVer】predHistory / accuracy 从 v50.35 一路攒到 v50.37，算法口径变了三次，但校准分桶、命中率定权、出手建议、漂移降权、智能修正全在把三套口径的记录混着统计。现在每条新预测写 _algoVer = ALGO_VER（与 APP_VERSION 解耦：纯 UI/文案发布不清空统计，只有算法口径变才递增），校准分桶与云端瘦身白名单同步保留该字段；所有「决策型」读取统一走 getCurAlgoPredIdxs / getCurAlgoAccuracy —— **只过滤、绝不物理删改**，因为 predHistory 与 history 按下标对齐，删一条会让整条索引链错位。展示层（总准确率、历史表、趋势图）仍看全历史战绩，并在「学习状态」面板标出「同口径 N 条 / 旧口径 M 条」。短期命中率数组（modelPerf / advancedModelPerf / windowPerf / 校准分桶）不带逐条版本，改为首次以本版打开时惰性一次性清空（存档带 perfAlgoVer，刷新不重复）；这些数组不与 history 下标对齐，清空安全，且所有读取点都有样本不足兜底。升级后同口径样本从 0 开始，概率校准与出手建议会自动回退到模型自身概率，属正常冷启动，攒够 20 条即恢复。\n' +
-    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v50.41，混用旧版会用不同口径算同一份历史、跨端结论分叉；本版 ALGO_VER 已递增到 v50.40-board24，旧预测记录会自动隔离，无需手动强制重新学习。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据，可自行核对。换版后建议点一次「☁️ 全量上传」固化。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。';
-  var APP_UPDATE_DESC_HISTORY = '历史归档（v50.41 之前的累计修复，均已包含在当前版本）：\n' +
+    '⑯【导入备份只留 5 份 + 单份手动删除】susu.html 每次导入前创建的 susubak_ 全量备份不再无限累积：导入写完备份后自动按时间倒序裁到最近 5 份（绝不删本次刚建的那份），主系统打开「▣ 云端备份与恢复」时再兜底裁一次，历史遗留的 20 份也能一次收敛；裁剪全程旁路，DELETE 权限不足或 RLS 静默拦截时停用本会话、不空转、不影响导入与还原。备份列表每行保留「删除」按钮并加了复查，被权限静默拦下会明确提示「删除未生效」而不是假报成功；「清理旧备份」按钮同步改成保留 5 份，作为权限恢复后的手动兜底。系统原有 backup_ 前缀「保留最近 4 份」完全不受影响。\n' +
+    '⑰【版本归一 v51.0 + 全量复查】v50.35 一路累积到 v50.41 的功能，本版统一定版为 v51.0，界面所有版本号与描述一次改齐；发布主系统 index.html 时仍照常弹版本号，默认按当前号小版本 +1（v51.0 → v51.1），格式提示改为动态读取，不再写死某个版本号。定版前做了端到端全量复查：9 套测试共 467 项、两端 JS 语法、69 个内联按钮与 64 个绑定处理器逐个真实点击、全部异常分支，0 失败；并修掉 3 处边界问题 —— 发布版本号格式提示写死、导出/导入日志双查询失败时误报「暂无记录」、单份删除备份后复查查询失败时误报「删除失败」。\n' +
+    '⑱【还原防竞态：别的设备不再把旧局推回来】备份还原 / 管理员强制同步会覆盖云端 main，但另一台正开着的设备若在「拉取到新 main 之前」触发 5 秒自动增量上传，会把本地旧 rec_ 行推上去，表现就是「明明还原了，旧局又回来了」。本版在**任何写云端之前**加一道轻量守门：先读 main 的 updated_at（约几十字节），与本机记录一致就直接放行；不一致再读一次 main 判 _syncEpoch，云端纪元更大即判定本机尚未对齐 —— 本次上传直接拒绝、**脏队列保留不丢数据**、自动触发一次拉取，对齐后同步自行恢复。稳态每轮只多一个极小请求，弱网或权限波动一律放行，绝不阻断正常录入；弹窗做 60 秒节流不骚扰。\n' +
+    '   同时修掉还原侧两处会让机制失效的老问题：susu 导入备份还原原先原样写回备份里的 mainRest，_syncEpoch 不变、upsert 也不带 updated_at，其他端既不会强制覆盖、也检测不到 main 变了，还原等于只对管理员本机生效；现在还原显式递增权威纪元、带上时间戳并回填本机基线。主系统「云端备份与恢复」的 upsert 同样补上 updated_at（未装 clock_timestamp() 触发器的存量库，ON CONFLICT DO UPDATE 不会自动前进时间戳）。**不需要动数据库**：没加表、没加列、没加新行、没改任何策略，全部复用已有的 main / _syncEpoch / updated_at。\n' +
+    '⑲【Excel 导入兼容多格式】两份真实民间表格现在都能正确解析：① 表头叫「盐行 / 宝阁 / 粮堂」的，按商会名映射到 A/B/C；「资金 / 通宝 / 本金 / 获胜投资」统一识别为**获胜投资（大/中/小）**，「收益 / 挣 / 获胜的商会收益」识别为获胜收益 —— 之前「资金」列不在别名表里，导入后获胜投资整列为空，本版修好。② 表头带「局号 / 日期 / 时间 / A / B / C / 获胜通宝」的，A/B/C 自动定位到第 4/5/6 列，日期支持 Excel 序列号（46242→8月8日），含 1（保本）的局是合法 24 态不会被误剔，`#N/A` 空局正常跳过。③ 没有表头时，从第 4 列起按「大/中/小」取值比例自动推断收益列与投资列。④ 日期以「分组行 / 额外列」形式出现的（如某天第一局第 7 列写 23/10/2026），向下填充给该日所有局，把顺延推算的时间线还原成真实月日；**只认明确文本日期，不认 5 位整数**——真实文件第 7 列混着 46033/46334 这类批次号，当 Excel 日期序列号会把局写成 1 月/8 月、污染「今天/昨天」导出与时段效应。分组行本身不是合法数据行，不会变成记录，因此**导入条数与尾局锚定完全不变**。实测：唐商传奇.xlsx 有效 1519 局（与系统原口径一致）、获胜投资有值 1497 局（98.6%，原来 0）、还原 19 个日期分组；新商会数据 (1).xlsx 有效 4570 局、含 1 保本局 723 条全部保留。两端（susu.html 与系统 index.html）共用同一份兼容层，逐行一致；手动指定起始行仍按之前要求只保留在系统里。\n' +
+    '⑳【备份「点恢复没反应」根因修复】浏览器勾选「阻止此页面创建更多对话框」、或在某些预览器 / iframe 沙箱里，原生 confirm() 会被静默屏蔽（不弹窗、直接返回 false）。旧版恢复 / 还原 / 删除 / 清理全部卡在 if(!confirm(...)) return; 第一行，表现为「点了完全没反应」；而 susu.html 不用原生 confirm，导入照常工作，正好对上现象。本文件 v45.5 录入链路注释里记录过同一个坑，这次补齐备份模块：**恢复、还原、删除、清理、本地备份恢复统一改走系统自带的页内确认弹窗**（showRecordConfirm，z-index 100010），不再依赖浏览器对话框；页内弹窗不可用时才降级，并识别「瞬时返回 false」为被屏蔽，给可见提示而不是无声退出。同时加固：所有云端 await 加 15~20 秒超时（挂起不再永久卡住）；busy 锁带时间戳、60 秒自动解锁；cleanup 改 try/finally 释放；确认后按钮立刻变「还原中…」、状态栏在表格上下各写一份（滚动到列表也看得见）；9 个备份函数显式挂 window，杜绝作用域隐患。实测模拟「confirm 被屏蔽」环境下，点「还原」仍能弹出页内确认并完整走完还原链。\n' +
+    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v51.1，混用旧版会用不同口径算同一份历史、跨端结论分叉。**本次只是版本号与描述归一，预测算法没动**：算法口径标识 ALGO_VER 仍是 v50.40-board24（与 APP_VERSION 刻意解耦），因此不会触发预测记录隔离、不用点「↻ 强制重新学习」、历史准确率照常累计。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据，可自行核对。换版后建议点一次「☁️ 全量上传」固化。⑱ 的还原防竞态不需要你在 Supabase 做任何操作，也不影响 susu.html（导入页不参与 5 秒自动上传、打开即拉云端）。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。';
+  var APP_UPDATE_DESC_HISTORY = '历史归档（v51.1 之前的累计修复，均已包含在当前版本）：\n' +
+    '· v50.35 ~ v50.41（已全部定版并入 v51.0）：跨端重复收敛与全端移动端、四盘协同调优与 42% 强度门槛、融合后结论唯一化、完整盘面 24 态与代际隔离、跨版本预测记录隔离 _algoVer、导出/导入日志各留 100 条、Excel 增量导入与导入前全量备份（仅留 5 份、可单份删除）、发布目标可选且仅 index 弹版本号、版本号提示动态化与三处边界修复。\n' +
+    '· v50.40（已包含在当前版本）：盘面收敛为实际 24 态、优先总结不含 1 的 12 态、代际隔离，ALGO_VER = v50.40-board24；导出日志与导入日志（谁 / 时间 / 几局到几局 / 共几条）、主系统还原入口、susu 去掉手动指定起始行。\n' +
     '· v50.39（已由 v50.40 收敛）：把第13信号改成「完整盘面条件频率」并加盘面体检与录入软提示，但当时按 5 选 3 推成 42 态（7 组合 × 6 排列、幅度五档、结构态 15 类/粗态 9 类），多算了 3 个实际不存在的组合；本版按你给的 24 组清单收敛为 4 组合 × 6 排列、幅度四档，并新增「没1优先总结 + 代际隔离」。\n' +
     '· v50.38（已由 v50.39 修正）：初版「分差幅度」第13信号 + _algoVer 跨版本预测隔离 + 回测 A/B 可开关；初版用连续 margin 切桶并引用了不合规盘面示例，本版按真实规则重写为 42 态精确条件频率。\n' +
     '· v50.37：最终融合结果唯一化（窗口层收进折叠、口径不可比数字标清、血本标反向、胶着标胶着）、可跑完整 predict() 的新旧口径 A/B 对照、冲突/胶着硬闸门不下注；按 1440 局消融回退了「跨层去重 + 降二次融合」默认值。\n' +
@@ -2289,7 +2318,7 @@ function syncBrief(){
     if(r) r.textContent = APP_UPDATE_DESC_RECENT;
     if(h) h.textContent = APP_UPDATE_DESC_HISTORY;
   } catch(e){} })();
-  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v50.41 完整更新说明。';
+  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v51.1 完整更新说明。';
 
   // ========== v50.35：弹窗「交互优先」通道 ==========
   // 复现（4178 局 + 真实鼠标）：弹窗显示时后台只要有一个 400ms 长任务，
@@ -2864,7 +2893,7 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
   // v50.36-fix: 旧版直接绑 loadExportLogs，而 loadExportLogs 不复位 _elogPruneDisabled。
   // 网络抖动 / 权限临时失败把裁剪禁用后，点「刷新日志」永远不会自愈，必须收起再展开才发现。
     // 与操作日志的 refreshOlog 对齐：每次刷新都复位，权限补上即自动重试。
-    if (_elogRefresh) _elogRefresh.onclick = function(){ _elogPruneDisabled = false; loadExportLogs(); };
+    if (_elogRefresh) _elogRefresh.onclick = function(){ _elogPruneDisabled = false; _ilogPruneDisabled = false; loadExportLogs(); };
     var _elogClear = document.getElementById('adminExportLogClearBtn');
     if (_elogClear) _elogClear.onclick = clearExportLogs;
     // v26.4：一键全部同意/撤销
@@ -2889,6 +2918,8 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
   var EXPORT_LOG_KEEP = 100;
   var _elogPruneDisabled = false;
   var _elogPruneRunning = false;   // 防连点「刷新日志」时多条裁剪链并发
+  var _ilogPruneDisabled = false;
+  var _ilogPruneRunning = false;
   function pruneExportLogsFromAdmin(round, prevKey) {
     round = round || 0;
     if (_elogPruneDisabled || _elogPruneRunning || round > 20) return;
@@ -2919,23 +2950,79 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
         if (nextKey) pruneExportLogsFromAdmin(round + 1, nextKey);
       });
   }
+  /* 导入日志裁剪：与 elog_ 各自独立保留最近 100 条，互不干扰 */
+  function pruneImportLogsFromAdmin(round, prevKey) {
+    round = round || 0;
+    if (_ilogPruneDisabled || _ilogPruneRunning || round > 20) return;
+    _ilogPruneRunning = true;
+    var failed = false;
+    api('prediction_data?select=id&id=gte.ilog_&id=lt.ilog~&order=id.desc&limit=200&offset=' + EXPORT_LOG_KEEP)
+      .then(function(rows) {
+        var ids = (rows || []).map(function(r){ return String((r && r.id) || ''); })
+                              .filter(function(x){ return /^ilog_[A-Za-z0-9_]+$/.test(x); });
+        if (!ids.length) return null;
+        var key = ids.join('|');
+        if (prevKey && key === prevKey){ _ilogPruneDisabled = true; return null; }
+        var chain = Promise.resolve();
+        for (var i = 0; i < ids.length; i += 50) {
+          (function(batch){
+            chain = chain.then(function(){
+              if (failed) return null;
+              return api('prediction_data?id=in.(' + batch.join(',') + ')', {method:'DELETE'})
+                .catch(function(){ failed = true; _ilogPruneDisabled = true; return null; });
+            });
+          })(ids.slice(i, i+50));
+        }
+        return chain.then(function(){ return failed ? null : key; });
+      })
+      .catch(function(){ _ilogPruneDisabled = true; return null; })
+      .then(function(nextKey){
+        _ilogPruneRunning = false;
+        if (nextKey) pruneImportLogsFromAdmin(round + 1, nextKey);
+      });
+  }
   function loadExportLogs() {
     var box = document.getElementById('adminExportLogList');
     if (!box) return;
-    box.innerHTML = '<div style="padding:12px;color:#888;">正在读取导出日志…</div>';
-    api('prediction_data?id=gte.elog_&id=lt.elog~&select=id,data,updated_at&order=id.desc&limit=100')
-      .then(function(list) {
-        var rows = (list || []).filter(function(r){ return r && r.data; });
+    box.innerHTML = '<div style="padding:12px;color:#888;">正在读取导出 / 导入日志…</div>';
+    var _logQ = 'prediction_data?select=id,data,updated_at&order=id.desc&limit=100';
+    Promise.all([
+      api(_logQ + '&id=gte.elog_&id=lt.elog~').then(function(r){ return {ok:true, rows:r}; }).catch(function(){ return {ok:false, rows:[]}; }),
+      api(_logQ + '&id=gte.ilog_&id=lt.ilog~').then(function(r){ return {ok:true, rows:r}; }).catch(function(){ return {ok:false, rows:[]}; })
+    ])
+      .then(function(pair) {
+        // 两个前缀都查失败时不能谎报「暂无记录」——那是网络/权限问题，不是没日志
+        if (!pair[0].ok && !pair[1].ok) {
+          box.innerHTML = '<div style="padding:12px;color:#e74c3c;">读取失败：两类日志都未能从云端读取，请检查云同步配置后点「↻ 刷新日志」重试。</div>';
+          return;
+        }
+        var rows = ((pair[0].rows || []).concat(pair[1].rows || []))
+          .filter(function(r){ return r && r.data; });
+        rows.sort(function(a, b){
+          var ta = (a.data && a.data.time) ? new Date(a.data.time).getTime() : 0;
+          var tb = (b.data && b.data.time) ? new Date(b.data.time).getTime() : 0;
+          if (ta !== tb) return tb - ta;
+          return String(b.id || '').localeCompare(String(a.id || ''));
+        });
         if (!rows.length) {
-          box.innerHTML = '<div style="padding:12px;color:#888;line-height:1.7;">暂无导出记录。'
-            + '<br>若已经导出过，请确认：① 用的是新版 susu.html；② 导出页与主系统连的是同一个云端配置。</div>';
+          box.innerHTML = '<div style="padding:12px;color:#888;line-height:1.7;">暂无导出 / 导入记录。'
+            + '<br>若已经导出或导入过，请确认：① 用的是新版 susu.html；② 导出页与主系统连的是同一个云端配置。</div>';
           return;
         }
         var h = '';
+        if (!pair[0].ok || !pair[1].ok) {
+          h += '<div style="padding:8px 12px;color:#e67e22;font-size:11px;background:#fff8e1;">⚠️ 部分日志读取失败（'
+             + (!pair[0].ok ? '导出' : '导入') + '记录），下方仅显示成功读取的部分，请点「↻ 刷新日志」重试。</div>';
+        }
         rows.forEach(function(r) {
           var d = r.data || {};
           var t = d.time ? new Date(d.time) : (r.updated_at ? new Date(r.updated_at) : null);
           var ts = (t && !isNaN(t.getTime())) ? t.toLocaleString('zh-CN') : (d.time || '—');
+          // 导入 / 还原日志：谁 · 时间 · 几局到几局 · 共几条
+          if (String(r.id || '').indexOf('ilog_') === 0 || d.type === 'import' || d.type === 'restore') {
+            h += susuImportLogHtml(d, ts);
+            return;
+          }
           var who = escHtml(d.device || '未知设备');
           var dev = escHtml(d.devId || '');
           var scope = escHtml(d.scope || d.desc || '—');
@@ -2959,6 +3046,7 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
         });
         box.innerHTML = h;
         pruneExportLogsFromAdmin();   // 兜底：把历史遗留的第 101 条起删掉
+        pruneImportLogsFromAdmin();   // 导入日志同口径裁剪
       })
       .catch(function(e) {
         box.innerHTML = '<div style="padding:12px;color:#e74c3c;">读取失败：'
@@ -2971,22 +3059,30 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
     var wasOpen = a.style.display !== 'none';
     a.style.display = wasOpen ? 'none' : 'block';
     var b = document.getElementById('adminExportLogBtn');
-    if (b) b.textContent = wasOpen ? '查看导出记录' : '收起导出记录';
-    if (!wasOpen){ _elogPruneDisabled = false; loadExportLogs(); }  // 权限补上后可自愈重试
+    if (b) b.textContent = wasOpen ? '查看导出 / 导入记录' : '收起导出 / 导入记录';
+    if (!wasOpen){ _elogPruneDisabled = false; _ilogPruneDisabled = false; loadExportLogs(); }  // 权限补上后可自愈重试
   }
   function clearExportLogs() {
     if (!confirm('确定清空全部导出日志？此操作不可恢复。')) return;
     // v50.36-fix: 旧提示让用户执行 using(true) 全开删除，等于任何人都能删 id='main' 主快照，
     // 与已经给出的「按前缀收窄」策略自相矛盾。改为只指路、不给危险 SQL。
     var rlsHint = '\n\n请到 Supabase SQL Editor 检查 prediction_data 的 DELETE 策略：'
-                + '需要允许删除 elog_ / olog_ / rec_ / backup_ 等前缀行，但不要用 using(true) 全开'
+                + '需要允许删除 elog_ / ilog_ / olog_ / rec_ / backup_ / susubak_ 等前缀行，但不要用 using(true) 全开'
                 + '（全开会把 id=main 主快照也暴露成可删）。';
-    api('prediction_data?id=gte.elog_&id=lt.elog~', {method:'DELETE'})
+    // 导出日志与导入日志一起清空（两个独立前缀，任一失败都不谎报成功）
+    Promise.all([
+      api('prediction_data?id=gte.elog_&id=lt.elog~', {method:'DELETE'}),
+      api('prediction_data?id=gte.ilog_&id=lt.ilog~', {method:'DELETE'})
+    ])
       .then(function(){
-        // RLS 可能静默拦掉 DELETE（返回成功但行还在），复查一次再说「已清空」
-        return api('prediction_data?select=id&id=gte.elog_&id=lt.elog~&limit=1');
+        // RLS 可能静默拦掉 DELETE（返回成功但行还在），两个前缀都复查一次再说「已清空」
+        return Promise.all([
+          api('prediction_data?select=id&id=gte.elog_&id=lt.elog~&limit=1').catch(function(){ return []; }),
+          api('prediction_data?select=id&id=gte.ilog_&id=lt.ilog~&limit=1').catch(function(){ return []; })
+        ]);
       })
-      .then(function(left){
+      .then(function(pair){
+        var left = ((pair && pair[0]) || []).concat((pair && pair[1]) || []);
         // v50.36-fix: 复查查询自身失败 / 返回空响应时，不能默认当成「删干净了」
         if (!left || !Array.isArray(left)) {
           showRecordResult(false, '清空状态未能确认', '复查云端日志时没有拿到有效结果，请点「↻ 刷新日志」确认是否已删除。');
@@ -2996,6 +3092,7 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
           showRecordResult(true, '已清空', '导出日志已全部删除');
         }
         _elogPruneDisabled = false;
+        _ilogPruneDisabled = false;
         loadExportLogs();
       })
       .catch(function(e){
@@ -12698,6 +12795,89 @@ function _recRowData(rid) {
 }
 
 // ---- 增量上传：只传脏记录 ----
+// ===== v51.0: 还原防竞态 —— 任何写云端之前的轻量守门 =====
+// 背景：备份还原 / 管理员强制同步会递增 _syncEpoch 并覆盖云端 main。另一台设备若正开着，
+// 5 秒自动增量上传会在「拉取到新 main 之前」把本地旧 rec_ 行推上去，表现为
+// 「明明还原了，旧局又回来了」。这里在写云端之前校验：云端 main 的 updated_at 与本机
+// 记录不一致时，读出 _syncEpoch；云端纪元更大即说明本机还没拉取最新 —— 本次上传直接
+// 拒绝、脏队列保留（数据不丢）、自动触发拉取，对齐后同步自行恢复。
+// 稳态只多一个 select('updated_at') 的极小请求；弱网/权限波动一律放行，绝不阻断录入。
+// 还原防竞态：统一的「拒绝本次上传」处理（状态栏 + 节流弹窗 + 后台拉取）
+function _epochGuardReject(cloudEpoch) {
+    var localEpoch = P._syncEpoch || 0;
+    try {
+        updateCloudStatus('online', '⚠️ 云端数据已被还原/强制同步（纪元 ' + cloudEpoch +
+            ' > 本机 ' + localEpoch + '），本次上传已阻止 · 正在自动拉取最新');
+    } catch (e) {}
+    // 自动同步每 5 秒一轮，弹窗做 60 秒节流，不骚扰用户
+    if (Date.now() - (window._epochGuardNoticeAt || 0) > 60000) {
+        window._epochGuardNoticeAt = Date.now();
+        try {
+            showRecordResult(false, '已阻止上传',
+                '云端数据刚被还原或管理员强制同步（纪元 ' + cloudEpoch + '），本机还没拉取到最新。\n\n' +
+                '本次上传已阻止，本地新录的局仍完整保留，系统正在自动拉取最新；\n' +
+                '拉取完成后同步会自动恢复，无需手动操作。\n\n' +
+                '如长时间未恢复，请手动点「↻ 拉取最新」。');
+        } catch (e) {}
+    }
+    try { cloudLoad(true); } catch (e) {}   // 后台对齐，不 await，避免卡住上传链
+}
+
+// ===== v51.0: 还原防竞态 —— 任何写云端之前的轻量守门 =====
+// 背景：备份还原 / 管理员强制同步会递增 _syncEpoch 并覆盖云端 main。另一台设备若正开着，
+// 5 秒自动增量上传会在「拉取到新 main 之前」把本地旧 rec_ 行推上去，表现为
+// 「明明还原了，旧局又回来了」。这里在写云端之前校验：云端 main 的 updated_at 与本机
+// 记录不一致时，读出 _syncEpoch；云端纪元更大即说明本机还没拉取最新 —— 本次上传直接
+// 拒绝、脏队列保留（数据不丢）、自动触发拉取，对齐后同步自行恢复。
+// 稳态只多一个 select('updated_at') 的极小请求；弱网/权限波动一律放行，绝不阻断录入。
+async function _cloudUploadGuard(where) {
+    if (!supabaseClient || !cloudOnline) return true;
+    // 已判定「本机落后」且尚未对齐：用缓存直接拦，不再读云端（等拉取把 _syncEpoch 追平）。
+    // 关键：拒绝时绝不更新 _knownMainUa —— 否则下一轮 UA 一致就直接放行，
+    // 拉取还没成功旧数据就又被推上去了。
+    var blk = window._epochGuardBlocked;
+    if (blk && Date.now() < blk.until) {
+        if ((P._syncEpoch || 0) >= blk.epoch) {
+            window._epochGuardBlocked = null;     // 已对齐，恢复常规守门
+        } else {
+            _epochGuardReject(blk.epoch);
+            return false;
+        }
+    }
+    try {
+        var uaRes = await supabaseClient.from(CLOUD_TABLE)
+            .select('updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
+        if (uaRes && uaRes.error) throw uaRes.error;
+        var uaRow = uaRes && uaRes.data;
+        if (!uaRow || !uaRow.updated_at) return true;          // 云端还没有 main（首次配置）
+        var _t = new Date(uaRow.updated_at).getTime();
+        if (!isFinite(_t)) return true;                        // 非法时间戳不拦截
+        var cloudUa = new Date(_t).toISOString();
+        if (window._knownMainUa && cloudUa === window._knownMainUa) return true;  // 稳态：单请求放行
+
+        // main 被改过（还原 / 强制同步 / 全量上传）或本机首次建立基线 → 读一次完整 main 判纪元
+        var fullRes = await supabaseClient.from(CLOUD_TABLE)
+            .select('data,updated_at').eq('id', CLOUD_ROW_ID).maybeSingle();
+        if (fullRes && fullRes.error) throw fullRes.error;
+        var d = (fullRes && fullRes.data && fullRes.data.data) || {};
+        var cloudEpoch = d._syncEpoch || 0;
+        var localEpoch = P._syncEpoch || 0;
+        if (cloudEpoch > localEpoch) {
+            // 60 秒内保持拦截状态；每轮 0 请求，直到 cloudLoad 把本机 _syncEpoch 追平
+            window._epochGuardBlocked = { epoch: cloudEpoch, until: Date.now() + 60000 };
+            _epochGuardReject(cloudEpoch);
+            return false;
+        }
+        window._knownMainUa = cloudUa;
+        window._epochGuardBlocked = null;
+        return true;
+    } catch (e) {
+        // 守门查询失败不能阻断正常录入上传（弱网 / RLS 波动），与既有降级口径一致
+        try { console.warn('[还原防竞态] 守门校验失败，本次放行：' + (e && e.message || e)); } catch (_) {}
+        return true;
+    }
+}
+
 async function cloudSaveIncremental(manual) {
     if (!supabaseClient || !cloudOnline) { if (manual) alert('云端未连接'); return false; }
     // v49.7 P0-3: 暂停期（覆盖导入 / 清空后等待用户确认）一律不上传。
@@ -12728,6 +12908,8 @@ async function cloudSaveIncremental(manual) {
             return false;
         }
     }
+    // v51.0: 写 rec_ 之前守门——还原后别的设备不能把旧局推回来
+    if (!await _cloudUploadGuard('incremental')) return false;
     _syncIncrRunning = true;
     var sent = 0, okAll = true, totalBytes = 0;
     try {
@@ -13955,6 +14137,10 @@ async function cloudSave(manual, skipPrecheck) {
         _pendingCloudSave = true;
         return false;
     }
+    // v51.0: 自动全量上传同样守门；手动路径的「纪元预检」已存在，跳过以免多一次请求
+    if (!manual && !skipPrecheck) {
+        if (!await _cloudUploadGuard('full-auto')) return false;
+    }
     _cloudSaving = true;
     window.__lastUploadDedupe = 0;   // v50.35: 每次上传重新统计「上传前剔除的重复条数」
     _lastCloudSaveTime = Date.now(); // v27.4：记录上传时间，用于节流
@@ -14701,7 +14887,7 @@ function bindCloudEvents() {
                         if (_rawVer === null) { btn.disabled = false; btn.textContent = orig; return; }
                         inputVer = _rawVer.trim() || _defVer;
                         if (!/^v\d+\.\d+(?:\.\d+)?$/.test(inputVer)) {
-                            showRecordResult(false, '发布失败', '版本号格式不合法：' + inputVer + '\n请填 v50.41 这种格式，重新点发布即可。');
+                            showRecordResult(false, '发布失败', '版本号格式不合法：' + inputVer + '\n请填 ' + _defVer + ' 这种格式（v + 数字.数字），重新点发布即可。');
                             btn.disabled = false; btn.textContent = orig; return;
                         }
                         // 精准替换：只动「当前版本标识」，注释里的 /* v50.xx ... */ 一律不碰
@@ -14907,6 +15093,7 @@ function openBackupModal() {
         document.getElementById("backupModalOverlay").classList.add("open");
         loadLocalBackupList();
         loadBackupList(); // v50.28: 管理员免密进入时也要刷新云端备份列表（原版一直停在「加载中...」）
+        loadSusuBakList(true); // susu.html 导入备份（独立前缀；打开面板时兜底收敛到最近 5 份）
         return;
     }
     // 本地备份不需要云端，直接打开；云端备份仍需密码验证
@@ -15698,6 +15885,7 @@ function verifyBackupPwd() {
     document.getElementById('backupActionArea').style.display = 'block';
     document.getElementById('backupStatusMsg').textContent = '';
     loadBackupList();
+    loadSusuBakList(true);   // 打开面板时兜底收敛到最近 5 份
 }
 // ========== 云端备份/恢复 ==========
 // v50.28 手动备份提速：
@@ -15807,12 +15995,486 @@ function loadBackupList(silent) {
  * 10-backup.js — 本地自动备份：旧备份清理、备份加载与恢复
  * 来源: 商会三竞预测系统 v44.30 单文件工程拆分 (源行 10041-10227)
  * ============================================================ */
+
+/* ============================================================
+ * susu.html Excel 增量导入备份 —— 列表 / 还原 / 删除 / 清理
+ * ------------------------------------------------------------
+ * · 备份由 susu.html 在每次增量导入前自动写入，前缀 susubak_，
+ *   结构与 buildBackupSaveData() 同源（history + mainRest + recIds/susuRids）。
+ * · 独立前缀不落在 backup_ / rec_ / olog_ / elog_ 的清理范围内，
+ *   也不会被上方 loadBackupList() 的「保留最近 4 份」自动删掉。
+ * · 还原 = 覆盖云端 main + 把「备份之后 susu 导入」的 rec_ 行墓碑化；
+ *   不带 _susuImport 标记的行（其他设备录入）一律保留。
+ * ============================================================ */
+
+/* ============================================================
+ * v51.0：「备份点恢复/还原没反应」根因修复
+ * ------------------------------------------------------------
+ * 浏览器勾选「阻止此页面创建更多对话框」后，原生 confirm() 不再弹窗、
+ * 直接静默返回 false（预览器 / iframe 沙箱同样会屏蔽 modal）。
+ * 旧版 恢复/还原/删除/清理 全部卡在 if(!confirm(...)) return; 第一行，
+ * 表现就是「点了完全没反应」，而 susu.html 不用 confirm、导入照常工作。
+ * 本文件 v45.5 的录入链路注释里踩过完全相同的坑，这里补齐备份模块：
+ * 统一改走系统自带的页内确认弹窗 showRecordConfirm（z-index 100010），
+ * 不依赖浏览器原生对话框；再加网络超时、busy 自愈与即时可见反馈。
+ * ============================================================ */
+function _bakConfirm(title, msg, okText, onOk, onCancel) {
+    var fn = (typeof window !== 'undefined') ? window.showRecordConfirm : null;
+    if (typeof fn === 'function') {
+        try { return fn(title, msg, onOk, onCancel || function () { _susuBakStatus('已取消，数据未改动。'); }, okText || '确定', '取消'); }
+        catch (e) {}
+    }
+    // 兜底：页内弹窗不可用时用原生 confirm，并识别「被静默屏蔽」，给可见提示而不是无声退出
+    var t0 = Date.now(), ok = false;
+    try { ok = !!confirm(msg); } catch (e) {}
+    if (ok) { return onOk ? onOk() : undefined; }
+    if (Date.now() - t0 < 40) {          // 几乎瞬时返回 false = 被浏览器屏蔽，不是用户点取消
+        _susuBakStatus('❌ 当前浏览器屏蔽了确认对话框，操作未执行。\n请允许本页显示对话框（地址栏右侧图标 / 「阻止此页面创建更多对话框」），或换普通浏览器标签页打开后重试。', '#e74c3c');
+        try { showRecordResult(false, '确认被浏览器拦截', '请在浏览器里允许本页弹出对话框，然后重新点一次。'); } catch (e) {}
+    } else {
+        _susuBakStatus('已取消，数据未改动。');
+    }
+    if (onCancel) onCancel();
+}
+/* 给任意 thenable / Promise 加超时，避免某个云端请求挂起后按钮永久无响应 */
+function _bakTimeout(p, ms, label) {
+    return new Promise(function (resolve, reject) {
+        var done = false;
+        var t = setTimeout(function () {
+            if (done) return;
+            done = true;
+            reject(new Error(label + '超时（' + Math.round(ms / 1000) + '秒）。未改动数据，请检查网络后重试。'));
+        }, ms);
+        try {
+            Promise.resolve(p).then(function (v) { if (!done) { done = true; clearTimeout(t); resolve(v); } },
+                                   function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
+        } catch (e) { if (!done) { done = true; clearTimeout(t); reject(e); } }
+    });
+}
+/* busy 锁带时间戳：任何遗漏路径卡死，60 秒后自动解锁，不再「永远点不动」 */
+function _susuBakIsBusy() {
+    if (_susuBakBusy && Date.now() - _susuBakBusyAt > 60000) { _susuBakBusy = false; }
+    return _susuBakBusy;
+}
+function _susuBakLock() { _susuBakBusy = true; _susuBakBusyAt = Date.now(); }
+function _susuBakUnlock() { _susuBakBusy = false; _susuBakBusyAt = 0; }
+/* 按钮即时反馈：确认后立刻改文字并禁用，结束/失败都恢复 */
+function _bakBtnBusy(id, on, text) {
+    try {
+        var bs = document.querySelectorAll('#susuBakListBody button[data-bak-id]');
+        for (var i = 0; i < bs.length; i++) {
+            if (bs[i].getAttribute('data-bak-id') !== id) continue;
+            bs[i].disabled = !!on;
+            bs[i].style.opacity = on ? '0.6' : '';
+            if (on) { bs[i]._bakOldText = bs[i].textContent; bs[i].textContent = text || '处理中…'; }
+            else if (bs[i]._bakOldText) { bs[i].textContent = bs[i]._bakOldText; }
+        }
+    } catch (e) {}
+}
+
+var SUSU_BAK_PREFIX = 'susubak_';
+var SUSU_BAK_KEEP = 5;              // 云端导入备份只保留最近 5 份（susu 导入后自动裁，打开面板兜底再裁一次）
+var _susuBakAutoPruneDisabled = false;
+var _susuBakBusy = false, _susuBakBusyAt = 0;
+var _susuBakList = [];
+var SUSU_BAK_DELETE_SQL =
+    'drop policy if exists "pd delete scoped" on public.prediction_data;\n' +
+    'create policy "pd delete scoped" on public.prediction_data for delete to anon using (\n' +
+    "  id like 'elog_%' or id like 'ilog_%' or id like 'olog_%' or id like 'rec_%' or id like 'backup_%' or left(id,8) = 'susubak_' or id = 'oplog'\n" +
+    ');';
+
+
+/* ============================================================
+ * 导入日志（ilog_）统一渲染 / 写入 —— 管理员面板与备份还原共用
+ * ------------------------------------------------------------
+ * 一行就是一次操作：谁（设备备注 + 设备号）、什么时间、
+ * 几局到几局（before → after）、共几条（count）、文件与备份 ID。
+ * 所有动态值都过 escHtml，避免公开可写的 anon 表被注入。
+ * ============================================================ */
+function susuImportLogHtml(d, ts) {
+    d = d || {};
+    var who = escHtml(d.device || '未知设备');
+    var dev = escHtml(d.devId || '');
+    var before = Number(d.before) || 0, after = Number(d.after) || 0;
+    var cnt = Number(d.count) || 0;
+    var ok = d.ok !== false;
+    var isRestore = d.type === 'restore';
+    var action = escHtml(d.action || (isRestore ? 'susu 导入备份还原' : 'Excel 增量导入'));
+    var head = ok
+        ? (isRestore ? '↩️ ' : '⬇️ ') + action + ' · <b>' + before + ' 局 → ' + after + ' 局</b> · '
+          + (isRestore ? '共撤销 <b>' + cnt + '</b> 条' : '共 <b>' + cnt + '</b> 条')
+        : '❌ ' + action + ' · 数据未改动 · 原因 ' + escHtml(d.error || '未知');
+    var extra = '';
+    if (ok && d.cloudAfter !== undefined && Number(d.cloudAfter) !== after)
+        extra += ' · 云端现 ' + (Number(d.cloudAfter) || 0) + ' 局';
+    if (d.file) extra += ' · 文件 ' + escHtml(d.file);
+    if (d.format) extra += '（' + escHtml(d.format) + '）';
+    if (ok && Number(d.skipped)) extra += ' · 剔除 ' + Number(d.skipped) + ' 行脏数据';
+    if (ok && Number(d.anchorTail)) extra += ' · 锚点 ' + Number(d.anchorTail) + ' 局';
+    if (d.backupId) extra += ' · 备份 ' + escHtml(d.backupId);
+    return '<div class="admin-device-item" style="display:block;">'
+         + '<div style="font-size:12px;font-weight:700;color:' + (ok ? '#302b63' : '#c0392b') + ';">' + who
+         + ' <span style="font-weight:400;color:#888;">· ' + escHtml(ts || '—') + '</span></div>'
+         + '<div style="font-size:11px;color:#333;margin-top:3px;">' + head + extra + '</div>'
+         + (dev ? '<div style="font-size:9px;color:#bbb;font-family:monospace;word-break:break-all;margin-top:2px;">' + dev + '</div>' : '')
+         + '</div>';
+}
+async function writeSusuImportLog(info) {
+    try {
+        var apiFn = (typeof window !== 'undefined' && window._cloudApi) ? window._cloudApi : null;
+        if (!apiFn) return;   // 门禁 api 尚未初始化：静默跳过，绝不影响导入/还原
+        var now = new Date().toISOString();
+        var id = 'ilog_' + ('0000000000000' + Date.now()).slice(-13) + '_' + Math.random().toString(36).slice(2,10);
+        var d = Object.assign({
+            time: now, source: 'index.html',
+            device: (window._cloudDevName ? window._cloudDevName() : '主系统'),
+            devId: (window._cloudDeviceId ? window._cloudDeviceId() : '')
+        }, info || {});
+        await apiFn('prediction_data', { method: 'POST', body: { id: id, data: d, updated_at: now } });
+    } catch(e) {
+        try { console.warn('[导入日志] 写入失败（不影响操作）：', e && e.message ? e.message : e); } catch(_) {}
+    }
+}
+
+function _susuBakStatus(text, color) {
+    var ids = ['susuBakStatusMsg', 'susuBakStatusFoot'];
+    for (var i = 0; i < ids.length; i++) {
+        var el = document.getElementById(ids[i]);
+        if (!el) continue;
+        el.style.color = color || '#302b63';
+        el.textContent = text || '';
+    }
+    try { showRecordResult && void 0; } catch (e) {}
+}
+function _susuBakTbody() {
+    return document.getElementById('susuBakListBody');
+}
+/* 分页拉全部 rec_ 行（只取 id + data），还原时用于定位 susu 导入的新局 */
+async function _susuScanRecRows() {
+    var rows = [];
+    for (var off = 0, pages = 0; pages < 500; off += 1000, pages++) {
+        var r = await supabaseClient.from(CLOUD_TABLE)
+            .select('id,data').gte('id', 'rec_').lt('id', 'rec~')
+            .order('id', { ascending: true }).range(off, off + 999);
+        if (r.error) throw r.error;
+        var part = r.data || [];
+        rows = rows.concat(part);
+        if (part.length < 1000) break;
+    }
+    return rows;
+}
+/* 打开备份面板时兜底：把云端导入备份收敛到最近 5 份。
+   与 susu.html 的自动裁剪同口径（按 updated_at 倒序，删第 6 份起）。
+   · 逐条删，任一失败即停；删除被 RLS 静默拦截时复查一次并停用本会话，不空转
+   · 全程旁路：不弹错误、不覆盖管理员的状态提示、不影响还原与手动删除
+   · 只有「打开面板」会传 autoPrune=true；列表内部刷新不删数据，避免干扰操作 */
+async function pruneSusuBakRows() {
+    if (_susuBakAutoPruneDisabled || !_susuBakList || _susuBakList.length <= SUSU_BAK_KEEP) return;
+    var sorted = _susuBakList.slice().sort(function (a, b) {
+        var ta = String(a.updated_at || ''), tb = String(b.updated_at || '');
+        if (ta !== tb) return tb > ta ? 1 : -1;
+        return String(b.id).localeCompare(String(a.id));
+    });
+    var old = sorted.slice(SUSU_BAK_KEEP), removed = [];
+    for (var i = 0; i < old.length; i++) {
+        try {
+            var r = await supabaseClient.from(CLOUD_TABLE).delete().eq('id', old[i].id);
+            if (r.error) break;
+            removed.push(old[i].id);
+        } catch (e) { break; }
+    }
+    if (!removed.length) { _susuBakAutoPruneDisabled = true; return; }
+    try {
+        var left = await supabaseClient.from(CLOUD_TABLE).select('id').eq('id', removed[0]).maybeSingle();
+        if (left && left.error) throw left.error;
+        if (left && left.data) _susuBakAutoPruneDisabled = true;   // 删了行还在，别再试
+    } catch (e) { _susuBakAutoPruneDisabled = true; }
+    var set = {}; removed.forEach(function (id) { set[id] = 1; });
+    _susuBakList = _susuBakList.filter(function (r) { return !set[r.id]; });
+}
+async function loadSusuBakList(autoPrune) {
+    var tbody = _susuBakTbody();
+    if (!tbody) return;
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+        tbody.innerHTML = '<tr><td colspan="3" style="padding:14px;color:#999;">未配置云同步，无法读取导入备份</td></tr>';
+        return;
+    }
+    tbody.innerHTML = '<tr><td colspan="3" style="padding:14px;color:#999;">加载中...</td></tr>';
+    try {
+        var res = await supabaseClient.from(CLOUD_TABLE)
+            .select('id,data,updated_at')
+            .gte('id', SUSU_BAK_PREFIX).lt('id', 'susubak~')
+            .order('updated_at', { ascending: false }).limit(200);
+        if (res.error) throw res.error;
+        _susuBakList = (res.data || []).filter(function (r) {
+            return r && r.id && String(r.id).indexOf(SUSU_BAK_PREFIX) === 0 &&
+                   r.data && r.data._kind === 'susu_full_backup' && Array.isArray(r.data.history);
+        });
+        if (autoPrune) { try { await pruneSusuBakRows(); } catch (e) {} }
+        renderSusuBakList();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="3" style="padding:14px;color:#e74c3c;">加载失败：' +
+            escHtml(e && e.message ? e.message : String(e)) + '</td></tr>';
+    }
+}
+function renderSusuBakList() {
+    var tbody = _susuBakTbody();
+    if (!tbody) return;
+    var keepEl = document.getElementById('susuBakKeepCount');
+    if (keepEl) keepEl.textContent = String(SUSU_BAK_KEEP);
+    if (!_susuBakList.length) {
+        tbody.innerHTML = '<tr><td colspan="3" style="padding:14px;color:#999;">暂无导入备份。每次在 susu.html 点「⬇️ Excel 增量导入」并确认后会自动创建一份。</td></tr>';
+        return;
+    }
+    var html = '';
+    for (var i = 0; i < _susuBakList.length; i++) {
+        var item = _susuBakList[i], d = item.data || {}, imp = d.importInfo || {};
+        var t = d.time ? new Date(d.time) : (item.updated_at ? new Date(item.updated_at) : null);
+        var tStr = (t && !isNaN(t.getTime())) ? t.toLocaleString('zh-CN') : escHtml(item.id);
+        var meta = escHtml(d.reason || '') + ' · ' + escHtml(d.device || '未命名设备');
+        if (imp.file) meta += ' · 文件 ' + escHtml(imp.file);
+        if (imp.before !== undefined && imp.after !== undefined)
+            meta += ' · <b>' + Number(imp.before) + ' 局 → ' + Number(imp.after) + ' 局</b>';
+        if (imp.added) meta += ' · 本次共 ' + Number(imp.added) + ' 条';
+        if (imp.restoreTarget) meta += ' · 还原目标 ' + escHtml(imp.restoreTarget);
+        html += '<tr>' +
+            '<td style="padding:8px;font-size:12px;line-height:1.6;">' + tStr +
+                '<div style="color:#7b8094;font-size:11px;word-break:break-all;">' + meta + '</div>' +
+                '<div style="color:#9aa0b4;font-size:10.5px;word-break:break-all;">' + escHtml(item.id) + '</div></td>' +
+            '<td style="padding:8px;">' + Number(d.count || d.history.length || 0) + ' 局</td>' +
+            '<td style="padding:8px;white-space:nowrap;">' +
+                '<button data-bak-id="' + escHtml(item.id) + '" onclick="restoreFromSusuBak(\'' + escHtml(item.id) + '\', this)" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px;">还原</button>' +
+                '<button data-bak-id="' + escHtml(item.id) + '" onclick="deleteSusuBak(\'' + escHtml(item.id) + '\', this)" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
+            '</td></tr>';
+    }
+    tbody.innerHTML = html;
+}
+/* 把备份数据写回本地 P（字段与 restoreFromBackup 的本地赋值完全一致） */
+function _susuBakApplyToLocal(bak, curMain) {
+    var src = Object.assign({}, curMain || {}, bak.mainRest || {}, {
+        history: bak.history,
+        predHistory: (bak.predHistory && bak.predHistory.length) ? bak.predHistory : ((curMain && curMain.predHistory) || [])
+    });
+    P.clearAll();
+    P.history = (src.history || []).slice();
+    P.predHistory = (src.predHistory || []).slice();
+    P.accuracy = (src.accuracy || []).slice();
+    P.profitAccuracy = (src.profitAccuracy || []).slice();
+    P.profitBrierHistory = (src.profitBrierHistory || []).slice();
+    P.investAccuracy = (src.investAccuracy || []).slice();
+    if (src.modelWeights) P.modelWeights = Object.assign({}, src.modelWeights);
+    if (src.modelPerf) P.modelPerf = Object.assign({}, src.modelPerf);
+    if (src.advancedModelPerf) P.advancedModelPerf = src.advancedModelPerf;
+    if (!P.advancedModelPerf) P.advancedModelPerf = { similar: [], loss: [], profit: [], invest: [], markov: [], bayes: [], trend: [], rebound: [] };
+    ['similar', 'loss', 'profit', 'invest', 'markov', 'bayes', 'trend', 'rebound'].forEach(function (k) { if (!P.advancedModelPerf[k]) P.advancedModelPerf[k] = []; });
+    if (src.windowPerf) P.windowPerf = Object.assign({}, src.windowPerf);
+    if (src.windowWeights) P.windowWeights = Object.assign({}, src.windowWeights);
+    P.learnIterations = src.learnIterations || 0;
+    P.reflectionLog = (src.reflectionLog || []).slice();
+    try { P.maxStreakEver = src.maxStreakEver || calcMaxStreak(P.history); } catch (e) { P.maxStreakEver = src.maxStreakEver || 0; }
+    if (src.bestBrier !== undefined && isFinite(src.bestBrier)) P._bestBrier = src.bestBrier;
+    if (src.patternHitCache) P.patternHitCache = Object.assign({}, src.patternHitCache);
+    try { resetConfigToDefaults(); if (src.config) applyConfigSnapshot(src.config); } catch (e) {}
+    try { applyRuntimeState(P, src.runtimeState); } catch (e) {}
+    if (P.predHistory.length > 0) P.lastPrediction = P.predHistory[P.predHistory.length - 1].guild;
+    try { P._migrateRids(); P._rebuildStatsFromPred(); } catch (e) {}
+    P._syncEpoch = (P._syncEpoch || 0) + 1;
+    if (typeof _isAdmin !== 'undefined' && _isAdmin) P._adminOverride = { at: Date.now() };
+    try { normalizeWindowWeights(); } catch (e) {}
+}
+function restoreFromSusuBak(id, btn) {
+    if (_susuBakIsBusy()) { _susuBakStatus('上一次操作仍在进行…（超过 60 秒会自动解锁），请稍候再点。', '#e67e22'); return; }
+    return _bakConfirm('还原 susu 导入备份',
+        '备份 ID：' + id + '\n\n将撤销该备份之后由 susu.html 导入的新局（其他设备录入的局保留），并把云端主数据恢复到备份时的完整状态。\n\n此操作不可撤销！',
+        '确认还原', function () { return _restoreFromSusuBakDo(id, btn); });
+}
+async function _restoreFromSusuBakDo(id, btn) {
+    _susuBakLock();
+    _bakBtnBusy(id, true, '还原中…');
+    _susuBakStatus('⏳ 正在还原 ' + id + ' …');
+    try {
+        if (!supabaseClient) throw new Error('未配置云同步，无法还原');
+        _susuBakStatus('正在读取备份…');
+        var res = await _bakTimeout(supabaseClient.from(CLOUD_TABLE).select('data').eq('id', id).maybeSingle(), 15000, '读取备份');
+        if (res.error) throw res.error;
+        var bak = res.data && res.data.data;
+        if (!bak || !Array.isArray(bak.history)) throw new Error('备份不存在或数据已损坏');
+        // 当前云端 main：备份里没有的字段（尤其预测）用它兜底，避免还原后学习态倒退
+        var mres = await _bakTimeout(supabaseClient.from(CLOUD_TABLE).select('data').eq('id', CLOUD_ROW_ID).maybeSingle(), 15000, '读取云端主数据');
+        var curMain = (mres && mres.data && mres.data.data) || {};
+
+        _susuBakStatus('正在计算需要撤销的导入记录…');
+        var recRows = await _bakTimeout(_susuScanRecRows(), 20000, '扫描增量行');
+        var known = {};
+        (bak.susuRids || []).forEach(function (x) { known[x] = 1; });
+        var tombs = [];
+        recRows.forEach(function (row) {
+            var rid = String(row.id || '');
+            if (rid.indexOf('rec_') !== 0 || known[rid]) return;
+            var d = row.data;
+            // 只墓碑「备份之后本页导入」的新行；其他设备录入的局不带 _susuImport，保留
+            if (d && d.r && d.r._susuImport) tombs.push(rid);
+        });
+        // 「几局到几局」按本次导入造成的变化口径：备份时局数 + 本次要撤销的导入条数 → 备份时局数。
+        // 其他设备在这期间录入的局不带 _susuImport，不撤销也不计入这两个数字。
+        var beforeN = bak.history.length + tombs.length;
+        // 与主系统 restoreFromBackup 同款：先存一份「操作前快照」，▤ 操作日志里也留痕
+        try { createSnapshot('susu 导入备份还原：' + beforeN + ' 局 → ' + bak.history.length
+                             + ' 局，共撤销 ' + tombs.length + ' 条'); } catch(e) {}
+        _susuBakStatus('正在撤销 ' + tombs.length + ' 条导入记录…');
+        for (var i = 0; i < tombs.length; i += 50) {
+            var batch = tombs.slice(i, i + 50).map(function (rid) { return { id: rid, data: { del: 1 } }; });
+            var u = await _bakTimeout(supabaseClient.from(CLOUD_TABLE).upsert(batch, { onConflict: 'id' }), 15000, '写入撤销标记');
+            if (u.error) throw u.error;
+        }
+        _susuBakStatus('正在写回备份时的完整数据…');
+        // v51.0: 还原必须显式递增权威纪元并带可感知的时间戳。
+        // 旧版直接把备份里的 mainRest 原样写回，_syncEpoch 不变、upsert 也不带 updated_at，
+        // 其他端拉取时既不会强制覆盖、也检测不到 main 变了 —— 还原等于只对管理员本机生效。
+        var nextEpoch = (curMain._syncEpoch || 0) + 1;
+        var mainData = Object.assign({}, bak.mainRest || {}, {
+            history: bak.history,
+            predHistory: (bak.predHistory && bak.predHistory.length) ? bak.predHistory : (curMain.predHistory || []),
+            _syncEpoch: nextEpoch,
+            _adminOverride: (typeof _isAdmin !== 'undefined' && _isAdmin)
+                ? { at: Date.now() } : (curMain._adminOverride || null)
+        });
+        var w = await _bakTimeout(supabaseClient.from(CLOUD_TABLE).upsert(
+            { id: CLOUD_ROW_ID, data: mainData, updated_at: new Date().toISOString() },
+            { onConflict: 'id' }
+        ).select('updated_at'), 20000, '写回主数据');
+        if (w.error) throw w.error;
+        try {
+            var _ru = w.data && w.data[0] && w.data[0].updated_at;
+            if (_ru) window._knownMainUa = new Date(_ru).toISOString();
+        } catch (e) {}
+
+        // 本地与云端对齐；脏队列里若残留被撤销的 rid，清掉，避免自动上传把旧局写回
+        _susuBakApplyToLocal(bak, curMain);
+        P._syncEpoch = nextEpoch;   // v51.0: 与云端写入值严格一致，本端守门不误判
+        tombs.forEach(function (rid) { try { delete _dirtyRids[String(rid).slice(4)]; } catch (e) {} });
+        try { _saveDirtyRids(); } catch (e) {}
+        try { renderAll(); } catch (e) {}
+        try { P.saveLocal(); } catch (e) {}
+        _susuBakStatus('✅ 已还原到备份时的 ' + bak.history.length + ' 局，撤销 ' + tombs.length + ' 条 susu 导入记录。\n' +
+            '其他设备请点「↻ 拉取最新」同步；本端数据已就绪。备份 ' + id + ' 未被删除。', '#2e7d32');
+        showRecordResult(true, '还原成功',
+            '已从 susu 导入备份恢复数据\n共 ' + bak.history.length + ' 局\n撤销 ' + tombs.length + ' 条导入记录');
+        // 导入日志：谁 / 时间 / 几局到几局 / 共撤销几条
+        writeSusuImportLog({
+            type:'restore', ok:true, action:'susu 导入备份还原',
+            before:beforeN, after:bak.history.length, count:tombs.length, backupId:id
+        });
+        await _bakTimeout(loadSusuBakList(), 15000, '刷新备份列表');
+    } catch (e) {
+        _susuBakStatus('❌ 还原失败：' + (e && e.message ? e.message : String(e)) +
+            '\n\n墓碑写入是幂等的，可再点一次「还原」重试；若仍失败，请用管理员「☁️ 全量上传」把该备份的数据固化。' +
+            '\n备份 ' + id + ' 未被删除，可随时重试。', '#e74c3c');
+    } finally { _susuBakUnlock(); _bakBtnBusy(id, false); }
+}
+async function deleteSusuBak(id, btn) {
+    if (_susuBakIsBusy()) { _susuBakStatus('上一次操作仍在进行…（超过 60 秒会自动解锁）', '#e67e22'); return; }
+    return _bakConfirm('删除导入备份', '确定删除这份导入备份吗？删除后不可恢复！\n\n' + id, '确认删除',
+        function () { return _deleteSusuBakDo(id, btn); });
+}
+async function _deleteSusuBakDo(id, btn) {
+    _susuBakLock();
+    _bakBtnBusy(id, true, '删除中…');
+    _susuBakStatus('⏳ 正在删除 ' + id + ' …');
+    try {
+        var r = await _bakTimeout(supabaseClient.from(CLOUD_TABLE).delete().eq('id', id), 15000, '删除备份');
+        if (r.error) throw r.error;
+        // DELETE 可能返回成功但被 RLS 静默拦下（行还在），复查一次再说「已删除」
+        var chk = await _bakTimeout(supabaseClient.from(CLOUD_TABLE).select('id').eq('id', id).maybeSingle(), 15000, '复查删除结果');
+        if (chk && chk.error) {
+          // 复查查询自身失败不等于删除失败（行可能已经删掉），只报「未能确认」，不谎报
+          _susuBakStatus('⚠️ 删除结果未能确认（复查查询失败），请点「↻ 刷新列表」核对备份是否还在。', '#e67e22');
+          await loadSusuBakList();
+          return;
+        }
+        if (chk && chk.data) {
+            _susuBakStatus('⚠️ 删除未生效：备份 ' + id + ' 仍在云端，DELETE 被权限策略拦截。' +
+                '\n\n备份与还原功能不受影响，可重试或在 Supabase SQL Editor 执行：\n' + SUSU_BAK_DELETE_SQL, '#e67e22');
+            await loadSusuBakList();
+            return;
+        }
+        _susuBakStatus('✅ 已删除备份 ' + id, '#2e7d32');
+        await loadSusuBakList();
+    } catch (e) {
+        _susuBakStatus('❌ 删除失败：' + (e && e.message ? e.message : String(e)) +
+            '\n\n需要 prediction_data 的 DELETE 策略覆盖 susubak_ 前缀。备份与还原功能不受影响（旧备份保留即可）。' +
+            '如需清理可在 Supabase SQL Editor 执行：\n' + SUSU_BAK_DELETE_SQL, '#e74c3c');
+    } finally { _susuBakUnlock(); _bakBtnBusy(id, false); }
+}
+function cleanupSusuBak() {
+    if (_susuBakIsBusy()) { _susuBakStatus('上一次操作仍在进行…（超过 60 秒会自动解锁）', '#e67e22'); return; }
+    var old = _susuBakList.slice(SUSU_BAK_KEEP);
+    if (!old.length) {
+        _susuBakStatus('当前只有 ' + _susuBakList.length + ' 份导入备份，无需清理（上限 ' + SUSU_BAK_KEEP + ' 份，已自动保留最近 ' + SUSU_BAK_KEEP + ' 份）。');
+        return;
+    }
+    return _bakConfirm('清理 susu 导入备份',
+        '将保留最近 ' + SUSU_BAK_KEEP + ' 份，删除其余 ' + old.length + ' 份。\n不影响上方 backup_ 前缀的系统备份。此操作不可撤销！',
+        '确认清理', function () { return _cleanupSusuBakDo(old); });
+}
+async function _cleanupSusuBakDo(old) {
+    _susuBakLock();
+    _susuBakStatus('正在清理 ' + old.length + ' 份旧导入备份…');
+    var done = 0, failed = 0;
+    try {
+        for (var i = 0; i < old.length; i++) {
+            var r = await _bakTimeout(supabaseClient.from(CLOUD_TABLE).delete().eq('id', old[i].id), 15000, '删除旧备份');
+            if (r.error) throw r.error;
+            done++;
+        }
+    } catch (e) { failed++; }
+    try { await _bakTimeout(loadSusuBakList(), 15000, '刷新备份列表'); } catch (e) {}
+    if (failed) {
+        _susuBakStatus('⚠️ 已删除 ' + done + ' 份，其余删除失败。需要 DELETE 策略覆盖 susubak_ 前缀；' +
+            '导入与备份功能不受影响。SQL：\n' + SUSU_BAK_DELETE_SQL, '#e67e22');
+    } else {
+        _susuBakStatus('✅ 已清理 ' + done + ' 份旧导入备份，保留最近 ' + SUSU_BAK_KEEP + ' 份。', '#2e7d32');
+    }
+    _susuBakUnlock();
+}
+
+
+/* v51.0: 备份弹窗按钮全是内联 onclick，显式挂 window，杜绝任何作用域/IIFE 隐患。
+   不用 eval：避免 CSP 或严格模式下取不到局部名。 */
+if (typeof window !== 'undefined') {
+    window.restoreFromSusuBak   = restoreFromSusuBak;
+    window.deleteSusuBak        = deleteSusuBak;
+    window.cleanupSusuBak       = cleanupSusuBak;
+    window.loadSusuBakList      = loadSusuBakList;
+    window.restoreFromBackup    = restoreFromBackup;
+    window.deleteBackup         = deleteBackup;
+    window.cleanupAllOldBackups = cleanupAllOldBackups;
+    window.restoreLocalBackup   = restoreLocalBackup;
+    window._restoreFromSusuBakDo  = _restoreFromSusuBakDo;
+    window._deleteSusuBakDo       = _deleteSusuBakDo;
+    window._cleanupSusuBakDo      = _cleanupSusuBakDo;
+    window._restoreFromBackupDo   = _restoreFromBackupDo;
+    window._deleteBackupDo        = _deleteBackupDo;
+    window._cleanupAllOldBackupsDo = _cleanupAllOldBackupsDo;
+    window._restoreLocalBackupDo  = _restoreLocalBackupDo;
+    window._bakConfirm          = _bakConfirm;
+    window._bakTimeout          = _bakTimeout;
+    window._susuBakIsBusy       = _susuBakIsBusy;
+    window._susuBakLock         = _susuBakLock;
+    window._susuBakUnlock       = _susuBakUnlock;
+    window._bakBtnBusy          = _bakBtnBusy;
+}
+
 // v36.1: 手动一键清理旧备份——保留最近 AUTO_BACKUP_KEEP_COUNT 个，删除其余所有 backup_ 开头的行
 function cleanupAllOldBackups() {
     if (!supabaseClient) { showRecordResult(false, '提示', '云同步未初始化'); return; }
+    return _bakConfirm('清理旧备份',
+        '将保留最近 ' + AUTO_BACKUP_KEEP_COUNT + ' 个备份，删除其余所有云端备份。\n此操作不可撤销！',
+        '确认清理', function () { return _cleanupAllOldBackupsDo(); });
+}
+function _cleanupAllOldBackupsDo() {
     var msg = document.getElementById('backupStatusMsg');
-    if (!confirm('确定清理旧备份吗？\n\n将保留最近 ' + AUTO_BACKUP_KEEP_COUNT + ' 个备份，删除其余所有云端备份。\n此操作不可撤销！')) return;
-    msg.style.color = '#e65100'; msg.textContent = '正在清理...';
+    if (msg) { msg.style.color = '#e65100'; msg.textContent = '正在清理...'; }
     // v46.1：like 改为主键范围，避免全表扫描超时
     supabaseClient.from(CLOUD_TABLE).select('id, updated_at').gte('id', 'backup_').lt('id', 'backup~').order('updated_at', {ascending: false})
         .then(function(res) {
@@ -15868,10 +16530,17 @@ function loadLocalBackupList() {
 function restoreLocalBackup(idx) {
     var baks = [];
     try { baks = JSON.parse(localStorage.getItem("mm_local_autobackups") || "[]"); } catch(e) {}
-    if (!baks[idx]) { alert("备份不存在"); return; }
+    if (!baks[idx]) { showRecordResult(false, '提示', '备份不存在'); return; }
     var b = baks[idx];
-    if (!b.data || !b.data.history) { alert("备份数据已损坏"); return; }
-    if (!confirm("确定要恢复此本地备份吗？\\n\\n时间：" + (b.time ? new Date(b.time).toLocaleString("zh-CN") : "") + "\\n局数：" + b.data.history.length + " 局\\n\\n当前所有数据将被覆盖！")) return;
+    if (!b.data || !b.data.history) { showRecordResult(false, '提示', '备份数据已损坏'); return; }
+    return _bakConfirm('恢复本地备份',
+        "时间：" + (b.time ? new Date(b.time).toLocaleString("zh-CN") : "") + "\n局数：" + b.data.history.length + " 局\n\n当前所有数据将被覆盖！",
+        '确认恢复', function () { return _restoreLocalBackupDo(idx); });
+}
+function _restoreLocalBackupDo(idx) {
+    var baks = [];
+    try { baks = JSON.parse(localStorage.getItem("mm_local_autobackups") || "[]"); } catch(e) {}
+    var b = baks[idx];
     try {
         // 先备份当前数据
         createSnapshot("恢复本地备份前自动备份");
@@ -15905,13 +16574,25 @@ function restoreLocalBackup(idx) {
     }
 }
 function restoreFromBackup(backupId) {
-    if (!confirm('确定要恢复此备份吗？当前所有数据将被覆盖，此操作不可撤销！')) return;
+    return _bakConfirm('恢复云端备份', '当前所有数据将被覆盖，此操作不可撤销！', '确认恢复',
+        function () { return _restoreFromBackupDo(backupId); });
+}
+function _restoreFromBackupDo(backupId) {
     var msg = document.getElementById('backupStatusMsg') || {style:{}};
     msg.style.color = '#302b63';
     msg.textContent = '正在恢复...';
     // v50.16修复：下面三个错误分支原本只 return，链式下一个 .then 仍会执行并显示
     // "✅ 恢复成功"，把失败提示覆盖成成功（实际什么都没恢复）。这里用标记真正中止链路。
     var _restoreAborted = false;
+    if (!supabaseClient) { msg.style.color = '#e74c3c'; msg.textContent = '❌ 云同步未初始化，无法恢复'; return; }
+    var _restoreTimer = setTimeout(function () {
+        if (!_restoreAborted && msg && msg.textContent === '正在恢复...') {
+            msg.style.color = '#e74c3c';
+            msg.textContent = '❌ 恢复请求超时（20秒），云端可能无响应。数据未改动，请检查网络后重试。';
+            _restoreAborted = true;
+        }
+    }, 20000);
+    try {
     supabaseClient.from(CLOUD_TABLE).select('data, updated_at').eq('id', backupId).maybeSingle()
         .then(function(res) {
             if (res.error) { _restoreAborted = true; msg.style.color = '#e74c3c'; msg.textContent = '❌ 恢复失败：' + res.error.message; return null; }
@@ -15971,11 +16652,21 @@ function restoreFromBackup(backupId) {
                 _syncEpoch: P._syncEpoch,
                 _adminOverride: P._adminOverride || null // v26.4：管理员权威标记
             };
-            return supabaseClient.from(CLOUD_TABLE).upsert({ id: CLOUD_ROW_ID, data: mainData }, { onConflict: 'id' });
+            // v51.0: 带 updated_at —— 未装 clock_timestamp() 触发器的存量库，ON CONFLICT
+            // DO UPDATE 不会自动前进时间戳，其他端会检测不到「main 已被还原」。
+            return supabaseClient.from(CLOUD_TABLE).upsert(
+                { id: CLOUD_ROW_ID, data: mainData, updated_at: new Date().toISOString() },
+                { onConflict: 'id' }
+            ).select('updated_at');
         })
         .then(function(upsertRes) {
             if (_restoreAborted) return; // v50.13：前置步骤失败时不再谎报"恢复成功"
             if (upsertRes && upsertRes.error) { msg.style.color = '#e67e22'; msg.textContent = '⚠️ 本地已恢复，但同步云端失败：' + upsertRes.error.message; showRecordResult(false, '恢复部分成功', '本地数据已恢复，但同步云端失败：' + upsertRes.error.message); return; }
+            try {
+                var _ru = upsertRes && upsertRes.data && upsertRes.data[0] && upsertRes.data[0].updated_at;
+                if (_ru) window._knownMainUa = new Date(_ru).toISOString();
+            } catch (e) {}
+            clearTimeout(_restoreTimer);
             cloudLastSync = new Date();
             msg.style.color = '#2e7d32';
             msg.textContent = '✅ 恢复成功！共 ' + P.history.length + ' 局，已同步到云端主数据';
@@ -15983,13 +16674,23 @@ function restoreFromBackup(backupId) {
             showRecordResult(true, '恢复成功', '已从备份恢复数据\n共 ' + P.history.length + ' 条记录\n已同步到云端主数据');
         })
         .catch(function(e) {
+            clearTimeout(_restoreTimer);
             msg.style.color = '#e74c3c';
             msg.textContent = '❌ 恢复异常：' + e.message;
             showRecordResult(false, '恢复失败', '恢复过程出错：' + e.message);
         });
+    } catch (e) {
+        clearTimeout(_restoreTimer);
+        msg.style.color = '#e74c3c';
+        msg.textContent = '❌ 恢复异常：' + (e && e.message ? e.message : String(e));
+        showRecordResult(false, '恢复失败', '恢复过程出错：' + (e && e.message ? e.message : String(e)));
+    }
 }
 function deleteBackup(backupId) {
-    if (!confirm('确定删除此备份吗？删除后不可恢复！')) return;
+    return _bakConfirm('删除云端备份', '确定删除此备份吗？删除后不可恢复！', '确认删除',
+        function () { return _deleteBackupDo(backupId); });
+}
+function _deleteBackupDo(backupId) {
     if (!supabaseClient) { showRecordResult(false, '删除失败', '云同步未初始化'); return; }
     supabaseClient.from(CLOUD_TABLE).delete().eq('id', backupId)
         .then(function(res) {
@@ -16728,6 +17429,125 @@ function autoOptimizeTick() {
 }
 </script>
 <script>
+/* =====================================================================
+ * v51.0 导入格式兼容层（index.html 与 susu.html 逐行一致）
+ * 解决：不同来源的表头叫法不同（盐行/宝阁/粮堂、资金/通宝/本金…）、
+ *       等级列无表头时按位置推断、日期以「分组行」形式出现时向下填充。
+ * 纯函数，不依赖两端各自的清洗函数；返回值由调用方按自己的口径处理。
+ * ===================================================================== */
+var IMP_ALIASES = {
+  'A':  ['a','商会a','商會a','guilda','guild_a','盐行','盐','甲','甲方','商会1','第一商会'],
+  'B':  ['b','商会b','商會b','guildb','guild_b','宝阁','宝','乙','乙方','商会2','第二商会'],
+  'C':  ['c','商会c','商會c','guildc','guild_c','粮堂','粮','丙','丙方','商会3','第三商会'],
+  'TIME':['时间段','时间','time','timeslot','时段','开奖时间','局时间','时间段(分组)','time_range','开奖时段'],
+  'DATE':['日期','date','年月日','开奖日期','局日期','day','日期(分组)'],
+  'PW': ['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner',
+         '挣','获利','赢利','盈利','收益等级','profit','winner_profit','赢家收益'],
+  'PA': ['a收益','商会a收益','商會a收益','profita','profit_a'],
+  'PB': ['b收益','商会b收益','商會b收益','profitb','profit_b'],
+  'PC': ['c收益','商会c收益','商會c收益','profitc','profit_c'],
+  'IW': ['获胜投资','获胜商会投资','获胜通宝','通宝','投资','winnerinvest','invest_winner',
+         '资金','获胜资金','获胜的资金','本金','本钱','获胜本钱','押注','下注','投入',
+         '获胜投入','投资额','下注额','fund','capital','invest','investment','stake','bet']
+};
+function _impIsScore(v){
+  if (v===null||v===undefined||v==='') return false;
+  var n = (typeof v==='number') ? v : Number(String(v).trim());
+  return [0,0.5,1,2,3].indexOf(Math.round(n*10)/10) >= 0 && !isNaN(n);
+}
+function _impIsGrade(v){
+  if (v===null||v===undefined||v==='') return false;
+  var s=String(v).trim();
+  if (/^[123]$/.test(s)) return true;                 // 大/中/小 的数字编码
+  return s.indexOf('大')>=0 || s.indexOf('中')>=0 || s.indexOf('小')>=0 || s.indexOf('平')>=0;
+}
+/* 表头别名 + 位置兜底：表头没认出 PW/IW 时，从第4列起找「大/中/小」列按顺序补齐 */
+function _impBuildColMap(header, rows, startFrom){
+  var colMap={}, labels={}, H=[];
+  for (var i=0;i<(header||[]).length;i++)
+    H.push(String(header[i]===null||header[i]===undefined?'':header[i]).trim().toLowerCase());
+  Object.keys(IMP_ALIASES).forEach(function(g){
+    IMP_ALIASES[g].forEach(function(n){
+      var idx=H.indexOf(n);
+      if (idx>=0 && colMap[g]===undefined){
+        colMap[g]=idx;
+        labels[g]=String(header[idx]===null||header[idx]===undefined?'':header[idx]).trim();
+      }
+    });
+  });
+  if (colMap.A===undefined){colMap.A=0;labels.A='第1列(位置)';}
+  if (colMap.B===undefined){colMap.B=1;labels.B='第2列(位置)';}
+  if (colMap.C===undefined){colMap.C=2;labels.C='第3列(位置)';}
+  var used={}; Object.keys(colMap).forEach(function(g){ used[colMap[g]]=1; });
+  var lastABC=Math.max(colMap.A,colMap.B,colMap.C), maxCol=0;
+  for (var r=startFrom;r<Math.min(rows.length,startFrom+40);r++)
+    if (rows[r] && rows[r].length>maxCol) maxCol=rows[r].length;
+  var gradeCols=[];
+  for (var ci=lastABC+1;ci<maxCol;ci++){
+    if (used[ci]) continue;
+    var hit=0,tot=0;
+    for (var r2=startFrom;r2<Math.min(rows.length,startFrom+40);r2++){
+      var row=rows[r2]; if (!row||ci>=row.length) continue;
+      var v=row[ci]; if (v===null||v===undefined||String(v).trim()==='') continue;
+      tot++; if (_impIsGrade(v)) hit++;
+    }
+    if (tot>=3 && hit/tot>=0.6){ gradeCols.push(ci); used[ci]=1; }
+  }
+  if (colMap.PW===undefined && gradeCols.length){
+    colMap.PW=gradeCols.shift(); labels.PW='第'+(colMap.PW+1)+'列(推断)';
+  }
+  if (colMap.IW===undefined && gradeCols.length){
+    colMap.IW=gradeCols.shift(); labels.IW='第'+(colMap.IW+1)+'列(推断)';
+  }
+  return {colMap:colMap, labels:labels, extraGradeCols:gradeCols};
+}
+/* 识别日期标记：dd/mm/yyyy、X月X日、YYYY-MM-DD。
+   注意：不认 5 位整数。真实文件第7列混有 46033/46064/46334 等批次号，
+   差值 28~120 天不连续，当成 Excel 日期序列号会把局写成 1月/8月，污染导出与时段效应。
+   Excel 序列号日期只在「日期列」里由各自的 normalizeDateStr 处理，不参与分组扫描。 */
+function _impLooksDate(v){
+  if (v===null||v===undefined||v==='') return '';
+  var s=String(v).trim(); if (!s) return '';
+  var m=s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (m){
+    var x=parseInt(m[1],10), y=parseInt(m[2],10), mo, da;
+    if (x>12 && y<=12){ da=x; mo=y; }            // 23/10/2026 → 日/月/年
+    else if (y>12 && x<=12){ da=y; mo=x; }        // 10/23/2026 → 月/日/年
+    else { da=x; mo=y; }                          // 有歧义时按中文习惯日/月
+    if (mo>=1&&mo<=12&&da>=1&&da<=31) return mo+'月'+da+'日';
+  }
+  if (/^\d{1,2}月\d{1,2}日$/.test(s)) return s;
+  var m2=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m2){ var mo2=parseInt(m2[2],10), da2=parseInt(m2[3],10);
+           if (mo2>=1&&mo2<=12&&da2>=1&&da2<=31) return mo2+'月'+da2+'日'; }
+  return '';
+}
+function _impLooksTime(v){
+  if (v===null||v===undefined) return '';
+  var s=String(v).trim();
+  if (/^\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?$/.test(s)) return s;
+  return '';
+}
+/* 扫描「日期/时间段分组行」：非数据行扫全部单元格，数据行只扫未映射列，避免误判分数/等级 */
+function _impScanGroups(rows, colMap, startFrom){
+  var n=rows.length, dateByRow=new Array(n), timeByRow=new Array(n);
+  var curD='', curT='', nd=0, nt=0;
+  var mapped={}; Object.keys(colMap).forEach(function(g){ mapped[colMap[g]]=1; });
+  for (var i=0;i<n;i++){
+    var row=rows[i]||[];
+    var isData = i>=startFrom &&
+      _impIsScore(row[colMap.A]) && _impIsScore(row[colMap.B]) && _impIsScore(row[colMap.C]);
+    for (var ci=0;ci<row.length;ci++){
+      if (isData && mapped[ci]) continue;
+      var d=_impLooksDate(row[ci]); if (d){ if (d!==curD){ curD=d; nd++; } }
+      var t=_impLooksTime(row[ci]); if (t){ if (t!==curT){ curT=t; nt++; } }
+    }
+    dateByRow[i]=curD; timeByRow[i]=curT;
+  }
+  return {dateByRow:dateByRow, timeByRow:timeByRow, dateCount:nd, timeCount:nt};
+}
+
+
 /* ============================================================
  * 12-ui.js — UI 渲染与交互：AI 深度分析、卡片/表格渲染、录入、学习、回测、事件绑定
  * 来源: 商会三竞预测系统 v44.30 单文件工程拆分 (源行 10758-14772)
@@ -20576,9 +21396,11 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 var text=ev.target.result;var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
                 if(lines.length<2)throw new Error('CSV至少需表头+1行数据');
                 var header=lines[0].split(',').map(function(s){return s.trim().toLowerCase();});
-                var colMap={};var rules={'A':['a','商会a','商會a','guilda'],'B':['b','商会b','商會b','guildb'],'C':['c','商会c','商會c','guildc'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['a收益','商会a收益','商會a收益','profita','profit_a'],'PB':['b收益','商会b收益','商會b收益','profitb','profit_b'],'PC':['c收益','商会c收益','商會c收益','profitc','profit_c'],'IW':['获胜投资','获胜商会投资','获胜通宝','通宝','投资','winnerinvest','invest_winner']};
-                for(var hi=0;hi<header.length;hi++){var s=header[hi];Object.keys(rules).forEach(function(g){rules[g].forEach(function(n){if(n===s)colMap[g]=hi;});});}
-                if(!colMap.A)colMap.A=0;if(!colMap.B)colMap.B=1;if(!colMap.C)colMap.C=2;
+                var colMap={};var rules=IMP_ALIASES;
+                var __rows=lines.map(function(l){return parseCSVLine(l);});
+                var _built=_impBuildColMap(header,__rows,1);var colMap=_built.colMap;
+                var _groups=_impScanGroups(__rows,colMap,1);
+                var recRowIdx=[];
                 var hasTimeCol=(colMap.TIME!==undefined),hasDateCol=(colMap.DATE!==undefined),hasSeparateCols=hasTimeCol&&hasDateCol,hasProfitCols=(colMap.PW!==undefined)||(colMap.PA!==undefined);
                 var recs=[];
                 window._importParseSkipped = 0; window._importSkippedRows = [];
@@ -20594,7 +21416,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                     if(_slotD) rec.date=_importDateFromSlot(_slotD);
                     if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?cleanWinValue(parts[colMap.PW]):'';rec.profitA=colMap.PA!==undefined?String(parts[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(parts[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(parts[colMap.PC]||'').trim():'';}
                     rec.investWinner=colMap.IW!==undefined?cleanWinValue(parts[colMap.IW]):'';
-                    recs.push(rec);
+                    recs.push(rec);recRowIdx.push(i);
                 }
                 if(recs.length===0)throw new Error('CSV无有效数据');
                 window._importTimeInferred = (!hasTimeCol && !hasSeparateCols);
@@ -20603,6 +21425,12 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                     var baseCsv=new Date();
                     if(P.history&&P.history.length){var _ltCsv=parseTimeSlot(P.history[P.history.length-1].timeSlot);if(_ltCsv)baseCsv=_ltCsv;}
                     for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,baseCsv);}
+                    for(var _gi=0;_gi<recs.length;_gi++){
+                        var _gd=_groups.dateByRow[recRowIdx[_gi]]||'',_gt=_groups.timeByRow[recRowIdx[_gi]]||'';
+                        if(_gd){recs[_gi].timeSlot=String(recs[_gi].timeSlot).replace(/^\d{1,2}月\d{1,2}日/,_gd);
+                                if(_gt)recs[_gi].timeSlot=_gd+' '+_gt;
+                                recs[_gi].date=_importDateFromSlot(_gd);}
+                    }
                 }
                 if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner,recs[ri].date,recs[ri]);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.profitAccuracy=cumCSV.profitAccuracy?cumCSV.profitAccuracy.slice():[];P.profitBrierHistory=cumCSV.profitBrierHistory?cumCSV.profitBrierHistory.slice():[];P.investAccuracy=cumCSV.investAccuracy?cumCSV.investAccuracy.slice():[];P.modelWeights=Object.assign({},cumCSV.modelWeights);P.modelPerf=cumCSV.modelPerf?Object.assign({},cumCSV.modelPerf):{};P.advancedModelPerf=cumCSV.advancedModelPerf||{similar:[],loss:[],profit:[],invest:[],markov:[],bayes:[],trend:[],rebound:[]};['similar','loss','profit','invest','markov','bayes','trend','rebound'].forEach(function(k){if(!P.advancedModelPerf[k])P.advancedModelPerf[k]=[];});P.windowPerf=cumCSV.windowPerf?Object.assign({},cumCSV.windowPerf):{win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入 '+P.history.length+' 条'+(window._importParseSkipped?'（已剔除 '+window._importParseSkipped+' 行脏数据）':'')+'　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
@@ -20617,9 +21445,12 @@ document.getElementById('excelInput').addEventListener('change',function(e){
             var ws=wb.Sheets[wb.SheetNames[0]];
             var json=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
             var header=json[0]||[]; var colMap={};
-            var rules={'A':['a','A','商会A','商會A','guilda','guild_a'],'B':['b','B','商会B','商會B','guildb','guild_b'],'C':['c','C','商会C','商會C','guildc','guild_c'],'TIME':['时间段','时间','time','timeslot','时段'],'DATE':['日期','date','年月日'],'PW':['获胜收益','获胜的商会收益','获利收益','收益','winnerprofit','profit_winner'],'PA':['A收益','商会A收益','商會A收益','profita','profit_a'],'PB':['B收益','商会B收益','商會B收益','profitb','profit_b'],'PC':['C收益','商会C收益','商會C收益','profitc','profit_c'],'IW':['获胜投资','获胜商会投资','获胜通宝','通宝','投资','winnerinvest','invest_winner']};
-            for (var hi=0;hi<header.length;hi++){var s=String(header[hi]).trim().toLowerCase();Object.keys(rules).forEach(function(g){rules[g].forEach(function(n){if(n.toLowerCase()===s)colMap[g]=hi;});});}
-            if(!colMap.A)colMap.A=0;if(!colMap.B)colMap.B=1;if(!colMap.C)colMap.C=2;
+            var rules=IMP_ALIASES;
+            var __rows=json;
+            var _bxStart=header.some(function(c){return c!==null;})?1:0;
+            var _built=_impBuildColMap(header,__rows,_bxStart);var colMap=_built.colMap;
+            var _groups=_impScanGroups(__rows,colMap,_bxStart);
+            var recRowIdx=[];
             var hasTimeCol = (colMap.TIME !== undefined);
             var hasDateCol = (colMap.DATE !== undefined);
             var hasSeparateCols = hasTimeCol && hasDateCol;
@@ -20643,7 +21474,7 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 if(_slotD) rec.date=_importDateFromSlot(_slotD);
                 if(hasProfitCols){rec.profitWinner=colMap.PW!==undefined?cleanWinValue(row[colMap.PW]):'';rec.profitA=colMap.PA!==undefined?String(row[colMap.PA]||'').trim():'';rec.profitB=colMap.PB!==undefined?String(row[colMap.PB]||'').trim():'';rec.profitC=colMap.PC!==undefined?String(row[colMap.PC]||'').trim():'';}
                 rec.investWinner=colMap.IW!==undefined?cleanWinValue(row[colMap.IW]):'';
-                recs.push(rec);
+                recs.push(rec);recRowIdx.push(i);
             }
             if(recs.length===0)throw new Error('无有效数据');
             // v24: 无时间列时，以导入时间为准自动往前推算（按当前局间隔：半小时/一小时）
@@ -20658,6 +21489,12 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var ti=0;ti<recs.length;ti++){
                     var hoursAgo = recs.length - 1 - ti;
                     recs[ti].timeSlot = getTimeSlotHoursAgo(hoursAgo, base);
+                }
+                for(var _gj=0;_gj<recs.length;_gj++){
+                    var _gd2=_groups.dateByRow[recRowIdx[_gj]]||'',_gt2=_groups.timeByRow[recRowIdx[_gj]]||'';
+                    if(_gd2){recs[_gj].timeSlot=String(recs[_gj].timeSlot).replace(/^\d{1,2}月\d{1,2}日/,_gd2);
+                             if(_gt2)recs[_gj].timeSlot=_gd2+' '+_gt2;
+                             recs[_gj].date=_importDateFromSlot(_gd2);}
                 }
             }
             if(recs.length===0)throw new Error('无有效数据');
