@@ -14,7 +14,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v51.1（24 态盘面 · 四盘融合 · Excel 增量导入 · 备份与日志 · 还原防竞态）</title>
+<title>商会三竞预测系统 v51.2（24 态盘面 · 四盘融合 · Excel 增量导入 · 备份与日志 · 还原防竞态 · 后台休眠与零重绘）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -904,12 +904,12 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v51.1</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v51.2</span></h1>
 <p class="subtitle"><span>四盘协同 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v51.1 完整版）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v51.2 完整版）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
-<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v51.1 之前的累计修复）</summary>
+<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v51.2 之前的累计修复）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
 </details>
 </header>
@@ -2275,9 +2275,10 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v51.1';  // v51.0: v50.35~v50.41 全部累积功能定版归一；算法口径 ALGO_VER 未变
+  var APP_VERSION = 'v51.2';  // v51.1: 交互层流畅度拉满 + 全量复查 + 版本归一；算法口径 ALGO_VER 未变
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v51.1 完整更新说明（v50.35 ~ v50.41 累积交付的全部功能，已定版归一）：\n' +
+  var APP_UPDATE_DESC_RECENT = 'v51.2 完整更新说明（v50.35 ~ v51.1 累积交付的全部功能）：\n' +
+    '㉖【定版 v51.1 · 交互层收口 + 全量复查】本版把 v51.0 内两项交互修复正式收编并升版：㉔ 录入下拉框卡顿（select 展开/聚焦期间后台渲染让路，选中或 ESC/Enter 立即解除，4 秒保护窗 + 8 秒兜底；9 个录入/编辑/插入下拉摘除绘制型过渡）、㉕ 后台休眠与流畅度拉满（页面不可见时 20s 拉取 / 30s 轮询 / 60s 补传 / 心跳 / 10 分钟备份 / 每小时共享表 / 图标扫描跳过本轮，回前台补跑一轮；动态节点全页重扫 16ms 合并、图标观察者过滤与恢复、表单控件全状态零绘制过渡、交互标记 900ms→500ms）。**硬边界**：录入后 5 秒上传、debouncedSave 本地存盘、用户主动按钮、自动回填分片全部不走守门，云端一轮不漏，数据安全与交互行为不变。升版前做了全量复查：16 套测试 690 项 0 失败、两端 JS 语法通过、69 个内联按钮与 64 个绑定处理器逐个真实点击、9 处版本锚点逐条命中、发布默认号动态计算、ALGO_VER 与云同步协议未动；并修掉后台休眠两处边界 —— `_bgHiddenNow` 改为以 `document.hidden` 为权威（避免 visibilitychange 被吞掉时周期任务永久静默暂停）、回前台 60ms 补跑单定时器去重（避免反复切换叠加重复拉取与重绘）。**①~㉕ 全部已包含在当前版本**，susu.html 功能零改动、数据库零操作、不用重新授权、不用强制重新学习。\n' +
     '①【四盘一致 / 三盘一致最近不太准】定位到四条根因：四盘高度共线（同一段历史被数四次）、②③④ 严格口径丢掉了新近度、长度权重超线性让单条长片段独裁、命中率定权偏短期。现把 simLenExp 2.6→1.8、simQualityBlend 0.30→0.50、fourWayPriorN 6→20、fourWayConsensusMin 0.60→0.75，并新增 fourWayMinTopProb=0.42：每盘 Top 概率低于 42% 记「弃权」，不再进共识、不再凑出假的「四盘一致」，融合权重压到 35%。②③④ 补齐质量票，让时间新近度真正进概率；只剩 1 张有效票时四盘占比上限再压到 0.20。「四盘协同分析」面板摊开各盘 Top 概率、有效票 N/4、门槛值、弃权盘名单。\n' +
     '②【管理员可查导出日志】独立页 susu.html 每次导出会写一行 elog_ 记录，主系统「管理员面板 → 查看导出记录」显示：谁（设备备注+设备号）、什么时间、导出了什么（今天/昨天/两天、条数、昨今分项、勾选的列、Excel 还是 CSV、完整文件名、Excel 组件未就绪自动降级 CSV 的标记）。日志只保留最近 100 条，导出页写完即裁、管理员打开面板时兜底再裁一次；删除权限不足时静默降级，不影响导出，也不误报「上报失败」。支持「刷新日志 / 清空日志」，清空后会复查，避免假报成功。\n' +
     '③【发布时可明确选更新到哪个文件】点「▲ 发布到GitHub」先弹窗选目标：index.html / susu.html / draw.html / xlsx.bundle.js，也可手填任意根目录静态文件，并记住上次选择。本机文件名可以与目标不同、可以是中文；.js/.css 等也能发。成功提示写明「目标文件 + 本机来源」，防止把 index 的内容误发到 susu。\n' +
@@ -2294,14 +2295,20 @@ function syncBrief(){
     '⑮【代际隔离：不让旧时代规律污染现在的预测】这是本版最关键的一刀。含 1 的盘面既然基本不再出现，就属于风格漂移前的旧样本；第13信号原先的 L3 粗态键只有「赢家|赢家档」，会把 no1 与 with1 混在一起回退 —— 等于用旧规律预测现在。现在 `struct` / `coarse` 两个键都带上 tier（no1 / with1），当前盘面只与同代历史比对，跨代永不混用。L1 精确态天然分代；不含1的当前态只有 12 种、样本密度高，L1 门槛从 8 放宽到 6，含1的旧态维持 8/16/28 避免小样本硬推。面板里第13信号状态会显示当前代际与「只与同代历史比对」。\n' +
     '⑪【跨版本预测记录隔离 _algoVer】predHistory / accuracy 从 v50.35 一路攒到 v50.37，算法口径变了三次，但校准分桶、命中率定权、出手建议、漂移降权、智能修正全在把三套口径的记录混着统计。现在每条新预测写 _algoVer = ALGO_VER（与 APP_VERSION 解耦：纯 UI/文案发布不清空统计，只有算法口径变才递增），校准分桶与云端瘦身白名单同步保留该字段；所有「决策型」读取统一走 getCurAlgoPredIdxs / getCurAlgoAccuracy —— **只过滤、绝不物理删改**，因为 predHistory 与 history 按下标对齐，删一条会让整条索引链错位。展示层（总准确率、历史表、趋势图）仍看全历史战绩，并在「学习状态」面板标出「同口径 N 条 / 旧口径 M 条」。短期命中率数组（modelPerf / advancedModelPerf / windowPerf / 校准分桶）不带逐条版本，改为首次以本版打开时惰性一次性清空（存档带 perfAlgoVer，刷新不重复）；这些数组不与 history 下标对齐，清空安全，且所有读取点都有样本不足兜底。升级后同口径样本从 0 开始，概率校准与出手建议会自动回退到模型自身概率，属正常冷启动，攒够 20 条即恢复。\n' +
     '⑯【导入备份只留 5 份 + 单份手动删除】susu.html 每次导入前创建的 susubak_ 全量备份不再无限累积：导入写完备份后自动按时间倒序裁到最近 5 份（绝不删本次刚建的那份），主系统打开「▣ 云端备份与恢复」时再兜底裁一次，历史遗留的 20 份也能一次收敛；裁剪全程旁路，DELETE 权限不足或 RLS 静默拦截时停用本会话、不空转、不影响导入与还原。备份列表每行保留「删除」按钮并加了复查，被权限静默拦下会明确提示「删除未生效」而不是假报成功；「清理旧备份」按钮同步改成保留 5 份，作为权限恢复后的手动兜底。系统原有 backup_ 前缀「保留最近 4 份」完全不受影响。\n' +
-    '⑰【版本归一 v51.0 + 全量复查】v50.35 一路累积到 v50.41 的功能，本版统一定版为 v51.0，界面所有版本号与描述一次改齐；发布主系统 index.html 时仍照常弹版本号，默认按当前号小版本 +1（v51.0 → v51.1），格式提示改为动态读取，不再写死某个版本号。定版前做了端到端全量复查：9 套测试共 467 项、两端 JS 语法、69 个内联按钮与 64 个绑定处理器逐个真实点击、全部异常分支，0 失败；并修掉 3 处边界问题 —— 发布版本号格式提示写死、导出/导入日志双查询失败时误报「暂无记录」、单份删除备份后复查查询失败时误报「删除失败」。\n' +
+    '⑰【版本归一 v51.0 + 全量复查】v50.35 一路累积到 v50.41 的功能，当时统一定版为 v51.0（现为 v51.1），界面所有版本号与描述一次改齐；发布主系统 index.html 时仍照常弹版本号，默认按当前号小版本 +1（当时的举例 v51.0 → v51.1，当前请以发布弹窗给出的默认号为准），格式提示动态读取，不写死某个版本号。定版前做了端到端全量复查：9 套测试共 467 项、两端 JS 语法、69 个内联按钮与 64 个绑定处理器逐个真实点击、全部异常分支，0 失败；并修掉 3 处边界问题 —— 发布版本号格式提示写死、导出/导入日志双查询失败时误报「暂无记录」、单份删除备份后复查查询失败时误报「删除失败」。\n' +
     '⑱【还原防竞态：别的设备不再把旧局推回来】备份还原 / 管理员强制同步会覆盖云端 main，但另一台正开着的设备若在「拉取到新 main 之前」触发 5 秒自动增量上传，会把本地旧 rec_ 行推上去，表现就是「明明还原了，旧局又回来了」。本版在**任何写云端之前**加一道轻量守门：先读 main 的 updated_at（约几十字节），与本机记录一致就直接放行；不一致再读一次 main 判 _syncEpoch，云端纪元更大即判定本机尚未对齐 —— 本次上传直接拒绝、**脏队列保留不丢数据**、自动触发一次拉取，对齐后同步自行恢复。稳态每轮只多一个极小请求，弱网或权限波动一律放行，绝不阻断正常录入；弹窗做 60 秒节流不骚扰。\n' +
     '   同时修掉还原侧两处会让机制失效的老问题：susu 导入备份还原原先原样写回备份里的 mainRest，_syncEpoch 不变、upsert 也不带 updated_at，其他端既不会强制覆盖、也检测不到 main 变了，还原等于只对管理员本机生效；现在还原显式递增权威纪元、带上时间戳并回填本机基线。主系统「云端备份与恢复」的 upsert 同样补上 updated_at（未装 clock_timestamp() 触发器的存量库，ON CONFLICT DO UPDATE 不会自动前进时间戳）。**不需要动数据库**：没加表、没加列、没加新行、没改任何策略，全部复用已有的 main / _syncEpoch / updated_at。\n' +
     '⑲【Excel 导入兼容多格式】两份真实民间表格现在都能正确解析：① 表头叫「盐行 / 宝阁 / 粮堂」的，按商会名映射到 A/B/C；「资金 / 通宝 / 本金 / 获胜投资」统一识别为**获胜投资（大/中/小）**，「收益 / 挣 / 获胜的商会收益」识别为获胜收益 —— 之前「资金」列不在别名表里，导入后获胜投资整列为空，本版修好。② 表头带「局号 / 日期 / 时间 / A / B / C / 获胜通宝」的，A/B/C 自动定位到第 4/5/6 列，日期支持 Excel 序列号（46242→8月8日），含 1（保本）的局是合法 24 态不会被误剔，`#N/A` 空局正常跳过。③ 没有表头时，从第 4 列起按「大/中/小」取值比例自动推断收益列与投资列。④ 日期以「分组行 / 额外列」形式出现的（如某天第一局第 7 列写 23/10/2026），向下填充给该日所有局，把顺延推算的时间线还原成真实月日；**只认明确文本日期，不认 5 位整数**——真实文件第 7 列混着 46033/46334 这类批次号，当 Excel 日期序列号会把局写成 1 月/8 月、污染「今天/昨天」导出与时段效应。分组行本身不是合法数据行，不会变成记录，因此**导入条数与尾局锚定完全不变**。实测：唐商传奇.xlsx 有效 1519 局（与系统原口径一致）、获胜投资有值 1497 局（98.6%，原来 0）、还原 19 个日期分组；新商会数据 (1).xlsx 有效 4570 局、含 1 保本局 723 条全部保留。两端（susu.html 与系统 index.html）共用同一份兼容层，逐行一致；手动指定起始行仍按之前要求只保留在系统里。\n' +
+    '㉕【后台休眠 + 流畅度拉满（交互层）】标签页切到后台时，20 秒自动拉取、30 秒轮询、60 秒补传、心跳、10 分钟自动备份、每小时共享表导出、图标扫描仍在按点唤醒，切回前台会集中补跑一堆请求与重绘 —— 表现就是「切回来卡一下」。现加统一守门：页面不可见时周期性后台任务跳过本轮，回到前台补跑一轮（云端拉取 + 让路队列 + 渲染 + 图标队列），一轮不漏；录入后 5 秒上传、debouncedSave 本地存盘、用户主动按钮、自动回填分片全部不走守门，数据安全与交互行为不变。另做四处纯绘制/时机优化：动态节点新增时全页 ensure(document) 从「每次都扫」改为 16ms 合并一次（1200ms 全扫兜底保留）；图标观察者跳过 script/style/徽章自身且不在隐藏时反复唤醒；表单控件全状态去掉 background/border/color 的 .12s 过渡（hover 仍走 opacity 合成属性）；交互标记窗口 900ms 收窄到 500ms。只改执行时机与绘制，不动数据、算法、权重、预测结果、云同步协议；当时未改版本号，ALGO_VER、susu.html、数据库均未动。\n' +
+    '㉔【录入下拉框卡顿修复（交互层）】现象：点开 A/B/C 或收益/投资下拉时明显卡顿、选项层被顶掉。根因不是下拉本身，是 v50.35 的「弹窗交互优先通道」只认 .open/.w2-show 弹窗，而录入表单在主页面上；后台 5 秒增量同步 / 30 秒全量对账 / 自动补传一到点就同步整页 renderAll，原生 <select> 的选项层正展开时被整页重绘打断。现把「select 正在展开或聚焦」并入同一条让路判据：pointerdown/focusin 起 4 秒保护窗，选中（change）或 ESC/Enter 立即解除，期间后台渲染进既有队列，关闭后由 _popupFlush 补跑，一轮不漏（8 秒兜底仍在）。另把录入/编辑/插入共 9 个下拉从全局 CSS 过渡里摘出来，展开时不再逐帧重绘。只改执行时机与绘制，不动任何数据、算法、权重、云同步协议，预测结果完全一致。\n' +
+    '㉓【导入口径收敛：撤销日期切分】按用户口径更正：48 局/天是**系统当前节奏**（半小时一局、末局顺延推算天然约 48 局/天），不是用来反推或修补 Excel 里历史日期的规则，历史数据与本次导入无关。故**整体撤销**上一轮的「读文件内日期分组 → 按 48 局/天切分补齐」以及再上一轮的「60 局上限」：导入不再读取文件里的日期分组 / 额外日期列 / 时间段标注，无时间列的文件日期一律按系统末局顺延推算，带逐局时间列的文件照文件取。导入只做用户要的两件事：① 文档最后 10 局与系统最后 10 局按 A/B/C 精确锚定，只接锚点之后的新局；② 每局只认 A/B/C 比分 + 获胜收益、获胜投资（大/中/小）。尾局锚定本来就是纯 ABC 比对、与日期无关，撤销后条数（1519 / 4570）、锚点、字段逐局不变。预览删掉所有日期还原/补齐文案，只留一句「日期按系统末局顺延推算（约 48 局/天）」。\n' +
+    '㉒【备份列表存储型 XSS 修复（审查发现）】云端备份列表把 prediction_data 的 id 直接拼进内联 onclick：该表用 anon key + 全开 RLS、任何人可写，id 里塞一个单引号加分号再拼一段脚本，就能在管理员打开「云端备份与恢复」时执行任意代码；而只做 escHtml 也不够——单引号被转成字符实体后，浏览器解析 HTML 属性时又解码回单引号，照样能截断 JS 字符串。现统一先用 JSON.stringify 生成双引号 JS 字面量、再 escHtml 做属性转义，上方「系统备份」恢复/删除与下方「susu 导入备份」还原/删除四个按钮全部覆盖，列表里用 id 兜底显示的时间文本也补了转义。正常 id 渲染结果不变，不影响任何点击行为。\n' +
+    '㉑【时间段不再向下填充 + 无表头修正（日期部分已随 ㉓ 一并撤销）】文件里 23:58-00:28 / 00:28-00:58 只是个别行各自的局时间，旧版灌给后续 400+ 局造成 95 局共用同一 timeSlot、186 个 recKey 撞车；现文件内时间段标注整体不再参与导入（日期时间一律按 ㉓ 口径），推算时间线逐局唯一，1519 个 timeSlot 两两不同、重复 recKey 为 0。全角冒号归一化、无表头时把修正后的 start 传给列映射，仍保留。备份确认层同步加固：取消不再把状态串到下方 susu 区、onOk 的 Promise 异常有兜底、清掉一处死代码。\n' +
     '⑳【备份「点恢复没反应」根因修复】浏览器勾选「阻止此页面创建更多对话框」、或在某些预览器 / iframe 沙箱里，原生 confirm() 会被静默屏蔽（不弹窗、直接返回 false）。旧版恢复 / 还原 / 删除 / 清理全部卡在 if(!confirm(...)) return; 第一行，表现为「点了完全没反应」；而 susu.html 不用原生 confirm，导入照常工作，正好对上现象。本文件 v45.5 录入链路注释里记录过同一个坑，这次补齐备份模块：**恢复、还原、删除、清理、本地备份恢复统一改走系统自带的页内确认弹窗**（showRecordConfirm，z-index 100010），不再依赖浏览器对话框；页内弹窗不可用时才降级，并识别「瞬时返回 false」为被屏蔽，给可见提示而不是无声退出。同时加固：所有云端 await 加 15~20 秒超时（挂起不再永久卡住）；busy 锁带时间戳、60 秒自动解锁；cleanup 改 try/finally 释放；确认后按钮立刻变「还原中…」、状态栏在表格上下各写一份（滚动到列表也看得见）；9 个备份函数显式挂 window，杜绝作用域隐患。实测模拟「confirm 被屏蔽」环境下，点「还原」仍能弹出页内确认并完整走完还原链。\n' +
-    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v51.1，混用旧版会用不同口径算同一份历史、跨端结论分叉。**本次只是版本号与描述归一，预测算法没动**：算法口径标识 ALGO_VER 仍是 v50.40-board24（与 APP_VERSION 刻意解耦），因此不会触发预测记录隔离、不用点「↻ 强制重新学习」、历史准确率照常累计。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据，可自行核对。换版后建议点一次「☁️ 全量上传」固化。⑱ 的还原防竞态不需要你在 Supabase 做任何操作，也不影响 susu.html（导入页不参与 5 秒自动上传、打开即拉云端）。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。';
-  var APP_UPDATE_DESC_HISTORY = '历史归档（v51.1 之前的累计修复，均已包含在当前版本）：\n' +
-    '· v50.35 ~ v50.41（已全部定版并入 v51.0）：跨端重复收敛与全端移动端、四盘协同调优与 42% 强度门槛、融合后结论唯一化、完整盘面 24 态与代际隔离、跨版本预测记录隔离 _algoVer、导出/导入日志各留 100 条、Excel 增量导入与导入前全量备份（仅留 5 份、可单份删除）、发布目标可选且仅 index 弹版本号、版本号提示动态化与三处边界修复。\n' +
+    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v51.2，混用旧版会用不同口径算同一份历史、跨端结论分叉。**本轮是交互层流畅度优化 + 版本归一，预测算法一行没动**：算法口径标识 ALGO_VER 仍是 v50.40-board24（与 APP_VERSION 刻意解耦），因此不会触发预测记录隔离、不用点「↻ 强制重新学习」、历史准确率照常累计；susu.html 功能零改动但请一并覆盖上传，保证两端导入兼容层逐字一致；数据库一个操作都不用做。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据。换版后建议点一次「☁️ 全量上传」固化。⑱ 的还原防竞态不需要你在 Supabase 做任何操作。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。';
+  var APP_UPDATE_DESC_HISTORY = '历史归档（v51.2 之前的累计修复，均已包含在当前版本）：\n' +
+    '· v51.0（已并入 v51.1）：录入下拉框卡顿修复（select 展开期间后台渲染让路 + 9 个下拉摘除过渡）、后台休眠与流畅度拉满（周期任务隐藏即休眠、回前台补跑一轮、观察者 16ms 合并、表单零绘制过渡、交互标记 500ms）、全量复查与版本归一。\n' +
+    '· v50.35 ~ v50.41（已全部定版并入 v51.1）：跨端重复收敛与全端移动端、四盘协同调优与 42% 强度门槛、融合后结论唯一化、完整盘面 24 态与代际隔离、跨版本预测记录隔离 _algoVer、导出/导入日志各留 100 条、Excel 增量导入与导入前全量备份（仅留 5 份、可单份删除）、发布目标可选且仅 index 弹版本号、版本号提示动态化与三处边界修复。\n' +
     '· v50.40（已包含在当前版本）：盘面收敛为实际 24 态、优先总结不含 1 的 12 态、代际隔离，ALGO_VER = v50.40-board24；导出日志与导入日志（谁 / 时间 / 几局到几局 / 共几条）、主系统还原入口、susu 去掉手动指定起始行。\n' +
     '· v50.39（已由 v50.40 收敛）：把第13信号改成「完整盘面条件频率」并加盘面体检与录入软提示，但当时按 5 选 3 推成 42 态（7 组合 × 6 排列、幅度五档、结构态 15 类/粗态 9 类），多算了 3 个实际不存在的组合；本版按你给的 24 组清单收敛为 4 组合 × 6 排列、幅度四档，并新增「没1优先总结 + 代际隔离」。\n' +
     '· v50.38（已由 v50.39 修正）：初版「分差幅度」第13信号 + _algoVer 跨版本预测隔离 + 回测 A/B 可开关；初版用连续 margin 切桶并引用了不合规盘面示例，本版按真实规则重写为 42 态精确条件频率。\n' +
@@ -2318,7 +2325,7 @@ function syncBrief(){
     if(r) r.textContent = APP_UPDATE_DESC_RECENT;
     if(h) h.textContent = APP_UPDATE_DESC_HISTORY;
   } catch(e){} })();
-  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v51.1 完整更新说明。';
+  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v51.2 完整更新说明。';
 
   // ========== v50.35：弹窗「交互优先」通道 ==========
   // 复现（4178 局 + 真实鼠标）：弹窗显示时后台只要有一个 400ms 长任务，
@@ -2326,9 +2333,83 @@ function syncBrief(){
   // 弹窗是全屏遮罩，后台刷新本来也看不见，却让用户替它等，不划算。
   // 做法：弹窗打开期间，后台重活一律让路；关闭后补跑。只改「执行时机」，
   // 不改任何数据、算法、权重、云同步协议；轮询只是延到下一轮，一轮不漏。
+    // ========== v51.0：后台任务「页面不可见即休眠」 ==========
+  // 标签页切到后台后，20s 拉取 / 30s 轮询 / 60s 补传 / 心跳 / 自动备份 / 图标扫描
+  // 仍在按点唤醒，主线程被无声占用；切回前台那一刻还会集中补跑一堆请求与重绘 ——
+  // 表现就是「切回来卡一下」。统一守门：隐藏时跳过本轮，回到前台补跑一轮，一轮不漏。
+  // 严格边界：录入后 5 秒上传（setTimeout）、debouncedSave→P.saveLocal、用户主动点击
+  // 的按钮、自动回填分片，全部不走这里；数据安全与交互行为完全不变。
+  // 与 _popupGuardOpen（弹窗/下拉让路）彼此独立，互不影响。
+  var _bgHidden = false, _bgResumeTimer = 0;
+  function _bgHiddenNow() {
+    // v51.1：以浏览器原生 document.hidden 为权威。旧版用 OR 合并 _bgHidden，
+    // 一旦某些预览器 / iframe 沙箱吞掉 visibilitychange，_bgHidden 会卡在 true，
+    // 20s 拉取 / 60s 补传 / 心跳全部永久静默暂停 —— 同步悄悄停掉。
+    // document.hidden 是实时属性，不依赖事件是否送达；_bgHidden 仅作极老环境兜底。
+    try {
+      if (typeof document !== 'undefined' && typeof document.hidden === 'boolean') return !!document.hidden;
+      return !!_bgHidden;
+    } catch (e) { return false; }
+  }
+  function _bgPaused() { return _bgHiddenNow(); }
+  window._bgPaused = _bgPaused;
+  window._bgHiddenNow = _bgHiddenNow;
+  window._bgResumeFns = [];
+  window._bgOnResume = function (fn) {
+    try { if (typeof fn === 'function') window._bgResumeFns.push(fn); } catch (e) {}
+  };
+  document.addEventListener('visibilitychange', function () {
+    try {
+      _bgHidden = !!document.hidden;
+      if (_bgHidden) return;
+      var jobs = (window._bgResumeFns || []).slice();
+      for (var i = 0; i < jobs.length; i++) { try { jobs[i](); } catch (e) {} }
+      if (window._popupFlush) setTimeout(window._popupFlush, 0);
+      // v51.1：单定时器去重。反复快速切换前后台不再叠加补跑，避免重复拉取 / 重绘。
+      try { if (_bgResumeTimer) clearTimeout(_bgResumeTimer); } catch (e) {}
+      _bgResumeTimer = setTimeout(function () {
+        _bgResumeTimer = 0;
+        try {
+          if (typeof cloudPollIncremental === 'function' &&
+              typeof supabaseClient !== 'undefined' && supabaseClient &&
+              typeof cloudOnline !== 'undefined' && cloudOnline &&
+              typeof _testMode !== 'undefined' && !_testMode) cloudPollIncremental();
+        } catch (e) {}
+        try { if (typeof renderAll === 'function') renderAll(); } catch (e) {}
+      }, 60);
+    } catch (e) {}
+  });
+
   var _popupDeferred = [], _popupFlushTimer = 0;
+  // v51.0：录入区下拉框展开期间也让后台渲染让路。
+  // v50.35 的通道只认弹窗，但录入表单在主页面上：5s 增量同步 / 30s 对账 /
+  // 自动补传一旦触发 renderAll 就同步整页重绘，原生 <select> 的选项层被顶掉
+  // 或逐帧重绘 —— 表现就是「点开下拉卡半天」。复用同一条让路/补跑通道。
+  var _selectGuardUntil = 0;
+  function _selectDropdownActive() {
+    try {
+      if (Date.now() > _selectGuardUntil) return false;
+      var ae = document.activeElement;
+      return !!ae && ae.tagName === 'SELECT';
+    } catch (e) { return false; }
+  }
+  function _selectGuardBegin() { _selectGuardUntil = Date.now() + 4000; }
+  function _selectGuardEnd() { _selectGuardUntil = 0; }
+  document.addEventListener('pointerdown', function (e) {
+    try { if (e.target && e.target.tagName === 'SELECT') _selectGuardBegin(); } catch (x) {}
+  }, true);
+  document.addEventListener('focusin', function (e) {
+    try { if (e.target && e.target.tagName === 'SELECT') _selectGuardBegin(); } catch (x) {}
+  }, true);
+  document.addEventListener('change', function (e) {
+    try { if (e.target && e.target.tagName === 'SELECT') _selectGuardEnd(); } catch (x) {}
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    try { if (e.key === 'Escape' || e.key === 'Esc' || e.key === 'Enter') _selectGuardEnd(); } catch (x) {}
+  }, true);
   function _popupGuardOpen() {
     try {
+      if (_selectDropdownActive()) return true;
       var ids = ['recordResultModal', 'recordConfirmModal'];
       for (var i = 0; i < ids.length; i++) {
         var e = document.getElementById(ids[i]);
@@ -2369,6 +2450,9 @@ function syncBrief(){
   window._popupDefer = _popupDefer;
   window._popupFlush = _popupFlush;
   window._popupDeferredCount = function () { return _popupDeferred.length; };
+  window._selectDropdownActive = _selectDropdownActive;
+  window._selectGuardBegin = _selectGuardBegin;
+  window._selectGuardEnd = _selectGuardEnd;
   // 点弹窗内任何按钮（确定/取消/关闭/遮罩空白处）后补跑被让路的后台工作。
   // capture 阶段挂 setTimeout，等内联 onclick 先把弹窗关掉，再 flush。
   document.addEventListener('click', function (e) {
@@ -3356,6 +3440,7 @@ var DEFAULT_SB_KEY = 'sb_publishable_lcM1McV3jYFYhQzOzOdP1A_6dqmYcm4';
 
     // v43.43: 每小时自动导出历史数据到localStorage，供共享数据表读取
     setInterval(function() {
+    if (window._bgPaused && _bgPaused()) return;   // v51.0：后台休眠（共享表）
         try {
             if (P && P.history) {
                 const sharedData = P.history.map(function(r) {
@@ -12033,6 +12118,7 @@ if (!supabaseClient) {
             if (!_testMode) {
                 _autoPullTimer = setInterval(async function() {
                     // v50.35：弹窗打开期间跳过本轮，下一轮（20 秒后）自动恢复，不丢数据。
+                    if (window._bgPaused && _bgPaused()) return;   // v51.0：后台休眠
                     if (window._popupGuardOpen && _popupGuardOpen()) return;
                     // ===== v49.5 ④: 管理员全量上传 → 其他端 20 秒内自动全部覆盖 =====
                     // 放在所有「本地忙碌/同步中」跳过判断之前，保证不会被录入手忙漏掉。
@@ -12648,7 +12734,10 @@ async function cleanupOldAutoBackups() {
 }
 // 每10分钟检查一次是否到了备份时段（3小时一个时段，最多延迟10分钟触发）
 if (_autoBackupTimer) clearInterval(_autoBackupTimer);
-_autoBackupTimer = setInterval(checkAutoBackup, 600000);
+_autoBackupTimer = setInterval(function(){
+      if (window._bgPaused && _bgPaused()) return;   // v51.0：后台休眠，前台下一轮照常补
+      try { checkAutoBackup(); } catch(e) {}
+  }, 600000);
 
 // v27.3修复：禁用定时自动对比同步，避免多设备竞态条件导致数据重复
 // 之前的自动对比会在本地多就上传、云端多就拉取，但多设备同时在线时会导致竞态条件
@@ -13356,6 +13445,7 @@ async function cloudPollIncremental() {
 // 定时增量轮询（30秒一次，每次仅拉增量行，响应通常<1KB）
 setInterval(function() {
     // v50.35：弹窗打开期间跳过本轮，下一轮自动恢复。
+    if (window._bgPaused && _bgPaused()) return;   // v51.0：后台休眠
     if (window._popupGuardOpen && _popupGuardOpen()) return;
     // v48.5: initCloud 已启动 20s 轮询（含 5 分钟对账 / 15 分钟主快照检查），
     // 模块级 30s 轮询是冗余的第二份，等于双倍请求；仅当 initCloud 未启动兜底时才跑。
@@ -13790,6 +13880,7 @@ async function cloudReconcileRecIds() {
 // 待传数据网络恢复/定期补偿重试
 setInterval(function() {
     // v50.35：弹窗打开期间跳过本轮，下一轮自动恢复。
+    if (window._bgPaused && _bgPaused()) return;   // v51.0：后台休眠，回到前台立即补跑
     if (window._popupGuardOpen && _popupGuardOpen()) return;
     if (window._syncFuseBlown) return; // v48.5: 熔断期间不自动补传
     if (!_autoSyncEnabled || window._autoSyncHold) return; // v49.7 P0-3: 暂停期间不补传
@@ -15179,6 +15270,7 @@ function _rescheduleHeartbeat() {
     _heartbeatTimer = setInterval(sendHeartbeat, interval);
 }
 function sendHeartbeat() {
+if (window._bgPaused && _bgPaused()) return;   // v51.0：后台休眠，前台恢复时补一次
     try {
         var _api = window._cloudApi;
         var _devId = window._cloudDeviceId ? window._cloudDeviceId() : '';
@@ -15318,6 +15410,7 @@ function openOnlineModal() {
     // 弹窗可见期间每 30 秒轻量刷新；关掉弹窗立即停表
     if (_onlineTimer) clearInterval(_onlineTimer);
     _onlineTimer = setInterval(function(){
+    if (window._bgPaused && _bgPaused()) return;   // v51.0：后台休眠（在线列表）
         var o = document.getElementById('onlineModalOverlay');
         if (o && o.classList.contains('open')) refreshOnlineList();
         else { clearInterval(_onlineTimer); _onlineTimer = 0; }
@@ -15973,15 +16066,15 @@ function loadBackupList(silent) {
             for (var i = 0; i < list.length; i++) {
                 var item = list[i];
                 var t = item.updated_at ? new Date(item.updated_at) : null;
-                var tStr = t ? t.toLocaleString('zh-CN') : item.id;
+                var tStr = t ? t.toLocaleString('zh-CN') : escHtml(item.id);
                 // data->>_count 返回的 key 是 _count（字符串如 "2639"），旧备份为 null
                 var cnt = (item._count !== null && item._count !== undefined && item._count !== '') ? item._count + ' 局' : '-';
                 html += '<tr>' +
                     '<td style="padding:8px;font-size:12px;">' + tStr + '</td>' +
                     '<td style="padding:8px;">' + cnt + '</td>' +
                     '<td style="padding:8px;">' +
-                        '<button onclick="restoreFromBackup(\'' + item.id + '\')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px;">恢复</button>' +
-                        '<button onclick="deleteBackup(\'' + item.id + '\')" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
+                        '<button onclick="restoreFromBackup(' + _bakJsArg(item.id) + ')" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px;">恢复</button>' +
+                        '<button onclick="deleteBackup(' + _bakJsArg(item.id) + ')" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
                     '</td>' +
                     '</tr>';
             }
@@ -16018,21 +16111,40 @@ function loadBackupList(silent) {
  * 统一改走系统自带的页内确认弹窗 showRecordConfirm（z-index 100010），
  * 不依赖浏览器原生对话框；再加网络超时、busy 自愈与即时可见反馈。
  * ============================================================ */
+/* v51.0: 云端行 id 要进内联 onclick，必须先做成 JS 字符串字面量再做 HTML 属性转义。
+   prediction_data 用 anon key + 全开 RLS，id 可被外部写入；只 escHtml 不够
+   （' 转成 &#39; 后浏览器解码回 '，仍会截断 JS 单引号字符串）。 */
+function _bakJsArg(v) {
+    return escHtml(JSON.stringify(String(v == null ? '' : v)));
+}
 function _bakConfirm(title, msg, okText, onOk, onCancel) {
+    // onOk 可能返回 Promise，而页内确认弹窗的 closeRecordConfirmModal 只做同步 try，
+    // 捕获不到异步 rejection。这里包一层兜底，避免任何异常变成「点了没反应」。
+    var safeOk = function () {
+        try {
+            var r = onOk ? onOk() : undefined;
+            if (r && typeof r.catch === 'function')
+                r.catch(function (e) { try { console.error('[备份] 操作异常:', e); } catch (_) {} });
+            return r;
+        } catch (e) {
+            try { console.error('[备份] 操作异常:', e); } catch (_) {}
+            try { showRecordResult(false, '操作异常', e && e.message ? e.message : String(e)); } catch (_) {}
+        }
+    };
     var fn = (typeof window !== 'undefined') ? window.showRecordConfirm : null;
     if (typeof fn === 'function') {
-        try { return fn(title, msg, onOk, onCancel || function () { _susuBakStatus('已取消，数据未改动。'); }, okText || '确定', '取消'); }
+        // 取消时不写 susu 状态栏：上方「系统备份」的恢复/删除/清理也走这里，
+        // 写下去会串到下方 susu 导入备份区，看起来像点错了地方。
+        try { return fn(title, msg, safeOk, onCancel || function () {}, okText || '确定', '取消'); }
         catch (e) {}
     }
     // 兜底：页内弹窗不可用时用原生 confirm，并识别「被静默屏蔽」，给可见提示而不是无声退出
     var t0 = Date.now(), ok = false;
     try { ok = !!confirm(msg); } catch (e) {}
-    if (ok) { return onOk ? onOk() : undefined; }
+    if (ok) return safeOk();
     if (Date.now() - t0 < 40) {          // 几乎瞬时返回 false = 被浏览器屏蔽，不是用户点取消
-        _susuBakStatus('❌ 当前浏览器屏蔽了确认对话框，操作未执行。\n请允许本页显示对话框（地址栏右侧图标 / 「阻止此页面创建更多对话框」），或换普通浏览器标签页打开后重试。', '#e74c3c');
-        try { showRecordResult(false, '确认被浏览器拦截', '请在浏览器里允许本页弹出对话框，然后重新点一次。'); } catch (e) {}
-    } else {
-        _susuBakStatus('已取消，数据未改动。');
+        try { showRecordResult(false, '确认被浏览器拦截',
+            '当前浏览器屏蔽了确认对话框，操作未执行。\n请允许本页显示对话框，或换普通浏览器标签页打开后重试。'); } catch (e) {}
     }
     if (onCancel) onCancel();
 }
@@ -16144,7 +16256,6 @@ function _susuBakStatus(text, color) {
         el.style.color = color || '#302b63';
         el.textContent = text || '';
     }
-    try { showRecordResult && void 0; } catch (e) {}
 }
 function _susuBakTbody() {
     return document.getElementById('susuBakListBody');
@@ -16243,8 +16354,8 @@ function renderSusuBakList() {
                 '<div style="color:#9aa0b4;font-size:10.5px;word-break:break-all;">' + escHtml(item.id) + '</div></td>' +
             '<td style="padding:8px;">' + Number(d.count || d.history.length || 0) + ' 局</td>' +
             '<td style="padding:8px;white-space:nowrap;">' +
-                '<button data-bak-id="' + escHtml(item.id) + '" onclick="restoreFromSusuBak(\'' + escHtml(item.id) + '\', this)" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px;">还原</button>' +
-                '<button data-bak-id="' + escHtml(item.id) + '" onclick="deleteSusuBak(\'' + escHtml(item.id) + '\', this)" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
+                '<button data-bak-id="' + escHtml(item.id) + '" onclick="restoreFromSusuBak(' + _bakJsArg(item.id) + ', this)" style="background:#e65100;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;margin-right:6px;">还原</button>' +
+                '<button data-bak-id="' + escHtml(item.id) + '" onclick="deleteSusuBak(' + _bakJsArg(item.id) + ', this)" style="background:#e74c3c;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:12px;">删除</button>' +
             '</td></tr>';
     }
     tbody.innerHTML = html;
@@ -17384,7 +17495,8 @@ function autoOptimizeTick() {
     _lastOptimizeCount = P.history.length;
     _idleCtl(function(){
         // 用户正在输入/弹窗打开时不跑重计算
-        if (document.querySelector('.modal-overlay.open, .import-modal-overlay.open, .ds-modal-overlay.open, .w2-mask.w2-show, .config-panel.open, input:focus, select:focus, textarea:focus')) {
+        if ((window._bgHiddenNow && window._bgHiddenNow()) ||
+            document.querySelector('.modal-overlay.open, .import-modal-overlay.open, .ds-modal-overlay.open, .w2-mask.w2-show, .config-panel.open, input:focus, select:focus, textarea:focus')) {
             _lastOptimizeCount = P.history.length - 5; // 推迟5局后再试
             return;
         }
@@ -17524,27 +17636,35 @@ function _impLooksDate(v){
 }
 function _impLooksTime(v){
   if (v===null||v===undefined) return '';
-  var s=String(v).trim();
+  // 全角冒号 / 中文破折号在民间表格里很常见（如 05：10-05：40），先归一化再匹配
+  var s=String(v).trim().replace(/[：]/g, ':').replace(/[－—–]/g, '-');
   if (/^\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?$/.test(s)) return s;
   return '';
 }
-/* 扫描「日期/时间段分组行」：非数据行扫全部单元格，数据行只扫未映射列，避免误判分数/等级 */
+/* 扫描「日期分组 / 行级时间段标注」。
+   · 日期：分组语义，向下填充，但设跨度上限。真实文件 10/31 → 11/13 之间约 595 局
+     没有任何日期标注，旧版把 594 局全归到 10月31日，污染当日快照、时段效应与去重键。
+     超过上限即停止填充，保留顺延推算月日（推算时间线本身连续、每天约 47 局，更接近真实）。
+   · 时间段：只作用于「标注所在的那一行」，绝不向下填充。真实文件里
+     23:58-00:28 / 00:28-00:58 只是第 1092/1093 行各自的局时间，旧版向下填充导致
+     后续 400+ 局共用 00:28-00:58、186 个 recKey 完全撞车。
+   · 非数据行扫全部单元格，数据行只扫未映射列，避免把分数/等级误判成日期。 */
+/* 业务硬规则：半小时一局 → 一天最多 48 局。
+   日期分组之间若漏标了日期，按 48 局/天顺序补齐，而不是放弃填充。
+   真实文件 10/31 → 11/13 之间约 595 局无标注 ≈ 12.4 天，按 48 切正好补出
+   11/1~11/12；11/17 → 11/19 的 95 局 ≈ 2 天，正好补出 11/18。全自洽。 */
+/* 导入口径（按业务口径收敛）：
+   · 日期不读取文件内的「日期分组 / 额外日期列 / 时间段标注」。
+     带逐局时间列的文件 → 日期时间照文件取；无时间列的文件 → 一律按系统末局
+     顺延推算（当前半小时一局，约 48 局/天），同一份文件重复导入时间线不平移。
+   · 48 局/天是系统当前节奏，不是历史文件的切分规则；文件里的旧日期与本次导入无关。
+   · 尾 10 局锚定只比对 A/B/C，与日期、时间段完全无关。
+   保留本函数仅为两端兼容层一致，返回恒空结果，绝不改写 timeSlot / date。 */
 function _impScanGroups(rows, colMap, startFrom){
-  var n=rows.length, dateByRow=new Array(n), timeByRow=new Array(n);
-  var curD='', curT='', nd=0, nt=0;
-  var mapped={}; Object.keys(colMap).forEach(function(g){ mapped[colMap[g]]=1; });
-  for (var i=0;i<n;i++){
-    var row=rows[i]||[];
-    var isData = i>=startFrom &&
-      _impIsScore(row[colMap.A]) && _impIsScore(row[colMap.B]) && _impIsScore(row[colMap.C]);
-    for (var ci=0;ci<row.length;ci++){
-      if (isData && mapped[ci]) continue;
-      var d=_impLooksDate(row[ci]); if (d){ if (d!==curD){ curD=d; nd++; } }
-      var t=_impLooksTime(row[ci]); if (t){ if (t!==curT){ curT=t; nt++; } }
-    }
-    dateByRow[i]=curD; timeByRow[i]=curT;
-  }
-  return {dateByRow:dateByRow, timeByRow:timeByRow, dateCount:nd, timeCount:nt};
+  var n = rows ? rows.length : 0;
+  var emptyD = new Array(n), emptyT = new Array(n);
+  for (var i=0;i<n;i++){ emptyD[i]=''; emptyT[i]=''; }
+  return {dateByRow:emptyD, timeByRow:emptyT, dateCount:0, timeCount:0};
 }
 
 
@@ -18228,7 +18348,9 @@ window.__v49BootRenderUntil = Date.now() + 2000;
     function mark(){
         window.__v49UserAction = true;
         if (_t) clearTimeout(_t);
-        _t = setTimeout(function(){ window.__v49UserAction = false; }, 900);
+        // v51.0：900ms → 500ms。单次点击的 UI 更新远在 500ms 内完成，
+        // 缩短「后台渲染绕过滚动门控」的窗口；每次点击都会重新 mark，连续操作不受影响。
+        _t = setTimeout(function(){ window.__v49UserAction = false; }, 500);
     }
     function unmark(){
         window.__v49UserAction = false;
@@ -21425,12 +21547,6 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                     var baseCsv=new Date();
                     if(P.history&&P.history.length){var _ltCsv=parseTimeSlot(P.history[P.history.length-1].timeSlot);if(_ltCsv)baseCsv=_ltCsv;}
                     for(var ti2=0;ti2<recs.length;ti2++){recs[ti2].timeSlot=getTimeSlotHoursAgo(recs.length-1-ti2,baseCsv);}
-                    for(var _gi=0;_gi<recs.length;_gi++){
-                        var _gd=_groups.dateByRow[recRowIdx[_gi]]||'',_gt=_groups.timeByRow[recRowIdx[_gi]]||'';
-                        if(_gd){recs[_gi].timeSlot=String(recs[_gi].timeSlot).replace(/^\d{1,2}月\d{1,2}日/,_gd);
-                                if(_gt)recs[_gi].timeSlot=_gd+' '+_gt;
-                                recs[_gi].date=_importDateFromSlot(_gd);}
-                    }
                 }
                 if(P.history.length>0){openImportModal(recs,'csv',{timeInferred:!hasTimeCol&&!hasSeparateCols});}else{try{createSnapshot('CSV首次导入前自动备份（'+(P.history?P.history.length:0)+'条）');_lastImportSnapshotIdx=_snapshots.length-1;}catch(e){}P.clearAll();var cumCSV=new Predictor();cumCSV.modelWeights=Object.assign({},P.modelWeights);cumCSV._fastRebuild=true;var csvBatch=30,csvTotal=recs.length,csvDone=0;function csvNext(){var end=Math.min(csvDone+csvBatch,csvTotal);for(var ri=csvDone;ri<end;ri++){cumCSV.addRecord(recs[ri].a,recs[ri].b,recs[ri].c,recs[ri].timeSlot,recs[ri].profitWinner,recs[ri].profitA,recs[ri].profitB,recs[ri].profitC,recs[ri].investWinner,recs[ri].date,recs[ri]);}csvDone=end;if(csvDone<csvTotal){setTimeout(csvNext,10);}else{P.history=cumCSV.history.slice();P.predHistory=cumCSV.predHistory.slice();P.accuracy=cumCSV.accuracy.slice();P.profitAccuracy=cumCSV.profitAccuracy?cumCSV.profitAccuracy.slice():[];P.profitBrierHistory=cumCSV.profitBrierHistory?cumCSV.profitBrierHistory.slice():[];P.investAccuracy=cumCSV.investAccuracy?cumCSV.investAccuracy.slice():[];P.modelWeights=Object.assign({},cumCSV.modelWeights);P.modelPerf=cumCSV.modelPerf?Object.assign({},cumCSV.modelPerf):{};P.advancedModelPerf=cumCSV.advancedModelPerf||{similar:[],loss:[],profit:[],invest:[],markov:[],bayes:[],trend:[],rebound:[]};['similar','loss','profit','invest','markov','bayes','trend','rebound'].forEach(function(k){if(!P.advancedModelPerf[k])P.advancedModelPerf[k]=[];});P.windowPerf=cumCSV.windowPerf?Object.assign({},cumCSV.windowPerf):{win6:[],win7:[],win8:[],win10:[],global:[]};P.learnIterations=cumCSV.learnIterations;P.maxStreakEver=calcMaxStreak(P.history);if(P.predHistory.length>0)P.lastPrediction=P.predHistory[P.predHistory.length-1].guild;renderAll();debouncedSave();st.className='import-status import-success';st.innerHTML='✅ CSV导入 '+P.history.length+' 条'+(window._importParseSkipped?'（已剔除 '+window._importParseSkipped+' 行脏数据）':'')+'　<a href="javascript:undoLastImport()" style="color:#e74c3c;font-weight:600;cursor:pointer;text-decoration:underline;">↩️ 撤销本次导入</a>';setTimeout(function(){st.style.display='none';},15000);}}csvNext();}
             }catch(err){st.className='import-status import-error';st.textContent='❌ '+err.message;}
@@ -21447,17 +21563,19 @@ document.getElementById('excelInput').addEventListener('change',function(e){
             var header=json[0]||[]; var colMap={};
             var rules=IMP_ALIASES;
             var __rows=json;
-            var _bxStart=header.some(function(c){return c!==null;})?1:0;
-            var _built=_impBuildColMap(header,__rows,_bxStart);var colMap=_built.colMap;
-            var _groups=_impScanGroups(__rows,colMap,_bxStart);
+            // v50.22 修复前移：首行本身就是数据（无表头）时 start=0，
+            // 且必须把「修正后的 start」传给列映射与分组扫描，否则无表头文件的
+            // 等级列推断/分组扫描会漏掉第一行。
+            var start=header.some(function(c){return c!==null;})?1:0;
+            if(start===1 && VALID_VALUES.indexOf(parseCell(header[0]))>=0 && VALID_VALUES.indexOf(parseCell(header[1]))>=0 && VALID_VALUES.indexOf(parseCell(header[2]))>=0) start=0;
+            var _built=_impBuildColMap(header,__rows,start);var colMap=_built.colMap;
+            var _groups=_impScanGroups(__rows,colMap,start);
             var recRowIdx=[];
             var hasTimeCol = (colMap.TIME !== undefined);
             var hasDateCol = (colMap.DATE !== undefined);
             var hasSeparateCols = hasTimeCol && hasDateCol;
             var hasProfitCols = (colMap.PW !== undefined) || (colMap.PA !== undefined);
-            var start=header.some(function(c){return c!==null;})?1:0;
-            // v50.22修复：首行本身就是数据（无表头）时不要把它当表头跳过，避免少导入一局
-            if(start===1 && VALID_VALUES.indexOf(parseCell(header[colMap.A]))>=0 && VALID_VALUES.indexOf(parseCell(header[colMap.B]))>=0 && VALID_VALUES.indexOf(parseCell(header[colMap.C]))>=0) start=0;
+            // start 已在上方计算并修正（含无表头判断）
             var recs=[];
             // v50.22修复：逐行做「值合法 + 业务合法」双重校验，剔除空白/合计/残留格式行；
             // 同时把日期列补成 rec.date，避免 addRecord 把 4200 局全部写成「今天」污染跨端去重键。
@@ -21489,12 +21607,6 @@ document.getElementById('excelInput').addEventListener('change',function(e){
                 for(var ti=0;ti<recs.length;ti++){
                     var hoursAgo = recs.length - 1 - ti;
                     recs[ti].timeSlot = getTimeSlotHoursAgo(hoursAgo, base);
-                }
-                for(var _gj=0;_gj<recs.length;_gj++){
-                    var _gd2=_groups.dateByRow[recRowIdx[_gj]]||'',_gt2=_groups.timeByRow[recRowIdx[_gj]]||'';
-                    if(_gd2){recs[_gj].timeSlot=String(recs[_gj].timeSlot).replace(/^\d{1,2}月\d{1,2}日/,_gd2);
-                             if(_gt2)recs[_gj].timeSlot=_gd2+' '+_gt2;
-                             recs[_gj].date=_importDateFromSlot(_gd2);}
                 }
             }
             if(recs.length===0)throw new Error('无有效数据');
@@ -23806,7 +23918,7 @@ function saveInsertRecord() {
         if (P._rebuildPending) { setTimeout(function(){ kick(0); }, 400); return; }
         try { renderAll(); } catch(e) {}
         if (st) {
-            st.innerHTML = '✅ 已插入 1 局（' + slot + '），当前共 ' + P.history.length + ' 局，预测快照已重算　<a href="javascript:void(0)" onclick="this.parentNode.style.display=\'none\'" style="color:#155724;">✖ 关闭</a>';
+            st.innerHTML = '✅ 已插入 1 局（' + escHtml(slot) + '），当前共 ' + P.history.length + ' 局，预测快照已重算　<a href="javascript:void(0)" onclick="this.parentNode.style.display=\'none\'" style="color:#155724;">✖ 关闭</a>';
             setTimeout(function(){ st.style.display = 'none'; }, 12000);
         }
     };
@@ -25695,6 +25807,7 @@ if(document.readyState==='loading'){
         var queue = [], timer = 0;
         function flush() {
             timer = 0;
+            if (window._bgHiddenNow && window._bgHiddenNow()) return;   // v51.0：隐藏时不反复唤醒，回前台补跑
             // v50.35：弹窗打开期间把整批扫描推迟，主线程优先派发弹窗按钮事件。
             if (window._popupGuardOpen && _popupGuardOpen()) {
               // queue 保持不变，等弹窗关闭后再整批处理，不丢任何待扫描节点
@@ -25741,7 +25854,10 @@ if(document.readyState==='loading'){
                             for (var j = 0; j < add.length; j++) {
                                 var an = add[j];
                                 if (an.nodeType === 3) fixNode(an);
-                                else if (an.nodeType === 1) queue.push(an);
+                                else if (an.nodeType === 1) {
+                                    if (SKIP[an.tagName] || (an.getAttribute && an.getAttribute('data-ico'))) continue;
+                                    queue.push(an);
+                                  }
                             }
                         }
                         if (queue.length && !timer) {
@@ -25755,6 +25871,10 @@ if(document.readyState==='loading'){
                 mo.observe(document.body, OBS_CFG);
             } catch (e) {}
         }
+        // v51.0：回到前台补跑隐藏期间攒下的图标扫描队列
+        if (window._bgOnResume) window._bgOnResume(function(){
+          if (queue.length && !timer) timer = setTimeout(function(){ timer = 0; flush(); }, 0);
+        });
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
         else start();
         setTimeout(function () {
@@ -25795,14 +25915,28 @@ button .ico, a .ico, .tab-btn .ico, .cloud-btn .ico{pointer-events:none !importa
 button, .interval-btn, .tab-btn, .cloud-btn, .pg-btn, .btn-delete-row,
 .btn-modal-cancel, .btn-modal-confirm, .import-mode-option,
 .import-mode-option .mode-radio, .guild-input, .pred-history-table tbody tr,
-input, select, textarea, .history-toolbar input[type=text], .history-toolbar select,
-.access-box input, .access-box button{
+.access-box button{
   transition: background-color .12s ease, color .12s ease, border-color .12s ease !important;
+}
+/* v51.0：表单控件全状态不再做绘制型过渡。
+   background/border/color 的 .12s 会让聚焦、展开、输入时逐帧重绘；改成瞬时后
+   视觉几乎无差，按钮的 hover 反馈仍由下面的 opacity（合成属性）承担，零重绘。 */
+input, select, textarea,
+.history-toolbar input[type=text], .history-toolbar select,
+.access-box input{
+  transition: none !important;
 }
 /* 焦点环改为一次性静态呈现：原来 input:focus 的 box-shadow 带 .15~.18s 过渡，
    聚焦时逐帧重绘；现在不再过渡，只绘制一次，视觉完全一致、输入跟手。 */
 input:focus, select:focus, textarea:focus,
 .history-toolbar input[type=text]:focus, .history-toolbar select:focus{
+  transition: none !important;
+}
+/* v51.0：录入/编辑/插入的下拉框展开时不再逐帧重绘。
+   上面那条只对 :focus 生效，部分双核浏览器展开原生选项层时焦点并不在 select 上，
+   仍会吃到上面全局的 background/border .12s 过渡。这里对整批录入下拉全状态关闭。 */
+#inputA,#inputB,#inputC,#inputProfitWinner,#inputInvestWinner,
+#editRecProfit,#editRecInvest,#insertRecProfit,#insertRecInvest{
   transition: none !important;
 }
 #saveToast, #learnTip, #w2Toast{
@@ -26108,6 +26242,14 @@ html{scroll-behavior:auto !important}
     }
   }
   function init(){ ensure(document); }
+  // v51.0：动态节点新增时旧版每次都 setTimeout(init,0) 全页 querySelectorAll，
+    // 表格/弹窗成批渲染会连扫几十次。16ms 内合并成一次，语义不变（1200ms 全扫兜底仍在）。
+    var _initPend = false;
+    function _schedInit(){
+      if (_initPend) return;
+      _initPend = true;
+      setTimeout(function(){ _initPend = false; init(); }, 16);
+    }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   setTimeout(init, 1200);   /* w2 等后置模块挂载后再扫一次 */
@@ -26121,7 +26263,7 @@ html{scroll-behavior:auto !important}
           if (nd && nd.nodeType === 1 &&
               (nd.matches(SEL) || nd.querySelector('.import-modal,.ds-modal,.w2-modal'))) {
             ensure(nd);
-            setTimeout(init, 0);
+            _schedInit();
           }
         }
       }
