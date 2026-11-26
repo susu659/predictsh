@@ -1156,27 +1156,35 @@ function _impLooksDate(v){
 }
 function _impLooksTime(v){
   if (v===null||v===undefined) return '';
-  var s=String(v).trim();
+  // 全角冒号 / 中文破折号在民间表格里很常见（如 05：10-05：40），先归一化再匹配
+  var s=String(v).trim().replace(/[：]/g, ':').replace(/[－—–]/g, '-');
   if (/^\d{1,2}:\d{2}(?::\d{2})?\s*-\s*\d{1,2}:\d{2}(?::\d{2})?$/.test(s)) return s;
   return '';
 }
-/* 扫描「日期/时间段分组行」：非数据行扫全部单元格，数据行只扫未映射列，避免误判分数/等级 */
+/* 扫描「日期分组 / 行级时间段标注」。
+   · 日期：分组语义，向下填充，但设跨度上限。真实文件 10/31 → 11/13 之间约 595 局
+     没有任何日期标注，旧版把 594 局全归到 10月31日，污染当日快照、时段效应与去重键。
+     超过上限即停止填充，保留顺延推算月日（推算时间线本身连续、每天约 47 局，更接近真实）。
+   · 时间段：只作用于「标注所在的那一行」，绝不向下填充。真实文件里
+     23:58-00:28 / 00:28-00:58 只是第 1092/1093 行各自的局时间，旧版向下填充导致
+     后续 400+ 局共用 00:28-00:58、186 个 recKey 完全撞车。
+   · 非数据行扫全部单元格，数据行只扫未映射列，避免把分数/等级误判成日期。 */
+/* 业务硬规则：半小时一局 → 一天最多 48 局。
+   日期分组之间若漏标了日期，按 48 局/天顺序补齐，而不是放弃填充。
+   真实文件 10/31 → 11/13 之间约 595 局无标注 ≈ 12.4 天，按 48 切正好补出
+   11/1~11/12；11/17 → 11/19 的 95 局 ≈ 2 天，正好补出 11/18。全自洽。 */
+/* 导入口径（按业务口径收敛）：
+   · 日期不读取文件内的「日期分组 / 额外日期列 / 时间段标注」。
+     带逐局时间列的文件 → 日期时间照文件取；无时间列的文件 → 一律按系统末局
+     顺延推算（当前半小时一局，约 48 局/天），同一份文件重复导入时间线不平移。
+   · 48 局/天是系统当前节奏，不是历史文件的切分规则；文件里的旧日期与本次导入无关。
+   · 尾 10 局锚定只比对 A/B/C，与日期、时间段完全无关。
+   保留本函数仅为两端兼容层一致，返回恒空结果，绝不改写 timeSlot / date。 */
 function _impScanGroups(rows, colMap, startFrom){
-  var n=rows.length, dateByRow=new Array(n), timeByRow=new Array(n);
-  var curD='', curT='', nd=0, nt=0;
-  var mapped={}; Object.keys(colMap).forEach(function(g){ mapped[colMap[g]]=1; });
-  for (var i=0;i<n;i++){
-    var row=rows[i]||[];
-    var isData = i>=startFrom &&
-      _impIsScore(row[colMap.A]) && _impIsScore(row[colMap.B]) && _impIsScore(row[colMap.C]);
-    for (var ci=0;ci<row.length;ci++){
-      if (isData && mapped[ci]) continue;
-      var d=_impLooksDate(row[ci]); if (d){ if (d!==curD){ curD=d; nd++; } }
-      var t=_impLooksTime(row[ci]); if (t){ if (t!==curT){ curT=t; nt++; } }
-    }
-    dateByRow[i]=curD; timeByRow[i]=curT;
-  }
-  return {dateByRow:dateByRow, timeByRow:timeByRow, dateCount:nd, timeCount:nt};
+  var n = rows ? rows.length : 0;
+  var emptyD = new Array(n), emptyT = new Array(n);
+  for (var i=0;i<n;i++){ emptyD[i]=''; emptyT[i]=''; }
+  return {dateByRow:emptyD, timeByRow:emptyT, dateCount:0, timeCount:0};
 }
 
 function _impRowsToRecs(json){
@@ -1225,33 +1233,21 @@ function _impRowsToRecs(json){
     recs.push(rec); recRowIdx.push(i);
   }
   var timeInferred = (!hasTimeCol && !hasSeparateCols);
-  var groupApplied = 0;
   if (timeInferred){
-    // 与主系统 v50.24 一致：以本地末局为基准倒推，重复导入时间线不平移
+    // 以系统末局为基准顺延推算（半小时一局 ≈ 48 局/天）。
+    // 文件里的历史日期标注不参与：本次导入只接「尾 10 局锚定之后」的新局。
     var base = new Date();
     if (VIEW.history && VIEW.history.length){
       var lt = _impParseTimeSlot(VIEW.history[VIEW.history.length-1].timeSlot);
       if (lt) base = lt;
     }
     for (var ti=0;ti<recs.length;ti++) recs[ti].timeSlot = _impGetTimeSlotHoursAgo(recs.length-1-ti, base);
-    // 文件里若用「日期分组行 / 额外日期列」标了日期，把推算时间线的月日替换成真实日期。
-    // 分组行本身不是合法数据行，不会变成 rec，故导入条数与尾局锚定完全不变。
-    for (var gi=0;gi<recs.length;gi++){
-      var gd = groups.dateByRow[recRowIdx[gi]] || '', gt = groups.timeByRow[recRowIdx[gi]] || '';
-      if (gd){
-        recs[gi].timeSlot = String(recs[gi].timeSlot).replace(/^\d{1,2}月\d{1,2}日/, gd);
-        if (gt) recs[gi].timeSlot = gd + ' ' + gt;
-        recs[gi].date = _impDateFromSlot(gd);
-        groupApplied++;
-      }
-    }
   }
   var diag = {
     A:_built.labels.A||'', B:_built.labels.B||'', C:_built.labels.C||'',
     PW:_built.labels.PW||'（无）', IW:_built.labels.IW||'（无）',
     extra:_built.extraGradeCols.map(function(x){ return '第'+(x+1)+'列'; }).join('、'),
-    groupDateApplied:groupApplied, groupDateCount:groups.dateCount,
-    groupTimeCount:groups.timeCount
+    timeInferred:timeInferred
   };
   try { window.__impLastDiag = diag; } catch(e) {}
   return {recs:recs, skipped:skipped, skippedRows:skippedRows,
@@ -1432,8 +1428,7 @@ function renderImportPreview(){
     head += '\n🧩 列识别：A/B/C ← ' + esc(_cd.A) + '/' + esc(_cd.B) + '/' + esc(_cd.C) +
             '；获胜收益 ← ' + esc(_cd.PW) + '；获胜投资 ← ' + esc(_cd.IW);
     if (_cd.extra) head += '；另有未映射等级列 ' + esc(_cd.extra) + '（系统无对应字段，已忽略）';
-    if (_cd.groupDateApplied) head += '\n📅 已按文件内 ' + _cd.groupDateCount +
-            ' 个日期分组，还原 ' + _cd.groupDateApplied + ' 局的日期（时间仍为推算）';
+    if (_impState.timeInferred) head += '\n📅 日期按系统末局顺延推算（当前半小时一局，约 48 局/天），不读取文件内历史日期';
   }
   if (!align.matched){
     var why = '';
