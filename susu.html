@@ -416,6 +416,7 @@ function _drawIssueTicket(){
   var t = Date.now();
   var ticket = {v:1, n:n, t:t, sig:_drawSign(n, t), from:'susu'};
   try { localStorage.setItem(DRAW_TICKET_KEY, JSON.stringify(ticket)); } catch(e){}
+  try { localStorage.setItem('mm_draw_last_from_v1', 'susu'); } catch(e){}
   try { sessionStorage.setItem(DRAW_INTENT_KEY, '0'); } catch(e){}
   return _drawUrl() + '?tk=' + encodeURIComponent(n);
 }
