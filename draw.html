@@ -3,7 +3,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-<!-- DRAW_GATE_BEGIN v51.8 登录门禁：以下整段贴于 <head> 最前，原版样式与功能一字未改 -->
+<!-- DRAW_GATE_BEGIN v51.9 登录门禁：以下整段贴于 <head> 最前，原版样式与功能一字未改 -->
 <!-- ===== 素素商会抽签系统 · 登录门禁片段 =====
      用法：把下面这一整段复制到现有 draw.html 的 <head> 里，越靠前越好（放在其它 CSS/JS 之前）。
      不改任何抽签功能；门禁不通过时整页内容不会显示，只会看到登录提示卡片。
@@ -103,6 +103,17 @@
     if (document.getElementById('drawGateUI')) return;
     var box = document.createElement('div');
     box.id = 'drawGateUI';
+    /* v51.9：无票据但本机已登录主系统 → 十有八九是主系统 index.html 还是旧版
+       （旧版外链是裸跳，不会签票据）或没 Ctrl+F5 强刷。给一句能照做的诊断，
+       别让用户对着「请从入口进入」猜。 */
+    var diagHtml = '';
+    try {
+      if (/缺少一次性通行票据/.test(reason || '') && loginState('index')) {
+        diagHtml = '<div class="dg-diag">检测到本机<b>已登录主系统</b>，但这次没有通行票据：' +
+          '主系统 <b>index.html 仍是旧版</b>或页面未强刷。<br>请覆盖上传最新的 index.html，' +
+          '按 <b>Ctrl+F5</b> 强刷，再从「◇ 商会抽签系统」进入。</div>';
+      }
+    } catch(e) {}
     box.innerHTML =
       '<div class="dg-card">' +
         '<div class="dg-orb"><span class="dg-ring"></span><span class="dg-lock">🔒</span></div>' +
@@ -110,6 +121,7 @@
         '<h1>抽签系统需要登录</h1>' +
         '<p class="dg-desc">本页不支持直接输入网址访问。<br>请从 <b>主系统</b> 或 <b>素素系统</b> 登录后，点击「🎲 / ◇ 商会抽签系统」入口进入。</p>' +
         '<div class="dg-reason"><i>!</i><span>' + (reason || '未检测到有效登录凭证') + '</span></div>' +
+        diagHtml +
         '<div class="dg-actions">' +
           '<button class="dg-btn" id="dgBack">返回登录页</button>' +
         '</div>' +
@@ -121,7 +133,20 @@
       left--;
       var c = document.getElementById('dgCount');
       if (c) c.textContent = String(left);
-      if (left <= 0){ clearInterval(timer); location.href = backUrl(); }
+      if (left <= 0){
+        clearInterval(timer);
+        var _bu = backUrl();
+        try { location.href = _bu; } catch(e) {}
+        /* 预览器 / iframe 沙箱会静默拦掉顶层导航：给一次 replace 兜底，
+           仍不成功就把文案改成「请点按钮」，不再停在「0 秒」不动。 */
+        setTimeout(function(){
+          try { location.replace(_bu); } catch(e2) {}
+          try {
+            var foot = box.querySelector('.dg-foot');
+            if (foot) foot.innerHTML = '若未自动返回，请点上方「返回登录页」';
+          } catch(e3) {}
+        }, 500);
+      }
     }, 1000);
     document.getElementById('dgBack').onclick = function(){ clearInterval(timer); location.href = backUrl(); };
   }
@@ -155,6 +180,9 @@ html.draw-locked #app{display:none!important}
 #drawGateUI h1{font-size:24px;font-weight:800;letter-spacing:1px;margin-bottom:12px}
 #drawGateUI .dg-desc{font-size:13.5px;line-height:1.9;color:#cfcae8;margin-bottom:18px}
 #drawGateUI .dg-desc b{color:#ffd27a}
+#drawGateUI .dg-diag{margin:0 0 16px;padding:10px 12px;border-radius:10px;
+  background:rgba(255,202,40,.10);border:1px solid rgba(255,202,40,.28);
+  color:#ffe6a8;font-size:.84rem;line-height:1.65;text-align:left}
 #drawGateUI .dg-reason{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 13px;border-radius:12px;
   background:rgba(255,120,90,.12);border:1px solid rgba(255,140,110,.26);font-size:12.5px;color:#ffd9cd;margin-bottom:20px}
 #drawGateUI .dg-reason i{flex:none;width:20px;height:20px;border-radius:50%;background:#fc4a1a;color:#fff;
