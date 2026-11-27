@@ -126,6 +126,46 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
 .toast.err{border-left-color:#e74c3c}
 .toast strong{display:block;font-size:14px;color:#302b63;margin-bottom:3px}
 .toast div{color:#555;white-space:pre-line}
+  /* ===== 🎲 商会抽签系统 · 入口与跳转窗口（v51.7 配套） ===== */
+  .btn-draw{background:linear-gradient(90deg,#f7b733,#fc4a1a);box-shadow:0 8px 22px rgba(252,74,26,.3)}
+  .btn-draw:hover{box-shadow:0 12px 30px rgba(252,74,26,.48);transform:translateY(-2px)}
+  .jump-overlay{position:fixed;inset:0;z-index:13000;display:none;align-items:center;justify-content:center;padding:20px;
+    background:rgba(8,6,26,.72);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px)}
+  .jump-overlay.open{display:flex}
+  .jump-card{width:100%;max-width:430px;border-radius:26px;padding:30px 28px 24px;text-align:center;color:#fff;
+    background:linear-gradient(160deg,rgba(72,58,140,.96),rgba(28,22,66,.97));
+    border:1px solid rgba(255,255,255,.18);box-shadow:0 30px 90px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.16);
+    animation:jumpIn .42s cubic-bezier(.2,.9,.3,1)}
+  @keyframes jumpIn{from{opacity:0;transform:translateY(20px) scale(.96)}to{opacity:1;transform:none}}
+  .jump-orb{position:relative;width:86px;height:86px;margin:0 auto 18px}
+  .jump-orb .ring{position:absolute;inset:0;border-radius:50%;border:2px solid transparent;
+    border-top-color:#f7b733;border-right-color:#fc4a1a;animation:jumpSpin 2.2s linear infinite}
+  .jump-orb .ring:after{content:'';position:absolute;inset:9px;border-radius:50%;border:1px solid rgba(255,255,255,.15)}
+  @keyframes jumpSpin{to{transform:rotate(360deg)}}
+  .jump-orb .dice{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px;
+    filter:drop-shadow(0 6px 16px rgba(247,183,51,.5))}
+  .jump-kicker{font-size:10.5px;letter-spacing:3px;color:#c9c2ee;margin-bottom:8px;text-transform:uppercase}
+  .jump-title{font-size:21px;font-weight:800;letter-spacing:.5px;margin-bottom:5px}
+  .jump-sub{font-size:12px;color:#b9b2dc;margin-bottom:20px}
+  .jump-steps{text-align:left;background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:12px 14px;margin-bottom:16px}
+  .jump-step{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:12.5px;color:#cfcae8}
+  .jump-step i{flex:none;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-style:normal;font-size:11px;font-weight:800;background:rgba(255,255,255,.13);color:#e9e5ff}
+  .jump-step span{flex:1}
+  .jump-step b{font-size:11.5px;font-weight:700;color:#a9a2cd;min-width:74px;text-align:right}
+  .jump-step.done i{background:linear-gradient(135deg,#43d6a0,#00a878);color:#062018}
+  .jump-step.done b{color:#7ff0c4}
+  .jump-bar{height:7px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin-bottom:18px}
+  .jump-bar > i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#f7b733,#fc4a1a,#ff6ba8);transition:width .25s}
+  .jump-actions{display:flex;gap:10px}
+  .jump-actions button{flex:1;height:44px;border-radius:11px;border:none;font-size:13.5px;font-weight:800;cursor:pointer;transition:all .18s}
+  .jump-cancel{background:rgba(255,255,255,.1);color:#d7d1f5;border:1px solid rgba(255,255,255,.14)!important}
+  .jump-cancel:hover{background:rgba(255,255,255,.18)}
+  .jump-now{color:#2b1c00;background:linear-gradient(90deg,#f7b733,#fc4a1a);box-shadow:0 8px 22px rgba(252,74,26,.3)}
+  .jump-now:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(252,74,26,.45)}
+  .jump-note{font-size:11px;color:#9a94bd;line-height:1.7;margin-top:14px}
+  .jump-note b{color:#ffd27a}
+  @media(max-width:420px){.jump-card{padding:24px 18px 20px}.jump-title{font-size:19px}}
 @media(max-width:420px){
   .card{padding:26px 20px 18px;border-radius:20px}
   h1{font-size:24px}
@@ -189,7 +229,8 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
       <button class="act-btn btn-export" id="btnExport"><span class="ico">↑</span> 导出数据</button>
       <button class="act-btn btn-snapshot" id="btnSnapshot"><span class="ico">◎</span> 当日快照</button>
       <button class="act-btn btn-import" id="btnImport"><span class="ico">⬇</span> Excel 增量导入</button>
-      <div class="foot">页面打开时已自动同步并保留数据；导入只做增量，每次导入前自动在云端做全量备份，需还原请到主系统「▣ 云端备份与恢复」</div>
+      <button class="act-btn btn-draw" id="btnDraw"><span class="ico">🎲</span> 商会抽签系统</button>
+      <div class="foot">页面打开时已自动同步并保留数据；导入只做增量，每次导入前自动在云端做全量备份，需还原请到主系统「▣ 云端备份与恢复」<br>抽签系统为内部专用，<b>请从本入口进入</b>，直接输入网址无法使用</div>
     </div>
   </div>
 </div>
@@ -294,6 +335,27 @@ h1{font-size:27px;font-weight:800;color:#2c2559;letter-spacing:1px;margin-bottom
 
 <div class="toast" id="toast"></div>
 
+<!-- ========== 🎲 商会抽签系统 · 跳转窗口 ========== -->
+<div class="jump-overlay" id="drawJump" onclick="if(event.target===this)closeDrawJump()">
+  <div class="jump-card">
+    <div class="jump-orb"><span class="ring"></span><span class="dice">🎲</span></div>
+    <div class="jump-kicker">素素商会 · 内部专用</div>
+    <div class="jump-title">正在进入商会抽签系统</div>
+    <div class="jump-sub">席位随机抽取 · 本轮统计 · 历史累计留痕</div>
+    <div class="jump-steps">
+      <div class="jump-step" id="jumpStep1"><i>1</i><span>验证登录状态</span><b>等待中</b></div>
+      <div class="jump-step" id="jumpStep2"><i>2</i><span>生成一次性通行票据</span><b>等待中</b></div>
+      <div class="jump-step" id="jumpStep3"><i>3</i><span>安全跳转</span><b>等待中</b></div>
+    </div>
+    <div class="jump-bar"><i id="jumpBar"></i></div>
+    <div class="jump-actions">
+      <button class="jump-cancel" id="jumpCancel">取消</button>
+      <button class="jump-now" id="jumpNow">立即进入 →</button>
+    </div>
+    <div class="jump-note">通行票据 <b>仅一次有效</b>，90 秒内有效；把抽签页网址直接发给别人打不开</div>
+  </div>
+</div>
+
 <script>
 /* =====================================================================
  * 独立只读页：导出数据 / 当日快照
@@ -335,6 +397,94 @@ var NAME_KEY    = 'mm_export_device_name_v1';  // 本页设备备注
 var AUTH_KEY    = 'mm_export_auth_ok_v1';      // 授权一次后长期有效
 var PULL_INTERVAL_MS = 5 * 60 * 1000;         // 打开拉一次，之后每 5 分钟自动拉一次
 var GUILDS = ['A','B','C'];
+/* =====================================================================
+ * 🎲 商会抽签系统 · 跳转入口（与 draw.html 门禁协议逐字对应）
+ * 只有「已登录且设备已授权」才能从这里签发一次性票据；draw.html 校验通过才显示。
+ * 直接输入 draw.html 网址、票据过期 / 被复用 / 复制给别人 → 一律拦截。
+ * ===================================================================== */
+var DRAW_TICKET_KEY  = 'mm_draw_ticket_v1',
+    DRAW_SESSION_KEY = 'mm_draw_session_v1',
+    DRAW_INTENT_KEY  = 'mm_draw_intent_v1',
+    DRAW_SALT        = 'susu-draw-gate-2026';
+function _drawSign(n, t){
+  var str = String(n) + '|' + String(t) + '|' + DRAW_SALT, h = 0x811c9dc5;
+  for (var i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
+  return ('00000000' + h.toString(16)).slice(-8);
+}
+function _drawIssueTicket(){
+  var n = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  var t = Date.now();
+  var ticket = {v:1, n:n, t:t, sig:_drawSign(n, t), from:'susu'};
+  try { localStorage.setItem(DRAW_TICKET_KEY, JSON.stringify(ticket)); } catch(e){}
+  try { sessionStorage.setItem(DRAW_INTENT_KEY, '0'); } catch(e){}
+  return _drawUrl() + '?tk=' + encodeURIComponent(n);
+}
+var _jumpTimers = [], _jumpUrl = '';
+function _jumpClearTimers(){
+  _jumpTimers.forEach(function(t){ clearTimeout(t); });
+  _jumpTimers = [];
+}
+function _jumpLater(fn, ms){ _jumpTimers.push(setTimeout(fn, ms)); }
+function _jumpStep(id, state, text){
+  var el = document.getElementById(id); if (!el) return;
+  el.className = 'jump-step' + (state === 'done' ? ' done' : '');
+  var b = el.querySelector('b'); if (b && text) b.textContent = text;
+}
+function _jumpBar(pc){ var b = document.getElementById('jumpBar'); if (b) b.style.width = pc + '%'; }
+function closeDrawJump(){
+  _jumpClearTimers();
+  var o = document.getElementById('drawJump'); if (o) o.classList.remove('open');
+  _jumpUrl = '';
+}
+function _drawUrl(){ try { return new URL('draw.html', location.href).href.split('?')[0]; } catch(e){ return 'draw.html'; } }
+function _drawGo(){
+  _jumpClearTimers();
+  location.href = _jumpUrl || _drawIssueTicket();
+}
+function openDrawJump(auto){
+  if (STAGE !== 'main' || !isAuthed()){
+    showToast(false, '需要登录', '请先完成密码验证与设备授权，再从这里进入抽签系统');
+    return;
+  }
+  _jumpClearTimers();
+  var o = document.getElementById('drawJump'); if (!o) return;
+  o.classList.add('open');
+  ['jumpStep1','jumpStep2','jumpStep3'].forEach(function(id){ _jumpStep(id, 'wait', '等待中'); });
+  _jumpBar(0); _jumpUrl = '';
+  var fast = !!auto;
+  var t1 = fast ? 120 : 320, t2 = fast ? 320 : 720, t3 = fast ? 520 : 1080, t4 = fast ? 780 : 1560;
+  _jumpLater(function(){ _jumpStep('jumpStep1', 'wait', '验证中…'); _jumpBar(12); }, 30);
+  _jumpLater(function(){ _jumpStep('jumpStep1', 'done', '✓ 已登录'); _jumpBar(34); }, t1);
+  _jumpLater(function(){ _jumpStep('jumpStep2', 'wait', '生成中…'); }, t1 + 60);
+  _jumpLater(function(){
+    if (!document.getElementById('drawJump').classList.contains('open')) return;
+    if (!isAuthed()){ closeDrawJump(); showToast(false, '登录已失效', '请重新验证后再进入抽签系统'); return; }
+    _jumpUrl = _drawIssueTicket();
+    _jumpStep('jumpStep2', 'done', '✓ 一次性票据'); _jumpBar(68);
+  }, t2);
+  _jumpLater(function(){ _jumpStep('jumpStep3', 'wait', '即将跳转…'); _jumpBar(86); }, t3);
+  _jumpLater(function(){ _jumpStep('jumpStep3', 'done', '✓ 进入中'); _jumpBar(100); _drawGo(); }, t4);
+}
+/* 从门禁被拦回来时：登录后自动继续进入抽签系统 */
+function _maybeAutoDrawJump(){
+  var want = false;
+  try { want = sessionStorage.getItem(DRAW_INTENT_KEY) === '1'; } catch(e){}
+  if (!want) return;
+  try { sessionStorage.removeItem(DRAW_INTENT_KEY); } catch(e){}
+  setTimeout(function(){ if (STAGE === 'main' && isAuthed()) openDrawJump(true); }, 480);
+}
+(function _drawFromGate(){
+  try {
+    if (new URLSearchParams(location.search).get('from') === 'draw'){
+      sessionStorage.setItem(DRAW_INTENT_KEY, '1');
+      var pe = document.getElementById('pwdErr');
+      if (pe) pe.textContent = '抽签系统需要登录，请验证后自动进入';
+    }
+  } catch(e){}
+})();
+document.getElementById('btnDraw').addEventListener('click', function(){ openDrawJump(false); });
+document.getElementById('jumpCancel').addEventListener('click', closeDrawJump);
+document.getElementById('jumpNow').addEventListener('click', function(){ _jumpBar(100); _drawGo(); });
 /* 导出日志保留策略（声明前置，openExportModal / doCustomExport 都可能提前引用） */
 var EXPORT_LOG_KEEP = 100;
 var _logPruneDisabled = false;   // DELETE 不可用或「删了但行还在」时，本次会话不再空转
@@ -1098,22 +1248,55 @@ function _impBuildColMap(header, rows, startFrom){
   var colMap={}, labels={}, H=[];
   for (var i=0;i<(header||[]).length;i++)
     H.push(String(header[i]===null||header[i]===undefined?'':header[i]).trim().toLowerCase());
+  /* v51.7 ㉟: 旧版按「别名表顺序」取第一个命中，短别名「a」排在「商会a」前面。
+     表头同时有「商会A/商会B/商会C」(分数列) 与「A/B/C」(等级列) 时，
+     A/B/C 被错认到等级列 → 全部行判非法 → recs=0 → 只写隐藏状态栏，
+     表现就是「导入识别不了、点了不弹窗」。
+     改成：收集全部命中，按「别名更具体(长)优先 → 列靠左优先」认领，
+     一个列只能被一个 group 认领。单表头 / 盐行宝阁粮堂 / 局号日期时间A B C
+     等既有格式仍命中同样的列，逐位不变。 */
+  var hits=[];
   Object.keys(IMP_ALIASES).forEach(function(g){
     IMP_ALIASES[g].forEach(function(n){
       var idx=H.indexOf(n);
-      if (idx>=0 && colMap[g]===undefined){
-        colMap[g]=idx;
-        labels[g]=String(header[idx]===null||header[idx]===undefined?'':header[idx]).trim();
-      }
+      if (idx>=0) hits.push({g:g, n:n, idx:idx, len:String(n).length});
     });
   });
-  if (colMap.A===undefined){colMap.A=0;labels.A='第1列(位置)';}
-  if (colMap.B===undefined){colMap.B=1;labels.B='第2列(位置)';}
-  if (colMap.C===undefined){colMap.C=2;labels.C='第3列(位置)';}
-  var used={}; Object.keys(colMap).forEach(function(g){ used[colMap[g]]=1; });
-  var lastABC=Math.max(colMap.A,colMap.B,colMap.C), maxCol=0;
+  hits.sort(function(x,y){
+    if (y.len!==x.len) return y.len-x.len;
+    return x.idx-y.idx;
+  });
+  var used={};
+  hits.forEach(function(h){
+    if (colMap[h.g]!==undefined || used[h.idx]) return;
+    colMap[h.g]=h.idx; used[h.idx]=1;
+    labels[h.g]=String(header[h.idx]===null||header[h.idx]===undefined?'':header[h.idx]).trim();
+  });
+  if (colMap.A===undefined){colMap.A=0;labels.A='第1列(位置)';used[0]=1;}
+  if (colMap.B===undefined){colMap.B=1;labels.B='第2列(位置)';used[1]=1;}
+  if (colMap.C===undefined){colMap.C=2;labels.C='第3列(位置)';used[2]=1;}
+  var maxCol=0;
   for (var r=startFrom;r<Math.min(rows.length,startFrom+40);r++)
     if (rows[r] && rows[r].length>maxCol) maxCol=rows[r].length;
+  /* v51.7 ㉟: 分数列自愈。若别名仍把 A/B/C 指到「大/中/小」等文字列，
+     抽样校验后改用最靠左、未被其它语义占用、且数据像分数的列，绝不静默判 0 条。 */
+  function _colScore(ci){
+    var hit=0,tot=0;
+    for (var rr=startFrom;rr<Math.min(rows.length,startFrom+40);rr++){
+      var row=rows[rr]; if(!row||ci>=row.length) continue;
+      var v=row[ci]; if(v===null||v===undefined||String(v).trim()==='') continue;
+      tot++; if(_impIsScore(v)) hit++;
+    }
+    return tot? hit/tot : 0;
+  }
+  ['A','B','C'].forEach(function(g){
+    if (colMap[g]===undefined || _colScore(colMap[g])>=0.5) return;
+    for (var ci0=0;ci0<maxCol;ci0++){
+      if (used[ci0]) continue;
+      if (_colScore(ci0)>=0.6){ colMap[g]=ci0; used[ci0]=1; labels[g]='第'+(ci0+1)+'列(分数校正)'; break; }
+    }
+  });
+  var lastABC=Math.max(colMap.A,colMap.B,colMap.C);
   var gradeCols=[];
   for (var ci=lastABC+1;ci<maxCol;ci++){
     if (used[ci]) continue;
@@ -1125,6 +1308,19 @@ function _impBuildColMap(header, rows, startFrom){
     }
     if (tot>=3 && hit/tot>=0.6){ gradeCols.push(ci); used[ci]=1; }
   }
+  /* v51.7 ㉟: 表头就叫 A/B/C、内容是「大/中/小」的列 = 各商会收益等级，
+     映射到 PA/PB/PC（profitA/profitB/profitC），不再被当成 PW/IW 的推断候选。
+     分数列此时已由更具体的「商会A」等认领，短表头列才落到这里。 */
+  if (colMap.PA===undefined && colMap.PB===undefined && colMap.PC===undefined){
+    var _shortMap={a:'PA',b:'PB',c:'PC'};
+    for (var hi=0;hi<H.length;hi++){
+      var g2=_shortMap[H[hi]];
+      if (!g2 || colMap[g2]!==undefined) continue;
+      var _gi=gradeCols.indexOf(hi); if (_gi<0) continue;
+      colMap[g2]=hi; labels[g2]=String(header[hi]===null||header[hi]===undefined?'':header[hi]).trim();
+      gradeCols.splice(_gi,1);
+    }
+  }
   if (colMap.PW===undefined && gradeCols.length){
     colMap.PW=gradeCols.shift(); labels.PW='第'+(colMap.PW+1)+'列(推断)';
   }
@@ -1132,6 +1328,24 @@ function _impBuildColMap(header, rows, startFrom){
     colMap.IW=gradeCols.shift(); labels.IW='第'+(colMap.IW+1)+'列(推断)';
   }
   return {colMap:colMap, labels:labels, extraGradeCols:gradeCols};
+}
+/* v51.7 ㉟: 表头有「时间」列但整列为空时按「无时间列」处理；否则
+   hasTimeCol=true 会跳过顺延推算，导进来的每局 timeSlot 都是空的。 */
+function _impTimeColHasValue(rows, colMap, startFrom){
+  if (!colMap || colMap.TIME===undefined) return false;
+  for (var r=startFrom;r<rows.length;r++){
+    var row=rows[r]; if(!row) continue;
+    var v=row[colMap.TIME];
+    if (v!==null && v!==undefined && String(v).trim()!=='') return true;
+  }
+  return false;
+}
+/* v51.7 ㉟: 解析失败时把「识别到的列」写进报错，一眼能看出是哪列认错了。 */
+function _impDiagLine(labels){
+  var d=labels||{};
+  return '识别到的列 → 分数：'+(d.A||'第1列')+' / '+(d.B||'第2列')+' / '+(d.C||'第3列')+
+         '；收益：'+(d.PW||'无')+'；投资：'+(d.IW||'无')+'；时间：'+(d.TIME||'无')+
+         '。若分数列认错，请把表头改成「A / B / C」或「商会A / 商会B / 商会C」。';
 }
 /* 识别日期标记：dd/mm/yyyy、X月X日、YYYY-MM-DD。
    注意：不认 5 位整数。真实文件第7列混有 46033/46064/46334 等批次号，
@@ -1197,7 +1411,8 @@ function _impRowsToRecs(json){
       VALID_VALUES_IMP.indexOf(_impParseCell(header[2])) >= 0) start = 0;
   var _built = _impBuildColMap(header, json, start);
   var colMap = _built.colMap;
-  var hasTimeCol = (colMap.TIME !== undefined);
+  // v51.7 ㉟: 表头有「时间」但整列为空 → 按无时间处理，走末局顺延推算
+  var hasTimeCol = (colMap.TIME !== undefined) && _impTimeColHasValue(json, colMap, start);
   var hasDateCol = (colMap.DATE !== undefined);
   var hasSeparateCols = hasTimeCol && hasDateCol;
   var hasProfitCols = (colMap.PW !== undefined) || (colMap.PA !== undefined);
@@ -1251,7 +1466,7 @@ function _impRowsToRecs(json){
   };
   try { window.__impLastDiag = diag; } catch(e) {}
   return {recs:recs, skipped:skipped, skippedRows:skippedRows,
-          timeInferred:timeInferred, colDiag:diag};
+          timeInferred:timeInferred, colDiag:diag, labels:_built.labels};
 }
 
 async function parseImportFile(file){
@@ -1275,7 +1490,7 @@ async function parseImportFile(file){
     json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:null});
   }
   var out = _impRowsToRecs(json || []);
-  if (!out.recs.length) throw new Error('文件里没有有效数据（已剔除 ' + out.skipped + ' 行空白/非法行）');
+  if (!out.recs.length) throw new Error('文件里没有有效数据（已剔除 ' + out.skipped + ' 行空白/非法行）\n' + _impDiagLine(out.labels));
   out.source = isCsv ? 'csv' : 'excel';
   out.fileName = file.name || '';
   return out;
@@ -1408,7 +1623,10 @@ async function onImportFileChange(ev){
     _impState.skipped = out.skipped; _impState.skippedRows = out.skippedRows;
     renderImportPreview();
   }catch(e){
-    _impSetInfo('❌ ' + (e && e.message ? e.message : String(e)), 'bad');
+    var _em2 = (e && e.message ? e.message : String(e));
+    _impSetInfo('❌ ' + _em2, 'bad');
+    // v51.7 ㉟: 解析失败除了信息条，再给一个页面内可见提示，不再「点了没反应」
+    try{ showToast(false, '导入失败', _em2); }catch(_){}
     document.getElementById('importConfirmBtn').disabled = true;
   }finally{ _impState.busy = false; }
 }
@@ -1783,6 +2001,7 @@ function enterMain(){
   stopPoll();
   setStage('main');
   updateSyncPill();
+  _maybeAutoDrawJump();
 }
 /* 后台复核授权：管理员「撤销」在主系统里是把 status 改回 pending，
    「拒绝」是 rejected，两者都必须收回本页权限；查不到记录 / 弱网一律不打扰。 */
@@ -1873,7 +2092,7 @@ document.getElementById('btnImport').addEventListener('click', function(){ guard
 document.getElementById('importFile').addEventListener('change', onImportFileChange);
 document.addEventListener('keydown', function(e){
   if (e.key !== 'Escape') return;
-  closeExportModal(); closeDailySnapshot(); closeImportModal();
+  closeExportModal(); closeDailySnapshot(); closeImportModal(); closeDrawJump();
 });
 (function initGate(){
   var sessionOk = false;
