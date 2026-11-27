@@ -588,7 +588,7 @@ function _datasetYearAnchor(history){
     else if (y === 0 && maxY === 0 && p.md > maxMD) maxMD = p.md;
   }
   if (maxY) return {y:maxY, md:maxMD};
-  var now = new Date(); return {y:now.getFullYear(), md:(now.getMonth()+1)*100 + now.getDate()};
+  var _bp = bizDayParts(); return {y:_bp.y, md:_bp.m*100 + _bp.d};
 }
 function _recChronoMs(rec, anchor){
   var p = _recDateParts(rec); if (!p) return null;
@@ -646,6 +646,35 @@ function _exportRecDateNum(rec){
   return null;
 }
 function _exportDateLabel(num){ return Math.floor(num/100) + '月' + (num%100) + '日'; }
+/* =====================================================================
+ * v51.10 业务时区：固定北京时间 UTC+8
+ * 记录里的「M月D日」是不带时区的字符串，由录入/导入那台设备的本地日历日写死。
+ * 跨时区时，国外设备把「它的 11月27日傍晚」（= 国内 11月28日凌晨）也标成
+ * 「11月27日」，于是同一天标签下混入两个真实日 → 出现 72 局（>48 局/天）、
+ * 两端当日快照对不上。这里把「今天 / 现在」统一折算到 UTC+8 墙上时钟，
+ * 所有设备给出同一答案；UTC+8 本机设备的结果与改动前逐位相同。
+ * ===================================================================== */
+function bizDayParts(d){
+  d = d || new Date();
+  var b = new Date(d.getTime() + 8 * 3600000);   // UTC 墙上 +8h = 北京时间
+  var y = b.getUTCFullYear(), m = b.getUTCMonth() + 1, da = b.getUTCDate();
+  return { y:y, m:m, d:da, hh:b.getUTCHours(), mm:b.getUTCMinutes(), ss:b.getUTCSeconds(),
+           label:m + '月' + da + '日',
+           ymd:y + '-' + ('0' + m).slice(-2) + '-' + ('0' + da).slice(-2) };
+}
+/* 两端共用的「这一局属于哪个 M月D日」：优先 timeSlot，其次 date 字段。
+   逐字一致，保证主系统当日快照与素素页当日快照筛出完全相同的行。 */
+function _dsRowDate(rec){
+  rec = rec || {};
+  var t = String(rec.timeSlot || ''), d = String(rec.date || '');
+  var m = t.match(/(\d{1,2})月(\d{1,2})日/);
+  if (!m) m = d.match(/(\d{1,2})月(\d{1,2})日/);
+  if (m) return parseInt(m[1],10) + '月' + parseInt(m[2],10) + '日';
+  var y = d.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/) ||
+          t.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (y) return parseInt(y[2],10) + '月' + parseInt(y[3],10) + '日';
+  return '';
+}
 function _exportRowDate(r){
   var ts = r && r.timeSlot ? String(r.timeSlot).replace(/,/g,' ') : '';
   var parts = ts.split(' '), date = parts[0] || '';
@@ -678,21 +707,21 @@ function _exportDateKey(label){
 /* ---- 写死口径：只认「今天 / 昨天」两天，与系统「当日快照」同规则 ---- */
 function pad2(n){ return ('0' + n).slice(-2); }
 function dayWindow(){
-  function part(d){ return { y:d.getFullYear(), m:d.getMonth()+1, d:d.getDate(),
-    label:(d.getMonth()+1) + '月' + d.getDate() + '日' }; }
-  var now = new Date();
-  // 用日历日回退一天，不用 86400000 毫秒（跨夏令时切换日会少/多一天）
-  var yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
-  return { today:part(now), yest:part(yest) };
+  /* v51.10：统一北京时间。用 UTC 日历日回退一天，不受设备时区 / 夏令时影响。 */
+  function part(p){ return { y:p.y, m:p.m, d:p.d, label:p.label }; }
+  var now = bizDayParts();
+  var yd = new Date(Date.UTC(now.y, now.m - 1, now.d - 1));
+  var yp = { y:yd.getUTCFullYear(), m:yd.getUTCMonth()+1, d:yd.getUTCDate() };
+  yp.label = yp.m + '月' + yp.d + '日';
+  return { today:part(now), yest:part(yp) };
 }
 /* 返回 'today' / 'yesterday' / null；日期标签取 timeSlot 的「M月D日」，
    无月日的补录记录回退到导出日期列口径，显式年份不同则排除（防去年同月日混入）。 */
 function dayIndexOf(rec, w){
   w = w || dayWindow();
   if (!rec) return null;
-  var t = String(rec.timeSlot || ''), d = String(rec.date || '');
-  var m = (t + ' ' + d).match(/(\d{1,2})月(\d{1,2})日/);
-  var lab = m ? (parseInt(m[1],10) + '月' + parseInt(m[2],10) + '日') : _exportRowDate(rec);
+  /* v51.10：与当日快照逐字同口径，导出 / 统计 / 快照筛出完全相同的行 */
+  var lab = _dsRowDate(rec);
   if (!lab) return null;
   var ry = _recExplicitYear(rec);
   if (lab === w.today.label && (ry === null || ry === w.today.y)) return 'today';
@@ -769,17 +798,49 @@ function ingestPreds(hist, preds, map){
     if (rid && !map[rid]) map[rid] = { guild:p.guild||'', probs:p.probs||null, source:p.source||'' };
   }
 }
-/* 以本地系统数据为基准顺序；云端缺失记录追加；同 rid 按版本号取新；墓碑删除 */
+/* 以本地系统数据为基准顺序；云端缺失记录追加；同 rid 按版本号取新；墓碑删除。
+   v51.12：同一局的无 _rid / 有 _rid 两种表示按内容指纹归并，避免局数翻倍。 */
 function buildView(local, cached, cloud){
   var map = {}, order = [], predMap = {}, tombs = {}, baseKeys = {};
+  /* v51.12 修复：同一局「无 _rid（本机/缓存）」与「有 _rid（云端增量行）」会产生
+     两个不同的 mergeKey，导致同一局被算两遍（实测 44 + 28 = 72 局，正是用户截图）。
+     用内容指纹把这两种表示归并到同一个键；两个都带 rid 的不同局绝不合并。 */
+  var contentOwner = {};   // recKey -> 实际采用的 mergeKey
   function put(r, rank){
     if (!r || typeof r !== 'object') return;
     var k = mergeKey(r);
+    var ck = String(r.timeSlot || '') ? recKey(r) : '';   // 无 timeSlot 的内容不参与归并，避免误合补录局
+    if (ck){
+      var prev = contentOwner[ck];
+      if (prev && prev !== k){
+        var pRid = (prev.indexOf('rid:') === 0), cRid = (k.indexOf('rid:') === 0);
+        if (pRid !== cRid){
+          var useRid = cRid ? k : prev, drop = cRid ? prev : k;
+          var old = map[drop];
+          if (old){
+            delete map[drop];
+            if (baseKeys[drop]){ delete baseKeys[drop]; baseKeys[useRid] = 1; }
+            var at = order.indexOf(drop), exists = order.indexOf(useRid);
+            if (at >= 0){ if (exists >= 0) order.splice(at, 1); else order[at] = useRid; }
+            else if (exists < 0) order.push(useRid);
+            if (!map[useRid]) map[useRid] = old;
+            else if (recScore(old) > recScore(map[useRid])) map[useRid] = old;
+          }
+          k = useRid;
+        }
+      }
+      contentOwner[ck] = k;
+    }
     if (!map[k]){ map[k] = r; order.push(k); return; }
     if (recScore(r) + rank*1e-6 >= recScore(map[k])) map[k] = r;
   }
+  // v51.12 ㊵：优先以云端 main.history 的顺序为基准，保证素素页与主系统数组同序、
+  // 同一个局号在两端指向同一条记录（旧版以本机缓存为基准，两端顺序会分叉）。
+  var mainHist = (cloud && cloud.main && Array.isArray(cloud.main.history) && cloud.main.history.length)
+    ? cloud.main.history : null;
   var base = null;
-  if (local && Array.isArray(local.history) && local.history.length) base = local;
+  if (mainHist) base = { history: mainHist, predHistory: cloud.main.predHistory, predByRid: cloud.main.predByRid };
+  else if (local && Array.isArray(local.history) && local.history.length) base = local;
   else if (cached && Array.isArray(cached.history) && cached.history.length) base = cached;
   if (base){
     base.history.forEach(function(r){ baseKeys[mergeKey(r)] = 1; put(r, 3); });
@@ -836,12 +897,11 @@ function updateSyncPill(extra){
   var el = document.getElementById('syncPill');
   if (extra !== undefined) _pillOverride = extra || '';   // 无参调用（如每秒刷新）不清除临时文案
   if (_pillOverride){ el.className = 'sync-pill warn'; el.textContent = _pillOverride; return; }
-  var c = countTodayYesterday(), now = new Date();
-  var hh = pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ':' + pad2(now.getSeconds());
+  var c = countTodayYesterday(), _bp = bizDayParts();   var hh = pad2(_bp.hh) + ':' + pad2(_bp.mm) + ':' + pad2(_bp.ss);
   var nx = _nextPullAt
     ? ' · 每5分钟自动同步（下次 ' + pad2(new Date(_nextPullAt).getHours()) + ':' + pad2(new Date(_nextPullAt).getMinutes()) + '）'
     : '';
-  var body = '昨天 ' + c.yest + ' 局 · 今天 ' + c.today + ' 局 · 当前 ' + hh + nx;
+  var body = '昨天 ' + c.yest + ' 局 · 今天 ' + c.today + ' 局 · 当前 ' + hh + '（北京时间）' + nx;
   el.className = 'sync-pill ' + (_lastPullFailed ? 'warn' : 'ok');
   el.textContent = (_lastPullFailed ? '⚠️ 上次云端同步失败 · ' : '☁️ ' + VIEW.source + ' · ') + body;
 }
@@ -959,10 +1019,7 @@ function scheduleAutoPull(){
  * ===================================================================== */
 
 /* ---------- 基础工具（与主系统同源复刻） ---------- */
-function _impTodayISO(){
-  var d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-}
+function _impTodayISO(){ return bizDayParts().ymd; }
 function _impGameInterval(){
   try { return localStorage.getItem(INTERVAL_KEY_IMP) === '60' ? 60 : 30; } catch(e){ return 30; }
 }
@@ -980,7 +1037,8 @@ function _impGetTimeSlot(date, align){
   date = date || new Date();
   align = (align === undefined) ? true : align;
   var gi = _impGameInterval();
-  var mo = date.getMonth()+1, da = date.getDate(), hh = date.getHours(), mm = date.getMinutes(), ss = date.getSeconds();
+  var _bp = bizDayParts(date);
+  var mo = _bp.m, da = _bp.d, hh = _bp.hh, mm = _bp.mm, ss = _bp.ss;
   var sm = align ? ((gi === 30) ? (mm < 30 ? 0 : 30) : 0) : mm;
   var sSec = align ? 0 : ss;
   var end = hh*3600 + sm*60 + sSec + gi*60;
@@ -2432,8 +2490,7 @@ function doCustomExport(){
 /* ---------------- 当日快照（与主系统同款） ---------------- */
 var _dsZoom = null;
 function openDailySnapshot(){
-  var d = new Date();
-  var ymd = d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2);
+  var ymd = bizDayParts().ymd;   // v51.10：与主系统一致，统一北京时间
   var inp = document.getElementById('dsDateInput');
   inp.value = ymd; inp.onchange = renderDailySnapshot;
   _dsZoom = null;
@@ -2466,10 +2523,13 @@ function renderDailySnapshot(){
   var target = parseInt(p[1]) + '月' + parseInt(p[2]) + '日';
   var targetY = /^\d{4}$/.test(p[0]) ? parseInt(p[0],10) : null;
   var rows = [];
-  for (var i=0;i<VIEW.history.length;i++){
+  // v51.12 ㊵：与主系统一致，快照明细按「局号(录入序)」升序，局号连续递增、两端同号。
+  var _dsOrder = []; for (var _dq=0;_dq<VIEW.history.length;_dq++) _dsOrder.push(_dq);
+  for (var _di=0;_di<_dsOrder.length;_di++){
+    var i = _dsOrder[_di];
     var rec = VIEW.history[i], ts = splitTimeSlot(rec.timeSlot);
-    // 与导出的 dayIndexOf 用同一个 _exportRowDate：只有 date 没 timeSlot 的补录记录也能进快照
-    if (_exportRowDate(rec) !== target) continue;
+    // 与导出 dayIndexOf 用同一个 _dsRowDate：两端同口径，补录记录也能进快照
+    if (_dsRowDate(rec) !== target) continue;   // v51.10：与主系统逐字同口径
     if (targetY !== null){
       var ry = _recExplicitYear(rec);
       if (ry !== null && ry !== targetY) continue;
