@@ -14,7 +14,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v51.9（24 态盘面 · 四盘融合 · Excel 增量导入 · 备份与日志 · 还原防竞态 · 后台休眠 · 命中率口径 · 上局相似盘复盘 · 收益盘去重提速 · 全站确认弹窗 · 手机回前台补传 · 局号统一 · 导入表头识别 · 抽签页登录门禁）</title>
+<title>商会三竞预测系统 v51.13（24 态盘面 · 四盘融合 · Excel 增量导入 · 备份与日志 · 还原防竞态 · 后台休眠 · 命中率口径 · 上局相似盘复盘 · 收益盘去重提速 · 全站确认弹窗 · 手机回前台补传 · 局号连续不跳序 · 导入表头识别 · 抽签页登录门禁 · 入口票据诊断 · 业务时区统一 · 两端逐行一致）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -904,12 +904,12 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v51.9</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v51.13</span></h1>
 <p class="subtitle"><span>四盘协同 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v51.9 完整版）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v51.13 完整版）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
-<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v51.9 之前的累计修复）</summary>
+<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v51.13 之前的累计修复）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
 </details>
 </header>
@@ -1212,7 +1212,7 @@ create policy "ac update" on access_control for update using (true);</textarea><
 </div>
 <div class="history-table-container" id="historyContainer">
 <table class="history-table">
-<thead><tr><th style="width:44px;"><input type="checkbox" id="histSelAll" title="全选/取消本页"></th><th style="width:60px;" title="录入顺序编号（第 N 条录入/导入的记录）；不随时间排序变化，与删除、编辑、导出里的局号一致">局号</th><th style="width:90px;">日期</th><th style="width:100px;">时间</th><th style="width:80px;">A</th><th style="width:80px;">B</th><th style="width:80px;">C</th><th style="width:100px;">获胜方</th><th style="width:90px;">获胜收益</th><th style="width:90px;">获胜投资</th><th style="width:90px;">预测收益</th><th style="width:90px;">预测投资</th><th style="width:110px;">预测方</th><th style="min-width:180px;">排名快照</th><th style="width:110px;">实际排名</th><th style="width:100px;">预测概率</th><th style="width:80px;">对错</th><th style="width:120px;">规律来源</th><th style="width:90px;">操作</th></tr></thead>
+<thead><tr><th style="width:44px;"><input type="checkbox" id="histSelAll" title="全选/取消本页"></th><th style="width:60px;" title="录入顺序编号（第 N 条录入/导入的记录）；按局号升序排列，不随时间排序变化，与删除、编辑、导出、当日快照里的局号一致。个别补录局时间可能不严格递增，属正常">局号</th><th style="width:90px;">日期</th><th style="width:100px;">时间</th><th style="width:80px;">A</th><th style="width:80px;">B</th><th style="width:80px;">C</th><th style="width:100px;">获胜方</th><th style="width:90px;">获胜收益</th><th style="width:90px;">获胜投资</th><th style="width:90px;">预测收益</th><th style="width:90px;">预测投资</th><th style="width:110px;">预测方</th><th style="min-width:180px;">排名快照</th><th style="width:110px;">实际排名</th><th style="width:100px;">预测概率</th><th style="width:80px;">对错</th><th style="width:120px;">规律来源</th><th style="width:90px;">操作</th></tr></thead>
 <tbody id="historyBody"></tbody>
 </table>
 </div>
@@ -2280,9 +2280,13 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v51.9';  // v51.8: 主系统抽签入口接登录门禁（原 draw.html 不动，只贴片段）；算法口径 ALGO_VER 未变
+  var APP_VERSION = 'v51.13';  // v51.12: 所有列表统一按局号(录入序)升序，局号连续不跳序、两端同号；算法口径 ALGO_VER 未变
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v51.9 完整更新说明（v50.35 ~ v51.8 累积交付的全部功能）：\n' +
+  var APP_UPDATE_DESC_RECENT = 'v51.13 完整更新说明（v50.35 ~ v51.12 累积交付的全部功能）：\n' +
+    '㊵【定版 v51.12 · 局号连续不跳序，两把尺子彻底收成一把】用户实拍同一天两张图：当日快照局号 4656…4686 连续、时间递增；历史记录表却是 4681,4682,4683,4684,4685,**4687,4688,4686**,4689,4690（局号跳），且同一局号 4686 在快照里是「23:30 / 0,2,0.5」、在历史表里是「22:00 / 0.5,0.3」——同一局号指向两条不同记录。根因两层：① 历史表按 `_chronoView` 时间序渲染，却用「录入序(物理下标+1)」当显示局号；一旦有中间补录 / 同时间段连录的局（4687、4688 同为 21:30，4686 为 22:00），时间序与录入序分叉，局号必然跳。② 素素页 `buildView` 以「本机缓存」为基准顺序、主系统以 `P.history` 为序，两端数组顺序不同，同一个局号自然指向不同记录。**统一口径**：主系统历史表、当日快照、素素页当日快照一律按「局号(录入序)」升序渲染，局号 = 物理下标+1，连续递增、永不跳、永不漂移，并与删除 / 编辑 / 批量删除 / 导出 / 回测 / 搜索里的局号完全同号；素素页有云端 `main` 时以 `main.history` 顺序为基准，保证两端数组同序、局号同号。**预测算法内部仍用 `_chronoView` 时间窗口**——一行没动，预测结果逐位不变；`ALGO_VER` 仍 v50.40-board24，不用强制重新学习。表头注明「按局号升序排列；个别补录局时间可能不严格递增，属正常」。**①~㊴ 全部已包含在当前版本**；不动云同步协议、数据库。复查：31 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中、发布默认号动态顺延。\n' +
+    '㊴【定版 v51.11 · 主系统当日快照明细与历史表逐行一致】用户反馈「index 的快照也是错的」。实测定位：主系统历史记录表按 `_chronoView` 时间序渲染，而当日快照 `renderDailySnapshot` 仍按 `P.history` 物理(录入)序遍历；当天一旦有中间插入/补录的局（导入、插入一局、跨端补录都会产生），快照明细里时间不递增、局号跳跃，与历史表、Excel、素素页逐行对不上。复现：4732 局中 11月27日 44 局含 3 局中间补录，快照局号序列 4601,4611,4621,4692,… 时间 01:00,02:00,03:00,00:00,…；历史表为 4692,4693,4601,4694,… 时间 00:00,00:30,01:00,…。**修法**：两端快照明细统一按时间序遍历（主系统 `_chronoView(P.history).idx`、素素页 `chronoOrder(VIEW.history)`，两者同口径），局号仍取原物理下标+1（录入序，与历史表/删除/编辑/导出/回测里的局号同号）。筛选口径 `_dsRowDate`、统计、缩放、年份过滤、局号含义全部不变，只修行顺序。修复后两端 44 局 × 8 列共 352 个单元格逐条一致，且与各自历史表同日行的局号与时间列完全一致。**①~㊳ 全部已包含在当前版本**。不动预测算法、权重、ALGO_VER（仍 v50.40-board24）、云同步协议、数据库；不用强制重新学习、不用重新授权。复查：30 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中、发布默认号动态顺延。\n' +
+    '㊳【定版 v51.10 · 业务时区统一 + 当日快照口径一致】用户实测反馈：同一天在不同设备上「今日局数」出现 44 与 72 两种结果，且素素页当日快照与主系统 / 导出对不上。实测定位：① 记录里的「M月D日」是**不带时区的字符串**，由录入 / 导入那台设备的本地日历日写死；国外设备下午 3 点（本机仍是 11月27日）录入的局，对应国内可能已跨到次日，于是同一个「11月27日」标签下混入两个真实日 → 单日 72 局（> 48 局/天）。② 素素页当日快照用 `_exportRowDate`（会回退读 date 字段），主系统只用 `splitTimeSlot(timeSlot).date`，同一份云端数据筛出不同行；两端默认日期还各自按本机 `new Date()`。本轮统一：新增 `bizDayParts()` 把「今天 / 现在」固定折算到**北京时间 UTC+8**，两端 `dayWindow` / 快照默认日期 / 录入与导入生成 timeSlot / 年份锚点 / 同步胶囊时间全部改用它（UTC+8 本机设备的结果与改动前逐位相同，国内零变化）；两端共用逐字一致的 `_dsRowDate(rec)`，导出「今天/昨天」、今日局数统计、当日快照三处筛出完全相同的行。**存量数据一条不改**：已标成「11月27日」的 72 局仍按原样保留，仅当日局数 > 48 时在同步胶囊与快照标题给出「可能混有跨时区重复标注」提示；从本版起新录入 / 导入的局统一按北京时间打标，不再继续混。**①~㊲ 全部已包含在当前版本**。不动预测算法、权重、ALGO_VER（仍 v50.40-board24）、云同步协议、数据库；不用强制重新学习、不用重新授权。复查：28 套测试全过、两端 JS 语法通过、9 处版本锚点逐条命中、UTC-8 ~ UTC+14 六时区实跑同一份数据结果一致、UTC+8 下 getTimeSlot 与旧实现逐位相同、72 局场景提示可见。\n' +
+    '㊲【定版 v51.9 · 抽签入口票据兜底与门禁诊断】端到端复现确认：v51.8 的文件组合本身可从主系统正常签发一次性票据并放行，用户截图里「缺少一次性通行票据」是**线上 index.html 仍是 v50.35（外链为裸跳，不签票据）+ 线上 draw.html 仍是上一版门禁**所致，四个文件没有全部覆盖上传或未 Ctrl+F5 强刷。本轮做三处加固：① 门禁卡片在无票据但检测到本机**已登录主系统**时，直接写明「主系统 index.html 仍是旧版或未强刷，请覆盖上传最新 index.html、Ctrl+F5 后再从「◇ 商会抽签系统」进入」，不再只给一句笼统的「请从入口进入」；② 倒计时到 0 秒而顶层导航被预览器 / iframe 沙箱静默拦下时，补一次 location.replace 兜底，仍不成功就把文案改成「请点上方返回登录页」，不再停在「0 秒」不动；③ 主系统外链除内联 onclick 外，再在**捕获阶段**加一次幂等签发兜底（只在 href 尚未带 tk 时动手），防止预览器 / 沙箱吞掉内联 onclick 导致裸跳。**①~㊱ 全部已包含在当前版本**。门禁协议、票据算法、susu 跳转窗口、原版 draw.html 的样式与功能一字未动；不动算法、权重、ALGO_VER（仍 v50.40-board24）、云同步协议、数据库；预测结果逐局一致，不用强制重新学习、不用重新授权。复查：27 套测试全过、三端 JS 语法通过、9 处版本锚点逐条命中、真实登录态端到端「签发 → 门禁放行」与「裸跳 → 拦截并给诊断」双路径实跑、抽掉门禁片段后 draw.html 与用户原版逐字节一致。\n' +
     '㊱【定版 v51.8 · 抽签页登录门禁（主系统原入口接入）】按你的要求：**draw.html 原来的样式和功能一个字节都不动**，只把一段门禁片段贴进它的 <head> 最前面；直接输入抽签页网址、把地址复制给别人、票据过期或被复用，一律显示登录门禁卡片并自动返回，抽签功能完全不显示。主系统**本来就有**「◇ 商会抽签系统」外链，本轮不新增入口，只给这个 <a> 加 id + onclick：点击时校验主系统登录态（统一凭证 mm_access_session_v2 / mm_access_auth_ok / 管理员·测试角色），签发**一次性通行票据**（FNV-1a 签名、90 秒有效、from=index），随后仍按原来的 target=_blank 新标签打开，href / rel / 样式 / 按钮外观全部保留；未登录则给页面内提示并阻止跳转，绝不裸跳。susu.html 的「🎲 商会抽签系统」入口与跳转窗口照旧（from=susu），两端票据协议与门禁脚本逐字一致；门禁按票据来源分别校验「主系统登录态」或「素素页设备授权态」，互不串用；放行后抽签页「返回」按来源回 index.html 或 susu.html。**①~㉟ 全部已包含在当前版本**。复查：27 套测试全过、index / susu / 门禁片段三端 JS 语法通过、9 处版本锚点逐条命中、发布默认号动态计算（v51.8 → v51.9）、专项用「模拟原版 draw.html（自带 CSS / 按钮 / 脚本）」验证贴片段后原功能在放行时逐项正常、未放行时全锁；覆盖双来源票据、过期 / 伪造 / 复用 / 未登录 / 复制网址、撤销授权、同标签刷新、按来源返回。只改外链一行 + 末尾一个独立 script 块 + 版本号与说明，**不动算法、权重、ALGO_VER（仍 v50.40-board24）、云同步协议、susu 的导入兼容层、数据库**；预测结果逐局一致，不用强制重新学习、不用重新授权。\n' +
     '㉟【定版 v51.7 · Excel 导入表头识别修复 + 解析失败可见提示】修一份真实表格「工作簿.xlsx」点了导入完全不弹窗的问题。文件 9 列表头是「商会A / 商会B / 商会C / 收益 / 资金 / A / B / C / 时间」，前 3 列是分数，后面 3 个「A / B / C」是各商会收益等级列。旧兼容层按**别名表顺序**取第一个命中，短别名「a」排在「商会a」前面 → A/B/C 被错认到第 6/7/8 列（内容是「大/中/小」）→ 24 行全判非法 → recs=0 → throw 后只往一个可能隐藏的 importStatus 写一行文字，**用户看不到任何弹窗**。本版五处一起修：① 表头别名改为「更具体(长)的别名优先 → 列靠左优先」认领，一列只能被一个语义占用，「商会A」正确压过「A」；② 加分数列自愈：抽样校验发现 A/B/C 仍指向文字列时，自动改用最靠左的分数列，绝不静默判 0 条；③ 短表头 A/B/C 的「大/中/小」列映射为 profitA/profitB/profitC（各商会收益等级），三列数据不再丢弃；④ 表头有「时间」但整列为空时按无时间列处理，走系统末局顺延推算，不会再导进 24 条空 timeSlot；⑤ 解析失败 / 0 条 / 文件类型不对时给**页面内可见弹窗**（index 的 showRecordResult、susu 的 showToast）并在报错里列出「识别到的列」诊断，不再静默。兼容层在 index.html 与 susu.html **逐字一致**地替换。实测这份文件 24/24 行全部识别、0 跳过，分数 / 收益 / 资金 / 各商会等级 / 推算时间全部到位；既有格式（单表头 A B C、盐行宝阁粮堂、局号日期时间 A B C 获胜通宝、无表头、CSV）列映射逐位不变。**①~㉞ 全部已包含在当前版本**。复查：25 套测试全过、两端 JS 语法通过、9 处版本锚点逐条命中、发布默认号动态计算（v51.7 → v51.8）、按钮与绑定逐个真实点击、导入兼容层两端逐字一致；专项用真实 xlsx 数据跑通两端解析、空时间列、解析失败弹窗、既有格式回归。只改导入表头识别与失败提示，不动算法、权重、ALGO_VER（仍 v50.40-board24）、云同步协议、数据库；预测结果逐局一致，不用强制重新学习、不用重新授权。\n' +
     '㉞【定版 v51.6 · 局号统一 + 行操作防误删】修两个会让人以为「数据弄乱了」的真问题。① **局号两套口径**：历史表「局号」列原本显示 _chronoView 的**全体时间序位次**，而删除 / 编辑 / 插入 / 批量删除 / 导出 / 回测 / 当日快照一直用**录入序位次（物理下标+1）**。云端合并补录、时间相位不一致的混入记录、或时间序缓存陈旧，都会让同一局的显示局号跳变（4623 / 4624 被显示成 4617 / 4618），删除弹窗却仍写「删除第4623局」。本版把表格局号、搜索、表头提示全部统一为**录入序位次**：对已有记录永不变化，与所有「第 N 局」文案、导出列、回测明细逐位一致；表格仍按时间排序展示，若出现跳号说明确有混入记录，可点「🧹 修复局号 / 清理混入」物理重排。② **DOM 陈旧会删错 / 改错局**：行按钮只存物理下标，云端拉取后表格签名守卫不重绘，或另一台设备刚删 / 插了一局，点删除就会作用于错误的记录。现在每个行控件与复选框都带_rid + 内容指纹，删除 / 编辑 / 插入 / 时间编辑 / 批量删除前一律重新定位当前物理下标，定位不到就整体中止并提示「列表已更新，请刷新」，绝不误伤数据；批量删除同样逐条按身份解析，有一条对上不就一条都不删。③ _chronoView 缓存键加入按位置加权的全量轻量签名（O(n) 纯加法），中间记录被替换 / 编辑 / 重排时缓存一定失效，不再用旧顺序渲染；**排序函数一字未动**，同一份数据的展示顺序与预测窗口逐位一致。④ 翻页改用筛选后的条数算总页数。⑤ ㉝ 的手机回前台补传一并交付。**①~㉟ 全部已包含在当前版本**。复查：25 套测试全过、两端 JS 语法通过、9 处版本锚点逐条命中、发布默认号动态计算（v51.6 → v51.7）、按钮与绑定逐个真实点击、导入兼容层两端逐字一致；专项验证 4623/4624 不再变 4617/4618、显示与删除文案同号、DOM 陈旧时拒绝操作、批量删除一条失效即整体中止、缓存中间变化必失效、手机回前台补传照常。只改编号口径、身份校验与缓存键，不动算法、权重、ALGO_VER（仍 v50.40-board24）、云同步协议、susu.html、数据库；预测结果逐局一致，不用强制重新学习、不用重新授权。\n' +
@@ -2310,7 +2314,7 @@ function syncBrief(){
     '⑮【代际隔离：不让旧时代规律污染现在的预测】这是本版最关键的一刀。含 1 的盘面既然基本不再出现，就属于风格漂移前的旧样本；第13信号原先的 L3 粗态键只有「赢家|赢家档」，会把 no1 与 with1 混在一起回退 —— 等于用旧规律预测现在。现在 `struct` / `coarse` 两个键都带上 tier（no1 / with1），当前盘面只与同代历史比对，跨代永不混用。L1 精确态天然分代；不含1的当前态只有 12 种、样本密度高，L1 门槛从 8 放宽到 6，含1的旧态维持 8/16/28 避免小样本硬推。面板里第13信号状态会显示当前代际与「只与同代历史比对」。\n' +
     '⑪【跨版本预测记录隔离 _algoVer】predHistory / accuracy 从 v50.35 一路攒到 v50.37，算法口径变了三次，但校准分桶、命中率定权、出手建议、漂移降权、智能修正全在把三套口径的记录混着统计。现在每条新预测写 _algoVer = ALGO_VER（与 APP_VERSION 解耦：纯 UI/文案发布不清空统计，只有算法口径变才递增），校准分桶与云端瘦身白名单同步保留该字段；所有「决策型」读取统一走 getCurAlgoPredIdxs / getCurAlgoAccuracy —— **只过滤、绝不物理删改**，因为 predHistory 与 history 按下标对齐，删一条会让整条索引链错位。展示层（总准确率、历史表、趋势图）仍看全历史战绩，并在「学习状态」面板标出「同口径 N 条 / 旧口径 M 条」。短期命中率数组（modelPerf / advancedModelPerf / windowPerf / 校准分桶）不带逐条版本，改为首次以本版打开时惰性一次性清空（存档带 perfAlgoVer，刷新不重复）；这些数组不与 history 下标对齐，清空安全，且所有读取点都有样本不足兜底。升级后同口径样本从 0 开始，概率校准与出手建议会自动回退到模型自身概率，属正常冷启动，攒够 20 条即恢复。\n' +
     '⑯【导入备份只留 5 份 + 单份手动删除】susu.html 每次导入前创建的 susubak_ 全量备份不再无限累积：导入写完备份后自动按时间倒序裁到最近 5 份（绝不删本次刚建的那份），主系统打开「▣ 云端备份与恢复」时再兜底裁一次，历史遗留的 20 份也能一次收敛；裁剪全程旁路，DELETE 权限不足或 RLS 静默拦截时停用本会话、不空转、不影响导入与还原。备份列表每行保留「删除」按钮并加了复查，被权限静默拦下会明确提示「删除未生效」而不是假报成功；「清理旧备份」按钮同步改成保留 5 份，作为权限恢复后的手动兜底。系统原有 backup_ 前缀「保留最近 4 份」完全不受影响。\n' +
-    '⑰【版本归一 v51.0 + 全量复查】v50.35 一路累积到 v50.41 的功能，当时统一定版为 v51.0（现为 v51.8），界面所有版本号与描述一次改齐；发布主系统 index.html 时仍照常弹版本号，默认按当前号小版本 +1（当时的举例 v51.0 → v51.1，当前请以发布弹窗给出的默认号为准），格式提示动态读取，不写死某个版本号。定版前做了端到端全量复查：9 套测试共 467 项、两端 JS 语法、69 个内联按钮与 64 个绑定处理器逐个真实点击、全部异常分支，0 失败；并修掉 3 处边界问题 —— 发布版本号格式提示写死、导出/导入日志双查询失败时误报「暂无记录」、单份删除备份后复查查询失败时误报「删除失败」。\n' +
+    '⑰【版本归一 v51.0 + 全量复查】v50.35 一路累积到 v50.41 的功能，当时统一定版为 v51.0（现为 v51.12），界面所有版本号与描述一次改齐；发布主系统 index.html 时仍照常弹版本号，默认按当前号小版本 +1（当时的举例 v51.0 → v51.1，当前请以发布弹窗给出的默认号为准），格式提示动态读取，不写死某个版本号。定版前做了端到端全量复查：9 套测试共 467 项、两端 JS 语法、69 个内联按钮与 64 个绑定处理器逐个真实点击、全部异常分支，0 失败；并修掉 3 处边界问题 —— 发布版本号格式提示写死、导出/导入日志双查询失败时误报「暂无记录」、单份删除备份后复查查询失败时误报「删除失败」。\n' +
     '⑱【还原防竞态：别的设备不再把旧局推回来】备份还原 / 管理员强制同步会覆盖云端 main，但另一台正开着的设备若在「拉取到新 main 之前」触发 5 秒自动增量上传，会把本地旧 rec_ 行推上去，表现就是「明明还原了，旧局又回来了」。本版在**任何写云端之前**加一道轻量守门：先读 main 的 updated_at（约几十字节），与本机记录一致就直接放行；不一致再读一次 main 判 _syncEpoch，云端纪元更大即判定本机尚未对齐 —— 本次上传直接拒绝、**脏队列保留不丢数据**、自动触发一次拉取，对齐后同步自行恢复。稳态每轮只多一个极小请求，弱网或权限波动一律放行，绝不阻断正常录入；弹窗做 60 秒节流不骚扰。\n' +
     '   同时修掉还原侧两处会让机制失效的老问题：susu 导入备份还原原先原样写回备份里的 mainRest，_syncEpoch 不变、upsert 也不带 updated_at，其他端既不会强制覆盖、也检测不到 main 变了，还原等于只对管理员本机生效；现在还原显式递增权威纪元、带上时间戳并回填本机基线。主系统「云端备份与恢复」的 upsert 同样补上 updated_at（未装 clock_timestamp() 触发器的存量库，ON CONFLICT DO UPDATE 不会自动前进时间戳）。**不需要动数据库**：没加表、没加列、没加新行、没改任何策略，全部复用已有的 main / _syncEpoch / updated_at。\n' +
     '⑲【Excel 导入兼容多格式】两份真实民间表格现在都能正确解析：① 表头叫「盐行 / 宝阁 / 粮堂」的，按商会名映射到 A/B/C；「资金 / 通宝 / 本金 / 获胜投资」统一识别为**获胜投资（大/中/小）**，「收益 / 挣 / 获胜的商会收益」识别为获胜收益 —— 之前「资金」列不在别名表里，导入后获胜投资整列为空，本版修好。② 表头带「局号 / 日期 / 时间 / A / B / C / 获胜通宝」的，A/B/C 自动定位到第 4/5/6 列，日期支持 Excel 序列号（46242→8月8日），含 1（保本）的局是合法 24 态不会被误剔，`#N/A` 空局正常跳过。③ 没有表头时，从第 4 列起按「大/中/小」取值比例自动推断收益列与投资列。④ 日期以「分组行 / 额外列」形式出现的（如某天第一局第 7 列写 23/10/2026），向下填充给该日所有局，把顺延推算的时间线还原成真实月日；**只认明确文本日期，不认 5 位整数**——真实文件第 7 列混着 46033/46334 这类批次号，当 Excel 日期序列号会把局写成 1 月/8 月、污染「今天/昨天」导出与时段效应。分组行本身不是合法数据行，不会变成记录，因此**导入条数与尾局锚定完全不变**。实测：唐商传奇.xlsx 有效 1519 局（与系统原口径一致）、获胜投资有值 1497 局（98.6%，原来 0）、还原 19 个日期分组；新商会数据 (1).xlsx 有效 4570 局、含 1 保本局 723 条全部保留。两端（susu.html 与系统 index.html）共用同一份兼容层，逐行一致；手动指定起始行仍按之前要求只保留在系统里。\n' +
@@ -2320,8 +2324,12 @@ function syncBrief(){
     '㉒【备份列表存储型 XSS 修复（审查发现）】云端备份列表把 prediction_data 的 id 直接拼进内联 onclick：该表用 anon key + 全开 RLS、任何人可写，id 里塞一个单引号加分号再拼一段脚本，就能在管理员打开「云端备份与恢复」时执行任意代码；而只做 escHtml 也不够——单引号被转成字符实体后，浏览器解析 HTML 属性时又解码回单引号，照样能截断 JS 字符串。现统一先用 JSON.stringify 生成双引号 JS 字面量、再 escHtml 做属性转义，上方「系统备份」恢复/删除与下方「susu 导入备份」还原/删除四个按钮全部覆盖，列表里用 id 兜底显示的时间文本也补了转义。正常 id 渲染结果不变，不影响任何点击行为。\n' +
     '㉑【时间段不再向下填充 + 无表头修正（日期部分已随 ㉓ 一并撤销）】文件里 23:58-00:28 / 00:28-00:58 只是个别行各自的局时间，旧版灌给后续 400+ 局造成 95 局共用同一 timeSlot、186 个 recKey 撞车；现文件内时间段标注整体不再参与导入（日期时间一律按 ㉓ 口径），推算时间线逐局唯一，1519 个 timeSlot 两两不同、重复 recKey 为 0。全角冒号归一化、无表头时把修正后的 start 传给列映射，仍保留。备份确认层同步加固：取消不再把状态串到下方 susu 区、onOk 的 Promise 异常有兜底、清掉一处死代码。\n' +
     '⑳【备份「点恢复没反应」根因修复】浏览器勾选「阻止此页面创建更多对话框」、或在某些预览器 / iframe 沙箱里，原生 confirm() 会被静默屏蔽（不弹窗、直接返回 false）。旧版恢复 / 还原 / 删除 / 清理全部卡在 if(!confirm(...)) return; 第一行，表现为「点了完全没反应」；而 susu.html 不用原生 confirm，导入照常工作，正好对上现象。本文件 v45.5 录入链路注释里记录过同一个坑，这次补齐备份模块：**恢复、还原、删除、清理、本地备份恢复统一改走系统自带的页内确认弹窗**（showRecordConfirm，z-index 100010），不再依赖浏览器对话框；页内弹窗不可用时才降级，并识别「瞬时返回 false」为被屏蔽，给可见提示而不是无声退出。同时加固：所有云端 await 加 15~20 秒超时（挂起不再永久卡住）；busy 锁带时间戳、60 秒自动解锁；cleanup 改 try/finally 释放；确认后按钮立刻变「还原中…」、状态栏在表格上下各写一份（滚动到列表也看得见）；9 个备份函数显式挂 window，杜绝作用域隐患。实测模拟「confirm 被屏蔽」环境下，点「还原」仍能弹出页内确认并完整走完还原链。\n' +
-    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v51.9，混用旧版会用不同口径算同一份历史、跨端结论分叉。**本轮只把主系统原有的「◇ 商会抽签系统」外链接上登录门禁，预测算法一行没动**：算法口径标识 ALGO_VER 仍是 v50.40-board24（与 APP_VERSION 刻意解耦），因此不会触发预测记录隔离、不用点「↻ 强制重新学习」、历史准确率照常累计；susu.html 保留抽签入口与跳转窗口，请一并覆盖上传；**draw.html 原文件一个字节都不用改**，只需把门禁片段贴进它的 <head> 最前面；数据库一个操作都不用做。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据。换版后建议点一次「☁️ 全量上传」固化。㉜ 之后全站所有确认（清空、删除、撤销、回滚、导入、强制同步、检查更新等）都走页面内弹窗，浏览器勾了「阻止此页面创建更多对话框」也能正常点，不会再「点了没反应」。㉚ 的复盘在下拉展开 / 弹窗打开 / 切后台时自动让路，连续多次渲染只算一次；若不需要这块，控制台执行 CONFIG.showLastSimRecap=false; renderAll(); 可彻底关闭。㉛ 把收益/投资相似盘去重从平方级降到近线性（预测结果逐位不变），这是「录入卡顿」的根治，不需要你做任何设置。㉟ 之后「商会A/商会B/商会C + A/B/C」这种双套表头的 Excel 能正常识别并弹出导入确认框；识别失败也会弹窗告诉你哪一列认错了，不会再「点了没反应」。㉞ 之后历史表局号按录入顺序固定（第 N 条录入/导入的记录），不会再因云端合并跳号；表格、删除、编辑、导出、回测的「第 N 局」全部同号；列表没刷新时点删除 / 编辑会提示刷新而不是误伤别的局。㉝ 之后手机录完立刻锁屏 / 切后台，回到前台会立即补传本地新局，不会再「录了别的设备看不到」；操作日志里的「共 N 局」是当时总局数、按时间倒序，历史表按局号正序，不是数据乱。⑱ 的还原防竞态不需要你在 Supabase 做任何操作。㉗ 的「相似盘信号历史命中率」若刚换算法口径会从 0 重新累计（最多 200 条），属正常冷启动；㉘ 的「上局相似盘复盘」是独立复盘块，不参与预测。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。㊱ 之后抽签页必须登录后从「◇ / 🎲 商会抽签系统」入口进入，直接输网址会被拦回；**你的原版 draw.html 不用改样式、不用改功能**，只贴一次门禁片段即可。';
-  var APP_UPDATE_DESC_HISTORY = '历史归档（v51.9 之前的累计修复，均已包含在当前版本）：\n' +
+    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v51.13，混用旧版会用不同口径算同一份历史、跨端结论分叉。**本轮把所有展示列表统一按「局号(录入序)」升序排列：局号连续递增、不再跳号，两端同一局号指向同一条记录；预测算法一行没动**：算法口径标识 ALGO_VER 仍是 v50.40-board24（与 APP_VERSION 刻意解耦），因此不会触发预测记录隔离、不用点「↻ 强制重新学习」、历史准确率照常累计；susu.html 保留抽签入口与跳转窗口，请一并覆盖上传；**draw.html 原文件一个字节都不用改**，只需把门禁片段贴进它的 <head> 最前面；数据库一个操作都不用做。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据。换版后建议点一次「☁️ 全量上传」固化。㉜ 之后全站所有确认（清空、删除、撤销、回滚、导入、强制同步、检查更新等）都走页面内弹窗，浏览器勾了「阻止此页面创建更多对话框」也能正常点，不会再「点了没反应」。㉚ 的复盘在下拉展开 / 弹窗打开 / 切后台时自动让路，连续多次渲染只算一次；若不需要这块，控制台执行 CONFIG.showLastSimRecap=false; renderAll(); 可彻底关闭。㉛ 把收益/投资相似盘去重从平方级降到近线性（预测结果逐位不变），这是「录入卡顿」的根治，不需要你做任何设置。㉟ 之后「商会A/商会B/商会C + A/B/C」这种双套表头的 Excel 能正常识别并弹出导入确认框；识别失败也会弹窗告诉你哪一列认错了，不会再「点了没反应」。㉞ 之后历史表局号按录入顺序固定（第 N 条录入/导入的记录），不会再因云端合并跳号；表格、删除、编辑、导出、回测的「第 N 局」全部同号；列表没刷新时点删除 / 编辑会提示刷新而不是误伤别的局。㉝ 之后手机录完立刻锁屏 / 切后台，回到前台会立即补传本地新局，不会再「录了别的设备看不到」；操作日志里的「共 N 局」是当时总局数、按时间倒序，历史表按局号正序，不是数据乱。⑱ 的还原防竞态不需要你在 Supabase 做任何操作。㉗ 的「相似盘信号历史命中率」若刚换算法口径会从 0 重新累计（最多 200 条），属正常冷启动；㉘ 的「上局相似盘复盘」是独立复盘块，不参与预测。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。㊱ 之后抽签页必须登录后从「◇ / 🎲 商会抽签系统」入口进入，直接输网址会被拦回；**你的原版 draw.html 不用改样式、不用改功能**，只贴一次门禁片段即可。㊲ 若从主系统点抽签仍被拦，卡片会直接告诉你是不是主系统版本没更新或没强刷——按提示覆盖上传最新 index.html 并 Ctrl+F5 即可。㊳ 业务时区统一为北京时间：所有设备对「今天几月几日」给出同一答案；若某日局数超过 48，胶囊与快照会提示可能混有跨时区重复标注，请核对，不会自动改动任何历史局。㊵ 所有列表统一按局号(录入序)升序排列，局号连续不跳序，两端同一局号指向同一条记录。';
+  var APP_UPDATE_DESC_HISTORY = '历史归档（v51.13 之前的累计修复，均已包含在当前版本）：\n' +
+    '· v51.11（已并入 v51.12）：两端当日快照明细同序（后由 ㊵ 统一为局号升序）。\n' +
+    '· v51.10（已并入 v51.11）：业务时区统一 UTC+8、两端快照筛选同口径、susu 同一局不再被重复计数（44+28=72 收敛回 44）。\n' +
+    '· v51.9（已并入 v51.10）：抽签入口票据诊断、门禁卡片精确提示、捕获阶段幂等兜底签发，修「从主系统点抽签被拦下」。\n' +
+    '· v51.8（已并入 v51.9）：主系统原「◇ 商会抽签系统」外链接登录门禁、原版 draw.html 只贴门禁片段、susu 跳转窗口、票据双来源校验。\n' +
     '· v51.7（已并入 v51.8）：Excel 导入表头「商会A/B/C + A/B/C」双套表头识别修复、解析失败给可见弹窗；susu 新增「🎲 商会抽签系统」入口与跳转窗口。\n' +
     '· v51.6（已并入 v51.7）：历史表局号统一为录入序位次（4623/4624 不再被时间序显示成 4617/4618），行控件带 _rid + 内容指纹防误删 / 误改，_chronoView 缓存键加全量签名，翻页按筛选后条数；操作日志列改为「操作后总局数 / 共 N 局」。\n' +
     '· v51.5（已并入 v51.7，经 v51.6）：手机锁屏 / 切后台后「录入停手 5 秒自动上传」定时器被冻结，回前台只补拉取不补传导致新局不同步；改为回前台先补传脏队列再拉取 / 重绘（3 秒兜底），后台到点则挂起等回前台。操作日志「局数」列改为「操作后总局数 / 共 N 局」，与局号区分。\n' +
@@ -2347,7 +2355,7 @@ function syncBrief(){
     if(r) r.textContent = APP_UPDATE_DESC_RECENT;
     if(h) h.textContent = APP_UPDATE_DESC_HISTORY;
   } catch(e){} })();
-  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v51.9 完整更新说明。';
+  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v51.13 完整更新说明。';
 
   // ========== v50.35：弹窗「交互优先」通道 ==========
   // 复现（4178 局 + 真实鼠标）：弹窗显示时后台只要有一个 400ms 长任务，
@@ -4878,14 +4886,44 @@ function updateIntervalUI() {
 // ========== v20: 时间段工具函数 ==========
 // 根据Date对象生成时间段，如 "8月25日 15:00:00-16:00:00"（v25.1起带秒）
 // align=true时分钟对齐到:00/:30（用于当前局计算）；align=false时保留原始分钟（用于批量推算）
+/* =====================================================================
+ * v51.10 业务时区：固定北京时间 UTC+8
+ * 记录里的「M月D日」是不带时区的字符串，由录入/导入那台设备的本地日历日写死。
+ * 跨时区时，国外设备把「它的 11月27日傍晚」（= 国内 11月28日凌晨）也标成
+ * 「11月27日」，于是同一天标签下混入两个真实日 → 出现 72 局（>48 局/天）、
+ * 两端当日快照对不上。这里把「今天 / 现在」统一折算到 UTC+8 墙上时钟，
+ * 所有设备给出同一答案；UTC+8 本机设备的结果与改动前逐位相同。
+ * ===================================================================== */
+function bizDayParts(d){
+  d = d || new Date();
+  var b = new Date(d.getTime() + 8 * 3600000);   // UTC 墙上 +8h = 北京时间
+  var y = b.getUTCFullYear(), m = b.getUTCMonth() + 1, da = b.getUTCDate();
+  return { y:y, m:m, d:da, hh:b.getUTCHours(), mm:b.getUTCMinutes(), ss:b.getUTCSeconds(),
+           label:m + '月' + da + '日',
+           ymd:y + '-' + ('0' + m).slice(-2) + '-' + ('0' + da).slice(-2) };
+}
+/* 两端共用的「这一局属于哪个 M月D日」：优先 timeSlot，其次 date 字段。
+   逐字一致，保证主系统当日快照与素素页当日快照筛出完全相同的行。 */
+function _dsRowDate(rec){
+  rec = rec || {};
+  var t = String(rec.timeSlot || ''), d = String(rec.date || '');
+  var m = t.match(/(\d{1,2})月(\d{1,2})日/);
+  if (!m) m = d.match(/(\d{1,2})月(\d{1,2})日/);
+  if (m) return parseInt(m[1],10) + '月' + parseInt(m[2],10) + '日';
+  var y = d.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/) ||
+          t.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (y) return parseInt(y[2],10) + '月' + parseInt(y[3],10) + '日';
+  return '';
+}
 function getTimeSlot(date, align) {
     date = date || new Date();
     align = (align === undefined) ? true : align;
-    var month = date.getMonth() + 1;
-    var day = date.getDate();
-    var hour = date.getHours();
-    var minute = date.getMinutes();
-    var second = date.getSeconds();
+    var _bp = bizDayParts(date);
+    var month = _bp.m;
+    var day = _bp.d;
+    var hour = _bp.hh;
+    var minute = _bp.mm;
+    var second = _bp.ss;
     // 对齐到间隔边界（向下取整，秒保留）
     var slotMinute = align ? ((gameIntervalMinutes === 30) ? (minute < 30 ? 0 : 30) : 0) : minute;
     var startHour = hour;
@@ -15690,11 +15728,7 @@ function openDailySnapshot() {
     var overlay = document.getElementById('dailySnapshotOverlay');
     var dateInput = document.getElementById('dsDateInput');
     // 默认今天
-    var now = new Date();
-    var yyyy = now.getFullYear();
-    var mm = (now.getMonth() + 1 < 10 ? '0' : '') + (now.getMonth() + 1);
-    var dd = (now.getDate() < 10 ? '0' : '') + now.getDate();
-    dateInput.value = yyyy + '-' + mm + '-' + dd;
+    dateInput.value = bizDayParts().ymd;   // v51.10：统一北京时间，所有设备默认同一天
     dateInput.onchange = renderDailySnapshot;
     _dsZoom = null;
     overlay.classList.add('open');
@@ -15858,10 +15892,14 @@ function renderDailySnapshot() {
     var targetY = (parts.length >= 1 && /^\d{4}$/.test(parts[0])) ? parseInt(parts[0], 10) : null;
 
     var rows = [];
-    for (var i = 0; i < P.history.length; i++) {
+    // v51.12 ㊵：快照明细也按「局号(录入序)」升序，局号连续递增，与历史表、
+    // 素素页、导出、删除/编辑逐行同号。预测窗口仍用 _chronoView 时间口径（算法不变）。
+    var _dsOrder = []; for (var _dq = 0; _dq < P.history.length; _dq++) _dsOrder.push(_dq);
+    for (var _di = 0; _di < _dsOrder.length; _di++) {
+        var i = _dsOrder[_di];
         var rec = P.history[i];
         var ts = splitTimeSlot(rec.timeSlot);
-        if (ts.date !== targetDateStr) continue;
+        if (_dsRowDate(rec) !== targetDateStr) continue;   // v51.10：与素素页逐字同口径
         // v50.20：只按「M月D日」匹配会混入其它年份的同月日（跨年后库里同时有
         // 2026-01-01 与 2027-01-01）。带显式年份且与所选年份不同的记录跳过；
         // 不带年份的旧数据仍照常匹配，不误杀。
@@ -20359,10 +20397,13 @@ function renderHistory() {
     var filterW = document.getElementById('filterWinner')?.value || '';
     var filterP = document.getElementById('filterProfit')?.value || '';
     // v34.2性能优化：过滤阶段预计算winner，渲染阶段直接复用，避免重复调用getWinner
-    // v50.3: 表格遍历改走时间有序视图（与预测窗口同源）——云端补录的早时间局会被拼到物理数组末尾，
-    // 直读物理数组就会出现「14 号下面接 13 号」；这里按时间排列展示，origIdx 仍保留物理下标，编辑/删除/快照映射不受影响。
-    var _cvHist = _chronoView(P.history);
-    var _orderedRecs = _cvHist.recs, _orderedPhys = _cvHist.idx;
+    // v51.12 ㊵：展示列表统一按「局号(录入序)」升序，局号连续递增、两端同号。
+    // 旧版按 _chronoView 时间序渲染却用录入序编号，遇到时间相位不一致的补录局
+    // 必然跳号（实测 4681..4685,4687,4688,4686,4689,4690），用户看到就是「乱」。
+    // 预测窗口仍用 _chronoView 时间口径（算法不变），这里只改展示顺序。
+    var _orderedRecs = P.history || [];
+    var _orderedPhys = [];
+    for (var _pq = 0; _pq < _orderedRecs.length; _pq++) _orderedPhys.push(_pq);
     // v50.22：表格按时间排序展示，局号也必须按同一套「时间序位次」编号。
     // 旧版局号用物理数组下标+1，倒序/补录/脏行会让局号与时间顺序对不上（局号混乱）。
     // data-idx 仍用物理下标，编辑/删除/快照映射完全不受影响。
@@ -26854,6 +26895,26 @@ function openDrawFromIndex(e){
   } catch(err){ return false; }         // 存储不可用则不签发，绝不裸跳
   return true;                          // 保留原 <a target="_blank"> 新标签行为
 }
+/* v51.9 兜底：某些预览器 / iframe 沙箱会吞掉内联 onclick，导致 href 仍是裸
+   draw.html → 门禁必然拦下。捕获阶段补一次幂等签发，只在 href 还没带 tk 时动手。 */
+(function(){
+  try {
+    var a = document.getElementById('drawEntry');
+    if (!a) return;
+    a.addEventListener('click', function(){
+      try {
+        if (/[?&]tk=/.test(a.getAttribute('href') || '')) return;   // 已签发，幂等
+        if (!_drawIdxLogged()) return;
+        var n = 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+        var t = Date.now();
+        localStorage.setItem(DRAW_IDX_TICKET_KEY,
+          JSON.stringify({v:1, n:n, t:t, sig:_drawIdxSign(n, t), from:'index'}));
+        localStorage.setItem(DRAW_IDX_LAST_KEY, 'index');
+        a.setAttribute('href', 'draw.html?tk=' + encodeURIComponent(n));
+      } catch(e) {}
+    }, true);
+  } catch(e) {}
+})();
 </script>
 </body>
 </html>
