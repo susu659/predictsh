@@ -14,7 +14,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 <!-- v50.8: 内联 favicon，消除 favicon.ico 404 报错 -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23302b63'/%3E%3Crect x='22' y='56' width='14' height='22' rx='3' fill='%23ffd76a'/%3E%3Crect x='43' y='40' width='14' height='38' rx='3' fill='%2300e5c3'/%3E%3Crect x='64' y='26' width='14' height='52' rx='3' fill='%234f8cff'/%3E%3C/svg%3E">
-<title>商会三竞预测系统 v51.20（24 态盘面 · 四盘融合 · Excel 增量导入 · 备份与日志 · 还原防竞态 · 后台休眠 · 命中率口径 · 上局相似盘复盘 · 收益盘去重提速 · 全站确认弹窗 · 手机回前台补传 · 局号连续不跳序 · 导入表头识别 · 抽签页登录门禁 · 入口票据诊断 · 业务时区统一 · 两端逐行一致 · 增量导入双端同口径 · 新增局复核 · 无时间列不误删 · 时间序局号 · 基准外局不重复导 · 跨日锚点不误判 · 恢复不丢新局）</title>
+<title>商会三竞预测系统 v51.24（24 态盘面 · 四盘融合 · Excel 增量导入 · 备份与日志 · 还原防竞态 · 后台休眠 · 命中率口径 · 上局相似盘复盘 · 收益盘去重提速 · 全站确认弹窗 · 手机回前台补传 · 局号连续不跳序 · 导入表头识别 · 抽签页登录门禁 · 入口票据诊断 · 业务时区统一 · 两端逐行一致 · 增量导入双端同口径 · 新增局复核 · 无时间列不误删 · 时间序局号 · 基准外局不重复导 · 跨日锚点不误判 · 恢复不丢新局 · 局数差锚定 · 整批同源校验 · 周期假命中防护 · 两端同源守卫）</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 /* v50.12: 字体栈把彩色 emoji 字体排在 Segoe UI Symbol 之前——Symbol 里也有这些字符的
@@ -904,12 +904,12 @@ a .ico,.tab-btn .ico{margin-right:.3em}
 <div id="learnTip" role="status" aria-live="polite"><span class="ico" aria-hidden="true" style="background-color:#D81B60">◆</span> 学习完成</div>
 <div class="container">
 <header>
-<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v51.20</span></h1>
+<h1><span class="ico" aria-hidden="true" style="background-color:#F0A500">★</span> 商会三竞预测系统 <span class="ver-chip" title="点击查看更新说明">v51.24</span></h1>
 <p class="subtitle"><span>四盘协同 · 十模型融合 · 权重自适应</span><span style="color:#4caf50;font-weight:600;">☁️ 增量实时同步（省流量）</span><span style="color:#e91e63;font-weight:600;"><span class="ico" aria-hidden="true" style="background-color:#00838F">◎</span> 样本外证据 · 漂移检测</span></p>
 <details id="updateNote" style="margin:10px 0 4px;font-size:13px;color:inherit;max-width:820px;">
-<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v51.20 完整版）</summary>
+<summary style="cursor:pointer;display:inline-block;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:600;list-style:none;"><span class="ico" aria-hidden="true" style="background-color:#FB8C00">♪</span> 更新说明（v51.24 完整版）</summary>
 <div id="updateNoteRecent" style="margin-top:8px;padding:10px 14px;background:rgba(255,255,255,.10);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:200px;overflow-y:auto;"></div>
-<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v51.20 之前的累计修复）</summary>
+<details id="updateNoteOld" style="margin-top:8px;"><summary style="cursor:pointer;opacity:.85;">查看历史归档（v51.24 之前的累计修复）</summary>
 <div id="updateNoteHistory" style="margin-top:6px;padding:10px 14px;background:rgba(255,255,255,.07);border-radius:10px;line-height:1.75;white-space:pre-wrap;max-height:320px;overflow-y:auto;font-size:12px;"></div></details>
 </details>
 </header>
@@ -2280,9 +2280,13 @@ function syncBrief(){
     try { sessionStorage.removeItem(SESSION_KEY); } catch(e) {}
   }
 
-  var APP_VERSION = 'v51.20';  // v51.19: 恢复云端备份 / 采纳全量基线时不再抹掉「备份之后新录的局」；算法口径 ALGO_VER 未变
+  var APP_VERSION = 'v51.24';  // v51.23: 两端导入核心一致性守卫 + index 四种导入方式端到端验证；产品逻辑零改动，算法口径 ALGO_VER 未变
   // 更新描述：每次升级必须同步填写，随版本号一起展示
-  var APP_UPDATE_DESC_RECENT = 'v51.20 完整更新说明（v50.35 ~ v51.19 累积交付的全部功能）：\n' +
+  var APP_UPDATE_DESC_RECENT = 'v51.24 完整更新说明（v50.35 ~ v51.23 累积交付的全部功能）：\n' +
+    '【51】【定版 v51.23 · 结果交付：两边增量导入都正常，index 所有导入方式都正常】用户要求「反正两边都要能正常增量导入，index 要所有导入方式都正常，我只要结果」。**本轮产品逻辑零改动，做两道硬保障**。**① 两端导入核心不再靠人工同步**：index.html / susu.html 都是单文件内联 JS、互不加载，历史上 9 对核心函数（alignByTail / _abcSame / _seqMatchAt / _batchAbcEqual / _extraBeyondBase / _dedupeImportAdd / _consumeImportExtra / _finalizeImportAdd / _tailEndDiagByTail）被人工复制两份，每次修 bug 要改两处，这是「susu 能 index 不能、反过来」反复出现的根因。曾试过「单一模板自动派生写回 susu」的重构，实测会破坏既有测试链路（_abcSame is not defined），**已整体回退、不留下会破坏系统的脚本**；改为把一致性做成常驻守卫测试 `_shared_core_test.js`：5 对函数去别名/适配器/空白后逐字一致，3 对形式不同但语义等价的用 7 个真实场景锁定（常规增量 20 局、周期性假命中防吞局 20 局、末 10 局切成两段 diff/batch 20 局、恢复丢局补齐 27 局、无时间列 24 行不误删、重复导入 0 局、云端基线 + 基准外 8 局 20 局），**两端 matched / 锚点 / 最终新增逐位一致**；任一端以后改了锚定或去重而另一端没跟上，这套立刻红。**② index 四种导入方式逐条端到端实跑**：新增 `_all_import_modes_test.js` 真实执行 `confirmImport()`（只把最终写入层换成探针，核心数据变换全真跑）——增量 100→120 只追加锚点后 20 局且前 100 局一条不动、追加 100+120=220、覆盖整体替换为 120 局且先建快照、按日期覆盖只删勾选日（48 删 / 48 进 / 52 保留）其余守恒；另验重复导入同一文件 0 新增、剪贴板表格解析 3 局合法 ABC、手动指定起始行仍在且 susu 不提供该功能。**没动**：预测算法与权重、数据结构、云同步协议、数据库、`susu.html` / `draw.html` / `xlsx.bundle.js`（本轮逐字节零改动）；`ALGO_VER` 仍 `v50.40-board24`，不用强制重新学习、不用重新授权。**①~㊿ 全部已包含在当前版本**。复查：42 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中。\n' +
+    '㊿【定版 v51.22 · 整体复查，修 ㊾ 自己引入的真 BUG：周期性假命中吞掉整批新增局】**复现（真实 vm 执行两端产品函数）**：系统 4693 局、文件 4713 行、ABC 周期 10 → 文件末尾 10 行（新增区）的 ABC 恰好等于系统末 10 局。㊾ 的「位置自洽」容差 60 覆盖了新增局数 20，`run()` 从文件末尾往前扫，在 `s=4703` 命中、`|(4713)−4693|=20 ≤ 60` 就直接 `break` → `anchorEnd=4713`、**新增 0 局**，用户点确认显示「只新增了 0 局」，**20 局静默丢失**，index 与 susu 两端都中招。㊾ 本想修「锚点被带到文件中段」，却让文件末尾的周期性巧合通过自洽，反而更危险。**修法**：`run()` 改为收集全部自洽命中，取 `|锚点结束位置 − 系统局数|` **最小者**（真锚点差 0，文件末尾假命中差 = 新增局数，必然被淘汰），并列时取更靠后的；两端逐字同口径，干净数据 / 中段假命中 / 基准外局偏移场景逐位不回归。**② susu 落库内容一致性**：㊾ 为修「刷新抖动误抛中止」改成「只有局数变了才重算」并复用预览的 `align.addRecs`；但 `refreshViewFromCloud()` 后若**局数没变、内容变了**（另一台设备编辑一局 / 时间序重排改变去重键），旧 `addRecs` 可能重复导入或跳过该导的局，且与新 hist 的时间推算基准不一致。现改为刷新后**总是基于最新 hist 重算 + 重新 finalize**；仅当重算 `!matched` 且局数未变时才回退预览结果（保留 ㊾ 原意），局数真变了则明确中止。**③ 文案如实**：diff/batch 命中只校验「文件前 N 局与系统整批 ABC 多重集同源」，旧文案仍写「末 10 局与文件完全一致」属不实，现按 `diffCheck` 区分；失败诊断补上「已尝试整批同源 / 末 10 局连续两种校验，均未通过」的可照做提示。**不动**：三候选顺序、`_batchAbcEqual` 本体、diff 的 A/B 级判定、去重本体、基准外消费守卫、局号时间序口径、预测算法与权重、云同步协议、数据库；`ALGO_VER` 仍 `v50.40-board24`，不用强制重新学习、不用重新授权。**①~㊾ 全部已包含在当前版本**。复查：41 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中；新增第 41 套按 4693/4713/周期 10 真实复现「修复前新增 0 局」，锁死修复后导 20 局、两端逐位一致、中段假命中仍被拒、正常场景不回归、落库重算契约。\n' +
+    '㊾【定版 v51.21 · susu 增量导入仍失败，一次性做对】用户反馈 v51.20 上线后 susu 仍提示「未在文件中找到与系统最后 10 局 ABC 完全一致的连续记录，已禁止增量导入」。**真因是我上一轮 ㊽ 自己引入的过严校验**：㊽ 的 diff 候选要求「文件第 end−10..end−1 行」这 10 局在系统的【某一个单一视角】里连续存在，还额外加了 `headOk` 硬门槛。但 susu 的 `VIEW.history` 结构是 **云端 main（4685 局，文件第 1..4685 行）＋ 8 条基准外局（文件第 4686..4693 行，被 `chronoOrder` 重排后追加在尾部）** —— 文件第 4684..4693 行这 10 局里，前 2 行在 main、后 8 行在追加段，**在任何单一视角里都不连续** → `seg` 永远找不到 → diff 候选被废掉 → 三候选 + diff 全失败。上一轮的测试把「被移到尾部的 8 条」放在文件第 3000 行附近，恰好没切断末 10 局，所以 27 项全绿却漏掉了真实结构。**修法：改成不依赖顺序的「整批同源」校验**。确定事实是「文件比系统多 `expected` 行 ⇒ 文件前 N 行（N=系统局数）就是系统的 N 局」。**① A 级（主）**：文件前 N 行与系统 N 局的 ABC **多重集全等**（只比内容、不比顺序），再加「首行逐局全等」做位置锚；时间序重排、基准外局追加、跨端合并全部免疫，4693 局 × 24 态的多重集也几乎不可能被无关文件巧合命中，比原「连续 10 局 + 前 10 行」强得多也稳得多。**② B 级（次）**：保留 ㊽ 的「末 10 局连续 + 前 10 行」校验，覆盖系统里含少量「文件没有的局」导致多重集不等的场景。**③ 命中后直接构造结果对象**（不再调 `run()`，避免 ABC 24 态周期性重复让 `run` 从文件末尾找出另一个假位置把 `anchorEnd` 带偏），`anchorEnd = N`，新增 = 文件第 N 行之后的 `expected` 行。**④ 顺带修两个会让「显示成功但少导」的接缝**：`_consumeImportExtra` / `_impConsumeExtra` 在 diff 命中时不再猜「基准外局」—— 旧逻辑在 base 已被恢复/全量上传同步成 4693 全量时，会把真新增的前 8 局当成「基准外已存在」消费掉；**⑤ susu `doImport`** 改成复用预览已锁定的 `align`（预览本就基于云端最新），不再在 `refreshViewFromCloud()` 后重新锚定，避免时间序轻微抖动误抛「系统数据在预览后发生变化」，只有系统局数真的变了才重算并给明确原因。两端 `alignByTail` / `impAlignByTail` 逐字同口径；失败诊断新增「兜底：局数差锚定期望新增 N 局，文件与系统前 N 局内容不同源，未放行」，成功文案区分 `batch` / `seg` 校验方式。**不动**：原三候选顺序、去重本体、局号时间序口径、预测算法与权重、云同步协议、数据库；`ALGO_VER` 仍 `v50.40-board24`，不用强制重新学习、不用重新授权。**①~㊽ 全部已包含在当前版本**。复查：41 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中；新增第 41 套按真实结构（main 4685 + 8 条重排追加）复现「修复前 ㊽ 仍失败、末 10 局在 main/追加段/整体/时间序四个视角全部找不到」，锁死修复后两端命中 `diff/batch`、anchorEnd=4693、新增 20 局逐位一致，并覆盖 base 已是全量时不少导、干净数据 chrono 仍优先、无关文件拒绝、恢复丢局补齐 27 局、文件不比系统多时不启用。\n' +
+    '㊽【定版 v51.20 · susu 增量导入失败 + 诊断误导，两个问题一起修】用户实拍「新商会数据 (4).xlsx」：**文件有效 4713 条 / 当前系统 4693 局 / 未在文件中找到与系统最后 10 局 ABC 完全一致的连续记录，已禁止增量导入**，红字还写着「文件末局 A=0.5 B=0 C=2　系统末局（时间序）A=2 B=0.5 C=0」。**问题 1 真因：三候选退化成同一批被污染的末 10 局**。v51.14 ㊷ 的三候选是 ①本页时间序末10 ②本页录入序(物理)末10 ③云端 main 时间序末10；③能兜底的前提是「云端 main 仍是一份干净的旧基线（4685 局）」。但 v51.19 ㊼ 的恢复 / 管理员全量上传会把 `P.history` 全量 upsert 回 main —— 云端 main 因此被同步成【含推算时间局的 4693 局全量】，于是 ①②③ 全部指向同一批末 10 局（11月28日推算局 + 11月27日末 2 局），这串 ABC 在按真实顺序导出的文件里不连续 → 三个候选全失败。这正是「云端基线兜底上线时能用、恢复/全量上传之后又失效」的原因。**修法：新增「局数差锚定」兜底候选，不改用户要的口径**。用「文件比系统多 N 行」这个确定事实反推锚点 `end = 文件行数 − N`（= 系统局数），取文件第 `end−10 ~ end−1` 行这 10 局，在系统的多个视角（物理序 / 时间序 / 云端基线）里找是否存在【逐局 ABC 完全一致的连续 10 局】；命中才放行，锚点 = end，新增 = 文件第 end 行之后的 N 行。仍是 ABC 精确连续 10 局比对、仍只导锚点之后的局、不改任何数据；不依赖时间序是否被推算时间污染、不依赖云端 main 是否还是干净基线；期望差 >0 且 ≤500 才启用（文件不比系统多时走原三候选，重复导入场景不回归）；**原三候选仍优先命中，diff 只在三者全失败时兜底 → 正常场景逐位不回归**。附带收益：若系统确实被恢复抹掉过 7 局（4693→4686），文件比系统多 27 行，diff 候选会把这 7 局一并按锚点之后的真实新增导入，数据自动补齐。**问题 2：失败诊断误导 + 失败态**。旧文案拿「文件末局」硬比「系统末局」，但文件本来就比系统多 20 局，末局必然不同，用户看到红字会误以为数据错乱；且只显示第一个失败候选（chrono）的 tail，看不到「文件比系统多几局」。现在如实写明「文件有效 4713 行 / 系统 4693 局，文件比系统多 20 局：文件末局是新增局，与系统末局不同属正常，不是数据错乱」，并说明锚定校验的是「系统最后 10 局在文件里的连续位置」；失败时确认按钮明确置灰（opacity .45 + not-allowed），成功时恢复。两端 `alignByTail` / `impAlignByTail` 逐字同口径，index 的 3 处来源文案与 susu 的预览文案都识别 `diff`。**不动**：原三候选顺序、`_impDedupeAdd`/`_dedupeImportAdd` 本体、`_impConsumeExtra` 守卫、局号时间序口径、预测算法与权重、云同步协议、数据库；`ALGO_VER` 仍 `v50.40-board24`，不用强制重新学习、不用重新授权。**①~㊼ 全部已包含在当前版本**。复查：40 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中；新增第 40 套按实拍数字 4713/4693/20 真实复现「修复前三候选全失败」，锁死修复后命中第 4684–4693 行、新增 20 局、两端逐位一致、正常场景不回归、文件不比系统多时不启用、无 ABC 匹配时拒绝。\n' +
     '㊼【定版 v51.19 · 恢复 / 全量基线不再把「备份之后新录的局」整批抹掉】用户实拍：操作日志一路录到 **4693 局**（21:50:47→00:52:10 共 7 次录入，4687~4693），但历史表与云端备份停在 **4686 局**，正好少这 7 局。**真 BUG 1**：`_restoreFromBackupDo` 恢复云端备份时 `P.clearAll(); P.history = data.history.slice();` 直接硬覆盖，备份之后新录的局一条不留；随后还把 `P.history` 全量 upsert 回 main、`P._syncEpoch + 1` 强制其他设备覆盖 → 7 局在所有端一起消失。恢复图里 00:00:52 那份 4686 局备份就是 4693→4686 的直接机制。**真 BUG 2**：`_acceptFullBaseline` 里 v50.8 声称的「回填前先留住本地原数组」保护是**死代码**——`P.restoreFromData(d)`（内部同样 clearAll 硬覆盖）在最前面执行，之后才 `var _beforeHist = P.history.slice();`，取到的已是云端数组，`_keptLocal` 恒为 0；硬校验回填分支同样抹掉本地新局，且 `markAllClean()` 会清掉此前的待传标记。**修法（保守、不猜、给可见结果）**：① 新增 `_preserveLocalBeyond(target, local)`，按 rid 优先 + 内容键多重集精确找出「本页有、目标数据没有」的局，不依赖顺序、不依赖 `_rid` 是否齐全；② `_reapplyLocalBeyond` 把差集补回、按时间序重排、`markDirtyRid` 重新排队上传，上限 100 条（与既有大批量保护一致），超过不强留并给可见提示；③ 恢复链路在 `clearAll` **之前**保存 `_localBefore`，恢复后补回，成功提示写明「🛡️ 另保留备份后新录的 N 局（已重新排队上传）」，确认弹窗同步说明；④ 基线链路在 `restoreFromData` **之前**保存 `_localBeforeHist`，硬校验分支的 `_beforeHist` 改用真正的本地原数组，并在 `markAllClean()` 之后**再幂等补回一次**，覆盖「非硬校验分支」的丢局。**幂等不回归**：备份 / 云端基线比本地新时差集为空，行为与旧版逐位一致。**不动**：备份创建（本就取实时 `P.history` / `VIEW.history`）、云同步协议、锚定三候选、去重本体、局号时间序口径、预测算法与权重、数据库；`ALGO_VER` 仍 `v50.40-board24`，不用强制重新学习、不用重新授权。**①~㊻ 全部已包含在当前版本**。复查：39 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中；新增第 39 套按实拍数字 4693 / 4686 / 7 局真实复现「修复前丢 7 局 → 修复后 4693 局全保留」，并锁死时间序连续、重新排队上传、反向不回归、上限保护、`_acceptFullBaseline` 同类场景。\n' +
     '㊻【定版 v51.18 · 整体复查：跨日局不再被判成上一年、两端时钟同源、导入不因候选变化而重复】把「快照 / 同步 / 乱序 / 导入」串成一条真实链路复查，查出 3 个单套测试看不到的接缝。**① 跨年锚点误判（乱序真根因之一）**：`_datasetYearAnchor` 无显式年份时用「当前日历日」当锚点月日，`_recChronoMs` 对 `parts.md > anchor.md` 一律 `off=-1` 判上一年——这本是 v50.20 为「12月+1月」跨年设计的，但数据集里只要出现「次日凌晨 / 跨月 / 导入顺延推算出来的未来日期」（md 只比今天大 1 天），这些局就被排到所有历史局【最前面】。按真实数据复现：业务时钟 11月27日 + 数据含 11月28日 00:00~03:30 共 8 局，`_chronoView` 把 8 条 11月28日排到位次 1..8、85 条 11月27日排到 9..93，整个反了；连带历史表/快照乱序、局号错位、v51.16 的「时间推算基准=时间序末局」失效、新导入的局继续被判上一年形成死循环。其实 index 的 `_importDateAnchorNow` 里早有一段局部 patch 修过同一现象（注释写明「非跨年数据把锚点月日放宽到全体最大月日即可根除」），但它只作用于导入日期选择，没修到 `_datasetYearAnchor` 本体，所以 `_chronoView` / `chronoOrder` / 快照 / 预测窗口全漏。**修法**：把放宽逻辑收进两端 `_datasetYearAnchor` 本体——真跨年（数据集同时含 12月 与 1月）保持原逻辑，其余场景锚点月日放宽到全体最大月日；所有调用点自动一致，`_recChronoMs` 公式一行不改。**② 两端业务时钟不同源**：index 用 `new Date()` 的设备本地日历日，susu 用 `bizDayParts()` 的北京时间，意大利设备上两端 anchor.md 可能差一天 → 时间序分叉 → 两端快照/局号不一致。统一改成 `bizDayParts()`（UTC+8），逐字同源。**③ 基准外局消费依赖 cloud 候选（v51.17 残留接缝）**：㊺ 的 `_consumeImportExtra` 带 `anchorSource 限定 cloud 候选` 门控；但 ① 修好后本页时间序变正确，`chrono`（时间序末 10 局）候选会【优先命中】文件第 76-85 行，根本走不到 cloud 候选 → 基准外 8 局又不被消费 → 24 行全导、导入后 117 局，重复 8 局。组合复现已锁死此现象。**修法**：差集只取决于 `hist` 与云端基线，与命中哪个候选无关 → 去掉门控、有云端基线就消费；`manual` 对不齐时 `mismatch` 仍会「一行不跳 + 可见 ⚠️」。**修复后全链路**：同步 93 局不膨胀 → 两端时间序逐位一致、11月28日排最后 → 两端快照 680/64 单元格逐条一致、局号连续 → 导入跳过 8、新增 16、导入后 109 局 = 文件行数 → 落库补时间接在 03:30 之后 → 再同步 109 局、再快照 192 单元格一致、物理顺序与时间序逐位相同。**不动**：`_recChronoMs` 公式、`_impDedupeAdd`/`_dedupeImportAdd` 本体、锚定三候选顺序、局号时间序位次口径、物理定位链路、预测权重、云同步协议、数据库；`ALGO_VER` 仍 `v50.40-board24`，不用强制重新学习、不用重新授权。**①~㊺ 全部已包含在当前版本**；正常数据（无跨年、无未来日期）时间序与预测结果逐位不变。复查：37 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中；新增第 37 套把四个面串成一条端到端链路并真实复现 ①②③。\n' +
     '㊺【定版 v51.17 · 导入不再把「基准外已存在的局」重复导一遍】用户实拍素素页预览：文件 4709 行、当前系统 **4693 局**、锚定基准「云端全量基线 **4685 局**」= 文件第 4676-4685 行、复核无重复、**实际新增 24 局、导入后共 4717 局**。**4717 > 4709，数学上就不可能正确**：本页 4693 局 = 云端基线 4685 局 + 基准外 8 局（其他设备 / 本页在基线之后新录，必然就是文件第 4686-4693 行）；锚定命中的是 cloud 候选（`histLen=4685`），锚点后 24 行（文件 4686-4709）被整批当新增，而 v51.15 ㊸ 为修「无时间列 24→4 少导」把去重复核放宽成「无时间列的行一律保留」，这 8 局又没有 `timeSlot` 可比 → 8 局重复导入。用户圈出的两个红框（当前系统 4693 局 / 已匹配「系统最后 10 局」= 文件 4676-4685 行）正是矛盾所在：系统明明 4693 局，却拿 4685 局的基准说成「系统最后 10 局」。**修法（不猜、不静默）**：① `_impExtraBeyondBase` / `_extraBeyondBase` 用「内容键多重集差」精确找出「本页有、云端基线没有」的局，不依赖数组顺序、不依赖 `_rid`；② `_impConsumeExtra` / `_consumeImportExtra` 把这些局按 ABC 内容多重集与文件锚点后的**连续前缀**核对（不受基准外局被时间序重排的顺序影响），全部消费掉才跳过，任一找不到则【一行不跳】并标记 mismatch，由预览给可见 ⚠️，绝不靠猜静默删数据；③ `_impFinalizeAdd` / `_finalizeImportAdd` 成为**预览与落库共用的唯一入口**（旧版落库有独立 fallback，两处数字会分叉），两端同口径；④ 预览文案如实写「当前系统 = 锚定基准 + 基准外」，成功文案不再把「云端基线最后 10 局」谎称成「系统最后 10 局」，并加硬校验：导入后局数 > 文件有效行数时给 ⚠️。**修复后该场景：基准外 8 局与文件第 4686-4693 行逐局一致 → 跳过 8 局、实际新增 16 局、导入后共 4709 局（= 文件有效行数）**。**不动** `_impDedupeAdd` / `_dedupeImportAdd` 本体（v51.15 无时间列修复完整保留）、锚定三候选、预测算法与权重、局号时间序位次口径、云同步协议、数据库；`ALGO_VER` 仍 `v50.40-board24`，不用强制重新学习、不用重新授权。**①~㊹ 全部已包含在当前版本**。复查：36 套测试全过、四端 JS 语法通过、9 处版本锚点逐条命中；新增第 36 套按实拍数字（4709 / 4693 / 4685 / 4676-4685 / 24）真实复现并锁死修复后 16 局、导入后 4709、两端预览与落库同数字、extra 不一致时不跳过且给警告、非 cloud 候选不受影响、v51.15 的 24 行全保留不回归。\n' +
@@ -2321,7 +2325,7 @@ function syncBrief(){
     '⑮【代际隔离：不让旧时代规律污染现在的预测】这是本版最关键的一刀。含 1 的盘面既然基本不再出现，就属于风格漂移前的旧样本；第13信号原先的 L3 粗态键只有「赢家|赢家档」，会把 no1 与 with1 混在一起回退 —— 等于用旧规律预测现在。现在 `struct` / `coarse` 两个键都带上 tier（no1 / with1），当前盘面只与同代历史比对，跨代永不混用。L1 精确态天然分代；不含1的当前态只有 12 种、样本密度高，L1 门槛从 8 放宽到 6，含1的旧态维持 8/16/28 避免小样本硬推。面板里第13信号状态会显示当前代际与「只与同代历史比对」。\n' +
     '⑪【跨版本预测记录隔离 _algoVer】predHistory / accuracy 从 v50.35 一路攒到 v50.37，算法口径变了三次，但校准分桶、命中率定权、出手建议、漂移降权、智能修正全在把三套口径的记录混着统计。现在每条新预测写 _algoVer = ALGO_VER（与 APP_VERSION 解耦：纯 UI/文案发布不清空统计，只有算法口径变才递增），校准分桶与云端瘦身白名单同步保留该字段；所有「决策型」读取统一走 getCurAlgoPredIdxs / getCurAlgoAccuracy —— **只过滤、绝不物理删改**，因为 predHistory 与 history 按下标对齐，删一条会让整条索引链错位。展示层（总准确率、历史表、趋势图）仍看全历史战绩，并在「学习状态」面板标出「同口径 N 条 / 旧口径 M 条」。短期命中率数组（modelPerf / advancedModelPerf / windowPerf / 校准分桶）不带逐条版本，改为首次以本版打开时惰性一次性清空（存档带 perfAlgoVer，刷新不重复）；这些数组不与 history 下标对齐，清空安全，且所有读取点都有样本不足兜底。升级后同口径样本从 0 开始，概率校准与出手建议会自动回退到模型自身概率，属正常冷启动，攒够 20 条即恢复。\n' +
     '⑯【导入备份只留 5 份 + 单份手动删除】susu.html 每次导入前创建的 susubak_ 全量备份不再无限累积：导入写完备份后自动按时间倒序裁到最近 5 份（绝不删本次刚建的那份），主系统打开「▣ 云端备份与恢复」时再兜底裁一次，历史遗留的 20 份也能一次收敛；裁剪全程旁路，DELETE 权限不足或 RLS 静默拦截时停用本会话、不空转、不影响导入与还原。备份列表每行保留「删除」按钮并加了复查，被权限静默拦下会明确提示「删除未生效」而不是假报成功；「清理旧备份」按钮同步改成保留 5 份，作为权限恢复后的手动兜底。系统原有 backup_ 前缀「保留最近 4 份」完全不受影响。\n' +
-    '⑰【版本归一 v51.0 + 全量复查】v50.35 一路累积到 v50.41 的功能，当时统一定版为 v51.0（现为 v51.19），界面所有版本号与描述一次改齐；发布主系统 index.html 时仍照常弹版本号，默认按当前号小版本 +1（当时的举例 v51.0 → v51.1，当前请以发布弹窗给出的默认号为准），格式提示动态读取，不写死某个版本号。定版前做了端到端全量复查：9 套测试共 467 项、两端 JS 语法、69 个内联按钮与 64 个绑定处理器逐个真实点击、全部异常分支，0 失败；并修掉 3 处边界问题 —— 发布版本号格式提示写死、导出/导入日志双查询失败时误报「暂无记录」、单份删除备份后复查查询失败时误报「删除失败」。\n' +
+    '⑰【版本归一 v51.0 + 全量复查】v50.35 一路累积到 v50.41 的功能，当时统一定版为 v51.0（现为 v51.23），界面所有版本号与描述一次改齐；发布主系统 index.html 时仍照常弹版本号，默认按当前号小版本 +1（当时的举例 v51.0 → v51.1，当前请以发布弹窗给出的默认号为准），格式提示动态读取，不写死某个版本号。定版前做了端到端全量复查：9 套测试共 467 项、两端 JS 语法、69 个内联按钮与 64 个绑定处理器逐个真实点击、全部异常分支，0 失败；并修掉 3 处边界问题 —— 发布版本号格式提示写死、导出/导入日志双查询失败时误报「暂无记录」、单份删除备份后复查查询失败时误报「删除失败」。\n' +
     '⑱【还原防竞态：别的设备不再把旧局推回来】备份还原 / 管理员强制同步会覆盖云端 main，但另一台正开着的设备若在「拉取到新 main 之前」触发 5 秒自动增量上传，会把本地旧 rec_ 行推上去，表现就是「明明还原了，旧局又回来了」。本版在**任何写云端之前**加一道轻量守门：先读 main 的 updated_at（约几十字节），与本机记录一致就直接放行；不一致再读一次 main 判 _syncEpoch，云端纪元更大即判定本机尚未对齐 —— 本次上传直接拒绝、**脏队列保留不丢数据**、自动触发一次拉取，对齐后同步自行恢复。稳态每轮只多一个极小请求，弱网或权限波动一律放行，绝不阻断正常录入；弹窗做 60 秒节流不骚扰。\n' +
     '   同时修掉还原侧两处会让机制失效的老问题：susu 导入备份还原原先原样写回备份里的 mainRest，_syncEpoch 不变、upsert 也不带 updated_at，其他端既不会强制覆盖、也检测不到 main 变了，还原等于只对管理员本机生效；现在还原显式递增权威纪元、带上时间戳并回填本机基线。主系统「云端备份与恢复」的 upsert 同样补上 updated_at（未装 clock_timestamp() 触发器的存量库，ON CONFLICT DO UPDATE 不会自动前进时间戳）。**不需要动数据库**：没加表、没加列、没加新行、没改任何策略，全部复用已有的 main / _syncEpoch / updated_at。\n' +
     '⑲【Excel 导入兼容多格式】两份真实民间表格现在都能正确解析：① 表头叫「盐行 / 宝阁 / 粮堂」的，按商会名映射到 A/B/C；「资金 / 通宝 / 本金 / 获胜投资」统一识别为**获胜投资（大/中/小）**，「收益 / 挣 / 获胜的商会收益」识别为获胜收益 —— 之前「资金」列不在别名表里，导入后获胜投资整列为空，本版修好。② 表头带「局号 / 日期 / 时间 / A / B / C / 获胜通宝」的，A/B/C 自动定位到第 4/5/6 列，日期支持 Excel 序列号（46242→8月8日），含 1（保本）的局是合法 24 态不会被误剔，`#N/A` 空局正常跳过。③ 没有表头时，从第 4 列起按「大/中/小」取值比例自动推断收益列与投资列。④ 日期以「分组行 / 额外列」形式出现的（如某天第一局第 7 列写 23/10/2026），向下填充给该日所有局，把顺延推算的时间线还原成真实月日；**只认明确文本日期，不认 5 位整数**——真实文件第 7 列混着 46033/46334 这类批次号，当 Excel 日期序列号会把局写成 1 月/8 月、污染「今天/昨天」导出与时段效应。分组行本身不是合法数据行，不会变成记录，因此**导入条数与尾局锚定完全不变**。实测：唐商传奇.xlsx 有效 1519 局（与系统原口径一致）、获胜投资有值 1497 局（98.6%，原来 0）、还原 19 个日期分组；新商会数据 (1).xlsx 有效 4570 局、含 1 保本局 723 条全部保留。两端（susu.html 与系统 index.html）共用同一份兼容层，逐行一致；手动指定起始行仍按之前要求只保留在系统里。\n' +
@@ -2331,8 +2335,12 @@ function syncBrief(){
     '㉒【备份列表存储型 XSS 修复（审查发现）】云端备份列表把 prediction_data 的 id 直接拼进内联 onclick：该表用 anon key + 全开 RLS、任何人可写，id 里塞一个单引号加分号再拼一段脚本，就能在管理员打开「云端备份与恢复」时执行任意代码；而只做 escHtml 也不够——单引号被转成字符实体后，浏览器解析 HTML 属性时又解码回单引号，照样能截断 JS 字符串。现统一先用 JSON.stringify 生成双引号 JS 字面量、再 escHtml 做属性转义，上方「系统备份」恢复/删除与下方「susu 导入备份」还原/删除四个按钮全部覆盖，列表里用 id 兜底显示的时间文本也补了转义。正常 id 渲染结果不变，不影响任何点击行为。\n' +
     '㉑【时间段不再向下填充 + 无表头修正（日期部分已随 ㉓ 一并撤销）】文件里 23:58-00:28 / 00:28-00:58 只是个别行各自的局时间，旧版灌给后续 400+ 局造成 95 局共用同一 timeSlot、186 个 recKey 撞车；现文件内时间段标注整体不再参与导入（日期时间一律按 ㉓ 口径），推算时间线逐局唯一，1519 个 timeSlot 两两不同、重复 recKey 为 0。全角冒号归一化、无表头时把修正后的 start 传给列映射，仍保留。备份确认层同步加固：取消不再把状态串到下方 susu 区、onOk 的 Promise 异常有兜底、清掉一处死代码。\n' +
     '⑳【备份「点恢复没反应」根因修复】浏览器勾选「阻止此页面创建更多对话框」、或在某些预览器 / iframe 沙箱里，原生 confirm() 会被静默屏蔽（不弹窗、直接返回 false）。旧版恢复 / 还原 / 删除 / 清理全部卡在 if(!confirm(...)) return; 第一行，表现为「点了完全没反应」；而 susu.html 不用原生 confirm，导入照常工作，正好对上现象。本文件 v45.5 录入链路注释里记录过同一个坑，这次补齐备份模块：**恢复、还原、删除、清理、本地备份恢复统一改走系统自带的页内确认弹窗**（showRecordConfirm，z-index 100010），不再依赖浏览器对话框；页内弹窗不可用时才降级，并识别「瞬时返回 false」为被屏蔽，给可见提示而不是无声退出。同时加固：所有云端 await 加 15~20 秒超时（挂起不再永久卡住）；busy 锁带时间戳、60 秒自动解锁；cleanup 改 try/finally 释放；确认后按钮立刻变「还原中…」、状态栏在表格上下各写一份（滚动到列表也看得见）；9 个备份函数显式挂 window，杜绝作用域隐患。实测模拟「confirm 被屏蔽」环境下，点「还原」仍能弹出页内确认并完整走完还原链。\n' +
-    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v51.20，混用旧版会用不同口径算同一份历史、跨端结论分叉。**本轮修「恢复 / 全量基线采纳把备份之后新录的局整批抹掉」：恢复前先留住本页原数组，恢复后按差集补回、按时间序重排并重新排队上传；备份比本地新时行为逐位不变。预测算法一行没动**：算法口径标识 ALGO_VER 仍是 v50.40-board24（与 APP_VERSION 刻意解耦），因此不会触发预测记录隔离、不用点「↻ 强制重新学习」、历史准确率照常累计；susu.html 保留抽签入口与跳转窗口，请一并覆盖上传；**draw.html 原文件一个字节都不用改**，只需把门禁片段贴进它的 <head> 最前面；数据库一个操作都不用做。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据。换版后建议点一次「☁️ 全量上传」固化。㉜ 之后全站所有确认（清空、删除、撤销、回滚、导入、强制同步、检查更新等）都走页面内弹窗，浏览器勾了「阻止此页面创建更多对话框」也能正常点，不会再「点了没反应」。㉚ 的复盘在下拉展开 / 弹窗打开 / 切后台时自动让路，连续多次渲染只算一次；若不需要这块，控制台执行 CONFIG.showLastSimRecap=false; renderAll(); 可彻底关闭。㉛ 把收益/投资相似盘去重从平方级降到近线性（预测结果逐位不变），这是「录入卡顿」的根治，不需要你做任何设置。㉟ 之后「商会A/商会B/商会C + A/B/C」这种双套表头的 Excel 能正常识别并弹出导入确认框；识别失败也会弹窗告诉你哪一列认错了，不会再「点了没反应」。㉞ 之后历史表局号按录入顺序固定（第 N 条录入/导入的记录），不会再因云端合并跳号；表格、删除、编辑、导出、回测的「第 N 局」全部同号；列表没刷新时点删除 / 编辑会提示刷新而不是误伤别的局。㉝ 之后手机录完立刻锁屏 / 切后台，回到前台会立即补传本地新局，不会再「录了别的设备看不到」；操作日志里的「共 N 局」是当时总局数、按时间倒序，历史表按局号正序，不是数据乱。⑱ 的还原防竞态不需要你在 Supabase 做任何操作。㉗ 的「相似盘信号历史命中率」若刚换算法口径会从 0 重新累计（最多 200 条），属正常冷启动；㉘ 的「上局相似盘复盘」是独立复盘块，不参与预测。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。㊱ 之后抽签页必须登录后从「◇ / 🎲 商会抽签系统」入口进入，直接输网址会被拦回；**你的原版 draw.html 不用改样式、不用改功能**，只贴一次门禁片段即可。㊲ 若从主系统点抽签仍被拦，卡片会直接告诉你是不是主系统版本没更新或没强刷——按提示覆盖上传最新 index.html 并 Ctrl+F5 即可。㊳ 业务时区统一为北京时间：所有设备对「今天几月几日」给出同一答案；若某日局数超过 48，胶囊与快照会提示可能混有跨时区重复标注，请核对，不会自动改动任何历史局。㊼ 恢复云端备份或采纳全量基线时，备份之后新录的局会自动保留并重新排队上传，不会再整批消失。';
-  var APP_UPDATE_DESC_HISTORY = '历史归档（v51.20 之前的累计修复，均已包含在当前版本）：\n' +
+    '⚠️ 使用提示：四盘五项 + 融合链三项 + useMarginModel 共九个参数不进跨端同步字段，所有设备请一起换成 v51.24，混用旧版会用不同口径算同一份历史、跨端结论分叉。**本轮修 susu 增量导入仍失败：㊽ 的 diff 要求末 10 局在单一视角连续存在，但 VIEW.history 是「云端 main + 基准外局追加尾部」，末 10 局被切成两段必然失败。改成「文件前 N 行与系统整批同源」的 ABC 多重集校验，对任何重排免疫；并修掉 diff 命中后被基准外消费吞掉新增局、doImport 重新锚定抖动两处接缝。预测算法一行没动**：算法口径标识 ALGO_VER 仍是 v50.40-board24（与 APP_VERSION 刻意解耦），因此不会触发预测记录隔离、不用点「↻ 强制重新学习」、历史准确率照常累计；susu.html 保留抽签入口与跳转窗口，请一并覆盖上传；**draw.html 原文件一个字节都不用改**，只需把门禁片段贴进它的 <head> 最前面；数据库一个操作都不用做。面板里若「异常局」不为 0，多是早期导入过 42 态口径允许、24 态不允许的盘面（无 0 或无 2/3），只提示不改数据。换版后建议点一次「☁️ 全量上传」固化。㉜ 之后全站所有确认（清空、删除、撤销、回滚、导入、强制同步、检查更新等）都走页面内弹窗，浏览器勾了「阻止此页面创建更多对话框」也能正常点，不会再「点了没反应」。㉚ 的复盘在下拉展开 / 弹窗打开 / 切后台时自动让路，连续多次渲染只算一次；若不需要这块，控制台执行 CONFIG.showLastSimRecap=false; renderAll(); 可彻底关闭。㉛ 把收益/投资相似盘去重从平方级降到近线性（预测结果逐位不变），这是「录入卡顿」的根治，不需要你做任何设置。㉟ 之后「商会A/商会B/商会C + A/B/C」这种双套表头的 Excel 能正常识别并弹出导入确认框；识别失败也会弹窗告诉你哪一列认错了，不会再「点了没反应」。㉞ 之后历史表局号按录入顺序固定（第 N 条录入/导入的记录），不会再因云端合并跳号；表格、删除、编辑、导出、回测的「第 N 局」全部同号；列表没刷新时点删除 / 编辑会提示刷新而不是误伤别的局。㉝ 之后手机录完立刻锁屏 / 切后台，回到前台会立即补传本地新局，不会再「录了别的设备看不到」；操作日志里的「共 N 局」是当时总局数、按时间倒序，历史表按局号正序，不是数据乱。⑱ 的还原防竞态不需要你在 Supabase 做任何操作。㉗ 的「相似盘信号历史命中率」若刚换算法口径会从 0 重新累计（最多 200 条），属正常冷启动；㉘ 的「上局相似盘复盘」是独立复盘块，不参与预测。想知道这轮到底有没有更准，去「↗ 回测分析 → ⚖️ 新旧口径对照」把维度切到「完整盘面模型 开/关」跑一次最近 100 局，再切回「新旧融合口径」跑 100 局 —— 两个结果都由你自己的数据说话，不由我拍脑袋。㊱ 之后抽签页必须登录后从「◇ / 🎲 商会抽签系统」入口进入，直接输网址会被拦回；**你的原版 draw.html 不用改样式、不用改功能**，只贴一次门禁片段即可。㊲ 若从主系统点抽签仍被拦，卡片会直接告诉你是不是主系统版本没更新或没强刷——按提示覆盖上传最新 index.html 并 Ctrl+F5 即可。㊳ 业务时区统一为北京时间：所有设备对「今天几月几日」给出同一答案；若某日局数超过 48，胶囊与快照会提示可能混有跨时区重复标注，请核对，不会自动改动任何历史局。【51】两端导入核心加常驻一致性守卫，index 的增量/追加/覆盖/按日期覆盖/剪贴板/手动对齐逐条端到端实跑通过；本轮产品逻辑零改动。';
+  var APP_UPDATE_DESC_HISTORY = '历史归档（v51.24 之前的累计修复，均已包含在当前版本）：\n' +
+    '· v51.22（已并入 v51.23）：修 ㊾ 位置自洽容差被周期性假命中绕过导致整批新增局静默丢失；落库刷新后按最新数据重算；diff 命中文案按实际校验方式如实说明。\n' +
+    '· v51.21（已并入 v51.22）：局数差锚定改用整批 ABC 同源校验，末 10 局被切成两段也能导入；三候选加位置自洽。\n' +
+    '· v51.20（已并入 v51.21）：三候选退化时按「文件比系统多几局」反推锚点，修复云端基线被同步成全量后的导入失败；失败诊断不再把文件末局和系统末局硬比。\n' +
+    '· v51.19（已并入 v51.20）：恢复云端备份 / 采纳全量基线时不再抹掉备份之后新录的局，差集补回并重新排队上传。\n' +
     '· v51.18（已并入 v51.19）：修跨日/跨月锚点误判上一年导致的时间序反转、两端统一北京时间、基准外局消费不依赖锚定候选。\n' +
     '· v51.17（已并入 v51.18）：cloud 锚定时消费基准外已存在的局，修导入后超过文件行数的重复导入。\n' +
     '· v51.16（已并入 v51.17）：列表按真实开奖时间排序、局号统一时间序位次、时间推算改以时间序末局为基准。\n' +
@@ -2369,7 +2377,7 @@ function syncBrief(){
     if(r) r.textContent = APP_UPDATE_DESC_RECENT;
     if(h) h.textContent = APP_UPDATE_DESC_HISTORY;
   } catch(e){} })();
-  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v51.20 完整更新说明。';
+  var APP_UPDATE_DESC_V484 = '历史兼容占位：循环动画清理、移动端悬浮按钮移除、增量同步判重规范化等早期修复，均已并入 v51.24 完整更新说明。';
 
   // ========== v50.35：弹窗「交互优先」通道 ==========
   // 复现（4178 局 + 真实鼠标）：弹窗显示时后台只要有一个 400ms 长任务，
@@ -22372,6 +22380,26 @@ function _tailEndDiag(newRecs, history) {
 }
 // 尾局对齐：在 newRecs 中查找 history 末尾 tailLen 局的连续ABC片段
 // 多个命中时取最后一个（Excel通常含"历史段+新局"），命中点之后才是真正的新增局
+/* v51.21 ㊾：文件前缀与系统整批是否同源（ABC 多重集全等，不比顺序）。
+   VIEW.history = 云端 main + 基准外局追加在尾部，末 10 局常被切成两段，
+   「连续存在」校验必然失败；只比内容多重集则对任何重排免疫。 */
+function _batchAbcEqual(filePrefix, hist) {
+    if (!filePrefix || !hist || filePrefix.length !== hist.length) return false;
+    var m = Object.create(null), k, q;
+    for (q = 0; q < filePrefix.length; q++) {
+        var r = filePrefix[q]; if (!r) continue;
+        k = String(r.a) + '|' + String(r.b) + '|' + String(r.c);
+        m[k] = (m[k] || 0) + 1;
+    }
+    for (q = 0; q < hist.length; q++) {
+        var v = hist[q]; if (!v) continue;
+        k = String(v.a) + '|' + String(v.b) + '|' + String(v.c);
+        if (!m[k]) return false;
+        m[k]--;
+    }
+    for (k in m) if (m[k] > 0) return false;
+    return true;
+}
 function alignByTail(newRecs, history, altHistory) {
     // v51.14 ㊷：多候选锚定，与素素页 impAlignByTail 逐字同口径。
     // ① 时间序末10局（原主候选）② 录入序(物理)末10局 ③ 云端全量基线。
@@ -22383,9 +22411,18 @@ function alignByTail(newRecs, history, altHistory) {
         var tailLen = tail.length;
         if (histLen < IMPORT_MIN_ANCHOR) return {matched:false, canIncrement:false,
             reason:'too-few', tailLen:tailLen, tail:tail, histLen:histLen, anchorSource:src};
-        var found = -1;
+        var found = -1, bestGap = Infinity;
+        // v51.21 ㊾：ABC 只有 24 态，文件里常存在与末 10 局全等的周期性片段，
+        // 旧版取「从后往前第一个命中」会把锚点带到文件中段。
+        // v51.22 ㊿：但容差 60 会覆盖「新增局数」（实测 20 局），文件末尾新增区
+        // 的周期性巧合仍通过自洽并被当成锚点 → 新增 0 局、20 局静默丢失。
+        // 改为收集全部自洽命中，取 |锚点结束位置 − 系统局数| 最小者：
+        // 真锚点差 0，文件末尾假命中差 = 新增局数，必然被淘汰；并列取更靠后的。
         for (var s = newRecs.length - tailLen; s >= 0; s--) {
-            if (_seqMatchAt(newRecs, s, tail)) { found = s; break; }
+            if (!_seqMatchAt(newRecs, s, tail)) continue;
+            var gap = Math.abs((s + tailLen) - histLen);
+            if (gap > 60) continue;
+            if (gap < bestGap || (gap === bestGap && s > found)) { found = s; bestGap = gap; }
         }
         if (found < 0) return {matched:false, canIncrement:false, reason:'no-anchor',
             tailLen:tailLen, endMatch:_tailEndDiagByTail(newRecs, tail), tail:tail,
@@ -22412,8 +22449,51 @@ function alignByTail(newRecs, history, altHistory) {
         if (r.matched) return r;
         if (!first) first = r;
     }
+    // v51.20 ㊽：局数差锚定（三候选全失败时的兜底）。云端 main 被恢复 / 全量上传
+    // 同步成含推算时间局的全量后，①②③ 会退化成同一批末 10 局，在按真实顺序
+    // 导出的文件里不连续 → 全部失败。改用「文件比系统多 N 行」反推锚点。
+    var expected = newRecs.length - h.length;
+    var N = h.length, diffCheck = '', diffOk = false;
+    if (expected > 0 && expected <= 500 && N >= IMPORT_ANCHOR_LEN) {
+        var prefix = newRecs.slice(0, N);
+        // A 级（主）：整批同源 —— 文件前 N 行与系统 N 局 ABC 多重集全等 + 首行全等。
+        // 不受时间序重排 / 基准外局追加 / 跨端合并影响，比「末 10 局连续」稳得多。
+        if (_batchAbcEqual(prefix, h) && _abcSame(prefix[0], h[0])) {
+            diffOk = true; diffCheck = 'batch';
+        } else {
+            // B 级（次）：保留 ㊽ 的「末 10 局连续 + 前 10 行」校验，
+            // 覆盖系统里含少量「文件没有的局」导致多重集不等的场景。
+            var seg = newRecs.slice(N - IMPORT_ANCHOR_LEN, N);
+            var views = [h];
+            try { views.push(_chronoView(h).recs.slice()); } catch(e) {}
+            if (altHistory && altHistory.length) views.push(altHistory);
+            var headSeg = newRecs.slice(0, IMPORT_ANCHOR_LEN), headOk = false;
+            for (var hj = 0; hj < views.length; hj++) {
+                var hv = views[hj] || [];
+                if (hv.length >= IMPORT_ANCHOR_LEN && _seqMatchAt(hv, 0, headSeg)) { headOk = true; break; }
+            }
+            for (var vi = 0; headOk && vi < views.length && !diffOk; vi++) {
+                var v = views[vi] || [];
+                for (var s2 = v.length - IMPORT_ANCHOR_LEN; s2 >= 0; s2--) {
+                    if (_seqMatchAt(v, s2, seg)) { diffOk = true; diffCheck = 'seg'; break; }
+                }
+            }
+        }
+        if (diffOk) {
+            // 直接构造结果，不再调 run()：ABC 有 24 态周期，run 会从文件末尾
+            // 往前找出另一个巧合位置，把 anchorEnd 带偏。
+            return {matched:true, canIncrement:true, reason:'ok',
+                    tailLen:IMPORT_ANCHOR_LEN,
+                    tail:newRecs.slice(N - IMPORT_ANCHOR_LEN, N),
+                    histLen:N, anchorIndex:N - IMPORT_ANCHOR_LEN,
+                    anchorEnd:N, overlapCount:N,
+                    newRecs:newRecs.slice(N), anchorSource:'diff',
+                    diffExpected:expected, diffCheck:diffCheck};
+        }
+    }
+    if (first) { first.diffExpected = expected; first.diffCheck = diffCheck || 'none'; }
     return first || {matched:false, canIncrement:false, reason:'empty', tailLen:0,
-                     tail:[], histLen:0, anchorSource:'none'};
+                     tail:[], histLen:0, anchorSource:'none', diffExpected:expected};
 }
 // v51.14 ㊷：按给定 tail 做「文件末尾 ↔ 该候选末局」连续一致诊断
 function _tailEndDiagByTail(newRecs, tail) {
@@ -22474,6 +22554,10 @@ function _consumeImportExtra(addRecs, hist, align, base){
     // v51.18 ㊻：差集只取决于 hist 与云端基线，与命中哪个锚定候选无关。
     // 旧版限定 cloud 候选；㊻ 修好时间序后 chrono 会优先命中，基准外局就又被重复导入。
     if (!align || !base || !base.length) return res;
+    // v51.21 ㊾：diff 候选的锚点由「文件行数 − 系统局数」精确定义，
+    // 不需要再猜基准外局；否则 base 已被同步成全量时会把真新增的前几局
+    // 当成「基准外已存在」消费掉 → 导入成功但少局。
+    if (align.anchorSource === 'diff') return res;
     var extra = _extraBeyondBase(hist, base);
     res.extraLen = extra.length;
     // v51.18 ㊻：锚点段已经越过云端基线末尾时，基准外局已被包含在锚点里，
@@ -22834,12 +22918,18 @@ function openImportModal(recs, source, opts) {
             var _mtLabel = align.anchorSource === 'cloud'
                 ? '锚定基准（云端全量基线 ' + align.histLen + ' 局）最后 '
                 : align.anchorSource === 'manual' ? '手动指定的最后 '
-                : align.anchorSource === 'entry' ? '本页录入序最后 ' : '本页时间序最后 ';
-            incDesc.innerHTML = '✅ 已匹配' + _mtLabel + '<strong>' + align.tailLen + '</strong>局（' + rowsDesc + '）与Excel完全一致；其后 <strong style="color:#e67e22;">' + nNew + '</strong> 局为新增，将只导入这 ' + nNew + ' 局。相同比分不会再被误判为重复。' +
+                : align.anchorSource === 'entry' ? '本页录入序最后 '
+                : align.anchorSource === 'diff' ? '局数差锚定（文件比系统多 ' + align.diffExpected + ' 局，' +
+                    (align.diffCheck === 'batch' ? '整批 ABC 同源校验）定位的锚点段 ' : '末 10 局逐局校验）的最后 ')
+                : '本页时间序最后 ';
+            var _eqTxt = (align.anchorSource === 'diff' && align.diffCheck === 'batch')
+                ? '（文件前 ' + P.history.length + ' 局与系统整批 ABC 同源校验通过）' : '与Excel完全一致';
+            incDesc.innerHTML = '✅ 已匹配' + _mtLabel + '<strong>' + align.tailLen + '</strong>局（' + rowsDesc + '）' + _eqTxt + '；其后 <strong style="color:#e67e22;">' + nNew + '</strong> 局为新增，将只导入这 ' + nNew + ' 局。相同比分不会再被误判为重复。' +
                 '<div style="margin-top:4px;font-size:11.5px;opacity:.85;">🔗 锚定基准：' +
                 (align.anchorSource === 'cloud' ? '云端全量基线 ' + align.histLen + ' 局' :
                  align.anchorSource === 'manual' ? '手动指定起始行' :
                  align.anchorSource === 'entry' ? '本页录入序末 ' + align.tailLen + ' 局' :
+                 align.anchorSource === 'diff' ? '局数差锚定（文件比系统多 ' + align.diffExpected + ' 局）' :
                  '本页时间序最近 ' + align.tailLen + ' 局') +
                 ' ｜ 当前系统 ' + P.history.length + ' 局' +
                 (align.extraLen ? '（基准 ' + align.histLen + ' + 基准外 ' + align.extraLen + '）' : '') +
@@ -22863,7 +22953,8 @@ function openImportModal(recs, source, opts) {
             : P.history.slice(P.history.length - align.tailLen);
         var _srcLabel = align.anchorSource === 'cloud' ? '云端全量基线'
             : align.anchorSource === 'manual' ? '手动对齐'
-            : align.anchorSource === 'entry' ? '本页录入序' : '本页时间序';
+            : align.anchorSource === 'entry' ? '本页录入序'
+            : align.anchorSource === 'diff' ? '局数差锚定' : '本页时间序';
         var html = '<div style="font-weight:700;margin-bottom:4px;">🔗 尾局锚点：' + _srcLabel + '最后' + align.tailLen + '局 = ' + rowsDesc + '（ABC全部一致）' + (align.reason==='manual' ? '（手动对齐）' : '') + '</div><div class="anchor-rows">';
         for (var ti = 0; ti < histTail.length; ti++) {
             var rr = histTail[ti];
@@ -22892,7 +22983,12 @@ function openImportModal(recs, source, opts) {
             if (align.endMatch > 0) {
                 msg += '<br>诊断：Excel末尾与系统末尾有 ' + align.endMatch + ' 局一致（需连续' + align.tailLen + '局才放行）。';
             } else {
-                msg += '<br>诊断：Excel末局（' + _abcStr(recs[recs.length - 1]) + '）与系统末局（' + _abcStr(P.history[P.history.length - 1]) + '）不一致。';
+                // v51.20 ㊽：文件本来就比系统多若干局，末局必然不同；旧文案会误导成「数据错乱」。
+                var _more = recs.length - (P.history ? P.history.length : 0);
+                msg += '<br>诊断：Excel 有效 ' + recs.length + ' 行 / 系统 ' + (P.history ? P.history.length : 0) + ' 局' +
+                    (_more > 0 ? '，Excel 比系统多 ' + _more + ' 局：Excel末局是新增局，与系统末局不同属正常，不是数据错乱' : '') + '；' +
+                    '锚定校验的是「系统最后 ' + align.tailLen + ' 局在 Excel 里的连续位置」。' +
+                    'Excel末局（' + _abcStr(recs[recs.length - 1]) + '）／系统末局（' + _abcStr(P.history[P.history.length - 1]) + '）。';
             }
             msg += '<br>请核对后重新导入；若确认用该文件重建，请选「覆盖导入」。';
         }
