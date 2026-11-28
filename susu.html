@@ -1188,6 +1188,24 @@ function _impTailEndDiag(newRecs, history){
   }
   return m;
 }
+/* v51.21 ㊾：与主系统 _batchAbcEqual 逐字同口径（ABC 多重集全等，不比顺序）。 */
+function _impBatchAbcEqual(filePrefix, hist){
+  if (!filePrefix || !hist || filePrefix.length !== hist.length) return false;
+  var m = Object.create(null), k, q;
+  for (q=0; q<filePrefix.length; q++){
+    var r = filePrefix[q]; if (!r) continue;
+    k = String(r.a) + '|' + String(r.b) + '|' + String(r.c);
+    m[k] = (m[k] || 0) + 1;
+  }
+  for (q=0; q<hist.length; q++){
+    var v = hist[q]; if (!v) continue;
+    k = String(v.a) + '|' + String(v.b) + '|' + String(v.c);
+    if (!m[k]) return false;
+    m[k]--;
+  }
+  for (k in m) if (m[k] > 0) return false;
+  return true;
+}
 function impAlignByTail(newRecs, history, altHistory){
   // v51.14 ㊷：三候选锚定，与主系统 alignByTail 逐字同口径（顺序一致）。
   // ① 时间序末10局（原主候选）② 录入序(物理)末10局 ③ 云端全量基线。
@@ -1199,9 +1217,16 @@ function impAlignByTail(newRecs, history, altHistory){
     var tailLen = tail.length;
     if (histLen < IMPORT_MIN_ANCHOR) return {matched:false, canIncrement:false,
       reason:'too-few', tailLen:tailLen, tail:tail, histLen:histLen, anchorSource:src};
-    var found = -1;
+    var found = -1, bestGap = Infinity;
+    // v51.21 ㊾：跳过「位置不自洽」的周期性假命中。
+    // v51.22 ㊿（与主系统逐字同口径）：容差 60 会覆盖新增局数，文件末尾
+    // 新增区的周期性巧合仍会通过自洽 → 新增 0 局、整批静默丢失。
+    // 收集全部自洽命中，取 |锚点结束位置 − 系统局数| 最小者；并列取更靠后的。
     for (var s = newRecs.length - tailLen; s >= 0; s--){
-      if (_impSeqMatchAt(newRecs, s, tail)){ found = s; break; }
+      if (!_impSeqMatchAt(newRecs, s, tail)) continue;
+      var gap = Math.abs((s + tailLen) - histLen);
+      if (gap > 60) continue;
+      if (gap < bestGap || (gap === bestGap && s > found)) { found = s; bestGap = gap; }
     }
     if (found < 0) return {matched:false, canIncrement:false, reason:'no-anchor', tailLen:tailLen,
                             endMatch:_impTailEndDiagByTail(newRecs, tail), tail:tail,
@@ -1238,8 +1263,49 @@ function impAlignByTail(newRecs, history, altHistory){
     if (r.matched) return r;
     if (!first) first = r;
   }
+  // v51.20 ㊽：局数差锚定（与主系统 alignByTail 逐字同口径）。
+  // 云端 main 被恢复 / 全量上传同步成全量后，云端基线不再是干净旧基线，
+  // 三候选会退化成同一批被推算时间污染的末 10 局 → 全部失败。
+  var expected = newRecs.length - h.length;
+  var N = h.length, diffCheck = '', diffOk = false;
+  if (expected > 0 && expected <= 500 && N >= IMPORT_ANCHOR_LEN) {
+    var prefix = newRecs.slice(0, N);
+    // A 级（主）：整批同源（ABC 多重集全等 + 首行全等），不比顺序。
+    // susu 的 VIEW.history = main(4685) + 8 条基准外局追加在尾部，
+    // 末 10 局被切成两段，㊽ 的「连续存在」校验必然失败 —— 这是本次导入失败的真因。
+    if (_impBatchAbcEqual(prefix, h) && _impAbcSame(prefix[0], h[0])) {
+      diffOk = true; diffCheck = 'batch';
+    } else {
+      // B 级（次）：保留 ㊽ 的末 10 局连续 + 前 10 行校验
+      var seg = newRecs.slice(N - IMPORT_ANCHOR_LEN, N);
+      var views = [h];
+      try { views.push(chronoOrder(h).map(function(q){ return h[q]; })); } catch(e) {}
+      if (altHistory && altHistory.length) views.push(altHistory);
+      var headSeg = newRecs.slice(0, IMPORT_ANCHOR_LEN), headOk = false;
+      for (var hj=0; hj<views.length; hj++){
+        var hv = views[hj] || [];
+        if (hv.length >= IMPORT_ANCHOR_LEN && _impSeqMatchAt(hv, 0, headSeg)) { headOk = true; break; }
+      }
+      for (var vi=0; headOk && vi<views.length && !diffOk; vi++){
+        var v = views[vi] || [];
+        for (var s2=v.length-IMPORT_ANCHOR_LEN; s2>=0; s2--){
+          if (_impSeqMatchAt(v, s2, seg)) { diffOk = true; diffCheck = 'seg'; break; }
+        }
+      }
+    }
+    if (diffOk) {
+      return {matched:true, canIncrement:true, reason:'ok',
+              tailLen:IMPORT_ANCHOR_LEN,
+              tail:newRecs.slice(N - IMPORT_ANCHOR_LEN, N),
+              histLen:N, anchorIndex:N - IMPORT_ANCHOR_LEN,
+              anchorEnd:N, overlapCount:N,
+              newRecs:newRecs.slice(N), anchorSource:'diff',
+              diffExpected:expected, diffCheck:diffCheck};
+    }
+  }
+  if (first) { first.diffExpected = expected; first.diffCheck = diffCheck || 'none'; }
   return first || {matched:false, canIncrement:false, reason:'empty', tailLen:0,
-                   tail:[], histLen:0, anchorSource:'none'};
+                   tail:[], histLen:0, anchorSource:'none', diffExpected:expected};
 }
 /* v51.14 ㊷：锚点之后的行逐条与本页已有局复核，剔除已存在的局。
    只用 ABC + timeSlot 精确比对，保守：真·新局 timeSlot 不同不会被误删，
@@ -1290,6 +1356,8 @@ function _impConsumeExtra(addRecs, hist, align, base){
   var res = { add: addRecs || [], skipped: 0, extraLen: 0, mismatch: false };
   // v51.18 ㊻：与主系统同口径——差集与锚定候选无关，有云端基线就消费。
   if (!align || !base || !base.length) return res;
+  // v51.21 ㊾：与主系统同口径，diff 命中时锚点已精确定义，不再消费基准外局。
+  if (align.anchorSource === 'diff') return res;
   var extra = _impExtraBeyondBase(hist, base);
   res.extraLen = extra.length;
   // v51.18 ㊻：与主系统逐字同口径——锚点已覆盖基准外局时不消费、不误报。
@@ -1874,6 +1942,8 @@ function renderImportPreview(){
     var _srcTxt = align.anchorSource === 'cloud' ? '云端全量基线 ' + align.histLen + ' 局（与主系统一致）'
       : align.anchorSource === 'manual' ? '手动指定起始行'
       : align.anchorSource === 'entry' ? '本页录入序末 ' + align.tailLen + ' 局'
+      : align.anchorSource === 'diff' ? '局数差锚定（文件比系统多 ' + align.diffExpected + ' 局，' +
+        (align.diffCheck === 'batch' ? '前 ' + hist.length + ' 局与系统整批同源，已按 ABC 多重集校验' : '末 10 局已按 ABC 逐局校验') + '）'
       : '本页时间序最近 ' + align.tailLen + ' 局';
     head += '\n🔗 锚定基准：' + _srcTxt + ' = 文件第 ' +
       (align.anchorIndex + 1) + '-' + align.anchorEnd + ' 行，其后 ' +
@@ -1911,15 +1981,36 @@ function renderImportPreview(){
     else if (align.reason === 'too-few') why = '系统只有 ' + hist.length + ' 局（不足 ' + IMPORT_MIN_ANCHOR + ' 局），无法安全锚定。';
     else {
       why = '未在文件中找到与系统最后 ' + align.tailLen + ' 局 ABC 完全一致的连续记录，已禁止增量导入。';
+      // v51.20 ㊽：旧文案拿「文件末局」硬比「系统末局」，但文件本来就比系统多
+      // 若干局，末局必然不同 —— 这行红字会误导成「数据错乱」。改成如实说明差额。
+      var _more = recs.length - hist.length;
+      why += '\n文件有效 ' + recs.length + ' 行 / 系统 ' + hist.length + ' 局，' +
+        (_more > 0 ? '文件比系统多 ' + _more + ' 局：文件末局是新增局，与系统末局不同属正常，不是数据错乱。'
+                   : '文件并不比系统多，请核对是否选错文件。');
       if (align.endMatch > 0) why += '\n诊断：文件末尾与系统末尾只有 ' + align.endMatch + ' 局连续一致（需要 ' + align.tailLen + ' 局）。';
-      why += '\n文件末局：' + _impAbcStr(recs[recs.length-1]) + '　系统末局（时间序）：' +
-        _impAbcStr(align.tail && align.tail.length ? align.tail[align.tail.length-1] : hist[hist.length-1]);
+      // v51.21 ㊾：把兜底候选到底为什么没过说清楚，别再让用户只看到一句「找不到」。
+      if (align.diffExpected !== undefined){
+        why += '\n兜底：局数差锚定期望新增 ' + align.diffExpected + ' 局，' +
+          (align.diffCheck === 'none' ? '文件与系统前 ' + hist.length + ' 局内容不同源（或系统不足 10 局），未放行。'
+           : '校验未通过（' + align.diffCheck + '），未放行。');
+      }
+      // v51.22 ㊿：给出可照做的下一步，而不只是「不匹配」。
+      if (align.anchorSource === 'diff' || align.diffCheck) {
+        why += '\n提示：已尝试「局数差锚定」（整批 ABC 同源 / 末 10 局连续两种校验），' +
+          '均未通过。常见原因是系统里存在文件没有的局（编辑过比分、跨端补录）或文件不是这批历史，请核对后再导。';
+      }
+      why += '\n锚定校验的是「系统最后 ' + align.tailLen + ' 局在文件里的连续位置」；' +
+        '文件末局：' + _impAbcStr(recs[recs.length-1]) +
+        '　系统候选末局：' + _impAbcStr(align.tail && align.tail.length ? align.tail[align.tail.length-1] : hist[hist.length-1]);
     }
     _impSetInfo(head + '\n\n❌ ' + why, 'bad');
     d.className = 'ib-detail show bad';
     d.innerHTML = '<b>⛔ 增量校验未通过，数据不会被改动</b><br>' + esc(why).replace(/\n/g,'<br>') +
-      '<br><br>常见原因：选错文件 / 文件缺少最近几局 / 行顺序被打乱。本页只按系统最后 10 局自动锚定，不提供覆盖导入；请改用包含最近几局的完整文件重新选择。';
-    document.getElementById('importConfirmBtn').disabled = true;
+      '<br><br>常见原因：选错文件 / 文件缺少最近几局 / 行顺序被打乱。本页按系统最后 10 局自动锚定，' +
+      '并在三候选都失败时用「文件比系统多几局」反推锚点校验；不提供覆盖导入。' +
+      '请改用包含最近几局的完整文件重新选择。';
+    var _ib = document.getElementById('importConfirmBtn');
+    _ib.disabled = true; _ib.style.opacity = '0.45'; _ib.style.cursor = 'not-allowed';
     return;
   }
   var nNew = align.addRecs ? align.addRecs.length : align.newRecs.length;
@@ -1928,7 +2019,11 @@ function renderImportPreview(){
       ? '锚定基准（云端全量基线 ' + align.histLen + ' 局）最后 '
       : align.anchorSource === 'manual' ? '手动指定的最后 '
       : align.anchorSource === 'entry' ? '本页录入序最后 ' : '本页时间序最后 ';
-  var tailTxt = '✅ 已匹配' + _matchLabel + align.tailLen + ' 局（' + rowsDesc + '）与文件完全一致' +
+  // v51.22 ㊿：diff/batch 只校验「文件前 N 局与系统整批 ABC 多重集同源」，
+  // 不是「末 10 局连续一致」，旧文案不实，按 diffCheck 如实说明。
+  var _eqTxt = (align.anchorSource === 'diff' && align.diffCheck === 'batch')
+    ? '（文件前 ' + hist.length + ' 局与系统整批 ABC 同源校验通过）' : '与文件完全一致';
+  var tailTxt = '✅ 已匹配' + _matchLabel + align.tailLen + ' 局（' + rowsDesc + '）' + _eqTxt +
     '；其后 ' + nNew + ' 局为新增，将只导入这 ' + nNew + ' 局。' +
     (align.dupSkipped ? '（锚点后 ' + align.anchorAfterRows + ' 行，已跳过 ' + align.dupSkipped + ' 局本页已存在）' : '');
   if (!nNew) tailTxt += '\n文件没有比系统更新的局，无需导入。';
@@ -1956,7 +2051,7 @@ function renderImportPreview(){
   html += impReconcileHtml(align, recs);
   d.className = 'ib-detail show ok';
   d.innerHTML = html;
-  document.getElementById('importConfirmBtn').disabled = (nNew === 0);
+  var _ibOk = document.getElementById('importConfirmBtn'); _ibOk.disabled = (nNew === 0); _ibOk.style.opacity = ''; _ibOk.style.cursor = '';
 }
 function _impBuildRows(addRecs, hist){
   var batchId = 'si_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6);
@@ -1991,8 +2086,26 @@ async function doImport(){
     _impSetProgress('① 正在拉取系统最新数据，重新核对锚点…', 5);
     await refreshViewFromCloud();
     var recs = _impState.recs, hist = VIEW.history;
-    var align = impAlignByTail(recs, hist, _impAnchorCloudMain);   // v51.13 ㊶：与预览同口径
-    if (!align.matched) throw new Error('系统数据在预览后发生变化，尾局锚点不再匹配，已中止（数据未改动）。请重新选择文件。');
+    // v51.21 ㊾：预览已基于云端最新数据算好，不因时间序抖动误抛中止。
+    // v51.22 ㊿：但「只有局数变了才重算」不安全 —— 局数没变、内容变了
+    // （另一台设备编辑一局 / 时间序重排改变去重键）时仍用预览的旧 addRecs，
+    // 可能重复导入或跳过该导的局，且时间推算基准与新 hist 不一致。
+    // 改为：刷新后总是基于最新 hist 重算 + 重新 finalize；
+    // 仅当重算 !matched 且局数未变时回退预览结果（保留 ㊾ 的原意）。
+    var _previewAlign = _impState.align;
+    if (!_previewAlign || !_previewAlign.matched || !Array.isArray(_previewAlign.addRecs))
+      throw new Error('预览状态已失效，请重新选择文件（数据未改动）。');
+    var align = impAlignByTail(recs, hist, _impAnchorCloudMain);
+    if (align.matched){
+      _impFinalizeAdd(align, hist, _impAnchorCloudMain);
+      _impState.align = align;
+    } else if (hist.length !== _previewAlign.histLen){
+      throw new Error('系统局数已从 ' + _previewAlign.histLen + ' 变为 ' + hist.length +
+        '，尾局锚点不再匹配，已中止（数据未改动）。请重新选择文件。');
+    } else {
+      align = _previewAlign;   // 纯顺序抖动：局数未变，沿用预览锁定结果
+      _impSetProgress('① 云端仅顺序微调，沿用预览锚点…', 5);
+    }
     // v51.17 ㊺：落库与预览共用唯一入口（旧版此处有独立 fallback，数字会分叉）
     if (!align.addRecs || !Array.isArray(align.addRecs))
       _impFinalizeAdd(align, hist, _impAnchorCloudMain);
