@@ -505,6 +505,9 @@ var BACKUP_KEEP       = 5;                    // 云端仅保留最近 5 份导�
 var _bakPruneDisabled = false;                // DELETE 不可用或「删了行还在」时本会话不再空转
 var _bakPruneRunning  = false;                // 防并发裁剪
 var INTERVAL_KEY_IMP  = 'mengmeng_game_interval_minutes';  // 与主系统同一键
+/* v51.13 ㊶：最近一次云端全量基线（main.history），仅作导入锚定的兜底基准。
+   与 index 的「全量基线」同源，保证两端用同一批「系统最后10局」。 */
+var _impAnchorCloudMain = null;
 var _impState = { recs:null, align:null, source:'', timeInferred:false, fileName:'',
                   skipped:0, skippedRows:[], busy:false, lastBackupId:'' };
 
@@ -579,16 +582,26 @@ function _recDateParts(rec){
   return { y: explicitY, md: mon*100 + day, mins: parseInt(tm[1],10)*60 + parseInt(tm[2],10) };
 }
 function _datasetYearAnchor(history){
-  var h = history || [], maxY = 0, maxMD = 0;
+  var h = history || [], maxY = 0, maxMD = 0, allMaxMD = 0, hasDec = false, hasJan = false;
   for (var i=0;i<h.length;i++){
     var p = _recDateParts(h[i]); if (!p) continue;
     var y = p.y || 0;
     if (y > maxY){ maxY = y; maxMD = p.md; }
     else if (y === maxY && p.md > maxMD) maxMD = p.md;
     else if (y === 0 && maxY === 0 && p.md > maxMD) maxMD = p.md;
+    if (p.md > allMaxMD) allMaxMD = p.md;
+    var _mo = Math.floor(p.md / 100);
+    if (_mo === 12) hasDec = true;
+    if (_mo === 1) hasJan = true;
   }
-  if (maxY) return {y:maxY, md:maxMD};
-  var _bp = bizDayParts(); return {y:_bp.y, md:_bp.m*100 + _bp.d};
+  // v51.18 ㊻：与主系统 _datasetYearAnchor 逐字同口径（北京时间 + 全体最大月日放宽 + 跨年标志）
+  var crossYear = hasDec && hasJan;
+  var _bp = bizDayParts();
+  var val = maxY ? {y:maxY, md:maxMD, fromClock:false}
+                 : {y:_bp.y, md:_bp.m*100 + _bp.d, fromClock:true};
+  if (!crossYear && allMaxMD > val.md) val.md = allMaxMD;
+  val.crossYear = crossYear;
+  return val;
 }
 function _recChronoMs(rec, anchor){
   var p = _recDateParts(rec); if (!p) return null;
@@ -1053,7 +1066,12 @@ function _impGetTimeSlotHoursAgo(roundsAgo, baseDate){
 }
 function _impGetTimeSlotAfterLast(roundsAfter, hist){
   var base = new Date();
-  if (hist && hist.length){ var p = _impParseTimeSlot(hist[hist.length-1].timeSlot); if (p) base = p; }
+  // v51.16 ㊹：基准必须是【时间序末局】，不是数组物理最后一条（与主系统同口径）
+  if (hist && hist.length){
+    var ord = (typeof chronoOrder === 'function') ? chronoOrder(hist) : null;
+    var last = (ord && ord.length) ? hist[ord[ord.length-1]] : hist[hist.length-1];
+    if (last){ var p = _impParseTimeSlot(last.timeSlot); if (p) base = p; }
+  }
   var per = (_impGameInterval()*60 + 30) * 1000;
   return _impGetTimeSlot(new Date(base.getTime() + roundsAfter*per), false);
 }
@@ -1130,7 +1148,28 @@ function _impDevFingerprint(){
   try { return localStorage.getItem('mm_entry_dev_v1') || getDevId(); } catch(e){ return getDevId(); }
 }
 
+/* v51.16 ㊹：与主系统 _dispNoOf 同口径——给用户看的局号 = 时间序位次+1。
+   主系统用 _chronoView().idx，这里用 chronoOrder()，两者算法逐字同源。 */
+function _dsDispNoOf(physIdx){
+  try{
+    var ord = (typeof chronoOrder === 'function') ? chronoOrder(VIEW.history) : null;
+    if (ord) for (var k=0;k<ord.length;k++) if (ord[k] === physIdx) return k+1;
+  }catch(e){}
+  return physIdx + 1;
+}
 /* ---------- 尾局锚点对齐（与主系统 alignByTail 逐行一致） ---------- */
+/* v51.13 ㊶：与 index 的 `_recentWindow(history, n)` = `_chronoView(history).recs.slice(-n)`
+   逐字同口径——按【时间序】取最近 n 局，而不是 `history.slice(-n)` 的物理末尾。
+   素素页会把云端 main 没有的补录/增量局追加在数组末尾（时间更早），
+   物理 slice(-10) 会被它们污染，导致「同一份文件 index 能锚定、susu 不能」。 */
+function _impRecentWindow(history, n){
+  var h = history || [], len = Number(n) || 10;
+  var ord = (typeof chronoOrder === 'function') ? chronoOrder(h) : null;
+  if (!ord || ord.length !== h.length){ ord = []; for (var q=0;q<h.length;q++) ord.push(q); }
+  var out = [], st = Math.max(0, ord.length - len);
+  for (var q=st;q<ord.length;q++) out.push(h[ord[q]]);
+  return out;
+}
 function _impAbcSame(r1, r2){
   return !!r1 && !!r2 && r1.a === r2.a && r1.b === r2.b && r1.c === r2.c;
 }
@@ -1141,29 +1180,154 @@ function _impSeqMatchAt(recs, start, tail){
 }
 function _impTailEndDiag(newRecs, history){
   var n = Math.min(newRecs.length, history.length, IMPORT_ANCHOR_LEN), m = 0;
+  var ft = newRecs.slice(Math.max(0, newRecs.length - n));
+  var ht = _impRecentWindow(history, n);   // v51.13 ㊶：时间序末尾，不再用被污染的 history[history.length-i]
   for (var i=1;i<=n;i++){
-    if (_impAbcSame(newRecs[newRecs.length-i], history[history.length-i])) m++;
+    if (_impAbcSame(ft[ft.length-i], ht[ht.length-i])) m++;
     else break;
   }
   return m;
 }
-function impAlignByTail(newRecs, history){
-  var histLen = history ? history.length : 0;
-  if (histLen === 0) return {matched:false, canIncrement:false, reason:'empty', tailLen:0};
-  var tailLen = Math.min(IMPORT_ANCHOR_LEN, histLen);
-  if (histLen < IMPORT_MIN_ANCHOR) return {matched:false, canIncrement:false, reason:'too-few', tailLen:tailLen};
-  var tail = history.slice(histLen - tailLen);
-  var found = -1;
-  for (var s = newRecs.length - tailLen; s >= 0; s--){
-    if (_impSeqMatchAt(newRecs, s, tail)){ found = s; break; }
+function impAlignByTail(newRecs, history, altHistory){
+  // v51.14 ㊷：三候选锚定，与主系统 alignByTail 逐字同口径（顺序一致）。
+  // ① 时间序末10局（原主候选）② 录入序(物理)末10局 ③ 云端全量基线。
+  // 本页混入「时间相位不一致」的局时①会失效，②仍能命中文件里的连续片段；
+  // ③只在①②都失败时启用，且优先本页候选，避免云端基线缺本机新局而重复导入。
+  function run(tail, histLen, src){
+    if (!tail || !tail.length) return {matched:false, canIncrement:false, reason:'empty',
+      tailLen:0, tail:[], histLen:histLen, anchorSource:src};
+    var tailLen = tail.length;
+    if (histLen < IMPORT_MIN_ANCHOR) return {matched:false, canIncrement:false,
+      reason:'too-few', tailLen:tailLen, tail:tail, histLen:histLen, anchorSource:src};
+    var found = -1;
+    for (var s = newRecs.length - tailLen; s >= 0; s--){
+      if (_impSeqMatchAt(newRecs, s, tail)){ found = s; break; }
+    }
+    if (found < 0) return {matched:false, canIncrement:false, reason:'no-anchor', tailLen:tailLen,
+                            endMatch:_impTailEndDiagByTail(newRecs, tail), tail:tail,
+                            histLen:histLen, anchorSource:src};
+    var anchorEnd = found + tailLen;
+    return {matched:true, canIncrement:true, reason:'ok', tailLen:tailLen,
+            anchorIndex:found, anchorEnd:anchorEnd, overlapCount:anchorEnd,
+            newRecs:newRecs.slice(anchorEnd), tail:tail, histLen:histLen, anchorSource:src};
   }
-  if (found < 0) return {matched:false, canIncrement:false, reason:'no-anchor', tailLen:tailLen,
-                          endMatch:_impTailEndDiag(newRecs, history)};
-  var anchorEnd = found + tailLen;
-  return {matched:true, canIncrement:true, reason:'ok', tailLen:tailLen,
-          anchorIndex:found, anchorEnd:anchorEnd, overlapCount:anchorEnd,
-          newRecs:newRecs.slice(anchorEnd)};
+  function diag(newRecs, tail){
+    var n = Math.min(newRecs.length, tail.length), m = 0;
+    for (var k=1;k<=n;k++){
+      if (_impAbcSame(newRecs[newRecs.length-k], tail[tail.length-k])) m++;
+      else break;
+    }
+    return m;
+  }
+  // 局部别名，供 run 调用（与 index 的 _tailEndDiagByTail 同语义）
+  var _impTailEndDiagByTail = diag;
+  var h = history || [];
+  var n = Math.min(IMPORT_ANCHOR_LEN, h.length);
+  var cands = [];
+  if (h.length){
+    cands.push({ tail: _impRecentWindow(h, n), len: h.length, src: 'chrono' });
+    cands.push({ tail: h.slice(h.length - n), len: h.length, src: 'entry' });
+  }
+  if (altHistory && altHistory.length){
+    var an = Math.min(IMPORT_ANCHOR_LEN, altHistory.length);
+    cands.push({ tail: _impRecentWindow(altHistory, an), len: altHistory.length, src: 'cloud' });
+  }
+  var first = null;
+  for (var ci=0; ci<cands.length; ci++){
+    var r = run(cands[ci].tail, cands[ci].len, cands[ci].src);
+    if (r.matched) return r;
+    if (!first) first = r;
+  }
+  return first || {matched:false, canIncrement:false, reason:'empty', tailLen:0,
+                   tail:[], histLen:0, anchorSource:'none'};
 }
+/* v51.14 ㊷：锚点之后的行逐条与本页已有局复核，剔除已存在的局。
+   只用 ABC + timeSlot 精确比对，保守：真·新局 timeSlot 不同不会被误删，
+   同时间段连录的独立两局也保留。 */
+function _impDedupeAdd(addRecs, hist){
+  // v51.15 ㊸：与主系统 _dedupeImportAdd 逐字同口径，本批记录绝不写回 seen。
+  // 旧版无时间列导入会把本批内同 ABC 的独立局互相判重（24 行只剩 4 行）。
+  var seen = Object.create(null);
+  (hist || []).forEach(function(r){
+    if (!r) return;
+    var ts = String(r.timeSlot || r.date || '');
+    if (!ts) return;
+    seen[String(r.a) + '|' + String(r.b) + '|' + String(r.c) + '|' + ts] = 1;
+  });
+  var out = [], skipped = 0;
+  (addRecs || []).forEach(function(r){
+    var ts = String(r.timeSlot || r.date || '');
+    var k = String(r.a) + '|' + String(r.b) + '|' + String(r.c) + '|' + ts;
+    if (ts && seen[k]) { skipped++; return; }
+    out.push(r);
+  });
+  return { add: out, skipped: skipped };
+}
+/* v51.17 ㊺：精确找出「本页有、云端基线没有」的局。
+   用内容键多重集差，不依赖数组顺序、不依赖 _rid（本机缓存局常无 rid）。
+   键口径与 recKey() 一致，保证两端对同一份数据得出同一个差集。 */
+function _impExtraBeyondBase(hist, base){
+  var seen = Object.create(null), extra = [];
+  (base || []).forEach(function(r){
+    if (!r) return;
+    var k = recKey(r); seen[k] = (seen[k] || 0) + 1;
+  });
+  (hist || []).forEach(function(r){
+    if (!r) return;
+    var k = recKey(r);
+    if (seen[k] > 0){ seen[k]--; return; }
+    extra.push(r);
+  });
+  return extra;
+}
+/* v51.17 ㊺：锚定命中「云端全量基线」时，本页常比基准多出若干局
+   （其他设备 / 本页在基线之后新录的，必然就是文件锚点后的头几行）。
+   旧版完全忽略它们：4693 局的系统 + 24 行 = 4717 局，超过文件 4709 行，
+   等于把已存在的 8 局又导了一遍。
+   这里按 ABC 逐行核对：全部一致才跳过前缀；任何一处不一致就【一行不跳】
+   并标记 mismatch，由预览给可见 ⚠️ —— 绝不靠猜静默删数据。 */
+function _impConsumeExtra(addRecs, hist, align, base){
+  var res = { add: addRecs || [], skipped: 0, extraLen: 0, mismatch: false };
+  // v51.18 ㊻：与主系统同口径——差集与锚定候选无关，有云端基线就消费。
+  if (!align || !base || !base.length) return res;
+  var extra = _impExtraBeyondBase(hist, base);
+  res.extraLen = extra.length;
+  // v51.18 ㊻：与主系统逐字同口径——锚点已覆盖基准外局时不消费、不误报。
+  if (align.anchorEnd > base.length) return res;
+  if (!extra.length || extra.length > res.add.length) return res;
+  // 只看 ABC 三项（与 _impAbcSame / 锚定口径一致），收益投资可能为空不参与。
+  // 用「多重集消费前缀」而不是逐行对齐：基准外局常被 chronoOrder 重排过，
+  // 顺序与文件不一致，但内容就是文件锚点后的头几局；只要这些局的 ABC
+  // 能在 addRecs 的【连续前缀】里被逐个消费掉，就说明它们已经导入过。
+  var pool = Object.create(null);
+  var abcKey = function(r){ return String(r.a) + '|' + String(r.b) + '|' + String(r.c); };
+  extra.forEach(function(r){ var k = abcKey(r); pool[k] = (pool[k] || 0) + 1; });
+  var out = [], skipped = 0, prefix = true;
+  for (var q = 0; q < res.add.length; q++){
+    var k = abcKey(res.add[q]);
+    if (prefix && pool[k] > 0){ pool[k]--; skipped++; continue; }
+    prefix = false; out.push(res.add[q]);
+  }
+  // 只要 extra 里有一局在文件锚点后的前缀里找不到，就【一行不跳】，
+  // 并标记 mismatch 由预览给可见 ⚠️ —— 绝不靠猜静默删数据。
+  var leftover = 0; for (var pk in pool) leftover += pool[pk];
+  if (leftover > 0 || skipped !== extra.length){ res.mismatch = true; return res; }
+  res.add = out; res.skipped = skipped;
+  return res;
+}
+/* v51.17 ㊺：预览与落库共用的唯一入口，两处 / 两端必然同一套数字。 */
+function _impFinalizeAdd(align, hist, base){
+  var ex = _impConsumeExtra(align.newRecs || [], hist, align, base);
+  var ded = _impDedupeAdd(ex.add, hist);
+  align.addRecs = ded.add;
+  align.dupSkipped = ded.skipped + ex.skipped;
+  align.extraLen = ex.extraLen;
+  align.extraSkipped = ex.skipped;
+  align.extraMismatch = ex.mismatch;
+  align.anchorAfterRows = (align.newRecs || []).length;
+  return align;
+}
+
 function impReconcileHtml(align, recs){
   var maxRows = 60, showN = Math.min(recs.length, maxRows), h = '';
   h += '<div style="font-weight:700;margin:6px 0 4px;">📋 对账表（<span class="ib-new">亮绿=将导入</span>，中绿=锚点对齐，灰=系统已有跳过）</div>';
@@ -1215,6 +1379,9 @@ async function refreshViewFromCloud(){
   await ensureDataClient();
   var cloud = await pullCloud();
   _lastPullFailed = false;
+  // v51.13 ㊶：缓存云端全量基线，供导入锚定兜底（只在确实拉到 main 时更新，init 时不清空）
+  if (cloud && cloud.main && Array.isArray(cloud.main.history) && cloud.main.history.length)
+    _impAnchorCloudMain = cloud.main.history;
   buildView(readLocalStore(), readViewCache(), cloud);
   return cloud;
 }
@@ -1693,12 +1860,43 @@ function renderImportPreview(){
   var recs = _impState.recs, hist = VIEW.history;
   if (!recs) return;
   // 后台 5 分钟自动同步会按最新云端数据重算预览，始终只用系统最后 10 局自动锚定
-  var align = impAlignByTail(recs, hist);
+  var align = impAlignByTail(recs, hist, _impAnchorCloudMain);
   _impState.align = align;
   var d = document.getElementById('importAnchorDetail');
   var head = '文件：' + _impState.fileName + '（' + (_impState.source === 'csv' ? 'CSV' : 'Excel') + '）· 有效 ' + recs.length + ' 条' +
              (_impState.skipped ? '，已剔除 ' + _impState.skipped + ' 行空白/非法数据' : '') +
              ' · 当前系统 ' + hist.length + ' 局';
+  // v51.13 ㊶：把锚定基准与末 10 局摊开，一眼能核对和主系统是否同一批
+  if (align.matched){
+    // v51.17 ㊺：云端基线锚定时先消费「基准外已存在的局」，再去重复核；
+    // 预览与落库共用 _impFinalizeAdd，数字必然一致。
+    _impFinalizeAdd(align, hist, _impAnchorCloudMain);
+    var _srcTxt = align.anchorSource === 'cloud' ? '云端全量基线 ' + align.histLen + ' 局（与主系统一致）'
+      : align.anchorSource === 'manual' ? '手动指定起始行'
+      : align.anchorSource === 'entry' ? '本页录入序末 ' + align.tailLen + ' 局'
+      : '本页时间序最近 ' + align.tailLen + ' 局';
+    head += '\n🔗 锚定基准：' + _srcTxt + ' = 文件第 ' +
+      (align.anchorIndex + 1) + '-' + align.anchorEnd + ' 行，其后 ' +
+      align.newRecs.length + ' 行';
+    head += '\n📊 当前系统 ' + hist.length + ' 局' +
+      (align.extraLen ? '（锚定基准 ' + align.histLen + ' 局 + 基准外 ' + align.extraLen + ' 局）' : '') +
+      ' ｜ 复核' +
+      (align.dupSkipped ? '跳过 ' + align.dupSkipped + ' 局已存在，' : '无重复，') +
+      '实际新增 ' + align.addRecs.length + ' 局 ｜ 导入后共 ' +
+      (hist.length + align.addRecs.length) + ' 局';
+    if (align.extraMismatch){
+      head += '\n⚠️ 基准外 ' + align.extraLen + ' 局与文件锚点后对应行 ABC 不一致，未跳过任何行，请核对后再导入。';
+    } else if (align.extraSkipped > 0){
+      head += '\n✅ 基准外 ' + align.extraSkipped + ' 局与文件第 ' + (align.anchorEnd + 1) + '–' +
+        (align.anchorEnd + align.extraSkipped) + ' 行逐局 ABC 一致，已跳过，不重复导入。';
+    }
+    // v51.17 ㊺：硬校验——导入后局数不可能超过文件有效行数
+    if (hist.length + align.addRecs.length > recs.length){
+      head += '\n⚠️ 导入后 ' + (hist.length + align.addRecs.length) +
+              ' 局 > 文件有效 ' + recs.length + ' 行，可能仍有重复，请核对。';
+    }
+    head += '\n　末10局：' + align.tail.map(function(r){return r.a + ',' + r.b + ',' + r.c;}).join(' → ');
+  }
   if (_impState.timeInferred) head += '\n⚠️ 文件没有日期/时间列：新增局的时间按系统末局顺延推算（与系统导入口径一致），非真实开奖时间。';
   var _cd = (typeof window !== 'undefined' && window.__impLastDiag) || _impState.colDiag;
   if (_cd){
@@ -1714,7 +1912,8 @@ function renderImportPreview(){
     else {
       why = '未在文件中找到与系统最后 ' + align.tailLen + ' 局 ABC 完全一致的连续记录，已禁止增量导入。';
       if (align.endMatch > 0) why += '\n诊断：文件末尾与系统末尾只有 ' + align.endMatch + ' 局连续一致（需要 ' + align.tailLen + ' 局）。';
-      why += '\n文件末局：' + _impAbcStr(recs[recs.length-1]) + '　系统末局：' + _impAbcStr(hist[hist.length-1]);
+      why += '\n文件末局：' + _impAbcStr(recs[recs.length-1]) + '　系统末局（时间序）：' +
+        _impAbcStr(align.tail && align.tail.length ? align.tail[align.tail.length-1] : hist[hist.length-1]);
     }
     _impSetInfo(head + '\n\n❌ ' + why, 'bad');
     d.className = 'ib-detail show bad';
@@ -1723,14 +1922,25 @@ function renderImportPreview(){
     document.getElementById('importConfirmBtn').disabled = true;
     return;
   }
-  var nNew = align.newRecs.length;
+  var nNew = align.addRecs ? align.addRecs.length : align.newRecs.length;
   var rowsDesc = '文件第 ' + (align.anchorIndex+1) + '–' + align.anchorEnd + ' 行';
-  var tailTxt = '✅ 已匹配系统最后 ' + align.tailLen + ' 局（' + rowsDesc + '）与文件完全一致' +
-    '；其后 ' + nNew + ' 局为新增，将只导入这 ' + nNew + ' 局。';
+  var _matchLabel = align.anchorSource === 'cloud'
+      ? '锚定基准（云端全量基线 ' + align.histLen + ' 局）最后 '
+      : align.anchorSource === 'manual' ? '手动指定的最后 '
+      : align.anchorSource === 'entry' ? '本页录入序最后 ' : '本页时间序最后 ';
+  var tailTxt = '✅ 已匹配' + _matchLabel + align.tailLen + ' 局（' + rowsDesc + '）与文件完全一致' +
+    '；其后 ' + nNew + ' 局为新增，将只导入这 ' + nNew + ' 局。' +
+    (align.dupSkipped ? '（锚点后 ' + align.anchorAfterRows + ' 行，已跳过 ' + align.dupSkipped + ' 局本页已存在）' : '');
   if (!nNew) tailTxt += '\n文件没有比系统更新的局，无需导入。';
   _impSetInfo(head + '\n\n' + tailTxt, nNew ? 'good' : '');
-  var html = '<b>🔗 尾局锚点：系统最后 ' + align.tailLen + ' 局 = ' + rowsDesc + '</b><br>';
-  var tail = hist.slice(hist.length - align.tailLen);
+  // v51.14 ㊷：明细必须用「实际命中的那个候选」的 tail。
+  // 旧版用 hist.slice(-10)（物理末尾），与 head 里的 align.tail（时间序/云端基线）
+  // 是两串不同 ABC —— 同一个弹窗两处对不上，正是「看起来数量不对 / 乱」的根源。
+  var html = '<b>🔗 尾局锚点：' + (align.anchorSource === 'cloud' ? '云端全量基线'
+      : align.anchorSource === 'entry' ? '本页录入序' : '本页时间序') +
+    '最后 ' + align.tailLen + ' 局 = ' + rowsDesc + '</b><br>';
+  var tail = (align.tail && align.tail.length) ? align.tail.slice()
+    : hist.slice(hist.length - align.tailLen);
   for (var ti=0;ti<tail.length;ti++){
     html += '<span class="ib-seq">' + (ti+1) + '. ' + esc(tail[ti].a) + ', ' + esc(tail[ti].b) + ', ' + esc(tail[ti].c) + '</span>' +
             '<span class="ib-hit">第' + (align.anchorIndex+ti+1) + '行 ✓</span><br>';
@@ -1738,7 +1948,7 @@ function renderImportPreview(){
   if (nNew){
     html += '<div class="ib-new" style="margin-top:6px;">➡️ 将新增 ' + nNew + ' 局：</div>';
     for (var ni=0;ni<Math.min(nNew,20);ni++){
-      var nr = align.newRecs[ni];
+      var nr = (align.addRecs || align.newRecs)[ni];
       html += '<span class="ib-seq ib-new">· ' + esc(nr.a) + ', ' + esc(nr.b) + ', ' + esc(nr.c) + '</span>';
     }
     if (nNew > 20) html += '<span class="ib-new">…还有 ' + (nNew-20) + ' 局</span>';
@@ -1781,13 +1991,18 @@ async function doImport(){
     _impSetProgress('① 正在拉取系统最新数据，重新核对锚点…', 5);
     await refreshViewFromCloud();
     var recs = _impState.recs, hist = VIEW.history;
-    var align = impAlignByTail(recs, hist);
+    var align = impAlignByTail(recs, hist, _impAnchorCloudMain);   // v51.13 ㊶：与预览同口径
     if (!align.matched) throw new Error('系统数据在预览后发生变化，尾局锚点不再匹配，已中止（数据未改动）。请重新选择文件。');
-    var addRecs = align.newRecs.slice();
+    // v51.17 ㊺：落库与预览共用唯一入口（旧版此处有独立 fallback，数字会分叉）
+    if (!align.addRecs || !Array.isArray(align.addRecs))
+      _impFinalizeAdd(align, hist, _impAnchorCloudMain);
+    var addRecs = align.addRecs.slice();
     if (_impState.timeInferred){
       addRecs = addRecs.map(function(r, i){
         return Object.assign({}, r, {timeSlot:_impGetTimeSlotAfterLast(i+1, hist)});
       });
+      // 推算过 timeSlot 后再复核一次，避免去重键失效
+      if (addRecs.length) addRecs = _impDedupeAdd(addRecs, hist).add;
     }
     if (!addRecs.length) throw new Error('系统已有全部数据，无需导入（数据未改动）');
     _impSetProgress('② 正在创建云端全量备份…', 25);
@@ -2206,7 +2421,7 @@ function buildRowData(i, r){
     predProb = isNaN(pv) ? '' : (pv*100).toFixed(1) + '%';
   }
   return {
-    index: i+1, date: date, time: time,
+    index: _dsDispNoOf(i), date: date, time: time,
     a: r.a !== undefined ? r.a : '', b: r.b !== undefined ? r.b : '', c: r.c !== undefined ? r.c : '',
     winner: winner, profit: r.profitWinner || '', invest: r.investWinner || '',
     predGuild: pred && pred.guild ? pred.guild : '',
@@ -2523,8 +2738,9 @@ function renderDailySnapshot(){
   var target = parseInt(p[1]) + '月' + parseInt(p[2]) + '日';
   var targetY = /^\d{4}$/.test(p[0]) ? parseInt(p[0],10) : null;
   var rows = [];
-  // v51.12 ㊵：与主系统一致，快照明细按「局号(录入序)」升序，局号连续递增、两端同号。
-  var _dsOrder = []; for (var _dq=0;_dq<VIEW.history.length;_dq++) _dsOrder.push(_dq);
+  // v51.16 ㊹：与主系统一致，快照明细按【真实开奖时间】升序，局号 = 时间序位次，两端同号。
+  var _dsOrder = (typeof chronoOrder === 'function') ? chronoOrder(VIEW.history) : null;
+  if (!_dsOrder){ _dsOrder = []; for (var _dq=0;_dq<VIEW.history.length;_dq++) _dsOrder.push(_dq); }
   for (var _di=0;_di<_dsOrder.length;_di++){
     var i = _dsOrder[_di];
     var rec = VIEW.history[i], ts = splitTimeSlot(rec.timeSlot);
@@ -2534,7 +2750,7 @@ function renderDailySnapshot(){
       var ry = _recExplicitYear(rec);
       if (ry !== null && ry !== targetY) continue;
     }
-    rows.push({ idx:i+1, rec:rec, time: ts.time ? ts.time.split('-')[0] : '' });
+    rows.push({ idx:_di+1, rec:rec, time: ts.time ? ts.time.split('-')[0] : '' });
   }
   var cA=0,cB=0,cC=0,cBig=0,cMid=0,cSmall=0,iBig=0,iMid=0,iSmall=0;
   rows.forEach(function(r){
