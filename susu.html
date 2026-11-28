@@ -1217,24 +1217,34 @@ function impAlignByTail(newRecs, history, altHistory){
     var tailLen = tail.length;
     if (histLen < IMPORT_MIN_ANCHOR) return {matched:false, canIncrement:false,
       reason:'too-few', tailLen:tailLen, tail:tail, histLen:histLen, anchorSource:src};
-    var found = -1, bestGap = Infinity;
+    var found = -1, bestGap = Infinity, hitCount = 0;
     // v51.21 ㊾：跳过「位置不自洽」的周期性假命中。
     // v51.22 ㊿（与主系统逐字同口径）：容差 60 会覆盖新增局数，文件末尾
     // 新增区的周期性巧合仍会通过自洽 → 新增 0 局、整批静默丢失。
     // 收集全部自洽命中，取 |锚点结束位置 − 系统局数| 最小者；并列取更靠后的。
+    // 【52】v51.24（与主系统逐字同口径）：文件比系统短 = 「最近一段历史 + 新增」
+    // 的局部导出，锚点不可能落在第 histLen 行附近，绝对 gap≤60 会把唯一命中判死
+    // （45 行 / 4720 局，命中第 20–29 行，gap=4691）。局部片段改取最靠后完整命中。
+    var localSeg = newRecs.length < histLen;
     for (var s = newRecs.length - tailLen; s >= 0; s--){
       if (!_impSeqMatchAt(newRecs, s, tail)) continue;
+      hitCount++;
+      if (localSeg) {
+        if (s > found) { found = s; bestGap = 0; }
+        continue;
+      }
       var gap = Math.abs((s + tailLen) - histLen);
       if (gap > 60) continue;
       if (gap < bestGap || (gap === bestGap && s > found)) { found = s; bestGap = gap; }
     }
     if (found < 0) return {matched:false, canIncrement:false, reason:'no-anchor', tailLen:tailLen,
                             endMatch:_impTailEndDiagByTail(newRecs, tail), tail:tail,
-                            histLen:histLen, anchorSource:src};
+                            histLen:histLen, anchorSource:src, localSeg:localSeg, hitCount:hitCount};
     var anchorEnd = found + tailLen;
     return {matched:true, canIncrement:true, reason:'ok', tailLen:tailLen,
             anchorIndex:found, anchorEnd:anchorEnd, overlapCount:anchorEnd,
-            newRecs:newRecs.slice(anchorEnd), tail:tail, histLen:histLen, anchorSource:src};
+            newRecs:newRecs.slice(anchorEnd), tail:tail, histLen:histLen, anchorSource:src,
+            localSeg:localSeg, hitCount:hitCount};
   }
   function diag(newRecs, tail){
     var n = Math.min(newRecs.length, tail.length), m = 0;
@@ -1945,6 +1955,9 @@ function renderImportPreview(){
       : align.anchorSource === 'diff' ? '局数差锚定（文件比系统多 ' + align.diffExpected + ' 局，' +
         (align.diffCheck === 'batch' ? '前 ' + hist.length + ' 局与系统整批同源，已按 ABC 多重集校验' : '末 10 局已按 ABC 逐局校验') + '）'
       : '本页时间序最近 ' + align.tailLen + ' 局';
+    // 【52】局部导出：说明锚点为何不在文件末尾附近，多命中时提醒核对
+    if (align.localSeg) _srcTxt += '（局部导出：文件 ' + recs.length + ' 行 < 系统 ' + hist.length +
+      ' 局，已取文件里最靠后的连续命中' + (align.hitCount > 1 ? '，共 ' + align.hitCount + ' 处命中请核对' : '') + '）';
     head += '\n🔗 锚定基准：' + _srcTxt + ' = 文件第 ' +
       (align.anchorIndex + 1) + '-' + align.anchorEnd + ' 行，其后 ' +
       align.newRecs.length + ' 行';
@@ -1999,8 +2012,9 @@ function renderImportPreview(){
         why += '\n提示：已尝试「局数差锚定」（整批 ABC 同源 / 末 10 局连续两种校验），' +
           '均未通过。常见原因是系统里存在文件没有的局（编辑过比分、跨端补录）或文件不是这批历史，请核对后再导。';
       }
-      why += '\n锚定校验的是「系统最后 ' + align.tailLen + ' 局在文件里的连续位置」；' +
-        '文件末局：' + _impAbcStr(recs[recs.length-1]) +
+      why += '\n锚定校验的是「系统最后 ' + align.tailLen + ' 局在文件里的连续位置」，不是拿两个末局直接相等比较；' +
+        (align.localSeg ? '\n文件比系统短（局部导出）：已在整份文件里检索该连续片段，命中 ' + (align.hitCount || 0) + ' 处。' : '') +
+        '\n文件末局：' + _impAbcStr(recs[recs.length-1]) +
         '　系统候选末局：' + _impAbcStr(align.tail && align.tail.length ? align.tail[align.tail.length-1] : hist[hist.length-1]);
     }
     _impSetInfo(head + '\n\n❌ ' + why, 'bad');
